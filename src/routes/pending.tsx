@@ -96,6 +96,8 @@ function PendingPage() {
       setLoanNumber("");
       setAmount("");
       setFiles([]);
+      setFileKey((k) => k + 1);
+
       qc.invalidateQueries({ queryKey: ["pending"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Upload failed"),
