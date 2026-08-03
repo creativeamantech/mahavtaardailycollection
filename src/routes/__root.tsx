@@ -82,15 +82,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Mahavtaar Daily Collection" },
       {
         name: "description",
-        content: "Daily loan collection entry, reports and pending receipts for Mahavtaar.",
+        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
       { property: "og:title", content: "Mahavtaar Daily Collection" },
       {
         property: "og:description",
-        content: "Daily loan collection entry, reports and pending receipts for Mahavtaar.",
+        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Mahavtaar Daily Collection" },
+      { name: "twitter:description", content: "Record daily loan collections by executive with instant confirmation and printable receipts." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a" },
     ],
 
     links: [

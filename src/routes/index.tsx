@@ -27,16 +27,16 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Collection Entry — Mahavtaar Daily Collection" },
+      { title: "Mahavtaar Daily Collection" },
       {
         name: "description",
         content:
           "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
-      { property: "og:title", content: "Collection Entry — Mahavtaar Daily Collection" },
+      { property: "og:title", content: "Mahavtaar Daily Collection" },
       {
         property: "og:description",
-        content: "Record daily loan collections by executive and generate receipts instantly.",
+        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
     ],
   }),
