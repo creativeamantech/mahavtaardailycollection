@@ -119,13 +119,44 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+const NAV = [
+  { to: "/", label: "Entry" },
+  { to: "/report", label: "Report" },
+  { to: "/pending", label: "Pending" },
+] as const;
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <div className="min-h-screen bg-background">
+        <header className="border-b print:hidden">
+          <div className="mx-auto w-full max-w-3xl px-4 py-3">
+            <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
+            <nav className="mt-2 flex gap-2">
+              {NAV.map((n) => (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  className="rounded-lg border px-4 py-2 text-base font-medium"
+                  activeOptions={{ exact: n.to === "/" }}
+                  activeProps={{
+                    className:
+                      "rounded-lg border border-primary bg-primary px-4 py-2 text-base font-medium text-primary-foreground",
+                  }}
+                >
+                  {n.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </header>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </div>
+      <Toaster position="top-center" />
     </QueryClientProvider>
   );
+
 }
