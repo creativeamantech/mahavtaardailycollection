@@ -63,6 +63,7 @@ function PendingPage() {
   const [loanNumber, setLoanNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [fileKey, setFileKey] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [doneTarget, setDoneTarget] = useState<{ id: string; loanNumber: string } | null>(null);
 
@@ -177,6 +178,7 @@ function PendingPage() {
           </Label>
           <Input
             id="slips"
+            key={fileKey}
             type="file"
             accept="image/*"
             multiple
