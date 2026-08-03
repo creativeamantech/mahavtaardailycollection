@@ -11,6 +11,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { Toaster } from "@/components/ui/sonner";
+
 
 function NotFoundComponent() {
   return (
@@ -77,15 +79,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Mahavtaar Daily Collection" },
+      {
+        name: "description",
+        content: "Daily loan collection entry, reports and pending receipts for Mahavtaar.",
+      },
+      { property: "og:title", content: "Mahavtaar Daily Collection" },
+      {
+        property: "og:description",
+        content: "Daily loan collection entry, reports and pending receipts for Mahavtaar.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
+
     links: [
       {
         rel: "stylesheet",
@@ -114,13 +121,44 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+const NAV = [
+  { to: "/", label: "Entry" },
+  { to: "/report", label: "Report" },
+  { to: "/pending", label: "Pending" },
+] as const;
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <div className="min-h-screen bg-background">
+        <header className="border-b print:hidden">
+          <div className="mx-auto w-full max-w-3xl px-4 py-3">
+            <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
+            <nav className="mt-2 flex gap-2">
+              {NAV.map((n) => (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  className="rounded-lg border px-4 py-2 text-base font-medium"
+                  activeOptions={{ exact: n.to === "/" }}
+                  activeProps={{
+                    className:
+                      "rounded-lg border border-primary bg-primary px-4 py-2 text-base font-medium text-primary-foreground",
+                  }}
+                >
+                  {n.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </header>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </div>
+      <Toaster position="top-center" />
     </QueryClientProvider>
   );
+
 }
