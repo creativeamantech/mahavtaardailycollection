@@ -55,6 +55,7 @@ export const saveCollection = createServerFn({ method: "POST" })
 
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet } = await import("./mahavtaar.server");
+  const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
   const rows = await sheetsGet("Collections!A2:G");
   return rows
     .filter((r) => r[0])
@@ -62,8 +63,8 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
       executive: r[0] ?? "",
       loanId: r[1] ?? "",
       amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-      date: r[3] ?? "",
-      time: r[4] ?? "",
+      date: normalizeSheetDate(r[3] ?? ""),
+      time: normalizeSheetTime(r[4] ?? ""),
       status: r[6] ?? "",
     }));
 });
