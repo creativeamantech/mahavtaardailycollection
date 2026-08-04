@@ -36,23 +36,67 @@ export const Route = createFileRoute("/report")({
   component: ReportPage,
 });
 
-type Row = { executive: string; total: number; count: number };
+type Row = {
+  executive: string;
+  total: number;
+  count: number;
+  normalCount: number;
+  previousCount: number;
+};
 
-function summarise(
-  rows: { executive: string; amount: number; date: string }[],
-  from?: string,
-  to?: string,
-): Row[] {
+type Collection = {
+  executive: string;
+  amount: number;
+  date: string;
+  entryType?: string;
+};
+
+// Reports always filter on Payment Date (r.date), never the Entry Date.
+function inRange(r: Collection, from?: string, to?: string) {
+  if (from && r.date < from) return false;
+  if (to && r.date > to) return false;
+  return true;
+}
+
+function summarise(rows: Collection[], from?: string, to?: string): Row[] {
   const map = new Map<string, Row>();
   for (const r of rows) {
-    if (from && r.date < from) continue;
-    if (to && r.date > to) continue;
-    const cur = map.get(r.executive) ?? { executive: r.executive, total: 0, count: 0 };
+    if (!inRange(r, from, to)) continue;
+    const cur =
+      map.get(r.executive) ??
+      { executive: r.executive, total: 0, count: 0, normalCount: 0, previousCount: 0 };
     cur.total += r.amount;
     cur.count += 1;
+    if (r.entryType === "Previous Paid File") cur.previousCount += 1;
+    else cur.normalCount += 1;
     map.set(r.executive, cur);
   }
   return [...map.values()].sort((a, b) => b.total - a.total);
+}
+
+function previousStats(rows: Collection[], from?: string, to?: string) {
+  const items = rows.filter(
+    (r) => r.entryType === "Previous Paid File" && inRange(r, from, to),
+  );
+  return { count: items.length, total: items.reduce((s, r) => s + r.amount, 0) };
+}
+
+function PreviousCard({ count, total }: { count: number; total: number }) {
+  return (
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+      <p className="text-base font-semibold text-amber-900">Previous Paid File Entries</p>
+      <div className="mt-2 flex gap-8">
+        <div>
+          <p className="text-sm text-amber-800">Count</p>
+          <p className="text-2xl font-bold text-amber-900">{count}</p>
+        </div>
+        <div>
+          <p className="text-sm text-amber-800">Total Amount</p>
+          <p className="text-2xl font-bold text-amber-900">{formatAmount(total)}</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ReportPage() {
@@ -69,6 +113,8 @@ function ReportPage() {
   const rows = data ?? [];
   const dateWise = useMemo(() => summarise(rows, from, to), [rows, from, to]);
   const overall = useMemo(() => summarise(rows), [rows]);
+  const prevDateWise = useMemo(() => previousStats(rows, from, to), [rows, from, to]);
+  const prevOverall = useMemo(() => previousStats(rows), [rows]);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
@@ -119,10 +165,12 @@ function ReportPage() {
               />
             </div>
           </div>
+          <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} />
         </TabsContent>
 
-        <TabsContent value="overall" className="mt-4">
+        <TabsContent value="overall" className="mt-4 space-y-4">
+          <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
         </TabsContent>
       </Tabs>
@@ -147,6 +195,7 @@ function ReportBlock({ rows }: { rows: Row[] }) {
               <th className="p-3 text-left font-semibold">Executive Name</th>
               <th className="p-3 text-right font-semibold">Total Collection</th>
               <th className="p-3 text-right font-semibold">Cases</th>
+              <th className="p-3 text-left font-semibold">Entry Type</th>
             </tr>
           </thead>
           <tbody>
@@ -155,12 +204,27 @@ function ReportBlock({ rows }: { rows: Row[] }) {
                 <td className="p-3">{r.executive}</td>
                 <td className="p-3 text-right font-semibold">{formatAmount(r.total)}</td>
                 <td className="p-3 text-right">{r.count}</td>
+                <td className="p-3">
+                  <div className="flex flex-wrap gap-1">
+                    {r.normalCount > 0 && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                        Normal {r.normalCount}
+                      </span>
+                    )}
+                    {r.previousCount > 0 && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                        Previous Paid File {r.previousCount}
+                      </span>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
             <tr className="border-t bg-muted/50 font-semibold">
               <td className="p-3">Total</td>
               <td className="p-3 text-right">{formatAmount(total)}</td>
               <td className="p-3 text-right">{cases}</td>
+              <td className="p-3" />
             </tr>
           </tbody>
         </table>

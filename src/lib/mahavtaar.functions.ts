@@ -17,6 +17,8 @@ const entrySchema = z.object({
   amount: z.number().positive().max(100000000),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().trim().min(1).max(20),
+  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  entryType: z.enum(["Normal", "Previous Paid File"]).default("Normal"),
 });
 
 const pendingSchema = z.object({
@@ -39,7 +41,16 @@ export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend } = await import("./mahavtaar.server");
-    await sheetsAppend("Collections!A:G", [
+    const { todayISO } = await import("./executives");
+    const entryDate = data.entryDate ?? todayISO();
+    if (data.entryType === "Previous Paid File") {
+      if (data.date >= entryDate) {
+        throw new Error("Original payment date must be earlier than today.");
+      }
+    } else if (data.date !== entryDate) {
+      throw new Error("Normal entries must use today's date.");
+    }
+    await sheetsAppend("Collections!A:I", [
       [
         data.executive,
         data.loanId,
@@ -48,6 +59,8 @@ export const saveCollection = createServerFn({ method: "POST" })
         data.time,
         new Date().toISOString(),
         "Confirmed",
+        entryDate,
+        data.entryType,
       ],
     ]);
     return { ok: true as const };
@@ -56,17 +69,24 @@ export const saveCollection = createServerFn({ method: "POST" })
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet } = await import("./mahavtaar.server");
   const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
-  const rows = await sheetsGet("Collections!A2:G");
+  const rows = await sheetsGet("Collections!A2:I");
   return rows
     .filter((r) => r[0])
-    .map((r) => ({
-      executive: r[0] ?? "",
-      loanId: r[1] ?? "",
-      amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-      date: normalizeSheetDate(r[3] ?? ""),
-      time: normalizeSheetTime(r[4] ?? ""),
-      status: r[6] ?? "",
-    }));
+    .map((r) => {
+      const paymentDate = normalizeSheetDate(r[3] ?? "");
+      const entryDateRaw = (r[7] ?? "").trim();
+      return {
+        executive: r[0] ?? "",
+        loanId: r[1] ?? "",
+        amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
+        date: paymentDate,
+        time: normalizeSheetTime(r[4] ?? ""),
+        status: r[6] ?? "",
+        entryDate: entryDateRaw ? normalizeSheetDate(entryDateRaw) : paymentDate,
+        entryType:
+          (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
+      };
+    });
 });
 
 export const savePending = createServerFn({ method: "POST" })
@@ -122,7 +142,7 @@ export const markPendingDone = createServerFn({ method: "POST" })
 
     const { todayISO, nowTime } = await import("./executives");
     const now = new Date();
-    await sheetsAppend("Collections!A:G", [
+    await sheetsAppend("Collections!A:I", [
       [
         r[0] ?? "",
         r[1] ?? "",
@@ -131,6 +151,8 @@ export const markPendingDone = createServerFn({ method: "POST" })
         nowTime(now),
         now.toISOString(),
         "Confirmed",
+        todayISO(now),
+        "Normal",
       ],
     ]);
     return { ok: true as const };

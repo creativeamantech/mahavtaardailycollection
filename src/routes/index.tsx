@@ -49,16 +49,22 @@ type Receipt = {
   amount: number;
   date: string;
   time: string;
+  entryDate: string;
+  entryType: "Normal" | "Previous Paid File";
 };
 
 function EntryPage() {
   const today = todayISO();
+  const yesterday = todayISO(new Date(Date.now() - 86400000));
   const [executive, setExecutive] = useState("");
   const [loanId, setLoanId] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
   const [time, setTime] = useState(nowTime());
   const [confirmed, setConfirmed] = useState(false);
+  const [isPrevious, setIsPrevious] = useState(false);
+  const [prevConfirmed, setPrevConfirmed] = useState(false);
+  const [prevDate, setPrevDate] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -66,8 +72,15 @@ function EntryPage() {
 
   const save = useServerFn(saveCollection);
   const amountNum = useMemo(() => Number(amount), [amount]);
+  const prevDateValid = prevDate !== "" && prevDate < today;
+  const paymentDate = isPrevious ? prevDate : today;
   const valid =
-    executive !== "" && loanId.trim() !== "" && amountNum > 0 && confirmed && !saving;
+    executive !== "" &&
+    loanId.trim() !== "" &&
+    amountNum > 0 &&
+    confirmed &&
+    !saving &&
+    (!isPrevious || (prevDateValid && prevConfirmed));
 
   function openConfirm() {
     if (!valid) return;
@@ -78,7 +91,17 @@ function EntryPage() {
   async function doSave() {
     setSaving(true);
     try {
-      const entry = { executive, loanId: loanId.trim(), amount: amountNum, date, time };
+      const entry = {
+        executive,
+        loanId: loanId.trim(),
+        amount: amountNum,
+        date: paymentDate,
+        time,
+        entryDate: today,
+        entryType: (isPrevious ? "Previous Paid File" : "Normal") as
+          | "Normal"
+          | "Previous Paid File",
+      };
       await save({ data: entry as never });
       setReceipt(entry);
       setShowConfirm(false);
@@ -87,6 +110,9 @@ function EntryPage() {
       setAmount("");
       setConfirmed(false);
       setDate(today);
+      setIsPrevious(false);
+      setPrevConfirmed(false);
+      setPrevDate("");
       toast.success("Entry saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save entry");
@@ -107,8 +133,10 @@ function EntryPage() {
       ["Executive Name", receipt.executive],
       ["Loan ID", receipt.loanId],
       ["Amount", `Rs. ${receipt.amount.toLocaleString("en-IN")}`],
-      ["Date", receipt.date],
-      ["Time", receipt.time],
+      ["Payment Date", receipt.date],
+      ["Entry Date", receipt.entryDate],
+      ["Entry Time", receipt.time],
+      ["Entry Type", receipt.entryType],
       ["Status", "Confirmed"],
     ];
     let y = 120;
@@ -176,12 +204,74 @@ function EntryPage() {
           />
         </div>
 
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+          <Checkbox
+            checked={isPrevious}
+            onCheckedChange={(v) => {
+              const on = v === true;
+              setIsPrevious(on);
+              if (!on) {
+                setPrevDate("");
+                setPrevConfirmed(false);
+              }
+            }}
+            className="mt-1 size-5"
+          />
+          <span className="text-base leading-snug">
+            This payment belongs to a Previous Paid File (Next-Day Entry)
+          </span>
+        </label>
+
+        {isPrevious && (
+          <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+            <p className="text-sm leading-snug text-amber-900">
+              This payment will be counted on the selected Original Payment Date, while today&apos;s
+              date will be stored as the Entry Date for audit purposes.
+            </p>
+            <div className="space-y-2">
+              <Label className="text-base" htmlFor="prevDate">
+                Original Payment Date
+              </Label>
+              <Input
+                id="prevDate"
+                type="date"
+                max={yesterday}
+                className="h-12 bg-white text-base"
+                value={prevDate}
+                onChange={(e) => setPrevDate(e.target.value)}
+              />
+              {prevDate !== "" && !prevDateValid && (
+                <p className="text-sm font-medium text-destructive">
+                  Select a date earlier than today. Today and future dates are not allowed.
+                </p>
+              )}
+            </div>
+            <label className="flex cursor-pointer items-start gap-3">
+              <Checkbox
+                checked={prevConfirmed}
+                onCheckedChange={(v) => setPrevConfirmed(v === true)}
+                className="mt-1 size-5"
+              />
+              <span className="text-sm leading-snug text-amber-900">
+                I confirm that this payment actually belongs to the selected previous payment date
+                and is being entered today because it was received in a later paid file.
+              </span>
+            </label>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label className="text-base" htmlFor="date">
-              Date
+              {isPrevious ? "Payment Date" : "Date"}
             </Label>
-            <Input id="date" type="date" className="h-12 text-base" value={date} readOnly />
+            <Input
+              id="date"
+              type="date"
+              className="h-12 text-base"
+              value={paymentDate}
+              readOnly
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-base" htmlFor="time">
@@ -229,9 +319,17 @@ function EntryPage() {
             <Row k="Executive" v={executive} />
             <Row k="Loan ID" v={loanId} />
             <Row k="Amount" v={formatAmount(amountNum || 0)} />
-            <Row k="Date" v={date} />
-            <Row k="Time" v={time} />
+            <Row k={isPrevious ? "Original Payment Date" : "Payment Date"} v={paymentDate} />
+            <Row k="Entry Date" v={today} />
+            <Row k="Entry Time" v={time} />
+            <Row k="Entry Type" v={isPrevious ? "Previous Paid File" : "Normal"} />
           </dl>
+          {isPrevious && (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              I confirm that this payment actually belongs to the selected previous payment date and
+              is being entered today because it was received in a later paid file.
+            </p>
+          )}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" className="h-12 text-base" onClick={() => setShowConfirm(false)}>
               Cancel / Edit
@@ -252,8 +350,10 @@ function EntryPage() {
               <Row k="Executive Name" v={receipt.executive} />
               <Row k="Loan ID" v={receipt.loanId} />
               <Row k="Amount" v={formatAmount(receipt.amount)} />
-              <Row k="Date" v={receipt.date} />
-              <Row k="Time" v={receipt.time} />
+              <Row k="Payment Date" v={receipt.date} />
+              <Row k="Entry Date" v={receipt.entryDate} />
+              <Row k="Entry Time" v={receipt.time} />
+              <Row k="Entry Type" v={receipt.entryType} />
               <Row k="Status" v="Confirmed" />
             </dl>
           </div>
