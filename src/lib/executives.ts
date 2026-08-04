@@ -10,14 +10,21 @@ export const EXECUTIVES = [
 
 export type Executive = (typeof EXECUTIVES)[number];
 
-export function todayISO() {
-  const d = new Date();
-  const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+export const APP_TIME_ZONE = "Asia/Kolkata";
+
+// Always resolve "today" in India time so server-rendered and client values match.
+export function todayISO(date: Date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
-export function nowTime() {
-  return new Date().toLocaleTimeString("en-IN", {
+export function nowTime(date: Date = new Date()) {
+  return date.toLocaleTimeString("en-IN", {
+    timeZone: APP_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",

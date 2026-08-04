@@ -119,14 +119,15 @@ export const markPendingDone = createServerFn({ method: "POST" })
 
     await sheetsUpdate(`Pending!E${rowNumber}`, [["Done"]]);
 
+    const { todayISO, nowTime } = await import("./executives");
     const now = new Date();
     await sheetsAppend("Collections!A:G", [
       [
         r[0] ?? "",
         r[1] ?? "",
         Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-        now.toISOString().slice(0, 10),
-        now.toLocaleTimeString("en-IN", { hour12: true }),
+        todayISO(now),
+        nowTime(now),
         now.toISOString(),
         "Confirmed",
       ],
