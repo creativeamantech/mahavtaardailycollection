@@ -36,7 +36,7 @@ export async function sheetsGet(range: string): Promise<string[][]> {
 
 export async function sheetsAppend(range: string, values: (string | number)[][]) {
   const res = await fetch(
-    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
       headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
