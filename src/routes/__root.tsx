@@ -129,7 +129,9 @@ const NAV = [
   { to: "/", label: "Entry" },
   { to: "/report", label: "Report" },
   { to: "/pending", label: "Pending" },
+  { to: "/ecs", label: "ECS / Special" },
 ] as const;
+
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
