@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EcsRouteImport } from './routes/ecs'
 import { Route as PendingRouteImport } from './routes/pending'
 import { Route as ReportRouteImport } from './routes/report'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EcsRoute = EcsRouteImport.update({
+  id: '/ecs',
+  path: '/ecs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PendingRoute = PendingRouteImport.update({
@@ -31,30 +37,34 @@ const ReportRoute = ReportRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ecs': typeof EcsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ecs': typeof EcsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ecs': typeof EcsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pending' | '/report'
+  fullPaths: '/' | '/ecs' | '/pending' | '/report'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pending' | '/report'
-  id: '__root__' | '/' | '/pending' | '/report'
+  to: '/' | '/ecs' | '/pending' | '/report'
+  id: '__root__' | '/' | '/ecs' | '/pending' | '/report'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  EcsRoute: typeof EcsRoute
   PendingRoute: typeof PendingRoute
   ReportRoute: typeof ReportRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ecs': {
+      id: '/ecs'
+      path: '/ecs'
+      fullPath: '/ecs'
+      preLoaderRoute: typeof EcsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pending': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  EcsRoute: EcsRoute,
   PendingRoute: PendingRoute,
   ReportRoute: ReportRoute,
 }
