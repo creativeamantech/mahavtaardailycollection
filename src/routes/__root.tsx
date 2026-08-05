@@ -142,7 +142,7 @@ function RootComponent() {
         <header className="border-b print:hidden">
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
             <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
-            <nav className="mt-2 flex gap-2">
+            <nav className="mt-2 flex flex-wrap gap-2">
               {NAV.map((n) => (
                 <Link
                   key={n.to}
