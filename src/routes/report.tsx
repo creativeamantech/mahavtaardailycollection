@@ -291,6 +291,9 @@ function ReportPage() {
           <ReportBlock rows={overall} />
         </TabsContent>
       </Tabs>
+
+      <TopPerformers rows={rows} />
+
     </main>
   );
 }
