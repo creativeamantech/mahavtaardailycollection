@@ -63,7 +63,9 @@ function PendingPage() {
   const [loanNumber, setLoanNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [settlement, setSettlement] = useState(false);
   const [fileKey, setFileKey] = useState(0);
+
   const [showConfirm, setShowConfirm] = useState(false);
   const [doneTarget, setDoneTarget] = useState<{ id: string; loanNumber: string } | null>(null);
 
@@ -86,6 +88,7 @@ function PendingPage() {
           executive,
           loanNumber: loanNumber.trim(),
           amount: Number(amount),
+          settlement,
           photos,
         } as never,
       });
@@ -97,7 +100,9 @@ function PendingPage() {
       setLoanNumber("");
       setAmount("");
       setFiles([]);
+      setSettlement(false);
       setFileKey((k) => k + 1);
+
 
       qc.invalidateQueries({ queryKey: ["pending"] });
     },
