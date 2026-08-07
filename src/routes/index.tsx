@@ -65,7 +65,9 @@ function EntryPage() {
   const [time, setTime] = useState(nowTime());
   const [confirmed, setConfirmed] = useState(false);
   const [isPrevious, setIsPrevious] = useState(false);
+  const [settlement, setSettlement] = useState(false);
   const [prevConfirmed, setPrevConfirmed] = useState(false);
+
   const [prevDate, setPrevDate] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -103,6 +105,7 @@ function EntryPage() {
         entryType: (isPrevious ? "Previous Paid File" : "Normal") as
           | "Normal"
           | "Previous Paid File",
+        settlement,
       };
       await save({ data: entry as never });
       setReceipt(entry);
@@ -113,9 +116,11 @@ function EntryPage() {
       setConfirmed(false);
       setDate(today);
       setIsPrevious(false);
+      setSettlement(false);
       setPrevConfirmed(false);
       setPrevDate("");
       toast.success("Entry saved");
+
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save entry");
     } finally {
