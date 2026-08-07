@@ -46,10 +46,127 @@ type Row = {
 
 type Collection = {
   executive: string;
+  loanId?: string;
   amount: number;
   date: string;
   entryType?: string;
+  createdAt?: string;
+  settlement?: boolean;
 };
+
+function topOverall(rows: Collection[]) {
+  const all = summarise(rows);
+  return all[0] ?? null;
+}
+
+function dailyTop(rows: Collection[]) {
+  const byDate = new Map<string, Map<string, { total: number; count: number }>>();
+  for (const r of rows) {
+    if (!r.date) continue;
+    const day = byDate.get(r.date) ?? new Map();
+    const cur = day.get(r.executive) ?? { total: 0, count: 0 };
+    cur.total += r.amount;
+    cur.count += 1;
+    day.set(r.executive, cur);
+    byDate.set(r.date, day);
+  }
+  return [...byDate.entries()]
+    .map(([date, day]) => {
+      const [executive, stat] = [...day.entries()].sort((a, b) => b[1].total - a[1].total)[0]!;
+      return { date, executive, total: stat.total, count: stat.count };
+    })
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+function lastFive(rows: Collection[]) {
+  return [...rows]
+    .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""))
+    .slice(-5)
+    .reverse();
+}
+
+function TopPerformers({ rows }: { rows: Collection[] }) {
+  const best = useMemo(() => topOverall(rows), [rows]);
+  const daily = useMemo(() => dailyTop(rows), [rows]);
+  const latest = useMemo(() => lastFive(rows), [rows]);
+
+  return (
+    <section className="mt-10 space-y-5">
+      <h2 className="text-2xl font-bold">Top Performers</h2>
+
+      {best ? (
+        <div className="rounded-xl border bg-muted/40 p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-3xl" aria-hidden>
+              🏆
+            </span>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Overall Top Performer</p>
+              <p className="text-2xl font-bold">{best.executive}</p>
+              <p className="mt-1 text-lg font-semibold">{formatAmount(best.total)}</p>
+              <p className="text-base text-muted-foreground">{best.count} cases</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="rounded-xl border p-6 text-center text-base">No collections yet.</p>
+      )}
+
+      <div>
+        <h3 className="mb-2 text-xl font-semibold">Daily Top Performers</h3>
+        {daily.length === 0 ? (
+          <p className="rounded-xl border p-6 text-center text-base">No data yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-base">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="p-3 text-left font-semibold">Date</th>
+                  <th className="p-3 text-left font-semibold">Top Performer</th>
+                  <th className="p-3 text-right font-semibold">Amount</th>
+                  <th className="p-3 text-right font-semibold">Cases</th>
+                </tr>
+              </thead>
+              <tbody>
+                {daily.map((d) => (
+                  <tr key={d.date} className="border-t">
+                    <td className="p-3">{d.date}</td>
+                    <td className="p-3">{d.executive}</td>
+                    <td className="p-3 text-right font-semibold">{formatAmount(d.total)}</td>
+                    <td className="p-3 text-right">{d.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-xl font-semibold">Last 5 Collection Entries</h3>
+        {latest.length === 0 ? (
+          <p className="rounded-xl border p-6 text-center text-base">No entries yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {latest.map((r, i) => (
+              <div
+                key={`${r.loanId ?? ""}-${r.createdAt ?? ""}-${i}`}
+                className="flex items-center justify-between gap-3 rounded-xl border p-3"
+              >
+                <div>
+                  <p className="text-base font-semibold">{r.loanId || "—"}</p>
+                  <p className="text-sm text-muted-foreground">{r.executive}</p>
+                </div>
+                <p className="text-base font-bold">{formatAmount(r.amount)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 
 // Reports always filter on Payment Date (r.date), never the Entry Date.
 function inRange(r: Collection, from?: string, to?: string) {
