@@ -19,12 +19,14 @@ const entrySchema = z.object({
   time: z.string().trim().min(1).max(20),
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   entryType: z.enum(["Normal", "Previous Paid File"]).default("Normal"),
+  settlement: z.boolean().default(false),
 });
 
 const pendingSchema = z.object({
   executive: z.enum(executives),
   loanNumber: z.string().trim().min(1).max(60),
   amount: z.number().positive().max(100000000),
+  settlement: z.boolean().default(false),
   photos: z
     .array(
       z.object({
@@ -36,6 +38,7 @@ const pendingSchema = z.object({
     .min(1)
     .max(10),
 });
+
 
 export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
