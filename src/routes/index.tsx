@@ -75,6 +75,8 @@ function EntryPage() {
   const [saving, setSaving] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
+
 
   const save = useServerFn(saveCollection);
   const amountNum = useMemo(() => Number(amount), [amount]);
@@ -111,7 +113,9 @@ function EntryPage() {
       };
       await save({ data: entry as never });
       setReceipt(entry);
+      qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
+
       setExecutive("");
       setLoanId("");
       setAmount("");
