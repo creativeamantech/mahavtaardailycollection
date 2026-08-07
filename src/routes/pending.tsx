@@ -231,6 +231,12 @@ function PendingPage() {
                 <p className="text-base text-muted-foreground">
                   {p.executive} · {formatAmount(p.amount)}
                 </p>
+                {p.settlement && (
+                  <span className="mt-1 inline-block rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
+                    Settlement
+                  </span>
+                )}
+
               </div>
               <Button
                 className="h-11 text-base"
@@ -269,6 +275,8 @@ function PendingPage() {
             <Line k="Loan Number" v={loanNumber} />
             <Line k="Pending Amount" v={formatAmount(Number(amount) || 0)} />
             <Line k="Photos" v={`${files.length}`} />
+            <Line k="Settlement Payment" v={settlement ? "Yes" : "No"} />
+
           </dl>
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" className="h-12 text-base" onClick={() => setShowConfirm(false)}>
