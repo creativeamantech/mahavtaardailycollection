@@ -144,7 +144,9 @@ function EntryPage() {
       ["Entry Date", receipt.entryDate],
       ["Entry Time", receipt.time],
       ["Entry Type", receipt.entryType],
+      ["Settlement Payment", receipt.settlement ? "Yes" : "No"],
       ["Status", "Confirmed"],
+
     ];
     let y = 120;
     lines.forEach(([k, v]) => {
@@ -210,6 +212,16 @@ function EntryPage() {
             placeholder="0"
           />
         </div>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+          <Checkbox
+            checked={settlement}
+            onCheckedChange={(v) => setSettlement(v === true)}
+            className="mt-1 size-5"
+          />
+          <span className="text-base leading-snug">Settlement Payment</span>
+        </label>
+
 
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
@@ -330,7 +342,9 @@ function EntryPage() {
             <Row k="Entry Date" v={today} />
             <Row k="Entry Time" v={time} />
             <Row k="Entry Type" v={isPrevious ? "Previous Paid File" : "Normal"} />
+            <Row k="Settlement Payment" v={settlement ? "Yes" : "No"} />
           </dl>
+
           {isPrevious && (
             <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
               I confirm that this payment actually belongs to the selected previous payment date and
@@ -361,7 +375,9 @@ function EntryPage() {
               <Row k="Entry Date" v={receipt.entryDate} />
               <Row k="Entry Time" v={receipt.time} />
               <Row k="Entry Type" v={receipt.entryType} />
+              <Row k="Settlement Payment" v={receipt.settlement ? "Yes" : "No"} />
               <Row k="Status" v="Confirmed" />
+
             </dl>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 print:hidden">
