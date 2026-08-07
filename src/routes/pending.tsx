@@ -3,7 +3,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EXECUTIVES, formatAmount } from "@/lib/executives";
+
 import { getPending, markPendingDone, savePending } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,6 +196,17 @@ function PendingPage() {
             <p className="text-sm text-muted-foreground">{files.length} photo(s) selected</p>
           )}
         </div>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+          <Checkbox
+            checked={settlement}
+            onCheckedChange={(v) => setSettlement(v === true)}
+            className="mt-1 size-5"
+          />
+          <span className="text-base leading-snug">Settlement Payment</span>
+        </label>
+
+
 
         <Button
           className="h-14 w-full text-lg"
