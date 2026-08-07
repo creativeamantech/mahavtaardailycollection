@@ -51,7 +51,9 @@ type Receipt = {
   time: string;
   entryDate: string;
   entryType: "Normal" | "Previous Paid File";
+  settlement: boolean;
 };
+
 
 function EntryPage() {
   const today = todayISO();
