@@ -3,7 +3,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EXECUTIVES, formatAmount } from "@/lib/executives";
+
 import { getPending, markPendingDone, savePending } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +65,9 @@ function PendingPage() {
   const [loanNumber, setLoanNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [settlement, setSettlement] = useState(false);
   const [fileKey, setFileKey] = useState(0);
+
   const [showConfirm, setShowConfirm] = useState(false);
   const [doneTarget, setDoneTarget] = useState<{ id: string; loanNumber: string } | null>(null);
 
@@ -86,6 +90,7 @@ function PendingPage() {
           executive,
           loanNumber: loanNumber.trim(),
           amount: Number(amount),
+          settlement,
           photos,
         } as never,
       });
@@ -97,7 +102,9 @@ function PendingPage() {
       setLoanNumber("");
       setAmount("");
       setFiles([]);
+      setSettlement(false);
       setFileKey((k) => k + 1);
+
 
       qc.invalidateQueries({ queryKey: ["pending"] });
     },
@@ -190,6 +197,17 @@ function PendingPage() {
           )}
         </div>
 
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+          <Checkbox
+            checked={settlement}
+            onCheckedChange={(v) => setSettlement(v === true)}
+            className="mt-1 size-5"
+          />
+          <span className="text-base leading-snug">Settlement Payment</span>
+        </label>
+
+
+
         <Button
           className="h-14 w-full text-lg"
           disabled={!valid || submit.isPending}
@@ -213,6 +231,12 @@ function PendingPage() {
                 <p className="text-base text-muted-foreground">
                   {p.executive} · {formatAmount(p.amount)}
                 </p>
+                {p.settlement && (
+                  <span className="mt-1 inline-block rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
+                    Settlement
+                  </span>
+                )}
+
               </div>
               <Button
                 className="h-11 text-base"
@@ -251,6 +275,8 @@ function PendingPage() {
             <Line k="Loan Number" v={loanNumber} />
             <Line k="Pending Amount" v={formatAmount(Number(amount) || 0)} />
             <Line k="Photos" v={`${files.length}`} />
+            <Line k="Settlement Payment" v={settlement ? "Yes" : "No"} />
+
           </dl>
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" className="h-12 text-base" onClick={() => setShowConfirm(false)}>

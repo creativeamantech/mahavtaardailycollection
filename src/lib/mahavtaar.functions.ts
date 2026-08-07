@@ -19,12 +19,14 @@ const entrySchema = z.object({
   time: z.string().trim().min(1).max(20),
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   entryType: z.enum(["Normal", "Previous Paid File"]).default("Normal"),
+  settlement: z.boolean().default(false),
 });
 
 const pendingSchema = z.object({
   executive: z.enum(executives),
   loanNumber: z.string().trim().min(1).max(60),
   amount: z.number().positive().max(100000000),
+  settlement: z.boolean().default(false),
   photos: z
     .array(
       z.object({
@@ -36,6 +38,7 @@ const pendingSchema = z.object({
     .min(1)
     .max(10),
 });
+
 
 export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
@@ -50,7 +53,7 @@ export const saveCollection = createServerFn({ method: "POST" })
     } else if (data.date !== entryDate) {
       throw new Error("Normal entries must use today's date.");
     }
-    await sheetsAppend("Collections!A:I", [
+    await sheetsAppend("Collections!A:J", [
       [
         data.executive,
         data.loanId,
@@ -61,6 +64,7 @@ export const saveCollection = createServerFn({ method: "POST" })
         "Confirmed",
         entryDate,
         data.entryType,
+        data.settlement ? "Yes" : "No",
       ],
     ]);
     return { ok: true as const };
@@ -69,22 +73,25 @@ export const saveCollection = createServerFn({ method: "POST" })
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet } = await import("./mahavtaar.server");
   const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
-  const rows = await sheetsGet("Collections!A2:I");
+  const rows = await sheetsGet("Collections!A2:J");
   return rows
     .filter((r) => r[0])
-    .map((r) => {
+    .map((r, i) => {
       const paymentDate = normalizeSheetDate(r[3] ?? "");
       const entryDateRaw = (r[7] ?? "").trim();
       return {
+        row: i + 2,
         executive: r[0] ?? "",
         loanId: r[1] ?? "",
         amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
         date: paymentDate,
         time: normalizeSheetTime(r[4] ?? ""),
+        createdAt: (r[5] ?? "").trim(),
         status: r[6] ?? "",
         entryDate: entryDateRaw ? normalizeSheetDate(entryDateRaw) : paymentDate,
         entryType:
           (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
+        settlement: (r[9] ?? "").trim().toLowerCase() === "yes",
       };
     });
 });
@@ -98,7 +105,7 @@ export const savePending = createServerFn({ method: "POST" })
       links.push(await driveUpload(`${data.loanNumber}-${p.name}`, p.mimeType, p.base64));
     }
     const id = `PND-${Date.now()}`;
-    await sheetsAppend("Pending!A:G", [
+    await sheetsAppend("Pending!A:H", [
       [
         data.executive,
         data.loanNumber,
@@ -107,6 +114,7 @@ export const savePending = createServerFn({ method: "POST" })
         "Pending",
         new Date().toISOString(),
         id,
+        data.settlement ? "Yes" : "No",
       ],
     ]);
     return { ok: true as const, links, id };
@@ -114,7 +122,7 @@ export const savePending = createServerFn({ method: "POST" })
 
 export const getPending = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet } = await import("./mahavtaar.server");
-  const rows = await sheetsGet("Pending!A2:G");
+  const rows = await sheetsGet("Pending!A2:H");
   return rows
     .map((r, i) => ({
       row: i + 2,
@@ -124,6 +132,7 @@ export const getPending = createServerFn({ method: "GET" }).handler(async () => 
       links: (r[3] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
       status: r[4] ?? "",
       id: r[6] ?? "",
+      settlement: (r[7] ?? "").trim().toLowerCase() === "yes",
     }))
     .filter((r) => r.loanNumber && r.status === "Pending");
 });
@@ -132,7 +141,7 @@ export const markPendingDone = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");
-    const rows = await sheetsGet("Pending!A2:G");
+    const rows = await sheetsGet("Pending!A2:H");
     const idx = rows.findIndex((r) => (r[6] ?? "") === data.id && (r[4] ?? "") === "Pending");
     if (idx === -1) throw new Error("Pending entry not found or already completed.");
     const r = rows[idx]!;
@@ -142,7 +151,7 @@ export const markPendingDone = createServerFn({ method: "POST" })
 
     const { todayISO, nowTime } = await import("./executives");
     const now = new Date();
-    await sheetsAppend("Collections!A:I", [
+    await sheetsAppend("Collections!A:J", [
       [
         r[0] ?? "",
         r[1] ?? "",
@@ -153,7 +162,9 @@ export const markPendingDone = createServerFn({ method: "POST" })
         "Confirmed",
         todayISO(now),
         "Normal",
+        (r[7] ?? "").trim().toLowerCase() === "yes" ? "Yes" : "No",
       ],
     ]);
     return { ok: true as const };
+
   });

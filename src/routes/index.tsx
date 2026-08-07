@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQueryClient } from "@tanstack/react-query";
+
 import { toast } from "sonner";
 import { EXECUTIVES, formatAmount, nowTime, todayISO } from "@/lib/executives";
 import { saveCollection } from "@/lib/mahavtaar.functions";
@@ -51,7 +53,9 @@ type Receipt = {
   time: string;
   entryDate: string;
   entryType: "Normal" | "Previous Paid File";
+  settlement: boolean;
 };
+
 
 function EntryPage() {
   const today = todayISO();
@@ -63,12 +67,16 @@ function EntryPage() {
   const [time, setTime] = useState(nowTime());
   const [confirmed, setConfirmed] = useState(false);
   const [isPrevious, setIsPrevious] = useState(false);
+  const [settlement, setSettlement] = useState(false);
   const [prevConfirmed, setPrevConfirmed] = useState(false);
+
   const [prevDate, setPrevDate] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
+
 
   const save = useServerFn(saveCollection);
   const amountNum = useMemo(() => Number(amount), [amount]);
@@ -101,19 +109,24 @@ function EntryPage() {
         entryType: (isPrevious ? "Previous Paid File" : "Normal") as
           | "Normal"
           | "Previous Paid File",
+        settlement,
       };
       await save({ data: entry as never });
       setReceipt(entry);
+      qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
+
       setExecutive("");
       setLoanId("");
       setAmount("");
       setConfirmed(false);
       setDate(today);
       setIsPrevious(false);
+      setSettlement(false);
       setPrevConfirmed(false);
       setPrevDate("");
       toast.success("Entry saved");
+
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save entry");
     } finally {
@@ -137,7 +150,9 @@ function EntryPage() {
       ["Entry Date", receipt.entryDate],
       ["Entry Time", receipt.time],
       ["Entry Type", receipt.entryType],
+      ["Settlement Payment", receipt.settlement ? "Yes" : "No"],
       ["Status", "Confirmed"],
+
     ];
     let y = 120;
     lines.forEach(([k, v]) => {
@@ -203,6 +218,16 @@ function EntryPage() {
             placeholder="0"
           />
         </div>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+          <Checkbox
+            checked={settlement}
+            onCheckedChange={(v) => setSettlement(v === true)}
+            className="mt-1 size-5"
+          />
+          <span className="text-base leading-snug">Settlement Payment</span>
+        </label>
+
 
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
@@ -323,7 +348,9 @@ function EntryPage() {
             <Row k="Entry Date" v={today} />
             <Row k="Entry Time" v={time} />
             <Row k="Entry Type" v={isPrevious ? "Previous Paid File" : "Normal"} />
+            <Row k="Settlement Payment" v={settlement ? "Yes" : "No"} />
           </dl>
+
           {isPrevious && (
             <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
               I confirm that this payment actually belongs to the selected previous payment date and
@@ -354,7 +381,9 @@ function EntryPage() {
               <Row k="Entry Date" v={receipt.entryDate} />
               <Row k="Entry Time" v={receipt.time} />
               <Row k="Entry Type" v={receipt.entryType} />
+              <Row k="Settlement Payment" v={receipt.settlement ? "Yes" : "No"} />
               <Row k="Status" v="Confirmed" />
+
             </dl>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 print:hidden">
