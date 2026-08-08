@@ -73,13 +73,24 @@ export const saveCollection = createServerFn({ method: "POST" })
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet } = await import("./mahavtaar.server");
   const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
-  const rows = await sheetsGet("Collections!A2:J");
+  // Read K:O too — those are maintained with formulas in the sheet and come back
+  // as their calculated values (never the formula text).
+  const rows = await sheetsGet("Collections!A2:O");
+  const num = (v: string | undefined) => {
+    const s = String(v ?? "").replace(/[^0-9.-]/g, "").trim();
+    return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
+  };
   return rows
     .filter((r) => r[0])
     .map((r, i) => {
       const paymentDate = normalizeSheetDate(r[3] ?? "");
       const entryDateRaw = (r[7] ?? "").trim();
       return {
+        bucket: (r[10] ?? "").trim(),
+        city: (r[11] ?? "").trim(),
+        emiAmount: num(r[12]),
+        pos: num(r[13]),
+        foreclosure: num(r[14]),
         row: i + 2,
         executive: r[0] ?? "",
         loanId: r[1] ?? "",
