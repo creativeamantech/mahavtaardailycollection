@@ -130,9 +130,9 @@ function LoansPage() {
       )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <FilterSelect label="Executive" value={executive} onChange={setExecutive} options={executives} />
-        <FilterSelect label="Bucket" value={bucket} onChange={setBucket} options={buckets} />
-        <FilterSelect label="City" value={city} onChange={setCity} options={cities} />
+        <FilterSelect label="Executive" allLabel="All Executives" value={executive} onChange={setExecutive} options={executives} />
+        <FilterSelect label="Bucket" allLabel="All Buckets" value={bucket} onChange={setBucket} options={buckets} />
+        <FilterSelect label="City" allLabel="All Cities" value={city} onChange={setCity} options={cities} />
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
@@ -160,11 +160,13 @@ function LoansPage() {
 
 function FilterSelect({
   label,
+  allLabel,
   value,
   onChange,
   options,
 }: {
   label: string;
+  allLabel: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
@@ -178,7 +180,7 @@ function FilterSelect({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL} className="text-base">
-            All {label}s
+            {allLabel}
           </SelectItem>
           {options.map((o) => (
             <SelectItem key={o} value={o} className="text-base">
