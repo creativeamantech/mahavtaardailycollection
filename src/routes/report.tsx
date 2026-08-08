@@ -218,7 +218,7 @@ function PreviousCard({ count, total }: { count: number; total: number }) {
 
 function ReportPage() {
   const fetchCollections = useServerFn(getCollections);
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
     queryFn: () => fetchCollections(),
     refetchOnWindowFocus: true,
@@ -235,8 +235,23 @@ function ReportPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
-      <h1 className="text-3xl font-bold tracking-tight">Collection Report</h1>
-      <p className="mt-1 text-base text-muted-foreground">Executive-wise totals and case counts.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Collection Report</h1>
+          <p className="mt-1 text-base text-muted-foreground">
+            Executive-wise totals and case counts.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="h-12 text-base"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          {isFetching ? "Refreshing..." : "Refresh"}
+        </Button>
+      </div>
+
 
       {isLoading && <p className="mt-6 text-base">Loading report...</p>}
       {error && (
