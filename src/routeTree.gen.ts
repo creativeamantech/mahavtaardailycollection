@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EcsRouteImport } from './routes/ecs'
+import { Route as LoansRouteImport } from './routes/loans'
 import { Route as PendingRouteImport } from './routes/pending'
 import { Route as ReportRouteImport } from './routes/report'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const EcsRoute = EcsRouteImport.update({
   id: '/ecs',
   path: '/ecs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoansRoute = LoansRouteImport.update({
+  id: '/loans',
+  path: '/loans',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PendingRoute = PendingRouteImport.update({
@@ -38,12 +44,14 @@ const ReportRoute = ReportRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ecs': typeof EcsRoute
+  '/loans': typeof LoansRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ecs': typeof EcsRoute
+  '/loans': typeof LoansRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/ecs': typeof EcsRoute
+  '/loans': typeof LoansRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/ecs' | '/pending' | '/report'
+  fullPaths: '/' | '/ecs' | '/loans' | '/pending' | '/report'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ecs' | '/pending' | '/report'
-  id: '__root__' | '/' | '/ecs' | '/pending' | '/report'
+  to: '/' | '/ecs' | '/loans' | '/pending' | '/report'
+  id: '__root__' | '/' | '/ecs' | '/loans' | '/pending' | '/report'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   EcsRoute: typeof EcsRoute
+  LoansRoute: typeof LoansRoute
   PendingRoute: typeof PendingRoute
   ReportRoute: typeof ReportRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/ecs'
       fullPath: '/ecs'
       preLoaderRoute: typeof EcsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/loans': {
+      id: '/loans'
+      path: '/loans'
+      fullPath: '/loans'
+      preLoaderRoute: typeof LoansRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pending': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   EcsRoute: EcsRoute,
+  LoansRoute: LoansRoute,
   PendingRoute: PendingRoute,
   ReportRoute: ReportRoute,
 }
