@@ -1,6 +1,5 @@
-// Loan-level aggregation for the Loan Details module.
-// Bucket / City / EMI Amount / POS / Foreclosure come from the Google Sheet
-// as already-calculated values — nothing is derived or looked up here.
+// Loan-level aggregation. Bucket / City / EMI Amount / POS / Foreclosure come
+// from the Google Sheet as already-calculated values — nothing is derived here.
 // Only the confirmed Collection Amount is ever summed per Loan ID.
 
 export type CollectionRow = {
@@ -38,10 +37,17 @@ export type LoanSummary = {
   emiPaid: boolean;
   posPaid: boolean;
   foreclosurePaid: boolean;
+  mainPaid: boolean;
   paidCase: boolean;
   status: string;
   lastDate: string;
 };
+
+// Loan IDs are sometimes stored in the sheet with a leading apostrophe
+// ('123456) to force text. Normalise for matching, grouping and display.
+export function normaliseLoanId(id: string | undefined) {
+  return String(id ?? "").replace(/^['`\u2018\u2019]+/, "").trim();
+}
 
 // Fixed bucket-wise EMI limits: Bucket 1 -> 2 EMI ... Bucket 5 -> 6 EMI.
 export function emiCountForBucket(bucket: string): number | null {
@@ -64,7 +70,7 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
   const map = new Map<string, LoanSummary>();
 
   for (const r of rows) {
-    const id = (r.loanId ?? "").trim();
+    const id = normaliseLoanId(r.loanId);
     if (!id) continue;
     const cur =
       map.get(id) ??
@@ -89,6 +95,7 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
         emiPaid: false,
         posPaid: false,
         foreclosurePaid: false,
+        mainPaid: false,
         paidCase: false,
         status: "",
         lastDate: "",
@@ -137,59 +144,41 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
         }
 
         l.emiPaid = completed >= limit;
-        if (!l.emiPaid && !l.settlement) {
-          l.currentShortEmi = completed + 1;
-          l.shortAmount = emi - remainder;
+        if (!l.emiPaid) {
+          const nextEmi = completed + 1;
+          // First EMI: any shortfall counts. Second and later: only once at
+          // least 50% of that EMI has been paid.
+          const show = completed === 0 ? l.totalPaid > 0 : remainder >= emi * 0.5;
+          if (show && remainder < emi) {
+            l.currentShortEmi = nextEmi;
+            l.shortAmount = emi - remainder;
+          }
         }
         l.remainingEmiCount = Math.max(limit - l.paidEmiCount, 0);
       } else if (limit !== null) {
         l.remainingEmiCount = limit;
       }
 
-      // Settlement always wins; it can never show as short or unpaid.
+      // SINGLE master rule: one complete EMI, valid settlement, or valid
+      // foreclosure. POS alone never makes a loan Main Paid.
+      l.mainPaid = l.paidEmiCount >= 1 || l.settlement || l.foreclosurePaid;
+      l.paidCase = l.mainPaid;
+
       if (l.settlement) l.status = "Settlement Paid";
       else if (l.emiPaid) l.status = "EMI Paid";
-      else if (l.posPaid) l.status = "POS Paid";
       else if (l.foreclosurePaid) l.status = "Foreclosure Paid";
       else if (l.shortAmount !== null) l.status = "EMI Short Amount";
+      else if (l.posPaid) l.status = "POS Paid — Not Main Paid";
       else l.status = "—";
 
-      if (l.settlement || l.emiPaid || l.posPaid || l.foreclosurePaid) {
-        l.currentShortEmi = l.settlement || l.emiPaid ? null : l.currentShortEmi;
-        l.shortAmount = l.settlement || l.emiPaid ? null : l.shortAmount;
+      if (l.settlement || l.emiPaid) {
+        l.currentShortEmi = null;
+        l.shortAmount = null;
       }
 
-      l.paidCase =
-        l.settlement || l.emiPaid || l.posPaid || l.foreclosurePaid || l.paidEmiCount >= 1;
       return l;
     })
     .sort((a, b) => (a.lastDate < b.lastDate ? 1 : a.lastDate > b.lastDate ? -1 : 0));
-}
-
-export type EmiCountRow = {
-  executive: string;
-  totalEmi: number;
-  paidEmi: number;
-  remainingEmi: number;
-};
-
-// One loan can be worked by more than one executive; its EMI counts are
-// attributed to each executive that collected on it, never duplicated per row.
-export function emiCountSummary(loans: LoanSummary[], executives: readonly string[]): EmiCountRow[] {
-  const base = new Map<string, EmiCountRow>(
-    executives.map((e) => [e, { executive: e, totalEmi: 0, paidEmi: 0, remainingEmi: 0 }]),
-  );
-  for (const l of loans) {
-    if (l.applicableEmiCount === null) continue;
-    for (const e of l.executives) {
-      const row = base.get(e);
-      if (!row) continue;
-      row.totalEmi += l.applicableEmiCount;
-      row.paidEmi += l.paidEmiCount;
-      row.remainingEmi += l.remainingEmiCount;
-    }
-  }
-  return [...base.values()];
 }
 
 export type ShortEmiRow = {
@@ -203,6 +192,7 @@ export type ShortEmiRow = {
 export function shortEmiRows(loans: LoanSummary[]): ShortEmiRow[] {
   const out: ShortEmiRow[] = [];
   for (const l of loans) {
+    // Fully paid cases never appear here.
     if (l.settlement || l.emiPaid || l.foreclosurePaid) continue;
     if (l.shortAmount === null || l.currentShortEmi === null) continue;
     out.push({
@@ -230,7 +220,7 @@ export function cityExecutiveMatrix(
 ): CityMatrix[] {
   const map = new Map<string, CityMatrix>();
   for (const l of loans) {
-    if (!l.paidCase) continue;
+    if (!l.mainPaid) continue;
     const city = l.city || "—";
     const cur =
       map.get(city) ??
@@ -247,4 +237,29 @@ export function cityExecutiveMatrix(
     map.set(city, cur);
   }
   return [...map.values()].sort((a, b) => a.city.localeCompare(b.city));
+}
+
+// Single source of truth for the loan-level figures shown in the reports.
+export function loanStats(loans: LoanSummary[]) {
+  let mainPaidCases = 0;
+  let mainPaidEmiCount = 0;
+  let posPaidNotMainPaid = 0;
+  for (const l of loans) {
+    if (l.mainPaid) {
+      mainPaidCases += 1;
+      mainPaidEmiCount += l.paidEmiCount;
+    } else if (l.posPaid) {
+      posPaidNotMainPaid += 1;
+    }
+  }
+  return { mainPaidCases, mainPaidEmiCount, posPaidNotMainPaid };
+}
+
+export const BUCKETS = ["Bucket 1", "Bucket 2", "Bucket 3", "Bucket 4", "Bucket 5"] as const;
+
+export function bucketMatches(bucket: string | undefined, filter: string) {
+  if (filter === "__all__") return true;
+  const a = String(bucket ?? "").match(/\d+/)?.[0];
+  const b = filter.match(/\d+/)?.[0];
+  return !!a && a === b;
 }
