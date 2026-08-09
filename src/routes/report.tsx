@@ -17,6 +17,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
+
+const ALL_BUCKETS = "__all__";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
@@ -53,7 +63,75 @@ type Collection = {
   entryType?: string;
   createdAt?: string;
   settlement?: boolean;
+  bucket?: string;
+  city?: string;
+  emiAmount?: number | null;
+  pos?: number | null;
+  foreclosure?: number | null;
 };
+
+function BucketFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-base">Bucket</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-12 text-base">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_BUCKETS} className="text-base">
+            All Buckets
+          </SelectItem>
+          {BUCKETS.map((b) => (
+            <SelectItem key={b} value={b} className="text-base">
+              {b}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// Loan-level figures, computed from the same already-fetched dataset.
+function LoanStatsCards({ rows }: { rows: Collection[] }) {
+  const stats = useMemo(
+    () =>
+      loanStats(
+        summariseLoans(
+          rows.map((r) => ({
+            executive: r.executive,
+            loanId: r.loanId ?? "",
+            amount: r.amount,
+            date: r.date,
+            settlement: r.settlement,
+            bucket: r.bucket,
+            city: r.city,
+            emiAmount: r.emiAmount ?? null,
+            pos: r.pos ?? null,
+            foreclosure: r.foreclosure ?? null,
+          })),
+        ),
+      ),
+    [rows],
+  );
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <StatCard label="Main Paid Cases" value={String(stats.mainPaidCases)} />
+      <StatCard label="Main Paid EMI Count" value={String(stats.mainPaidEmiCount)} />
+      <StatCard label="POS Paid — Not Main Paid" value={String(stats.posPaidNotMainPaid)} />
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border p-4">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-bold">{value}</p>
+    </div>
+  );
+}
 
 function topOverall(rows: Collection[]) {
   const all = summarise(rows);
@@ -228,11 +306,26 @@ function ReportPage() {
   const [from, setFrom] = useState(todayISO());
   const [to, setTo] = useState(todayISO());
 
+  const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
+  const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
+
   const rows = data ?? [];
-  const dateWise = useMemo(() => summarise(rows, from, to), [rows, from, to]);
-  const overall = useMemo(() => summarise(rows), [rows]);
-  const prevDateWise = useMemo(() => previousStats(rows, from, to), [rows, from, to]);
-  const prevOverall = useMemo(() => previousStats(rows), [rows]);
+  const dateRows = useMemo(
+    () => rows.filter((r) => bucketMatches(r.bucket, dateBucket)),
+    [rows, dateBucket],
+  );
+  const overallRows = useMemo(
+    () => rows.filter((r) => bucketMatches(r.bucket, overallBucket)),
+    [rows, overallBucket],
+  );
+  const dateScoped = useMemo(
+    () => dateRows.filter((r) => inRange(r, from, to)),
+    [dateRows, from, to],
+  );
+  const dateWise = useMemo(() => summarise(dateRows, from, to), [dateRows, from, to]);
+  const overall = useMemo(() => summarise(overallRows), [overallRows]);
+  const prevDateWise = useMemo(() => previousStats(dateRows, from, to), [dateRows, from, to]);
+  const prevOverall = useMemo(() => previousStats(overallRows), [overallRows]);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
@@ -298,11 +391,15 @@ function ReportPage() {
               />
             </div>
           </div>
+          <BucketFilter value={dateBucket} onChange={setDateBucket} />
+          <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} />
         </TabsContent>
 
         <TabsContent value="overall" className="mt-4 space-y-4">
+          <BucketFilter value={overallBucket} onChange={setOverallBucket} />
+          <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
         </TabsContent>
