@@ -93,7 +93,7 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
         foreclosure: num(r[14]),
         row: i + 2,
         executive: r[0] ?? "",
-        loanId: r[1] ?? "",
+        loanId: String(r[1] ?? "").replace(/^['`\u2018\u2019]+/, "").trim(),
         amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
         date: paymentDate,
         time: normalizeSheetTime(r[4] ?? ""),
