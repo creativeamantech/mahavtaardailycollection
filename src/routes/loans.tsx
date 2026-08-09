@@ -7,7 +7,6 @@ import { getCollections } from "@/lib/mahavtaar.functions";
 import { EXECUTIVES, formatAmount, todayISO } from "@/lib/executives";
 import {
   summariseLoans,
-  emiCountSummary,
   shortEmiRows,
   cityExecutiveMatrix,
   type LoanSummary,
@@ -47,7 +46,7 @@ const ALL = "__all__";
 function statusClass(status: string) {
   if (status === "Settlement Paid") return "bg-violet-100 text-violet-800";
   if (status === "EMI Paid") return "bg-emerald-100 text-emerald-800";
-  if (status === "POS Paid" || status === "Foreclosure Paid") return "bg-sky-100 text-sky-800";
+  if (status.startsWith("POS Paid") || status === "Foreclosure Paid") return "bg-sky-100 text-sky-800";
   if (status === "EMI Short Amount") return "bg-amber-100 text-amber-900";
   return "bg-muted text-muted-foreground";
 }
@@ -78,7 +77,6 @@ function LoansPage() {
   }, [loans, query]);
 
   const [showShort, setShowShort] = useState(false);
-  const summary = useMemo(() => emiCountSummary(loans, EXECUTIVES), [loans]);
   const shorts = useMemo(() => shortEmiRows(loans), [loans]);
 
   // Date-wise city report
@@ -171,8 +169,7 @@ function LoansPage() {
       )}
 
       <section className="mt-10">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-2xl font-bold tracking-tight">EMI Count Summary</h2>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             variant="outline"
             className="h-12 text-base"
@@ -180,29 +177,6 @@ function LoansPage() {
           >
             {showShort ? "Hide Short EMIs" : "View Short EMIs"}
           </Button>
-        </div>
-
-        <div className="mt-3 overflow-x-auto rounded-xl border">
-          <table className="w-full text-base">
-            <thead className="bg-muted/50">
-              <tr>
-                <Th>Executive</Th>
-                <Th right>Total EMI</Th>
-                <Th right>Paid EMI</Th>
-                <Th right>Remaining EMI</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {summary.map((s) => (
-                <tr key={s.executive} className="border-t">
-                  <Td>{s.executive}</Td>
-                  <Td right>{s.totalEmi}</Td>
-                  <Td right>{s.paidEmi}</Td>
-                  <Td right>{s.remainingEmi}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
 
         {showShort && (
@@ -394,6 +368,8 @@ function LoanCard({ loan }: { loan: LoanSummary }) {
         <Field k="POS Status" v={loan.pos === null ? "" : loan.posPaid ? "Paid" : "Not Paid"} />
         <Field k="Approx. Foreclosure" v={money(loan.foreclosure)} />
         <Field k="Payment Status" v={loan.status} />
+        <Field k="Main Paid" v={loan.mainPaid ? "Yes" : "No"} />
+        <Field k="Paid EMI Count" v={`${loan.paidEmiCount}`} />
         <Field k="Settlement" v={loan.settlement ? "Settlement Paid" : ""} />
         <Field k="Last Payment" v={loan.lastDate} />
       </dl>
@@ -401,7 +377,12 @@ function LoanCard({ loan }: { loan: LoanSummary }) {
       <div className="mt-3 flex flex-wrap gap-1">
         {loan.settlement && <Tag className="bg-violet-100 text-violet-800">Settlement Paid</Tag>}
         {loan.emiPaid && <Tag className="bg-emerald-100 text-emerald-800">EMI Paid</Tag>}
-        {loan.posPaid && <Tag className="bg-sky-100 text-sky-800">POS Paid</Tag>}
+        {loan.mainPaid && <Tag className="bg-emerald-100 text-emerald-800">Main Paid</Tag>}
+        {loan.posPaid && (
+          <Tag className="bg-sky-100 text-sky-800">
+            {loan.mainPaid ? "POS Paid" : "POS Paid — Not Main Paid"}
+          </Tag>
+        )}
         {loan.foreclosurePaid && <Tag className="bg-sky-100 text-sky-800">Foreclosure Paid</Tag>}
       </div>
     </div>
