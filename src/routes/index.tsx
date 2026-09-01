@@ -91,6 +91,52 @@ function EntryPage() {
 
 
   const save = useServerFn(saveCollection);
+  const uploadReceipt = useServerFn(uploadReceiptImage);
+  const [receiptLink, setReceiptLink] = useState("");
+  const [receiptName, setReceiptName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [fileKey, setFileKey] = useState(0);
+
+  async function handleReceiptFile(file: File | undefined) {
+    setReceiptLink("");
+    setReceiptName("");
+    setUploadError("");
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please select a valid image file.");
+      return;
+    }
+    if (loanId.trim() === "") {
+      setUploadError("Enter the Loan Number before uploading the receipt image.");
+      setFileKey((k) => k + 1);
+      return;
+    }
+    setUploading(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const res = (await uploadReceipt({
+        data: {
+          loanNumber: loanId.trim(),
+          name: file.name || "receipt.jpg",
+          mimeType: file.type,
+          base64,
+        } as never,
+      })) as { link: string };
+      setReceiptLink(res.link);
+      setReceiptName(file.name || "receipt");
+      toast.success("Receipt uploaded to Google Drive");
+    } catch (e) {
+      setUploadError(
+        e instanceof Error ? e.message : "Upload failed. Please upload the receipt image again.",
+      );
+      setFileKey((k) => k + 1);
+      toast.error("Receipt upload failed. Please upload the receipt image again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const amountNum = useMemo(() => Number(amount), [amount]);
   const prevDateValid = prevDate !== "" && prevDate < today;
   const paymentDate = isPrevious ? prevDate : today;
