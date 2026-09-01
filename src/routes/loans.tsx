@@ -134,6 +134,11 @@ function LoansPage() {
         </Button>
       </div>
 
+      <div className="mt-4">
+        <MonthSelect value={month} onChange={setMonth} options={months} />
+      </div>
+
+
       {isLoading && <p className="mt-6 text-base">Loading loan details...</p>}
       {error && (
         <p className="mt-6 text-base text-destructive">
