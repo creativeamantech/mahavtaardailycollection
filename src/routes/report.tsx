@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
+import { MonthSelect } from "@/components/MonthSelect";
+import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 
 const ALL_BUCKETS = "__all__";
 
@@ -309,7 +311,14 @@ function ReportPage() {
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
-  const rows = data ?? [];
+  const allRows = data ?? [];
+  const [month, setMonth] = useState(currentMonthKey());
+  const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
+  // Every report below works off this month-scoped dataset only.
+  const rows = useMemo(
+    () => allRows.filter((r) => monthKey(r.date) === month),
+    [allRows, month],
+  );
   const dateRows = useMemo(
     () => rows.filter((r) => bucketMatches(r.bucket, dateBucket)),
     [rows, dateBucket],
@@ -344,6 +353,10 @@ function ReportPage() {
         >
           {isFetching ? "Refreshing..." : "Refresh"}
         </Button>
+      </div>
+
+      <div className="mt-4">
+        <MonthSelect value={month} onChange={setMonth} options={months} />
       </div>
 
 

@@ -21,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MonthSelect } from "@/components/MonthSelect";
+import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 
 export const Route = createFileRoute("/loans")({
   head: () => ({
@@ -64,7 +66,14 @@ function LoansPage() {
     queryFn: () => fetchCollections(),
   });
 
-  const rows = useMemo(() => data ?? [], [data]);
+  const allRows = useMemo(() => data ?? [], [data]);
+  const [month, setMonth] = useState(currentMonthKey());
+  const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
+  // Month-scoped dataset — searches and every report below reuse it.
+  const rows = useMemo(
+    () => allRows.filter((r) => monthKey(r.date) === month),
+    [allRows, month],
+  );
   const loans = useMemo(() => summariseLoans(rows), [rows]);
 
   const [search, setSearch] = useState("");
@@ -124,6 +133,11 @@ function LoansPage() {
           {isFetching ? "Refreshing..." : "Refresh"}
         </Button>
       </div>
+
+      <div className="mt-4">
+        <MonthSelect value={month} onChange={setMonth} options={months} />
+      </div>
+
 
       {isLoading && <p className="mt-6 text-base">Loading loan details...</p>}
       {error && (
