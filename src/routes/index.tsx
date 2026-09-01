@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { toast } from "sonner";
 import { EXECUTIVES, formatAmount, nowTime, todayISO } from "@/lib/executives";
-import { saveCollection } from "@/lib/mahavtaar.functions";
+import { saveCollection, uploadReceiptImage } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +54,19 @@ type Receipt = {
   entryDate: string;
   entryType: "Normal" | "Previous Paid File";
   settlement: boolean;
+  receiptLink?: string;
 };
+
+async function fileToBase64(file: File) {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
 
 
 function EntryPage() {
@@ -79,6 +91,52 @@ function EntryPage() {
 
 
   const save = useServerFn(saveCollection);
+  const uploadReceipt = useServerFn(uploadReceiptImage);
+  const [receiptLink, setReceiptLink] = useState("");
+  const [receiptName, setReceiptName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [fileKey, setFileKey] = useState(0);
+
+  async function handleReceiptFile(file: File | undefined) {
+    setReceiptLink("");
+    setReceiptName("");
+    setUploadError("");
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please select a valid image file.");
+      return;
+    }
+    if (loanId.trim() === "") {
+      setUploadError("Enter the Loan Number before uploading the receipt image.");
+      setFileKey((k) => k + 1);
+      return;
+    }
+    setUploading(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const res = (await uploadReceipt({
+        data: {
+          loanNumber: loanId.trim(),
+          name: file.name || "receipt.jpg",
+          mimeType: file.type,
+          base64,
+        } as never,
+      })) as { link: string };
+      setReceiptLink(res.link);
+      setReceiptName(file.name || "receipt");
+      toast.success("Receipt uploaded to Google Drive");
+    } catch (e) {
+      setUploadError(
+        e instanceof Error ? e.message : "Upload failed. Please upload the receipt image again.",
+      );
+      setFileKey((k) => k + 1);
+      toast.error("Receipt upload failed. Please upload the receipt image again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const amountNum = useMemo(() => Number(amount), [amount]);
   const prevDateValid = prevDate !== "" && prevDate < today;
   const paymentDate = isPrevious ? prevDate : today;
@@ -88,6 +146,8 @@ function EntryPage() {
     amountNum > 0 &&
     confirmed &&
     !saving &&
+    !uploading &&
+    receiptLink !== "" &&
     (!isPrevious || (prevDateValid && prevConfirmed));
 
   function openConfirm() {
@@ -112,7 +172,7 @@ function EntryPage() {
         settlement,
       };
       await save({ data: entry as never });
-      setReceipt(entry);
+      setReceipt({ ...entry, receiptLink });
       qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
 
@@ -125,6 +185,10 @@ function EntryPage() {
       setSettlement(false);
       setPrevConfirmed(false);
       setPrevDate("");
+      setReceiptLink("");
+      setReceiptName("");
+      setUploadError("");
+      setFileKey((k) => k + 1);
       toast.success("Entry saved");
 
     } catch (e) {
@@ -306,6 +370,33 @@ function EntryPage() {
           </div>
         </div>
 
+        <div className="space-y-2">
+          <Label className="text-base" htmlFor="receiptImage">
+            Payment Receipt Image (required)
+          </Label>
+          <Input
+            id="receiptImage"
+            key={fileKey}
+            type="file"
+            accept="image/*"
+            className="h-12 text-base"
+            disabled={uploading}
+            onChange={(e) => handleReceiptFile(e.target.files?.[0])}
+          />
+          {uploading && <p className="text-sm text-muted-foreground">Uploading receipt...</p>}
+          {receiptLink !== "" && (
+            <p className="text-sm font-medium text-green-700">
+              Uploaded: {receiptName} ·{" "}
+              <a href={receiptLink} target="_blank" rel="noreferrer" className="underline">
+                View on Drive
+              </a>
+            </p>
+          )}
+          {uploadError !== "" && (
+            <p className="text-sm font-medium text-destructive">{uploadError}</p>
+          )}
+        </div>
+
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
             checked={confirmed}
@@ -321,6 +412,11 @@ function EntryPage() {
         <Button className="h-14 w-full text-lg" disabled={!valid} onClick={openConfirm}>
           Submit
         </Button>
+        {receiptLink === "" && (
+          <p className="text-center text-sm text-muted-foreground">
+            Upload the receipt image to enable Submit.
+          </p>
+        )}
         {!confirmed && (
           <p className="text-center text-sm text-muted-foreground">
             Tick the confirmation to enable Submit.
