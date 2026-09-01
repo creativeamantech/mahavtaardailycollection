@@ -172,7 +172,7 @@ function EntryPage() {
         settlement,
       };
       await save({ data: entry as never });
-      setReceipt(entry);
+      setReceipt({ ...entry, receiptLink });
       qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
 
