@@ -185,6 +185,10 @@ function EntryPage() {
       setSettlement(false);
       setPrevConfirmed(false);
       setPrevDate("");
+      setReceiptLink("");
+      setReceiptName("");
+      setUploadError("");
+      setFileKey((k) => k + 1);
       toast.success("Entry saved");
 
     } catch (e) {
