@@ -146,6 +146,8 @@ function EntryPage() {
     amountNum > 0 &&
     confirmed &&
     !saving &&
+    !uploading &&
+    receiptLink !== "" &&
     (!isPrevious || (prevDateValid && prevConfirmed));
 
   function openConfirm() {
