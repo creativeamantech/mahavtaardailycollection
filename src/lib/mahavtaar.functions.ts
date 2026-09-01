@@ -40,6 +40,28 @@ const pendingSchema = z.object({
 });
 
 
+const receiptSchema = z.object({
+  loanNumber: z.string().trim().min(1).max(60),
+  name: z.string().trim().min(1).max(120),
+  mimeType: z.string().trim().min(1).max(80).refine((m) => m.startsWith("image/"), {
+    message: "Only image files are allowed.",
+  }),
+  base64: z.string().min(1).max(9_000_000),
+});
+
+export const uploadReceiptImage = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => receiptSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { driveUpload } = await import("./mahavtaar.server");
+    const safeLoan = data.loanNumber.replace(/[^A-Za-z0-9._-]/g, "");
+    const link = await driveUpload(
+      `${safeLoan}-receipt-${Date.now()}-${data.name}`,
+      data.mimeType,
+      data.base64,
+    );
+    return { ok: true as const, link };
+  });
+
 export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
