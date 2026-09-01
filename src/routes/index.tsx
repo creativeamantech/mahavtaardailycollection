@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { toast } from "sonner";
 import { EXECUTIVES, formatAmount, nowTime, todayISO } from "@/lib/executives";
-import { saveCollection } from "@/lib/mahavtaar.functions";
+import { saveCollection, uploadReceiptImage } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
