@@ -412,6 +412,11 @@ function EntryPage() {
         <Button className="h-14 w-full text-lg" disabled={!valid} onClick={openConfirm}>
           Submit
         </Button>
+        {receiptLink === "" && (
+          <p className="text-center text-sm text-muted-foreground">
+            Upload the receipt image to enable Submit.
+          </p>
+        )}
         {!confirmed && (
           <p className="text-center text-sm text-muted-foreground">
             Tick the confirmation to enable Submit.
