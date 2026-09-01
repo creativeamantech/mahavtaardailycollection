@@ -370,6 +370,33 @@ function EntryPage() {
           </div>
         </div>
 
+        <div className="space-y-2">
+          <Label className="text-base" htmlFor="receiptImage">
+            Payment Receipt Image (required)
+          </Label>
+          <Input
+            id="receiptImage"
+            key={fileKey}
+            type="file"
+            accept="image/*"
+            className="h-12 text-base"
+            disabled={uploading}
+            onChange={(e) => handleReceiptFile(e.target.files?.[0])}
+          />
+          {uploading && <p className="text-sm text-muted-foreground">Uploading receipt...</p>}
+          {receiptLink !== "" && (
+            <p className="text-sm font-medium text-green-700">
+              Uploaded: {receiptName} ·{" "}
+              <a href={receiptLink} target="_blank" rel="noreferrer" className="underline">
+                View on Drive
+              </a>
+            </p>
+          )}
+          {uploadError !== "" && (
+            <p className="text-sm font-medium text-destructive">{uploadError}</p>
+          )}
+        </div>
+
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
             checked={confirmed}
