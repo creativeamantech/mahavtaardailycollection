@@ -355,6 +355,10 @@ function ReportPage() {
         </Button>
       </div>
 
+      <div className="mt-4">
+        <MonthSelect value={month} onChange={setMonth} options={months} />
+      </div>
+
 
       {isLoading && <p className="mt-6 text-base">Loading report...</p>}
       {error && (
