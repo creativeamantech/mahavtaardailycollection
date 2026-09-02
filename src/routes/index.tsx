@@ -190,8 +190,7 @@ function EntryPage() {
       setSettlement(false);
       setPrevConfirmed(false);
       setPrevDate("");
-      setReceiptLink("");
-      setReceiptName("");
+      setReceipts([]);
       setUploadError("");
       setFileKey((k) => k + 1);
       toast.success("Entry saved");
@@ -377,25 +376,30 @@ function EntryPage() {
 
         <div className="space-y-2">
           <Label className="text-base" htmlFor="receiptImage">
-            Payment Receipt Image (required)
+            Payment Receipt Images (required, multiple allowed)
           </Label>
           <Input
             id="receiptImage"
             key={fileKey}
             type="file"
             accept="image/*"
+            multiple
             className="h-12 text-base"
             disabled={uploading}
-            onChange={(e) => handleReceiptFile(e.target.files?.[0])}
+            onChange={(e) => handleReceiptFiles(e.target.files)}
           />
-          {uploading && <p className="text-sm text-muted-foreground">Uploading receipt...</p>}
-          {receiptLink !== "" && (
-            <p className="text-sm font-medium text-green-700">
-              Uploaded: {receiptName} ·{" "}
-              <a href={receiptLink} target="_blank" rel="noreferrer" className="underline">
-                View on Drive
-              </a>
-            </p>
+          {uploading && <p className="text-sm text-muted-foreground">Uploading receipts...</p>}
+          {receipts.length > 0 && (
+            <ul className="space-y-1 text-sm font-medium text-green-700">
+              {receipts.map((r) => (
+                <li key={r.link}>
+                  Uploaded: {r.name} ·{" "}
+                  <a href={r.link} target="_blank" rel="noreferrer" className="underline">
+                    View on Drive
+                  </a>
+                </li>
+              ))}
+            </ul>
           )}
           {uploadError !== "" && (
             <p className="text-sm font-medium text-destructive">{uploadError}</p>
