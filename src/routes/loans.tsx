@@ -4,13 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { getCollections } from "@/lib/mahavtaar.functions";
-import { EXECUTIVES, formatAmount, todayISO } from "@/lib/executives";
+import { formatAmount, todayISO } from "@/lib/executives";
 import {
   summariseLoans,
   shortEmiRows,
-  cityExecutiveMatrix,
+  executiveSections,
+  type ExecutiveMetrics,
+  type ReportSection,
   type LoanSummary,
 } from "@/lib/loans";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
