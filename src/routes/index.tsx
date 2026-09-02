@@ -97,7 +97,6 @@ function EntryPage() {
   const [uploadError, setUploadError] = useState("");
   const [fileKey, setFileKey] = useState(0);
   const receiptLink = receipts.length > 0 ? receipts[0]!.link : "";
-  const receiptName = receipts.map((r) => r.name).join(", ");
 
   async function handleReceiptFiles(fileList: FileList | null) {
     setUploadError("");
@@ -454,6 +453,7 @@ function EntryPage() {
             <Row k="Entry Time" v={time} />
             <Row k="Entry Type" v={isPrevious ? "Previous Paid File" : "Normal"} />
             <Row k="Settlement Payment" v={settlement ? "Yes" : "No"} />
+            <Row k="Receipt Images" v={`${receipts.length} uploaded`} />
           </dl>
 
           {isPrevious && (
