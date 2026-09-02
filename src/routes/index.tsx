@@ -92,48 +92,53 @@ function EntryPage() {
 
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
-  const [receiptLink, setReceiptLink] = useState("");
-  const [receiptName, setReceiptName] = useState("");
+  const [receipts, setReceipts] = useState<{ name: string; link: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [fileKey, setFileKey] = useState(0);
+  const receiptLink = receipts.length > 0 ? receipts[0]!.link : "";
+  const receiptName = receipts.map((r) => r.name).join(", ");
 
-  async function handleReceiptFile(file: File | undefined) {
-    setReceiptLink("");
-    setReceiptName("");
+  async function handleReceiptFiles(fileList: FileList | null) {
     setUploadError("");
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setUploadError("Please select a valid image file.");
+    const files = Array.from(fileList ?? []).slice(0, 10);
+    if (files.length === 0) return;
+    const bad = files.find((f) => !f.type.startsWith("image/"));
+    if (bad) {
+      setUploadError("Please select only image files.");
+      setFileKey((k) => k + 1);
       return;
     }
     if (loanId.trim() === "") {
-      setUploadError("Enter the Loan Number before uploading the receipt image.");
+      setUploadError("Enter the Loan Number before uploading receipt images.");
       setFileKey((k) => k + 1);
       return;
     }
     setUploading(true);
+    const uploaded: { name: string; link: string }[] = [];
     try {
-      const base64 = await fileToBase64(file);
-      const res = (await uploadReceipt({
-        data: {
-          loanNumber: loanId.trim(),
-          name: file.name || "receipt.jpg",
-          mimeType: file.type,
-          base64,
-        } as never,
-      })) as { link: string };
-      setReceiptLink(res.link);
-      setReceiptName(file.name || "receipt");
-      toast.success("Receipt uploaded to Google Drive");
+      for (const file of files) {
+        const base64 = await fileToBase64(file);
+        const res = (await uploadReceipt({
+          data: {
+            loanNumber: loanId.trim(),
+            name: file.name || "receipt.jpg",
+            mimeType: file.type,
+            base64,
+          } as never,
+        })) as { link: string };
+        uploaded.push({ name: file.name || "receipt", link: res.link });
+      }
+      setReceipts((prev) => [...prev, ...uploaded].slice(0, 10));
+      toast.success(`${uploaded.length} receipt(s) uploaded to Google Drive`);
     } catch (e) {
       setUploadError(
         e instanceof Error ? e.message : "Upload failed. Please upload the receipt image again.",
       );
-      setFileKey((k) => k + 1);
       toast.error("Receipt upload failed. Please upload the receipt image again.");
     } finally {
       setUploading(false);
+      setFileKey((k) => k + 1);
     }
   }
 
