@@ -25,14 +25,56 @@ async function ok(res: Response, label: string) {
   return res.json();
 }
 
-export async function sheetsGet(range: string): Promise<string[][]> {
-  const res = await fetch(
-    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`,
-    { headers: headers("GOOGLE_SHEETS_API_KEY") },
-  );
-  const json = (await ok(res, "Sheets read")) as { values?: string[][] };
-  return json.values ?? [];
+// --- read cache + retry to stay under the Sheets read-requests-per-minute quota ---
+const CACHE_TTL_MS = 20_000;
+const readCache = new Map<string, { at: number; rows: string[][] }>();
+const inFlight = new Map<string, Promise<string[][]>>();
+
+export function invalidateSheetsCache() {
+  readCache.clear();
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchRange(range: string): Promise<string[][]> {
+  let lastBody = "";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const res = await fetch(
+      `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`,
+      { headers: headers("GOOGLE_SHEETS_API_KEY") },
+    );
+    if (res.ok) {
+      const json = (await res.json()) as { values?: string[][] };
+      return json.values ?? [];
+    }
+    lastBody = await res.text();
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt === 3) {
+      console.error(`Sheets read failed [${res.status}]: ${lastBody}`);
+      throw new Error(`Sheets read failed [${res.status}]: ${lastBody}`);
+    }
+    await sleep(600 * 2 ** attempt + Math.random() * 300);
+  }
+  throw new Error(`Sheets read failed: ${lastBody}`);
+}
+
+export async function sheetsGet(range: string): Promise<string[][]> {
+  const cached = readCache.get(range);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.rows;
+
+  const pending = inFlight.get(range);
+  if (pending) return pending;
+
+  const p = fetchRange(range)
+    .then((rows) => {
+      readCache.set(range, { at: Date.now(), rows });
+      return rows;
+    })
+    .finally(() => inFlight.delete(range));
+  inFlight.set(range, p);
+  return p;
+}
+
 
 export async function sheetsAppend(range: string, values: (string | number)[][]) {
   const res = await fetch(
@@ -43,6 +85,7 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
       body: JSON.stringify({ values }),
     },
   );
+  invalidateSheetsCache();
   return ok(res, "Sheets append");
 }
 
@@ -55,6 +98,7 @@ export async function sheetsUpdate(range: string, values: (string | number)[][])
       body: JSON.stringify({ values }),
     },
   );
+  invalidateSheetsCache();
   return ok(res, "Sheets update");
 }
 
