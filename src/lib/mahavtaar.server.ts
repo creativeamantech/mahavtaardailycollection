@@ -85,6 +85,7 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
       body: JSON.stringify({ values }),
     },
   );
+  invalidateSheetsCache();
   return ok(res, "Sheets append");
 }
 
@@ -97,6 +98,7 @@ export async function sheetsUpdate(range: string, values: (string | number)[][])
       body: JSON.stringify({ values }),
     },
   );
+  invalidateSheetsCache();
   return ok(res, "Sheets update");
 }
 
