@@ -92,48 +92,52 @@ function EntryPage() {
 
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
-  const [receiptLink, setReceiptLink] = useState("");
-  const [receiptName, setReceiptName] = useState("");
+  const [receipts, setReceipts] = useState<{ name: string; link: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [fileKey, setFileKey] = useState(0);
+  const receiptLink = receipts.length > 0 ? receipts[0]!.link : "";
 
-  async function handleReceiptFile(file: File | undefined) {
-    setReceiptLink("");
-    setReceiptName("");
+  async function handleReceiptFiles(fileList: FileList | null) {
     setUploadError("");
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setUploadError("Please select a valid image file.");
+    const files = Array.from(fileList ?? []).slice(0, 10);
+    if (files.length === 0) return;
+    const bad = files.find((f) => !f.type.startsWith("image/"));
+    if (bad) {
+      setUploadError("Please select only image files.");
+      setFileKey((k) => k + 1);
       return;
     }
     if (loanId.trim() === "") {
-      setUploadError("Enter the Loan Number before uploading the receipt image.");
+      setUploadError("Enter the Loan Number before uploading receipt images.");
       setFileKey((k) => k + 1);
       return;
     }
     setUploading(true);
+    const uploaded: { name: string; link: string }[] = [];
     try {
-      const base64 = await fileToBase64(file);
-      const res = (await uploadReceipt({
-        data: {
-          loanNumber: loanId.trim(),
-          name: file.name || "receipt.jpg",
-          mimeType: file.type,
-          base64,
-        } as never,
-      })) as { link: string };
-      setReceiptLink(res.link);
-      setReceiptName(file.name || "receipt");
-      toast.success("Receipt uploaded to Google Drive");
+      for (const file of files) {
+        const base64 = await fileToBase64(file);
+        const res = (await uploadReceipt({
+          data: {
+            loanNumber: loanId.trim(),
+            name: file.name || "receipt.jpg",
+            mimeType: file.type,
+            base64,
+          } as never,
+        })) as { link: string };
+        uploaded.push({ name: file.name || "receipt", link: res.link });
+      }
+      setReceipts((prev) => [...prev, ...uploaded].slice(0, 10));
+      toast.success(`${uploaded.length} receipt(s) uploaded to Google Drive`);
     } catch (e) {
       setUploadError(
         e instanceof Error ? e.message : "Upload failed. Please upload the receipt image again.",
       );
-      setFileKey((k) => k + 1);
       toast.error("Receipt upload failed. Please upload the receipt image again.");
     } finally {
       setUploading(false);
+      setFileKey((k) => k + 1);
     }
   }
 
@@ -185,8 +189,7 @@ function EntryPage() {
       setSettlement(false);
       setPrevConfirmed(false);
       setPrevDate("");
-      setReceiptLink("");
-      setReceiptName("");
+      setReceipts([]);
       setUploadError("");
       setFileKey((k) => k + 1);
       toast.success("Entry saved");
@@ -372,25 +375,30 @@ function EntryPage() {
 
         <div className="space-y-2">
           <Label className="text-base" htmlFor="receiptImage">
-            Payment Receipt Image (required)
+            Payment Receipt Images (required, multiple allowed)
           </Label>
           <Input
             id="receiptImage"
             key={fileKey}
             type="file"
             accept="image/*"
+            multiple
             className="h-12 text-base"
             disabled={uploading}
-            onChange={(e) => handleReceiptFile(e.target.files?.[0])}
+            onChange={(e) => handleReceiptFiles(e.target.files)}
           />
-          {uploading && <p className="text-sm text-muted-foreground">Uploading receipt...</p>}
-          {receiptLink !== "" && (
-            <p className="text-sm font-medium text-green-700">
-              Uploaded: {receiptName} ·{" "}
-              <a href={receiptLink} target="_blank" rel="noreferrer" className="underline">
-                View on Drive
-              </a>
-            </p>
+          {uploading && <p className="text-sm text-muted-foreground">Uploading receipts...</p>}
+          {receipts.length > 0 && (
+            <ul className="space-y-1 text-sm font-medium text-green-700">
+              {receipts.map((r) => (
+                <li key={r.link}>
+                  Uploaded: {r.name} ·{" "}
+                  <a href={r.link} target="_blank" rel="noreferrer" className="underline">
+                    View on Drive
+                  </a>
+                </li>
+              ))}
+            </ul>
           )}
           {uploadError !== "" && (
             <p className="text-sm font-medium text-destructive">{uploadError}</p>
@@ -445,6 +453,7 @@ function EntryPage() {
             <Row k="Entry Time" v={time} />
             <Row k="Entry Type" v={isPrevious ? "Previous Paid File" : "Normal"} />
             <Row k="Settlement Payment" v={settlement ? "Yes" : "No"} />
+            <Row k="Receipt Images" v={`${receipts.length} uploaded`} />
           </dl>
 
           {isPrevious && (
