@@ -95,25 +95,27 @@ function LoansPage() {
     () => [...new Set(loans.map((l) => l.bucket))].filter(Boolean).sort(),
     [loans],
   );
-  const dateMatrix = useMemo(() => {
+  const dateSections = useMemo(() => {
     const scoped = rows.filter(
       (r) => r.date === date && (dateBucket === ALL || (r.bucket ?? "") === dateBucket),
     );
-    return cityExecutiveMatrix(summariseLoans(scoped), EXECUTIVES);
+    return executiveSections(summariseLoans(scoped));
   }, [rows, date, dateBucket]);
 
-  // Overall bucket -> city report (all dates)
-  const overall = useMemo(
+  // Overall bucket -> city report (all dates in the selected month).
+  // Rendered only after the user asks for it; no extra API call is made,
+  // the already-fetched dataset is reused.
+  const [showOverall, setShowOverall] = useState(false);
+  const overallSections = useMemo(
     () =>
-      buckets.map((b) => ({
-        bucket: b,
-        cities: cityExecutiveMatrix(
-          loans.filter((l) => l.bucket === b),
-          EXECUTIVES,
-        ),
-      })),
-    [loans, buckets],
+      showOverall
+        ? [...executiveSections(loans)].sort(
+            (a, b) => a.bucket.localeCompare(b.bucket) || a.city.localeCompare(b.city),
+          )
+        : [],
+    [loans, showOverall],
   );
+
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
