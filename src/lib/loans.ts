@@ -263,3 +263,86 @@ export function bucketMatches(bucket: string | undefined, filter: string) {
   const b = filter.match(/\d+/)?.[0];
   return !!a && a === b;
 }
+
+// ---------------------------------------------------------------------------
+// Presentation helpers only. These reuse the loan summaries produced above and
+// never change any payment / EMI / Main Paid / POS calculation.
+// ---------------------------------------------------------------------------
+
+export type ExecutiveMetrics = {
+  executive: string;
+  collection: number;
+  cases: number;
+  mainPaid: number;
+  paidEmi: number;
+  posPaidNotMain: number;
+  paidPos: number;
+};
+
+export type ReportSection = {
+  key: string;
+  city: string;
+  bucket: string;
+  rows: ExecutiveMetrics[];
+  total: ExecutiveMetrics;
+};
+
+function emptyMetrics(executive: string): ExecutiveMetrics {
+  return {
+    executive,
+    collection: 0,
+    cases: 0,
+    mainPaid: 0,
+    paidEmi: 0,
+    posPaidNotMain: 0,
+    paidPos: 0,
+  };
+}
+
+function addLoan(m: ExecutiveMetrics, l: LoanSummary) {
+  m.collection += l.totalPaid;
+  m.cases += 1;
+  if (l.mainPaid) {
+    m.mainPaid += 1;
+    m.paidEmi += l.paidEmiCount;
+    m.paidPos += l.pos ?? 0;
+  } else if (l.posPaid) {
+    m.posPaidNotMain += 1;
+  }
+}
+
+// Groups loans into City + Bucket sections with one row per executive.
+// A loan counts once per executive that touched it, exactly like the
+// previous city matrix did.
+export function executiveSections(loans: LoanSummary[]): ReportSection[] {
+  const map = new Map<string, { city: string; bucket: string; execs: Map<string, ExecutiveMetrics> }>();
+  for (const l of loans) {
+    const city = l.city || "—";
+    const bucket = l.bucket || "—";
+    const key = `${city}||${bucket}`;
+    const g = map.get(key) ?? { city, bucket, execs: new Map<string, ExecutiveMetrics>() };
+    for (const e of l.executives) {
+      const m = g.execs.get(e) ?? emptyMetrics(e);
+      addLoan(m, l);
+      g.execs.set(e, m);
+    }
+    map.set(key, g);
+  }
+
+  return [...map.entries()]
+    .map(([key, g]) => {
+      const rows = [...g.execs.values()].sort((a, b) => b.collection - a.collection);
+      const total = emptyMetrics("Total");
+      for (const r of rows) {
+        total.collection += r.collection;
+        total.cases += r.cases;
+        total.mainPaid += r.mainPaid;
+        total.paidEmi += r.paidEmi;
+        total.posPaidNotMain += r.posPaidNotMain;
+        total.paidPos += r.paidPos;
+      }
+      return { key, city: g.city, bucket: g.bucket, rows, total };
+    })
+    .filter((s) => s.rows.length > 0)
+    .sort((a, b) => a.city.localeCompare(b.city) || a.bucket.localeCompare(b.bucket));
+}

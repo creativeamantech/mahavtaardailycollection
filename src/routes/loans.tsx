@@ -4,13 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { getCollections } from "@/lib/mahavtaar.functions";
-import { EXECUTIVES, formatAmount, todayISO } from "@/lib/executives";
+import { formatAmount, todayISO } from "@/lib/executives";
 import {
   summariseLoans,
   shortEmiRows,
-  cityExecutiveMatrix,
+  executiveSections,
+  type ExecutiveMetrics,
+  type ReportSection,
   type LoanSummary,
 } from "@/lib/loans";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,25 +98,27 @@ function LoansPage() {
     () => [...new Set(loans.map((l) => l.bucket))].filter(Boolean).sort(),
     [loans],
   );
-  const dateMatrix = useMemo(() => {
+  const dateSections = useMemo(() => {
     const scoped = rows.filter(
       (r) => r.date === date && (dateBucket === ALL || (r.bucket ?? "") === dateBucket),
     );
-    return cityExecutiveMatrix(summariseLoans(scoped), EXECUTIVES);
+    return executiveSections(summariseLoans(scoped));
   }, [rows, date, dateBucket]);
 
-  // Overall bucket -> city report (all dates)
-  const overall = useMemo(
+  // Overall bucket -> city report (all dates in the selected month).
+  // Rendered only after the user asks for it; no extra API call is made,
+  // the already-fetched dataset is reused.
+  const [showOverall, setShowOverall] = useState(false);
+  const overallSections = useMemo(
     () =>
-      buckets.map((b) => ({
-        bucket: b,
-        cities: cityExecutiveMatrix(
-          loans.filter((l) => l.bucket === b),
-          EXECUTIVES,
-        ),
-      })),
-    [loans, buckets],
+      showOverall
+        ? [...executiveSections(loans)].sort(
+            (a, b) => a.bucket.localeCompare(b.bucket) || a.city.localeCompare(b.city),
+          )
+        : [],
+    [loans, showOverall],
   );
+
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
@@ -264,77 +269,96 @@ function LoansPage() {
           </div>
         </div>
 
-        {dateMatrix.length === 0 ? (
+        {dateSections.length === 0 ? (
           <p className="mt-3 rounded-xl border p-6 text-center text-base">
             No paid cases for this date.
           </p>
         ) : (
-          dateMatrix.map((c) => <CityTable key={c.city} title={c.city} matrix={c} />)
+          <div className="mt-4 space-y-5">
+            {dateSections.map((s) => (
+              <SectionTable key={s.key} title={`${s.city} — ${s.bucket}`} section={s} />
+            ))}
+          </div>
         )}
       </section>
 
       <section className="mt-10">
         <h2 className="text-2xl font-bold tracking-tight">Overall Bucket &amp; City Report</h2>
-        <p className="mt-1 text-base text-muted-foreground">All available dates.</p>
-        {overall.length === 0 ? (
+        <p className="mt-1 text-base text-muted-foreground">All dates in the selected month.</p>
+        {!showOverall ? (
+          <Button
+            variant="outline"
+            className="mt-3 h-12 w-full text-base"
+            onClick={() => setShowOverall(true)}
+          >
+            Show Overall Bucket &amp; City Report
+          </Button>
+        ) : overallSections.length === 0 ? (
           <p className="mt-3 rounded-xl border p-6 text-center text-base">No data yet.</p>
         ) : (
-          overall.map((b) =>
-            b.cities.map((c) => (
-              <CityTable key={`${b.bucket}-${c.city}`} title={`${b.bucket} — ${c.city}`} matrix={c} />
-            )),
-          )
+          <div className="mt-4 space-y-5">
+            {overallSections.map((s) => (
+              <SectionTable key={s.key} title={`${s.bucket} — ${s.city}`} section={s} />
+            ))}
+          </div>
         )}
       </section>
     </main>
   );
 }
 
-function CityTable({
-  title,
-  matrix,
-}: {
-  title: string;
-  matrix: { cases: Record<string, number>; pos: Record<string, number> };
-}) {
+const METRIC_COLS = [
+  { label: "Coll.", get: (m: ExecutiveMetrics) => formatAmount(m.collection) },
+  { label: "Cases", get: (m: ExecutiveMetrics) => String(m.cases) },
+  { label: "Main", get: (m: ExecutiveMetrics) => String(m.mainPaid) },
+  { label: "EMI", get: (m: ExecutiveMetrics) => String(m.paidEmi) },
+  { label: "POS*", get: (m: ExecutiveMetrics) => String(m.posPaidNotMain) },
+  { label: "Paid POS", get: (m: ExecutiveMetrics) => formatAmount(m.paidPos) },
+] as const;
+
+function SectionTable({ title, section }: { title: string; section: ReportSection }) {
   return (
-    <div className="mt-4">
-      <p className="text-lg font-bold">{title}</p>
-      <div className="mt-2 overflow-x-auto rounded-xl border">
-        <table className="w-full text-base">
-          <thead className="bg-muted/50">
-            <tr>
-              <Th>Metric</Th>
-              {EXECUTIVES.map((e) => (
-                <Th key={e} right>
-                  {e}
-                </Th>
+    <div className="rounded-xl border">
+      <p className="border-b bg-muted/50 px-3 py-2 text-base font-bold">{title}</p>
+      <table className="w-full table-fixed text-sm">
+        <thead>
+          <tr className="border-b">
+            <th className="w-[26%] p-2 text-left font-semibold">Exec</th>
+            {METRIC_COLS.map((c) => (
+              <th key={c.label} className="p-2 text-right font-semibold">
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {section.rows.map((r) => (
+            <tr key={r.executive} className="border-b last:border-b-0">
+              <td className="truncate p-2">{r.executive}</td>
+              {METRIC_COLS.map((c) => (
+                <td key={c.label} className="p-2 text-right tabular-nums">
+                  {c.get(r)}
+                </td>
               ))}
             </tr>
-          </thead>
-          <tbody>
-            <tr className="border-t">
-              <Td>Paid Cases</Td>
-              {EXECUTIVES.map((e) => (
-                <Td key={e} right>
-                  {matrix.cases[e] ?? 0}
-                </Td>
-              ))}
-            </tr>
-            <tr className="border-t">
-              <Td>Paid POS</Td>
-              {EXECUTIVES.map((e) => (
-                <Td key={e} right>
-                  {formatAmount(matrix.pos[e] ?? 0)}
-                </Td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          ))}
+          <tr className="border-t bg-muted/40 font-semibold">
+            <td className="p-2">Total</td>
+            {METRIC_COLS.map((c) => (
+              <td key={c.label} className="p-2 text-right tabular-nums">
+                {c.get(section.total)}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+      <p className="px-3 py-2 text-xs text-muted-foreground">
+        POS* = POS Paid but not Main Paid.
+      </p>
     </div>
   );
 }
+
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
