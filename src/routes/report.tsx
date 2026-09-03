@@ -435,22 +435,24 @@ function ReportBlock({ rows }: { rows: Row[] }) {
   return (
     <div className="space-y-5">
       <div className="overflow-hidden rounded-xl border">
-        <table className="w-full text-base">
+        <table className="w-full text-xs sm:text-base">
           <thead className="bg-muted">
             <tr>
-              <th className="p-3 text-left font-semibold">Executive Name</th>
-              <th className="p-3 text-right font-semibold">Total Collection</th>
-              <th className="p-3 text-right font-semibold">Cases</th>
-              <th className="p-3 text-left font-semibold">Entry Type</th>
+              <th className="px-2 py-2 text-left font-semibold sm:p-3">Executive</th>
+              <th className="px-2 py-2 text-right font-semibold sm:p-3">Collection</th>
+              <th className="px-2 py-2 text-right font-semibold sm:p-3">Cases</th>
+              <th className="px-2 py-2 text-left font-semibold sm:p-3">Entry Type</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.executive} className="border-t">
-                <td className="p-3">{r.executive}</td>
-                <td className="p-3 text-right font-semibold">{formatAmount(r.total)}</td>
-                <td className="p-3 text-right">{r.count}</td>
-                <td className="p-3">
+                <td className="px-2 py-2 sm:p-3">{r.executive}</td>
+                <td className="px-2 py-2 text-right font-semibold tabular-nums sm:p-3">
+                  {formatAmount(r.total)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums sm:p-3">{r.count}</td>
+                <td className="px-2 py-2 sm:p-3">
                   <div className="flex flex-wrap gap-1">
                     {r.normalCount > 0 && (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
