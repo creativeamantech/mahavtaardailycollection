@@ -317,43 +317,51 @@ const METRIC_COLS = [
 ] as const;
 
 function SectionTable({ title, section }: { title: string; section: ReportSection }) {
-  const cell = "px-1.5 py-2 sm:px-2";
+  const cell = "whitespace-nowrap px-1 py-1.5 sm:px-2 sm:py-2";
   return (
-    <div className="overflow-hidden rounded-xl border">
-      <p className="border-b bg-muted/50 px-3 py-2 text-sm font-bold sm:text-base">{title}</p>
-      <table className="w-full table-fixed text-[11px] leading-tight sm:text-sm">
-        <thead>
-          <tr className="border-b bg-muted/30">
-            <th className={`${cell} w-[22%] text-left font-semibold`}>Exec</th>
-            {METRIC_COLS.map((c) => (
-              <th key={c.label} className={`${cell} text-right font-semibold`}>
-                {c.label}
+    <div className="rounded-xl border">
+      <p className="border-b bg-muted/50 px-3 py-2 text-sm font-bold break-words sm:text-base">
+        {title}
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[10px] leading-tight sm:text-sm">
+          <thead>
+            <tr className="border-b bg-muted/30">
+              <th className={`${cell} max-w-[72px] truncate text-left font-semibold sm:max-w-none`}>
+                Exec
               </th>
+              {METRIC_COLS.map((c) => (
+                <th key={c.label} className={`${cell} text-right font-semibold`}>
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {section.rows.map((r) => (
+              <tr key={r.executive} className="border-b last:border-b-0">
+                <td className={`${cell} max-w-[72px] truncate text-left sm:max-w-none`}>
+                  {r.executive}
+                </td>
+                {METRIC_COLS.map((c) => (
+                  <td key={c.label} className={`${cell} text-right tabular-nums`}>
+                    {c.get(r)}
+                  </td>
+                ))}
+              </tr>
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {section.rows.map((r) => (
-            <tr key={r.executive} className="border-b last:border-b-0">
-              <td className={`${cell} truncate text-left`}>{r.executive}</td>
+            <tr className="border-t-2 bg-muted/50 font-bold">
+              <td className={`${cell} text-left`}>TOTAL</td>
               {METRIC_COLS.map((c) => (
                 <td key={c.label} className={`${cell} text-right tabular-nums`}>
-                  {c.get(r)}
+                  {c.get(section.total)}
                 </td>
               ))}
             </tr>
-          ))}
-          <tr className="border-t-2 bg-muted/50 font-bold">
-            <td className={`${cell} text-left`}>TOTAL</td>
-            {METRIC_COLS.map((c) => (
-              <td key={c.label} className={`${cell} text-right tabular-nums`}>
-                {c.get(section.total)}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-      <p className="px-3 py-1.5 text-[10px] text-muted-foreground sm:text-xs">
+          </tbody>
+        </table>
+      </div>
+      <p className="border-t px-3 py-1.5 text-[10px] text-muted-foreground sm:text-xs">
         POS* = POS Paid but not Main Paid.
       </p>
     </div>
