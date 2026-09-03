@@ -200,7 +200,7 @@ function LoansPage() {
 
         {showShort && (
           <div className="mt-3 overflow-x-auto rounded-xl border">
-            <table className="w-full text-base">
+            <table className="w-full text-xs sm:text-base">
               <thead className="bg-muted/50">
                 <tr>
                   <Th>Executive</Th>
@@ -276,7 +276,7 @@ function LoansPage() {
         ) : (
           <div className="mt-4 space-y-5">
             {dateSections.map((s) => (
-              <SectionTable key={s.key} title={`${s.city} — ${s.bucket}`} section={s} />
+              <SectionTable key={s.key} title={`${s.bucket} — ${s.city}`} section={s} />
             ))}
           </div>
         )}
@@ -308,7 +308,7 @@ function LoansPage() {
 }
 
 const METRIC_COLS = [
-  { label: "Coll.", get: (m: ExecutiveMetrics) => formatAmount(m.collection) },
+  { label: "Collection", get: (m: ExecutiveMetrics) => formatAmount(m.collection) },
   { label: "Cases", get: (m: ExecutiveMetrics) => String(m.cases) },
   { label: "Main", get: (m: ExecutiveMetrics) => String(m.mainPaid) },
   { label: "EMI", get: (m: ExecutiveMetrics) => String(m.paidEmi) },
@@ -317,42 +317,51 @@ const METRIC_COLS = [
 ] as const;
 
 function SectionTable({ title, section }: { title: string; section: ReportSection }) {
+  const cell = "whitespace-nowrap px-1 py-1.5 sm:px-2 sm:py-2";
   return (
     <div className="rounded-xl border">
-      <p className="border-b bg-muted/50 px-3 py-2 text-base font-bold">{title}</p>
-      <table className="w-full table-fixed text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="w-[26%] p-2 text-left font-semibold">Exec</th>
-            {METRIC_COLS.map((c) => (
-              <th key={c.label} className="p-2 text-right font-semibold">
-                {c.label}
+      <p className="border-b bg-muted/50 px-3 py-2 text-sm font-bold break-words sm:text-base">
+        {title}
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[10px] leading-tight sm:text-sm">
+          <thead>
+            <tr className="border-b bg-muted/30">
+              <th className={`${cell} max-w-[72px] truncate text-left font-semibold sm:max-w-none`}>
+                Exec
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {section.rows.map((r) => (
-            <tr key={r.executive} className="border-b last:border-b-0">
-              <td className="truncate p-2">{r.executive}</td>
               {METRIC_COLS.map((c) => (
-                <td key={c.label} className="p-2 text-right tabular-nums">
-                  {c.get(r)}
+                <th key={c.label} className={`${cell} text-right font-semibold`}>
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {section.rows.map((r) => (
+              <tr key={r.executive} className="border-b last:border-b-0">
+                <td className={`${cell} max-w-[72px] truncate text-left sm:max-w-none`}>
+                  {r.executive}
+                </td>
+                {METRIC_COLS.map((c) => (
+                  <td key={c.label} className={`${cell} text-right tabular-nums`}>
+                    {c.get(r)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            <tr className="border-t-2 bg-muted/50 font-bold">
+              <td className={`${cell} text-left`}>TOTAL</td>
+              {METRIC_COLS.map((c) => (
+                <td key={c.label} className={`${cell} text-right tabular-nums`}>
+                  {c.get(section.total)}
                 </td>
               ))}
             </tr>
-          ))}
-          <tr className="border-t bg-muted/40 font-semibold">
-            <td className="p-2">Total</td>
-            {METRIC_COLS.map((c) => (
-              <td key={c.label} className="p-2 text-right tabular-nums">
-                {c.get(section.total)}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-      <p className="px-3 py-2 text-xs text-muted-foreground">
+          </tbody>
+        </table>
+      </div>
+      <p className="border-t px-3 py-1.5 text-[10px] text-muted-foreground sm:text-xs">
         POS* = POS Paid but not Main Paid.
       </p>
     </div>
@@ -362,7 +371,9 @@ function SectionTable({ title, section }: { title: string; section: ReportSectio
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th className={`whitespace-nowrap p-3 text-sm font-semibold ${right ? "text-right" : "text-left"}`}>
+    <th
+      className={`whitespace-nowrap px-2 py-2 text-xs font-semibold sm:p-3 sm:text-sm ${right ? "text-right" : "text-left"}`}
+    >
       {children}
     </th>
   );
@@ -370,7 +381,7 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 
 function Td({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <td className={`whitespace-nowrap p-3 ${right ? "text-right" : "text-left"}`}>{children}</td>
+    <td className={`whitespace-nowrap px-2 py-2 sm:p-3 ${right ? "text-right" : "text-left"}`}>{children}</td>
   );
 }
 
