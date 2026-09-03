@@ -317,15 +317,16 @@ const METRIC_COLS = [
 ] as const;
 
 function SectionTable({ title, section }: { title: string; section: ReportSection }) {
+  const cell = "px-1.5 py-2 sm:px-2";
   return (
-    <div className="rounded-xl border">
-      <p className="border-b bg-muted/50 px-3 py-2 text-base font-bold">{title}</p>
-      <table className="w-full table-fixed text-sm">
+    <div className="overflow-hidden rounded-xl border">
+      <p className="border-b bg-muted/50 px-3 py-2 text-sm font-bold sm:text-base">{title}</p>
+      <table className="w-full table-fixed text-[11px] leading-tight sm:text-sm">
         <thead>
-          <tr className="border-b">
-            <th className="w-[26%] p-2 text-left font-semibold">Exec</th>
+          <tr className="border-b bg-muted/30">
+            <th className={`${cell} w-[22%] text-left font-semibold`}>Exec</th>
             {METRIC_COLS.map((c) => (
-              <th key={c.label} className="p-2 text-right font-semibold">
+              <th key={c.label} className={`${cell} text-right font-semibold`}>
                 {c.label}
               </th>
             ))}
@@ -334,25 +335,25 @@ function SectionTable({ title, section }: { title: string; section: ReportSectio
         <tbody>
           {section.rows.map((r) => (
             <tr key={r.executive} className="border-b last:border-b-0">
-              <td className="truncate p-2">{r.executive}</td>
+              <td className={`${cell} truncate text-left`}>{r.executive}</td>
               {METRIC_COLS.map((c) => (
-                <td key={c.label} className="p-2 text-right tabular-nums">
+                <td key={c.label} className={`${cell} text-right tabular-nums`}>
                   {c.get(r)}
                 </td>
               ))}
             </tr>
           ))}
-          <tr className="border-t bg-muted/40 font-semibold">
-            <td className="p-2">Total</td>
+          <tr className="border-t-2 bg-muted/50 font-bold">
+            <td className={`${cell} text-left`}>TOTAL</td>
             {METRIC_COLS.map((c) => (
-              <td key={c.label} className="p-2 text-right tabular-nums">
+              <td key={c.label} className={`${cell} text-right tabular-nums`}>
                 {c.get(section.total)}
               </td>
             ))}
           </tr>
         </tbody>
       </table>
-      <p className="px-3 py-2 text-xs text-muted-foreground">
+      <p className="px-3 py-1.5 text-[10px] text-muted-foreground sm:text-xs">
         POS* = POS Paid but not Main Paid.
       </p>
     </div>
