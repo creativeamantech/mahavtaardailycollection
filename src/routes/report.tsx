@@ -468,11 +468,11 @@ function ReportBlock({ rows }: { rows: Row[] }) {
                 </td>
               </tr>
             ))}
-            <tr className="border-t bg-muted/50 font-semibold">
-              <td className="p-3">Total</td>
-              <td className="p-3 text-right">{formatAmount(total)}</td>
-              <td className="p-3 text-right">{cases}</td>
-              <td className="p-3" />
+            <tr className="border-t-2 bg-muted/50 font-bold">
+              <td className="px-2 py-2 sm:p-3">TOTAL</td>
+              <td className="px-2 py-2 text-right tabular-nums sm:p-3">{formatAmount(total)}</td>
+              <td className="px-2 py-2 text-right tabular-nums sm:p-3">{cases}</td>
+              <td className="px-2 py-2 sm:p-3" />
             </tr>
           </tbody>
         </table>
