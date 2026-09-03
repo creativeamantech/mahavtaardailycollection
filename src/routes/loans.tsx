@@ -276,7 +276,7 @@ function LoansPage() {
         ) : (
           <div className="mt-4 space-y-5">
             {dateSections.map((s) => (
-              <SectionTable key={s.key} title={`${s.city} — ${s.bucket}`} section={s} />
+              <SectionTable key={s.key} title={`${s.bucket} — ${s.city}`} section={s} />
             ))}
           </div>
         )}
@@ -308,7 +308,7 @@ function LoansPage() {
 }
 
 const METRIC_COLS = [
-  { label: "Coll.", get: (m: ExecutiveMetrics) => formatAmount(m.collection) },
+  { label: "Collection", get: (m: ExecutiveMetrics) => formatAmount(m.collection) },
   { label: "Cases", get: (m: ExecutiveMetrics) => String(m.cases) },
   { label: "Main", get: (m: ExecutiveMetrics) => String(m.mainPaid) },
   { label: "EMI", get: (m: ExecutiveMetrics) => String(m.paidEmi) },
