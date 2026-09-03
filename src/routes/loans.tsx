@@ -200,7 +200,7 @@ function LoansPage() {
 
         {showShort && (
           <div className="mt-3 overflow-x-auto rounded-xl border">
-            <table className="w-full text-base">
+            <table className="w-full text-xs sm:text-base">
               <thead className="bg-muted/50">
                 <tr>
                   <Th>Executive</Th>
@@ -363,7 +363,9 @@ function SectionTable({ title, section }: { title: string; section: ReportSectio
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th className={`whitespace-nowrap p-3 text-sm font-semibold ${right ? "text-right" : "text-left"}`}>
+    <th
+      className={`whitespace-nowrap px-2 py-2 text-xs font-semibold sm:p-3 sm:text-sm ${right ? "text-right" : "text-left"}`}
+    >
       {children}
     </th>
   );
@@ -371,7 +373,7 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 
 function Td({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <td className={`whitespace-nowrap p-3 ${right ? "text-right" : "text-left"}`}>{children}</td>
+    <td className={`whitespace-nowrap px-2 py-2 sm:p-3 ${right ? "text-right" : "text-left"}`}>{children}</td>
   );
 }
 
