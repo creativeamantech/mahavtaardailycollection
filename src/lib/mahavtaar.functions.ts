@@ -113,7 +113,7 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
   const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
   // Read K:O too — those are maintained with formulas in the sheet and come back
   // as their calculated values (never the formula text).
-  const rows = await sheetsGet("Collections!A2:O");
+  const rows = await sheetsGet("Collections!A2:Q");
   const num = (v: string | undefined) => {
     const s = String(v ?? "").replace(/[^0-9.-]/g, "").trim();
     return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
