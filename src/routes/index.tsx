@@ -409,6 +409,26 @@ function EntryPage() {
           )}
         </div>
 
+        <div className="space-y-2">
+          <Label className="text-base" htmlFor="remark">
+            Remark (only if receipt image is not available)
+          </Label>
+          <Input
+            id="remark"
+            className="h-12 text-base"
+            maxLength={200}
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            placeholder="e.g. Receipt not received from customer"
+            disabled={receiptLink !== ""}
+          />
+          {receiptLink === "" && remark.trim() !== "" && !remarkValid && (
+            <p className="text-sm font-medium text-destructive">
+              Remark must have more than 3 words.
+            </p>
+          )}
+        </div>
+
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
             checked={confirmed}
