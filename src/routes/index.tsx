@@ -479,6 +479,7 @@ function EntryPage() {
             <Row k="Entry Type" v={isPrevious ? "Previous Paid File" : "Normal"} />
             <Row k="Settlement Payment" v={settlement ? "Yes" : "No"} />
             <Row k="Receipt Images" v={`${receipts.length} uploaded`} />
+            {receiptLink === "" && <Row k="Remark" v={remark.trim()} />
           </dl>
 
           {isPrevious && (
