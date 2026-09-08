@@ -444,9 +444,9 @@ function EntryPage() {
         <Button className="h-14 w-full text-lg" disabled={!valid} onClick={openConfirm}>
           Submit
         </Button>
-        {receiptLink === "" && (
+        {!proofValid && (
           <p className="text-center text-sm text-muted-foreground">
-            Upload the receipt image to enable Submit.
+            Upload a receipt image or write a remark of more than 3 words to enable Submit.
           </p>
         )}
         {!confirmed && (
