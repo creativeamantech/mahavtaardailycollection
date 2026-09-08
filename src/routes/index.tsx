@@ -194,6 +194,7 @@ function EntryPage() {
       setPrevConfirmed(false);
       setPrevDate("");
       setReceipts([]);
+      setRemark("");
       setUploadError("");
       setFileKey((k) => k + 1);
       toast.success("Entry saved");
