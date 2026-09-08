@@ -96,6 +96,7 @@ function EntryPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [fileKey, setFileKey] = useState(0);
+  const [remark, setRemark] = useState("");
   const receiptLink = receipts.length > 0 ? receipts[0]!.link : "";
 
   async function handleReceiptFiles(fileList: FileList | null) {
@@ -144,6 +145,9 @@ function EntryPage() {
   const amountNum = useMemo(() => Number(amount), [amount]);
   const prevDateValid = prevDate !== "" && prevDate < today;
   const paymentDate = isPrevious ? prevDate : today;
+  const remarkWords = remark.trim().split(/\s+/).filter(Boolean).length;
+  const remarkValid = remarkWords > 3;
+  const proofValid = receiptLink !== "" || remarkValid;
   const valid =
     executive !== "" &&
     loanId.trim() !== "" &&
@@ -151,7 +155,7 @@ function EntryPage() {
     confirmed &&
     !saving &&
     !uploading &&
-    receiptLink !== "" &&
+    proofValid &&
     (!isPrevious || (prevDateValid && prevConfirmed));
 
   function openConfirm() {
@@ -190,6 +194,7 @@ function EntryPage() {
       setPrevConfirmed(false);
       setPrevDate("");
       setReceipts([]);
+      setRemark("");
       setUploadError("");
       setFileKey((k) => k + 1);
       toast.success("Entry saved");
@@ -375,7 +380,7 @@ function EntryPage() {
 
         <div className="space-y-2">
           <Label className="text-base" htmlFor="receiptImage">
-            Payment Receipt Images (required, multiple allowed)
+            Payment Receipt Images (multiple allowed)
           </Label>
           <Input
             id="receiptImage"
@@ -405,6 +410,26 @@ function EntryPage() {
           )}
         </div>
 
+        <div className="space-y-2">
+          <Label className="text-base" htmlFor="remark">
+            Remark (only if receipt image is not available)
+          </Label>
+          <Input
+            id="remark"
+            className="h-12 text-base"
+            maxLength={200}
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            placeholder="e.g. Receipt not received from customer"
+            disabled={receiptLink !== ""}
+          />
+          {receiptLink === "" && remark.trim() !== "" && !remarkValid && (
+            <p className="text-sm font-medium text-destructive">
+              Remark must have more than 3 words.
+            </p>
+          )}
+        </div>
+
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
             checked={confirmed}
@@ -420,9 +445,9 @@ function EntryPage() {
         <Button className="h-14 w-full text-lg" disabled={!valid} onClick={openConfirm}>
           Submit
         </Button>
-        {receiptLink === "" && (
+        {!proofValid && (
           <p className="text-center text-sm text-muted-foreground">
-            Upload the receipt image to enable Submit.
+            Upload a receipt image or write a remark of more than 3 words to enable Submit.
           </p>
         )}
         {!confirmed && (
@@ -454,6 +479,7 @@ function EntryPage() {
             <Row k="Entry Type" v={isPrevious ? "Previous Paid File" : "Normal"} />
             <Row k="Settlement Payment" v={settlement ? "Yes" : "No"} />
             <Row k="Receipt Images" v={`${receipts.length} uploaded`} />
+            {receiptLink === "" && <Row k="Remark" v={remark.trim()} />}
           </dl>
 
           {isPrevious && (
