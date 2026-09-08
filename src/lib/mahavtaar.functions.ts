@@ -20,6 +20,8 @@ const entrySchema = z.object({
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   entryType: z.enum(["Normal", "Previous Paid File"]).default("Normal"),
   settlement: z.boolean().default(false),
+  receiptLinks: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
+  remark: z.string().trim().max(300).default(""),
 });
 
 const pendingSchema = z.object({
