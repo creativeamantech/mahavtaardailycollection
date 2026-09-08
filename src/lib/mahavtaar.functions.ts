@@ -20,6 +20,8 @@ const entrySchema = z.object({
   entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   entryType: z.enum(["Normal", "Previous Paid File"]).default("Normal"),
   settlement: z.boolean().default(false),
+  receiptLinks: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
+  remark: z.string().trim().max(300).default(""),
 });
 
 const pendingSchema = z.object({
@@ -75,7 +77,7 @@ export const saveCollection = createServerFn({ method: "POST" })
     } else if (data.date !== entryDate) {
       throw new Error("Normal entries must use today's date.");
     }
-    await sheetsAppend("Collections!A:J", [
+    const appended = (await sheetsAppend("Collections!A:J", [
       [
         data.executive,
         data.loanId,
@@ -88,7 +90,21 @@ export const saveCollection = createServerFn({ method: "POST" })
         data.entryType,
         data.settlement ? "Yes" : "No",
       ],
-    ]);
+    ])) as { updates?: { updatedRange?: string } };
+
+    // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
+    // so they are written to the exact row the append landed on.
+    if (data.receiptLinks.length > 0 || data.remark !== "") {
+      const rowNum = Number(
+        /![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0",
+      );
+      if (rowNum > 0) {
+        const { sheetsUpdate } = await import("./mahavtaar.server");
+        await sheetsUpdate(`Collections!P${rowNum}:Q${rowNum}`, [
+          [data.receiptLinks.join(" | "), data.remark],
+        ]);
+      }
+    }
     return { ok: true as const };
   });
 
@@ -97,7 +113,7 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
   const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
   // Read K:O too — those are maintained with formulas in the sheet and come back
   // as their calculated values (never the formula text).
-  const rows = await sheetsGet("Collections!A2:O");
+  const rows = await sheetsGet("Collections!A2:Q");
   const num = (v: string | undefined) => {
     const s = String(v ?? "").replace(/[^0-9.-]/g, "").trim();
     return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
@@ -125,6 +141,11 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
         entryType:
           (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
         settlement: (r[9] ?? "").trim().toLowerCase() === "yes",
+        receiptLinks: (r[15] ?? "")
+          .split(/[|,\s]+/)
+          .map((s) => s.trim())
+          .filter((s) => s.startsWith("http")),
+        remark: (r[16] ?? "").trim(),
       };
     });
 });

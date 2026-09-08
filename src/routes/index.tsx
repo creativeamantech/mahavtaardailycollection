@@ -179,7 +179,13 @@ function EntryPage() {
           | "Previous Paid File",
         settlement,
       };
-      await save({ data: entry as never });
+      await save({
+        data: {
+          ...entry,
+          receiptLinks: receipts.map((r) => r.link),
+          remark: receiptLink === "" ? remark.trim() : "",
+        } as never,
+      });
       setReceipt({ ...entry, receiptLink });
       qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
