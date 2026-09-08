@@ -96,6 +96,7 @@ function EntryPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [fileKey, setFileKey] = useState(0);
+  const [remark, setRemark] = useState("");
   const receiptLink = receipts.length > 0 ? receipts[0]!.link : "";
 
   async function handleReceiptFiles(fileList: FileList | null) {
