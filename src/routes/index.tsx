@@ -379,7 +379,7 @@ function EntryPage() {
 
         <div className="space-y-2">
           <Label className="text-base" htmlFor="receiptImage">
-            Payment Receipt Images (required, multiple allowed)
+            Payment Receipt Images (multiple allowed)
           </Label>
           <Input
             id="receiptImage"
