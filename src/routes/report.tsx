@@ -236,7 +236,26 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
               >
                 <div>
                   <p className="text-base font-semibold">{r.loanId || "—"}</p>
-                  <p className="text-sm text-muted-foreground">{r.executive}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {r.executive} · {r.date}
+                  </p>
+                  {r.receiptLinks && r.receiptLinks.length > 0 ? (
+                    <p className="mt-1 flex flex-wrap gap-x-2 text-sm">
+                      {r.receiptLinks.map((l, n) => (
+                        <a
+                          key={l}
+                          href={l}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary underline"
+                        >
+                          {r.receiptLinks.length === 1 ? "View Receipt" : `Receipt ${n + 1}`}
+                        </a>
+                      ))}
+                    </p>
+                  ) : r.remark ? (
+                    <p className="mt-1 text-sm text-muted-foreground">Remark: {r.remark}</p>
+                  ) : null}
                 </div>
                 <p className="text-base font-bold">{formatAmount(r.amount)}</p>
               </div>
