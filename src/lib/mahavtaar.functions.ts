@@ -141,6 +141,11 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
         entryType:
           (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
         settlement: (r[9] ?? "").trim().toLowerCase() === "yes",
+        receiptLinks: (r[15] ?? "")
+          .split(/[|,\s]+/)
+          .map((s) => s.trim())
+          .filter((s) => s.startsWith("http")),
+        remark: (r[16] ?? "").trim(),
       };
     });
 });
