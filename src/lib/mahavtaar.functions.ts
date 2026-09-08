@@ -77,7 +77,7 @@ export const saveCollection = createServerFn({ method: "POST" })
     } else if (data.date !== entryDate) {
       throw new Error("Normal entries must use today's date.");
     }
-    await sheetsAppend("Collections!A:J", [
+    const appended = (await sheetsAppend("Collections!A:J", [
       [
         data.executive,
         data.loanId,
@@ -90,7 +90,21 @@ export const saveCollection = createServerFn({ method: "POST" })
         data.entryType,
         data.settlement ? "Yes" : "No",
       ],
-    ]);
+    ])) as { updates?: { updatedRange?: string } };
+
+    // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
+    // so they are written to the exact row the append landed on.
+    if (data.receiptLinks.length > 0 || data.remark !== "") {
+      const rowNum = Number(
+        /![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0",
+      );
+      if (rowNum > 0) {
+        const { sheetsUpdate } = await import("./mahavtaar.server");
+        await sheetsUpdate(`Collections!P${rowNum}:Q${rowNum}`, [
+          [data.receiptLinks.join(" | "), data.remark],
+        ]);
+      }
+    }
     return { ok: true as const };
   });
 
