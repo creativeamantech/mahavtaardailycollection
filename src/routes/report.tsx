@@ -70,6 +70,8 @@ type Collection = {
   emiAmount?: number | null;
   pos?: number | null;
   foreclosure?: number | null;
+  receiptLinks?: string[];
+  remark?: string;
 };
 
 function BucketFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
