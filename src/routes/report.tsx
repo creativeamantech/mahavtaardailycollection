@@ -251,7 +251,7 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                           rel="noreferrer"
                           className="text-primary underline"
                         >
-                          {r.receiptLinks.length === 1 ? "View Receipt" : `Receipt ${n + 1}`}
+                          {r.receiptLinks!.length === 1 ? "View Receipt" : `Receipt ${n + 1}`}
                         </a>
                       ))}
                     </p>
