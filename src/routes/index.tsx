@@ -144,6 +144,9 @@ function EntryPage() {
   const amountNum = useMemo(() => Number(amount), [amount]);
   const prevDateValid = prevDate !== "" && prevDate < today;
   const paymentDate = isPrevious ? prevDate : today;
+  const remarkWords = remark.trim().split(/\s+/).filter(Boolean).length;
+  const remarkValid = remarkWords > 3;
+  const proofValid = receiptLink !== "" || remarkValid;
   const valid =
     executive !== "" &&
     loanId.trim() !== "" &&
@@ -151,7 +154,7 @@ function EntryPage() {
     confirmed &&
     !saving &&
     !uploading &&
-    receiptLink !== "" &&
+    proofValid &&
     (!isPrevious || (prevDateValid && prevConfirmed));
 
   function openConfirm() {
