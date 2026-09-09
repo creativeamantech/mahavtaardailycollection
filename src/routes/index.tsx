@@ -93,31 +93,57 @@ function EntryPage() {
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
   const [receipts, setReceipts] = useState<{ name: string; link: string }[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; preview: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [fileKey, setFileKey] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
   const [remark, setRemark] = useState("");
   const receiptLink = receipts.length > 0 ? receipts[0]!.link : "";
 
-  async function handleReceiptFiles(fileList: FileList | null) {
+  function addPendingFiles(fileList: Iterable<File> | null) {
     setUploadError("");
-    const files = Array.from(fileList ?? []).slice(0, 10);
-    if (files.length === 0) return;
-    const bad = files.find((f) => !f.type.startsWith("image/"));
-    if (bad) {
+    const files = Array.from(fileList ?? []).filter((f) => f.type.startsWith("image/"));
+    if (files.length === 0) {
       setUploadError("Please select only image files.");
-      setFileKey((k) => k + 1);
       return;
     }
+    setPendingFiles((prev) =>
+      [...prev, ...files.map((file) => ({ file, preview: URL.createObjectURL(file) }))].slice(
+        0,
+        10,
+      ),
+    );
+    setFileKey((k) => k + 1);
+  }
+
+  function removePendingFile(preview: string) {
+    URL.revokeObjectURL(preview);
+    setPendingFiles((prev) => prev.filter((p) => p.preview !== preview));
+  }
+
+  function removeUploadedReceipt(link: string) {
+    setReceipts((prev) => prev.filter((r) => r.link !== link));
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (uploading) return;
+    addPendingFiles(e.dataTransfer.files);
+  }
+
+  async function uploadPendingFiles() {
+    setUploadError("");
+    if (pendingFiles.length === 0) return;
     if (loanId.trim() === "") {
       setUploadError("Enter the Loan Number before uploading receipt images.");
-      setFileKey((k) => k + 1);
       return;
     }
     setUploading(true);
     const uploaded: { name: string; link: string }[] = [];
     try {
-      for (const file of files) {
+      for (const { file } of pendingFiles) {
         const base64 = await fileToBase64(file);
         const res = (await uploadReceipt({
           data: {
@@ -130,6 +156,8 @@ function EntryPage() {
         uploaded.push({ name: file.name || "receipt", link: res.link });
       }
       setReceipts((prev) => [...prev, ...uploaded].slice(0, 10));
+      pendingFiles.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPendingFiles([]);
       toast.success(`${uploaded.length} receipt(s) uploaded to Google Drive`);
     } catch (e) {
       setUploadError(
@@ -138,7 +166,6 @@ function EntryPage() {
       toast.error("Receipt upload failed. Please upload the receipt image again.");
     } finally {
       setUploading(false);
-      setFileKey((k) => k + 1);
     }
   }
 
