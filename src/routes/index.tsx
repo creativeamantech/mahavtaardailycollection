@@ -226,6 +226,8 @@ function EntryPage() {
       setSettlement(false);
       setPrevConfirmed(false);
       setPrevDate("");
+      pendingFiles.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPendingFiles([]);
       setReceipts([]);
       setRemark("");
       setUploadError("");
@@ -415,25 +417,94 @@ function EntryPage() {
           <Label className="text-base" htmlFor="receiptImage">
             Payment Receipt Images (multiple allowed)
           </Label>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Receipt image drop zone"
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!uploading) setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById("receiptImage")?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ")
+                document.getElementById("receiptImage")?.click();
+            }}
+            className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+              dragOver
+                ? "border-primary bg-primary/10"
+                : "border-muted-foreground/30 bg-muted/30"
+            }`}
+          >
+            <p className="text-base font-medium">
+              {dragOver ? "Drop receipt images here" : "Drag & drop receipt images here"}
+            </p>
+            <p className="text-sm text-muted-foreground">or tap to choose images</p>
+          </div>
           <Input
             id="receiptImage"
             key={fileKey}
             type="file"
             accept="image/*"
             multiple
-            className="h-12 text-base"
+            className="hidden"
             disabled={uploading}
-            onChange={(e) => handleReceiptFiles(e.target.files)}
+            onChange={(e) => addPendingFiles(e.target.files)}
           />
-          {uploading && <p className="text-sm text-muted-foreground">Uploading receipts...</p>}
+          {pendingFiles.length > 0 && (
+            <div className="space-y-2">
+              <ul className="grid grid-cols-3 gap-2">
+                {pendingFiles.map((p) => (
+                  <li key={p.preview} className="relative">
+                    <img
+                      src={p.preview}
+                      alt={p.file.name}
+                      className="h-20 w-full rounded-lg border object-cover"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Remove ${p.file.name}`}
+                      onClick={() => removePendingFile(p.preview)}
+                      className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground"
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full text-base"
+                disabled={uploading}
+                onClick={uploadPendingFiles}
+              >
+                {uploading
+                  ? "Uploading..."
+                  : `Upload ${pendingFiles.length} receipt image${pendingFiles.length > 1 ? "s" : ""}`}
+              </Button>
+            </div>
+          )}
           {receipts.length > 0 && (
             <ul className="space-y-1 text-sm font-medium text-green-700">
               {receipts.map((r) => (
-                <li key={r.link}>
-                  Uploaded: {r.name} ·{" "}
-                  <a href={r.link} target="_blank" rel="noreferrer" className="underline">
-                    View on Drive
-                  </a>
+                <li key={r.link} className="flex items-center justify-between gap-2">
+                  <span>
+                    Uploaded: {r.name} ·{" "}
+                    <a href={r.link} target="_blank" rel="noreferrer" className="underline">
+                      View on Drive
+                    </a>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Remove uploaded ${r.name}`}
+                    onClick={() => removeUploadedReceipt(r.link)}
+                    className="text-destructive underline"
+                  >
+                    Remove
+                  </button>
                 </li>
               ))}
             </ul>
