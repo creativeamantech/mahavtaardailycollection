@@ -93,31 +93,57 @@ function EntryPage() {
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
   const [receipts, setReceipts] = useState<{ name: string; link: string }[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; preview: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [fileKey, setFileKey] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
   const [remark, setRemark] = useState("");
   const receiptLink = receipts.length > 0 ? receipts[0]!.link : "";
 
-  async function handleReceiptFiles(fileList: FileList | null) {
+  function addPendingFiles(fileList: Iterable<File> | null) {
     setUploadError("");
-    const files = Array.from(fileList ?? []).slice(0, 10);
-    if (files.length === 0) return;
-    const bad = files.find((f) => !f.type.startsWith("image/"));
-    if (bad) {
+    const files = Array.from(fileList ?? []).filter((f) => f.type.startsWith("image/"));
+    if (files.length === 0) {
       setUploadError("Please select only image files.");
-      setFileKey((k) => k + 1);
       return;
     }
+    setPendingFiles((prev) =>
+      [...prev, ...files.map((file) => ({ file, preview: URL.createObjectURL(file) }))].slice(
+        0,
+        10,
+      ),
+    );
+    setFileKey((k) => k + 1);
+  }
+
+  function removePendingFile(preview: string) {
+    URL.revokeObjectURL(preview);
+    setPendingFiles((prev) => prev.filter((p) => p.preview !== preview));
+  }
+
+  function removeUploadedReceipt(link: string) {
+    setReceipts((prev) => prev.filter((r) => r.link !== link));
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (uploading) return;
+    addPendingFiles(e.dataTransfer.files);
+  }
+
+  async function uploadPendingFiles() {
+    setUploadError("");
+    if (pendingFiles.length === 0) return;
     if (loanId.trim() === "") {
       setUploadError("Enter the Loan Number before uploading receipt images.");
-      setFileKey((k) => k + 1);
       return;
     }
     setUploading(true);
     const uploaded: { name: string; link: string }[] = [];
     try {
-      for (const file of files) {
+      for (const { file } of pendingFiles) {
         const base64 = await fileToBase64(file);
         const res = (await uploadReceipt({
           data: {
@@ -130,6 +156,8 @@ function EntryPage() {
         uploaded.push({ name: file.name || "receipt", link: res.link });
       }
       setReceipts((prev) => [...prev, ...uploaded].slice(0, 10));
+      pendingFiles.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPendingFiles([]);
       toast.success(`${uploaded.length} receipt(s) uploaded to Google Drive`);
     } catch (e) {
       setUploadError(
@@ -138,7 +166,6 @@ function EntryPage() {
       toast.error("Receipt upload failed. Please upload the receipt image again.");
     } finally {
       setUploading(false);
-      setFileKey((k) => k + 1);
     }
   }
 
@@ -199,6 +226,8 @@ function EntryPage() {
       setSettlement(false);
       setPrevConfirmed(false);
       setPrevDate("");
+      pendingFiles.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPendingFiles([]);
       setReceipts([]);
       setRemark("");
       setUploadError("");
@@ -388,25 +417,94 @@ function EntryPage() {
           <Label className="text-base" htmlFor="receiptImage">
             Payment Receipt Images (multiple allowed)
           </Label>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Receipt image drop zone"
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!uploading) setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById("receiptImage")?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ")
+                document.getElementById("receiptImage")?.click();
+            }}
+            className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+              dragOver
+                ? "border-primary bg-primary/10"
+                : "border-muted-foreground/30 bg-muted/30"
+            }`}
+          >
+            <p className="text-base font-medium">
+              {dragOver ? "Drop receipt images here" : "Drag & drop receipt images here"}
+            </p>
+            <p className="text-sm text-muted-foreground">or tap to choose images</p>
+          </div>
           <Input
             id="receiptImage"
             key={fileKey}
             type="file"
             accept="image/*"
             multiple
-            className="h-12 text-base"
+            className="hidden"
             disabled={uploading}
-            onChange={(e) => handleReceiptFiles(e.target.files)}
+            onChange={(e) => addPendingFiles(e.target.files)}
           />
-          {uploading && <p className="text-sm text-muted-foreground">Uploading receipts...</p>}
+          {pendingFiles.length > 0 && (
+            <div className="space-y-2">
+              <ul className="grid grid-cols-3 gap-2">
+                {pendingFiles.map((p) => (
+                  <li key={p.preview} className="relative">
+                    <img
+                      src={p.preview}
+                      alt={p.file.name}
+                      className="h-20 w-full rounded-lg border object-cover"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Remove ${p.file.name}`}
+                      onClick={() => removePendingFile(p.preview)}
+                      className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground"
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full text-base"
+                disabled={uploading}
+                onClick={uploadPendingFiles}
+              >
+                {uploading
+                  ? "Uploading..."
+                  : `Upload ${pendingFiles.length} receipt image${pendingFiles.length > 1 ? "s" : ""}`}
+              </Button>
+            </div>
+          )}
           {receipts.length > 0 && (
             <ul className="space-y-1 text-sm font-medium text-green-700">
               {receipts.map((r) => (
-                <li key={r.link}>
-                  Uploaded: {r.name} ·{" "}
-                  <a href={r.link} target="_blank" rel="noreferrer" className="underline">
-                    View on Drive
-                  </a>
+                <li key={r.link} className="flex items-center justify-between gap-2">
+                  <span>
+                    Uploaded: {r.name} ·{" "}
+                    <a href={r.link} target="_blank" rel="noreferrer" className="underline">
+                      View on Drive
+                    </a>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Remove uploaded ${r.name}`}
+                    onClick={() => removeUploadedReceipt(r.link)}
+                    className="text-destructive underline"
+                  >
+                    Remove
+                  </button>
                 </li>
               ))}
             </ul>
