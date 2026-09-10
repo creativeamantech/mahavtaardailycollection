@@ -97,6 +97,13 @@ function EntryPage() {
 
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
+  const fetchCollections = useServerFn(getCollections);
+  const flagConflicts = useServerFn(markConflictRows);
+  const { data: existing = [], refetch: refetchCollections } = useQuery({
+    queryKey: ["collections"],
+    queryFn: () => fetchCollections(),
+    staleTime: 60_000,
+  });
   const [receipts, setReceipts] = useState<{ name: string; link: string }[]>([]);
   const [pendingFiles, setPendingFiles] = useState<{ file: File; preview: string }[]>([]);
   const [uploading, setUploading] = useState(false);
