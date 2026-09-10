@@ -94,10 +94,10 @@ export const saveCollection = createServerFn({ method: "POST" })
 
     // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
     // so they are written to the exact row the append landed on.
+    const rowNum = Number(
+      /![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0",
+    );
     if (data.receiptLinks.length > 0 || data.remark !== "") {
-      const rowNum = Number(
-        /![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0",
-      );
       if (rowNum > 0) {
         const { sheetsUpdate } = await import("./mahavtaar.server");
         await sheetsUpdate(`Collections!P${rowNum}:Q${rowNum}`, [
@@ -105,6 +105,33 @@ export const saveCollection = createServerFn({ method: "POST" })
         ]);
       }
     }
+    return { ok: true as const, row: rowNum };
+  });
+
+// Marks conflicting Collections rows with a red background so the conflict is
+// visible directly in the source sheet. Cell values are never modified.
+export const markConflictRows = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ rows: z.array(z.number().int().min(2).max(1000000)).min(1).max(50) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { getSheetId, sheetsBatchUpdate } = await import("./mahavtaar.server");
+    const sheetId = await getSheetId("Collections");
+    const red = { red: 0.98, green: 0.8, blue: 0.8 };
+    const requests = [...new Set(data.rows)].map((row) => ({
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: row - 1,
+          endRowIndex: row,
+          startColumnIndex: 0,
+          endColumnIndex: 17,
+        },
+        cell: { userEnteredFormat: { backgroundColor: red } },
+        fields: "userEnteredFormat.backgroundColor",
+      },
+    }));
+    await sheetsBatchUpdate(requests);
     return { ok: true as const };
   });
 
