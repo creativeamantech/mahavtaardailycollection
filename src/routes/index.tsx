@@ -615,6 +615,43 @@ function EntryPage() {
           </span>
         </label>
 
+        {conflicts.length > 0 && (
+          <div className="space-y-2 rounded-lg border-2 border-red-500 bg-red-50 p-3">
+            <p className="text-base font-bold text-red-700">
+              PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by
+              another Executive.
+            </p>
+            <ul className="space-y-2 text-sm text-red-900">
+              {conflicts.map((c) => (
+                <li key={c.row} className="rounded-md bg-white/70 p-2">
+                  <div>Loan ID: {c.loanId}</div>
+                  <div>Existing Executive: {c.executive}</div>
+                  <div>Existing Amount: {formatAmount(c.amount)}</div>
+                  <div>
+                    Existing Date/Time: {c.date} {c.time}
+                  </div>
+                  <div>Current Executive: {executive || "-"}</div>
+                  <div>Current Amount: {formatAmount(amountNum || 0)}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {conflicts.length === 0 && duplicates.length > 0 && (
+          <div className="rounded-lg border-2 border-amber-500 bg-amber-50 p-3">
+            <p className="text-base font-bold text-amber-800">
+              Warning: This payment is already entered for this Loan ID with the same amount.
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-amber-900">
+              {duplicates.map((d) => (
+                <li key={d.row}>
+                  {d.executive} · {formatAmount(d.amount)} · {d.date} {d.time}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <Button className="h-14 w-full text-lg" disabled={!valid} onClick={openConfirm}>
           Submit
         </Button>
