@@ -1,11 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { toast } from "sonner";
 import { EXECUTIVES, formatAmount, nowTime, todayISO } from "@/lib/executives";
-import { saveCollection, uploadReceiptImage } from "@/lib/mahavtaar.functions";
+import {
+  getCollections,
+  markConflictRows,
+  saveCollection,
+  uploadReceiptImage,
+} from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +62,22 @@ type Receipt = {
   receiptLink?: string;
 };
 
+type ExistingEntry = {
+  row: number;
+  executive: string;
+  loanId: string;
+  amount: number;
+  date: string;
+  time: string;
+};
+
+function normaliseLoanId(v: string) {
+  return String(v ?? "")
+    .replace(/^['`\u2018\u2019]+/, "")
+    .trim()
+    .toUpperCase();
+}
+
 async function fileToBase64(file: File) {
   const buf = await file.arrayBuffer();
   const bytes = new Uint8Array(buf);
@@ -92,6 +113,13 @@ function EntryPage() {
 
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
+  const fetchCollections = useServerFn(getCollections);
+  const flagConflicts = useServerFn(markConflictRows);
+  const { data: existing = [], refetch: refetchCollections } = useQuery({
+    queryKey: ["collections"],
+    queryFn: () => fetchCollections(),
+    staleTime: 60_000,
+  });
   const [receipts, setReceipts] = useState<{ name: string; link: string }[]>([]);
   const [pendingFiles, setPendingFiles] = useState<{ file: File; preview: string }[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -185,9 +213,27 @@ function EntryPage() {
     proofValid &&
     (!isPrevious || (prevDateValid && prevConfirmed));
 
-  function openConfirm() {
+  const normLoanId = normaliseLoanId(loanId);
+  const matches = useMemo(() => {
+    if (normLoanId === "" || !(amountNum > 0)) return [] as ExistingEntry[];
+    return (existing as ExistingEntry[]).filter(
+      (c) => normaliseLoanId(c.loanId) === normLoanId && Number(c.amount) === amountNum,
+    );
+  }, [existing, normLoanId, amountNum]);
+  const duplicates = useMemo(
+    () => matches.filter((m) => m.executive.trim() === executive.trim()),
+    [matches, executive],
+  );
+  const conflicts = useMemo(
+    () => matches.filter((m) => m.executive.trim() !== executive.trim()),
+    [matches, executive],
+  );
+
+  async function openConfirm() {
     if (!valid) return;
     setTime(nowTime());
+    // Refresh right before submission so the check uses the latest data.
+    await refetchCollections();
     setShowConfirm(true);
   }
 
@@ -206,13 +252,28 @@ function EntryPage() {
           | "Previous Paid File",
         settlement,
       };
-      await save({
+      const saved = (await save({
         data: {
           ...entry,
           receiptLinks: receipts.map((r) => r.link),
           remark: receiptLink === "" ? remark.trim() : "",
         } as never,
-      });
+      })) as { row?: number };
+
+      if (conflicts.length > 0) {
+        const rows = [
+          ...conflicts.map((c) => c.row).filter((r) => r > 1),
+          ...(saved?.row && saved.row > 1 ? [saved.row] : []),
+        ];
+        if (rows.length > 0) {
+          try {
+            await flagConflicts({ data: { rows } as never });
+            toast.warning("Payment conflict marked in red in the Google Sheet");
+          } catch {
+            toast.error("Saved, but the conflict could not be marked in the sheet");
+          }
+        }
+      }
       setReceipt({ ...entry, receiptLink });
       qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
@@ -279,7 +340,15 @@ function EntryPage() {
         Record a payment collected by an executive.
       </p>
 
-      <div className="mt-6 space-y-5 rounded-xl border p-4">
+      <div
+        className={`mt-6 space-y-5 rounded-xl border p-4 ${
+          conflicts.length > 0
+            ? "border-red-500 bg-red-50"
+            : duplicates.length > 0
+              ? "border-amber-500 bg-amber-50"
+              : ""
+        }`}
+      >
         <div className="space-y-2">
           <Label className="text-base">Executive Name</Label>
           <Select value={executive} onValueChange={setExecutive}>
@@ -545,6 +614,43 @@ function EntryPage() {
             selected executive, and amount is correct.
           </span>
         </label>
+
+        {conflicts.length > 0 && (
+          <div className="space-y-2 rounded-lg border-2 border-red-500 bg-red-50 p-3">
+            <p className="text-base font-bold text-red-700">
+              PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by
+              another Executive.
+            </p>
+            <ul className="space-y-2 text-sm text-red-900">
+              {conflicts.map((c) => (
+                <li key={c.row} className="rounded-md bg-white/70 p-2">
+                  <div>Loan ID: {c.loanId}</div>
+                  <div>Existing Executive: {c.executive}</div>
+                  <div>Existing Amount: {formatAmount(c.amount)}</div>
+                  <div>
+                    Existing Date/Time: {c.date} {c.time}
+                  </div>
+                  <div>Current Executive: {executive || "-"}</div>
+                  <div>Current Amount: {formatAmount(amountNum || 0)}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {conflicts.length === 0 && duplicates.length > 0 && (
+          <div className="rounded-lg border-2 border-amber-500 bg-amber-50 p-3">
+            <p className="text-base font-bold text-amber-800">
+              Warning: This payment is already entered for this Loan ID with the same amount.
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-amber-900">
+              {duplicates.map((d) => (
+                <li key={d.row}>
+                  {d.executive} · {formatAmount(d.amount)} · {d.date} {d.time}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <Button className="h-14 w-full text-lg" disabled={!valid} onClick={openConfirm}>
           Submit
