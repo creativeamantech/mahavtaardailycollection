@@ -62,6 +62,22 @@ type Receipt = {
   receiptLink?: string;
 };
 
+type ExistingEntry = {
+  row: number;
+  executive: string;
+  loanId: string;
+  amount: number;
+  date: string;
+  time: string;
+};
+
+function normaliseLoanId(v: string) {
+  return String(v ?? "")
+    .replace(/^['`\u2018\u2019]+/, "")
+    .trim()
+    .toUpperCase();
+}
+
 async function fileToBase64(file: File) {
   const buf = await file.arrayBuffer();
   const bytes = new Uint8Array(buf);
