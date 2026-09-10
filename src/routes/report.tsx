@@ -27,6 +27,21 @@ import {
 import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
+import { downloadCollectionExport } from "@/lib/export";
+
+// Export button — reuses the rows already displayed, no extra API call.
+function ExportButton({ rows, label }: { rows: Collection[]; label: string }) {
+  return (
+    <Button
+      variant="outline"
+      className="h-12 w-full text-base"
+      disabled={rows.length === 0}
+      onClick={() => downloadCollectionExport(rows, label)}
+    >
+      Download Collection CSV
+    </Button>
+  );
+}
 
 const ALL_BUCKETS = "__all__";
 
@@ -429,6 +444,7 @@ function ReportPage() {
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} />
+          <ExportButton rows={dateScoped} label={`${from}_to_${to}`} />
         </TabsContent>
 
         <TabsContent value="overall" className="mt-4 space-y-4">
@@ -436,6 +452,7 @@ function ReportPage() {
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
+          <ExportButton rows={overallRows} label={month} />
         </TabsContent>
       </Tabs>
 
