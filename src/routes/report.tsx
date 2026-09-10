@@ -444,6 +444,7 @@ function ReportPage() {
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} />
+          <ExportButton rows={dateScoped} label={`${from}_to_${to}`} />
         </TabsContent>
 
         <TabsContent value="overall" className="mt-4 space-y-4">
@@ -451,6 +452,7 @@ function ReportPage() {
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
+          <ExportButton rows={overallRows} label={month} />
         </TabsContent>
       </Tabs>
 
