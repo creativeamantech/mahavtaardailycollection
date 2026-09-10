@@ -27,6 +27,21 @@ import {
 import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
+import { downloadCollectionExport } from "@/lib/export";
+
+// Export button — reuses the rows already displayed, no extra API call.
+function ExportButton({ rows, label }: { rows: Collection[]; label: string }) {
+  return (
+    <Button
+      variant="outline"
+      className="h-12 w-full text-base"
+      disabled={rows.length === 0}
+      onClick={() => downloadCollectionExport(rows, label)}
+    >
+      Download Collection CSV
+    </Button>
+  );
+}
 
 const ALL_BUCKETS = "__all__";
 
