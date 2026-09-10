@@ -252,13 +252,28 @@ function EntryPage() {
           | "Previous Paid File",
         settlement,
       };
-      await save({
+      const saved = (await save({
         data: {
           ...entry,
           receiptLinks: receipts.map((r) => r.link),
           remark: receiptLink === "" ? remark.trim() : "",
         } as never,
-      });
+      })) as { row?: number };
+
+      if (conflicts.length > 0) {
+        const rows = [
+          ...conflicts.map((c) => c.row).filter((r) => r > 1),
+          ...(saved?.row && saved.row > 1 ? [saved.row] : []),
+        ];
+        if (rows.length > 0) {
+          try {
+            await flagConflicts({ data: { rows } as never });
+            toast.warning("Payment conflict marked in red in the Google Sheet");
+          } catch {
+            toast.error("Saved, but the conflict could not be marked in the sheet");
+          }
+        }
+      }
       setReceipt({ ...entry, receiptLink });
       qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
