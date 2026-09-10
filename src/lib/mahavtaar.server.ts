@@ -102,6 +102,40 @@ export async function sheetsUpdate(range: string, values: (string | number)[][])
   return ok(res, "Sheets update");
 }
 
+let sheetIdCache: Record<string, number> = {};
+
+export async function getSheetId(title: string): Promise<number> {
+  const cached = sheetIdCache[title];
+  if (typeof cached === "number") return cached;
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
+    { headers: headers("GOOGLE_SHEETS_API_KEY") },
+  );
+  const json = (await ok(res, "Sheets metadata")) as {
+    sheets?: { properties?: { sheetId?: number; title?: string } }[];
+  };
+  sheetIdCache = {};
+  for (const s of json.sheets ?? []) {
+    const p = s.properties;
+    if (p && typeof p.sheetId === "number" && p.title) sheetIdCache[p.title] = p.sheetId;
+  }
+  const id = sheetIdCache[title];
+  if (typeof id !== "number") throw new Error(`Sheet tab "${title}" not found.`);
+  return id;
+}
+
+export async function sheetsBatchUpdate(requests: unknown[]) {
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ requests }),
+    },
+  );
+  return ok(res, "Sheets batchUpdate");
+}
+
 export async function driveUpload(name: string, mimeType: string, base64: string) {
   const boundary = "mahavtaarboundary" + Math.random().toString(36).slice(2);
   const metadata = JSON.stringify({ name, parents: [DRIVE_FOLDER_ID] });
