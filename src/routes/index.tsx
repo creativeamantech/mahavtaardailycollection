@@ -340,7 +340,15 @@ function EntryPage() {
         Record a payment collected by an executive.
       </p>
 
-      <div className="mt-6 space-y-5 rounded-xl border p-4">
+      <div
+        className={`mt-6 space-y-5 rounded-xl border p-4 ${
+          conflicts.length > 0
+            ? "border-red-500 bg-red-50"
+            : duplicates.length > 0
+              ? "border-amber-500 bg-amber-50"
+              : ""
+        }`}
+      >
         <div className="space-y-2">
           <Label className="text-base">Executive Name</Label>
           <Select value={executive} onValueChange={setExecutive}>
