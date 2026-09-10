@@ -197,9 +197,27 @@ function EntryPage() {
     proofValid &&
     (!isPrevious || (prevDateValid && prevConfirmed));
 
-  function openConfirm() {
+  const normLoanId = normaliseLoanId(loanId);
+  const matches = useMemo(() => {
+    if (normLoanId === "" || !(amountNum > 0)) return [] as ExistingEntry[];
+    return (existing as ExistingEntry[]).filter(
+      (c) => normaliseLoanId(c.loanId) === normLoanId && Number(c.amount) === amountNum,
+    );
+  }, [existing, normLoanId, amountNum]);
+  const duplicates = useMemo(
+    () => matches.filter((m) => m.executive.trim() === executive.trim()),
+    [matches, executive],
+  );
+  const conflicts = useMemo(
+    () => matches.filter((m) => m.executive.trim() !== executive.trim()),
+    [matches, executive],
+  );
+
+  async function openConfirm() {
     if (!valid) return;
     setTime(nowTime());
+    // Refresh right before submission so the check uses the latest data.
+    await refetchCollections();
     setShowConfirm(true);
   }
 
