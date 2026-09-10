@@ -45,7 +45,7 @@ function toCollectionRows(rows: ExportCollection[]): CollectionRow[] {
     loanId: r.loanId ?? "",
     amount: r.amount,
     date: r.date,
-    entryType: r.entryType,
+    entryType: r.entryType ?? "",
     settlement: r.settlement ?? false,
     bucket: r.bucket ?? "",
     city: r.city ?? "",
