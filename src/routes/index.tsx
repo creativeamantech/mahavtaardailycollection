@@ -679,6 +679,17 @@ function EntryPage() {
             <DialogTitle className="text-xl">Confirm entry</DialogTitle>
             <DialogDescription>Please check the details before saving.</DialogDescription>
           </DialogHeader>
+          {conflicts.length > 0 && (
+            <p className="rounded-lg border-2 border-red-500 bg-red-50 p-3 text-sm font-bold text-red-700">
+              PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by{" "}
+              {conflicts.map((c) => c.executive).join(", ")}.
+            </p>
+          )}
+          {conflicts.length === 0 && duplicates.length > 0 && (
+            <p className="rounded-lg border-2 border-amber-500 bg-amber-50 p-3 text-sm font-bold text-amber-800">
+              Warning: This payment is already entered for this Loan ID with the same amount.
+            </p>
+          )}
           <dl className="space-y-2 text-base">
             <Row k="Executive" v={executive} />
             <Row k="Loan ID" v={loanId} />
