@@ -165,3 +165,17 @@ export async function driveUpload(name: string, mimeType: string, base64: string
 
   return file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`;
 }
+
+// Creates a tab (with optional header row) when it does not exist yet.
+export async function ensureSheet(title: string, header?: string[]) {
+  try {
+    return await getSheetId(title);
+  } catch {
+    await sheetsBatchUpdate([{ addSheet: { properties: { title } } }]);
+    sheetIdCache = {};
+    if (header && header.length > 0) {
+      await sheetsUpdate(`${title}!A1:${String.fromCharCode(64 + header.length)}1`, [header]);
+    }
+    return getSheetId(title);
+  }
+}
