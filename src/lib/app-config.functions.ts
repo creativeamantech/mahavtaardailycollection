@@ -10,6 +10,7 @@ export const FEATURES = [
   { key: "loans", label: "Loan Details", path: "/loans" },
   { key: "pending", label: "Pending Receipts", path: "/pending" },
   { key: "ecs", label: "ECS / Special", path: "/ecs" },
+  { key: "notifications", label: "Notifications", path: "/notifications" },
   { key: "remarks", label: "Remarks", path: null },
 ] as const;
 
