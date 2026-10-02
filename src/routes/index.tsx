@@ -1,3 +1,5 @@
+import { useFeatureEnabled } from "@/hooks/useAppConfig";
+import { NotificationPanel } from "@/components/NotificationPanel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -201,7 +203,8 @@ function EntryPage() {
   const prevDateValid = prevDate !== "" && prevDate < today;
   const paymentDate = isPrevious ? prevDate : today;
   const remarkWords = remark.trim().split(/\s+/).filter(Boolean).length;
-  const remarkValid = remarkWords > 3;
+  const remarksOn = useFeatureEnabled("remarks");
+  const remarkValid = remarksOn && remarkWords > 3;
   const proofValid = receiptLink !== "" || remarkValid;
   const valid =
     executive !== "" &&
@@ -335,6 +338,7 @@ function EntryPage() {
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6">
+      <NotificationPanel className="mb-4" />
       <h1 className="text-3xl font-bold tracking-tight">Collection Entry</h1>
       <p className="mt-1 text-base text-muted-foreground">
         Record a payment collected by an executive.
@@ -583,7 +587,7 @@ function EntryPage() {
           )}
         </div>
 
-        <div className="space-y-2">
+        {remarksOn && <div className="space-y-2">
           <Label className="text-base" htmlFor="remark">
             Remark (only if receipt image is not available)
           </Label>
@@ -601,7 +605,7 @@ function EntryPage() {
               Remark must have more than 3 words.
             </p>
           )}
-        </div>
+        </div>}
 
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
