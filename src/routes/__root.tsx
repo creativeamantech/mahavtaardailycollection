@@ -12,6 +12,9 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { useAppConfig } from "@/hooks/useAppConfig";
+import { FEATURES } from "@/lib/app-config.functions";
+import { useRouterState } from "@tanstack/react-router";
 
 
 function NotFoundComponent() {
@@ -126,11 +129,12 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 const NAV = [
-  { to: "/", label: "Entry" },
-  { to: "/report", label: "Report" },
-  { to: "/loans", label: "Loan Details" },
-  { to: "/pending", label: "Pending" },
-  { to: "/ecs", label: "ECS / Special" },
+  { to: "/", label: "Entry", key: "entry" },
+  { to: "/report", label: "Report", key: "report" },
+  { to: "/loans", label: "Loan Details", key: "loans" },
+  { to: "/pending", label: "Pending", key: "pending" },
+  { to: "/ecs", label: "ECS / Special", key: "ecs" },
+  { to: "/settings", label: "Settings", key: "settings" },
 ] as const;
 
 
@@ -140,12 +144,25 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AppShell />
+      <Toaster position="top-center" />
+    </QueryClientProvider>
+  );
+}
+
+function AppShell() {
+  const { flags } = useAppConfig();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const current = FEATURES.find((f) => f.path === pathname);
+  const disabled = current ? flags[current.key] === false : false;
+  return (
+    <>
       <div className="min-h-screen bg-background">
         <header className="border-b print:hidden">
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
             <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
             <nav className="mt-2 flex flex-wrap gap-2">
-              {NAV.map((n) => (
+              {NAV.filter((n) => flags[n.key] !== false).map((n) => (
                 <Link
                   key={n.to}
                   to={n.to}
@@ -163,10 +180,16 @@ function RootComponent() {
           </div>
         </header>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
+        {disabled ? (
+          <main className="mx-auto w-full max-w-xl px-4 py-16 text-center">
+            <p className="text-lg font-semibold">This page is currently turned off.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Please contact the admin or open Settings.</p>
+          </main>
+        ) : (
+          <Outlet />
+        )}
       </div>
-      <Toaster position="top-center" />
-    </QueryClientProvider>
+    </>
   );
 
 }

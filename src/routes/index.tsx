@@ -1,3 +1,4 @@
+import { NotificationPanel } from "@/components/NotificationPanel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -335,6 +336,7 @@ function EntryPage() {
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6">
+      <NotificationPanel className="mb-4" />
       <h1 className="text-3xl font-bold tracking-tight">Collection Entry</h1>
       <p className="mt-1 text-base text-muted-foreground">
         Record a payment collected by an executive.
