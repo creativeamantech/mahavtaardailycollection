@@ -41,7 +41,7 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
   );
 }
 
-function toDirectDriveUrl(url: string) {
+export function toDirectDriveUrl(url: string) {
   const id = /\/d\/([A-Za-z0-9_-]+)/.exec(url)?.[1];
   return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w600` : url;
 }
