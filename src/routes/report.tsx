@@ -88,7 +88,77 @@ type Collection = {
   foreclosure?: number | null;
   receiptLinks?: string[];
   remark?: string;
+  allocationCategory?: string;
+  allocationDate?: string;
+  alreadyPaid?: boolean;
 };
+
+const ALL_CATEGORIES = "__all_categories__";
+
+function CategoryFilter({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-base">Allocation Category</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-12 text-base">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_CATEGORIES} className="text-base">
+            All Categories
+          </SelectItem>
+          {options.map((c) => (
+            <SelectItem key={c} value={c} className="text-base">
+              {c}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// Informational only — these payments were made before the Allocation Date
+// and never contribute to any collection total.
+function AlreadyPaidSection({ rows }: { rows: Collection[] }) {
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  return (
+    <section className="rounded-xl border border-dashed p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-lg font-semibold">Already Paid ({rows.length})</h3>
+        <p className="text-sm text-muted-foreground">
+          Info only · {formatAmount(total)} · not counted in collection
+        </p>
+      </div>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">No Already Paid cases.</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {rows.map((r, i) => (
+            <div key={`${r.loanId}-${r.createdAt}-${i}`} className="rounded-lg border p-3 text-sm">
+              <div className="flex justify-between gap-2">
+                <span className="font-semibold">{r.loanId || "—"}</span>
+                <span className="font-semibold">{formatAmount(r.amount)}</span>
+              </div>
+              <p className="text-muted-foreground">
+                {r.executive} · Paid {r.date} · Allocated {r.allocationDate}
+              </p>
+              <p className="text-muted-foreground">Category: {r.allocationCategory || "—"}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function BucketFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -484,18 +554,26 @@ function ReportPage() {
             </div>
           </div>
           <BucketFilter value={dateBucket} onChange={setDateBucket} />
+          <CategoryFilter value={dateCategory} onChange={setDateCategory} options={categories} />
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} />
           <ExportButton rows={dateScoped} label={`${from}_to_${to}`} />
+          <AlreadyPaidSection rows={dateAlready} />
         </TabsContent>
 
         <TabsContent value="overall" className="mt-4 space-y-4">
           <BucketFilter value={overallBucket} onChange={setOverallBucket} />
+          <CategoryFilter
+            value={overallCategory}
+            onChange={setOverallCategory}
+            options={categories}
+          />
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
           <ExportButton rows={overallRows} label={month} />
+          <AlreadyPaidSection rows={overallAlready} />
         </TabsContent>
       </Tabs>
 
