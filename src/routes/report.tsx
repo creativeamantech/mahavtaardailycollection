@@ -3,15 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { formatAmount, todayISO } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
@@ -88,77 +80,7 @@ type Collection = {
   foreclosure?: number | null;
   receiptLinks?: string[];
   remark?: string;
-  allocationCategory?: string;
-  allocationDate?: string;
-  alreadyPaid?: boolean;
 };
-
-const ALL_CATEGORIES = "__all_categories__";
-
-function CategoryFilter({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
-  return (
-    <div className="space-y-2">
-      <Label className="text-base">Allocation Category</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-12 text-base">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL_CATEGORIES} className="text-base">
-            All Categories
-          </SelectItem>
-          {options.map((c) => (
-            <SelectItem key={c} value={c} className="text-base">
-              {c}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-// Informational only — these payments were made before the Allocation Date
-// and never contribute to any collection total.
-function AlreadyPaidSection({ rows }: { rows: Collection[] }) {
-  const total = rows.reduce((s, r) => s + r.amount, 0);
-  return (
-    <section className="rounded-xl border border-dashed p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-lg font-semibold">Already Paid ({rows.length})</h3>
-        <p className="text-sm text-muted-foreground">
-          Info only · {formatAmount(total)} · not counted in collection
-        </p>
-      </div>
-      {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">No Already Paid cases.</p>
-      ) : (
-        <div className="mt-3 space-y-2">
-          {rows.map((r, i) => (
-            <div key={`${r.loanId}-${r.createdAt}-${i}`} className="rounded-lg border p-3 text-sm">
-              <div className="flex justify-between gap-2">
-                <span className="font-semibold">{r.loanId || "—"}</span>
-                <span className="font-semibold">{formatAmount(r.amount)}</span>
-              </div>
-              <p className="text-muted-foreground">
-                {r.executive} · Paid {r.date} · Allocated {r.allocationDate}
-              </p>
-              <p className="text-muted-foreground">Category: {r.allocationCategory || "—"}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
 
 function BucketFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -355,7 +277,6 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
   );
 }
 
-
 // Reports always filter on Payment Date (r.date), never the Entry Date.
 function inRange(r: Collection, from?: string, to?: string) {
   if (from && r.date < from) return false;
@@ -367,9 +288,13 @@ function summarise(rows: Collection[], from?: string, to?: string): Row[] {
   const map = new Map<string, Row>();
   for (const r of rows) {
     if (!inRange(r, from, to)) continue;
-    const cur =
-      map.get(r.executive) ??
-      { executive: r.executive, total: 0, count: 0, normalCount: 0, previousCount: 0 };
+    const cur = map.get(r.executive) ?? {
+      executive: r.executive,
+      total: 0,
+      count: 0,
+      normalCount: 0,
+      previousCount: 0,
+    };
     cur.total += r.amount;
     cur.count += 1;
     if (r.entryType === "Previous Paid File") cur.previousCount += 1;
@@ -380,9 +305,7 @@ function summarise(rows: Collection[], from?: string, to?: string): Row[] {
 }
 
 function previousStats(rows: Collection[], from?: string, to?: string) {
-  const items = rows.filter(
-    (r) => r.entryType === "Previous Paid File" && inRange(r, from, to),
-  );
+  const items = rows.filter((r) => r.entryType === "Previous Paid File" && inRange(r, from, to));
   return { count: items.length, total: items.reduce((s, r) => s + r.amount, 0) };
 }
 
@@ -418,62 +341,18 @@ function ReportPage() {
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
-  const rawRows = data ?? [];
-  const [dateCategory, setDateCategory] = useState(ALL_CATEGORIES);
-  const [overallCategory, setOverallCategory] = useState(ALL_CATEGORIES);
-  const categories = useMemo(
-    () =>
-      [...new Set(rawRows.map((r) => r.allocationCategory).filter(Boolean))].sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [rawRows],
-  );
-  // Already Paid payments are excluded from every collection figure below.
-  const allRows = useMemo(() => rawRows.filter((r) => !r.alreadyPaid), [rawRows]);
+  const allRows = data ?? [];
   const [month, setMonth] = useState(currentMonthKey());
-  const months = useMemo(() => monthOptions(rawRows.map((r) => r.date)), [rawRows]);
-  const alreadyPaidMonth = useMemo(
-    () => rawRows.filter((r) => r.alreadyPaid && monthKey(r.date) === month),
-    [rawRows, month],
-  );
+  const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
   // Every report below works off this month-scoped dataset only.
-  const rows = useMemo(
-    () => allRows.filter((r) => monthKey(r.date) === month),
-    [allRows, month],
-  );
-  const catOk = (c: string | undefined, f: string) => f === ALL_CATEGORIES || c === f;
+  const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
   const dateRows = useMemo(
-    () =>
-      rows.filter(
-        (r) => bucketMatches(r.bucket, dateBucket) && catOk(r.allocationCategory, dateCategory),
-      ),
-    [rows, dateBucket, dateCategory],
+    () => rows.filter((r) => bucketMatches(r.bucket, dateBucket)),
+    [rows, dateBucket],
   );
   const overallRows = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
-      ),
-    [rows, overallBucket, overallCategory],
-  );
-  const dateAlready = useMemo(
-    () =>
-      alreadyPaidMonth.filter(
-        (r) =>
-          inRange(r, from, to) &&
-          bucketMatches(r.bucket, dateBucket) &&
-          catOk(r.allocationCategory, dateCategory),
-      ),
-    [alreadyPaidMonth, from, to, dateBucket, dateCategory],
-  );
-  const overallAlready = useMemo(
-    () =>
-      alreadyPaidMonth.filter(
-        (r) =>
-          bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
-      ),
-    [alreadyPaidMonth, overallBucket, overallCategory],
+    () => rows.filter((r) => bucketMatches(r.bucket, overallBucket)),
+    [rows, overallBucket],
   );
   const dateScoped = useMemo(
     () => dateRows.filter((r) => inRange(r, from, to)),
@@ -507,7 +386,6 @@ function ReportPage() {
       <div className="mt-4">
         <MonthSelect value={month} onChange={setMonth} options={months} />
       </div>
-
 
       {isLoading && <p className="mt-6 text-base">Loading report...</p>}
       {error && (
@@ -554,31 +432,22 @@ function ReportPage() {
             </div>
           </div>
           <BucketFilter value={dateBucket} onChange={setDateBucket} />
-          <CategoryFilter value={dateCategory} onChange={setDateCategory} options={categories} />
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} />
           <ExportButton rows={dateScoped} label={`${from}_to_${to}`} />
-          <AlreadyPaidSection rows={dateAlready} />
         </TabsContent>
 
         <TabsContent value="overall" className="mt-4 space-y-4">
           <BucketFilter value={overallBucket} onChange={setOverallBucket} />
-          <CategoryFilter
-            value={overallCategory}
-            onChange={setOverallCategory}
-            options={categories}
-          />
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
           <ExportButton rows={overallRows} label={month} />
-          <AlreadyPaidSection rows={overallAlready} />
         </TabsContent>
       </Tabs>
 
       <TopPerformers rows={rows} />
-
     </main>
   );
 }
@@ -641,7 +510,14 @@ function ReportBlock({ rows }: { rows: Row[] }) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="executive" tick={{ fontSize: 12 }} interval={0} angle={-25} dy={10} height={50} />
+            <XAxis
+              dataKey="executive"
+              tick={{ fontSize: 12 }}
+              interval={0}
+              angle={-25}
+              dy={10}
+              height={50}
+            />
             <YAxis tick={{ fontSize: 12 }} width={60} />
             <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
             <Bar dataKey="total" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />

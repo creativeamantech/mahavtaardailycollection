@@ -17,7 +17,6 @@ import { useAppConfig } from "@/hooks/useAppConfig";
 import { FEATURES } from "@/lib/app-config.functions";
 import { useRouterState } from "@tanstack/react-router";
 
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -86,19 +85,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Mahavtaar Daily Collection" },
       {
         name: "description",
-        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
+        content:
+          "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
       { property: "og:title", content: "Mahavtaar Daily Collection" },
       {
         property: "og:description",
-        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
+        content:
+          "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Mahavtaar Daily Collection" },
-      { name: "twitter:description", content: "Record daily loan collections by executive with instant confirmation and printable receipts." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a" },
+      {
+        name: "twitter:description",
+        content:
+          "Record daily loan collections by executive with instant confirmation and printable receipts.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a",
+      },
     ],
 
     links: [
@@ -135,11 +148,8 @@ const NAV = [
   { to: "/loans", label: "Loan Details", key: "loans" },
   { to: "/pending", label: "Pending", key: "pending" },
   { to: "/ecs", label: "ECS / Special", key: "ecs" },
-  { to: "/notifications", label: "Notifications", key: "notifications" },
   { to: "/settings", label: "Settings", key: "settings" },
 ] as const;
-
-
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -185,7 +195,9 @@ function AppShell() {
         {disabled ? (
           <main className="mx-auto w-full max-w-xl px-4 py-16 text-center">
             <p className="text-lg font-semibold">This page is currently turned off.</p>
-            <p className="mt-2 text-sm text-muted-foreground">Please contact the admin or open Settings.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Please contact the admin or open Settings.
+            </p>
           </main>
         ) : (
           <Outlet />
@@ -193,5 +205,4 @@ function AppShell() {
       </div>
     </>
   );
-
 }

@@ -10,9 +10,7 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
     <div
       className={`rounded-lg border border-primary/30 bg-primary/5 p-3 print:hidden ${className}`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-        Notification
-      </p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-primary">Notification</p>
       {activeNotification.text !== "" && (
         <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-snug">
           {activeNotification.text}
@@ -41,7 +39,7 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
   );
 }
 
-export function toDirectDriveUrl(url: string) {
+function toDirectDriveUrl(url: string) {
   const id = /\/d\/([A-Za-z0-9_-]+)/.exec(url)?.[1];
   return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w600` : url;
 }

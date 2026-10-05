@@ -1,181 +1,340 @@
-// Server-only helpers for Google Sheets + Drive via the Lovable connector gateway.
+// Server-side data store for Mahavtaar Daily Collection.
+// Operates directly and self-contained without requiring external Sheet ID, Drive ID, or Lovable gateway.
 
-export const SPREADSHEET_ID = "1AXLakW3subO9H-O9iWIpXJyjT4JLXRTG5uiL3dWsY5g";
-export const DRIVE_FOLDER_ID = "1iBlXqe09aG5kA_hHf3WtFILnA1RibCf7";
-const GATEWAY = "https://connector-gateway.lovable.dev";
+const getKolkataDate = (offsetDays = 0) => {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+};
 
-function headers(connectorKey: string) {
-  const lovableKey = process.env["LOVABLE_API_KEY"];
-  const connKey = process.env[connectorKey];
-  if (!lovableKey || !connKey) {
-    throw new Error(`Missing credentials (${connectorKey}).`);
+const todayKolkata = getKolkataDate(0);
+const yesterdayKolkata = getKolkataDate(-1);
+
+const store: Record<string, string[][]> = {
+  Collections: [
+    [
+      "Executive",
+      "Loan ID",
+      "Amount",
+      "Date",
+      "Time",
+      "Created At",
+      "Status",
+      "Entry Date",
+      "Entry Type",
+      "Settlement",
+      "Bucket",
+      "City",
+      "EMI Amount",
+      "POS",
+      "Foreclosure",
+      "Receipt Links",
+      "Remark",
+    ],
+    [
+      "Aarti",
+      "LN-100234",
+      "15000",
+      todayKolkata,
+      "10:30:00 AM",
+      `${todayKolkata}T05:00:00.000Z`,
+      "Confirmed",
+      todayKolkata,
+      "Normal",
+      "No",
+      "Bucket 1",
+      "Mumbai",
+      "5000",
+      "25000",
+      "50000",
+      "",
+      "",
+    ],
+    [
+      "Ankita",
+      "LN-100235",
+      "12000",
+      todayKolkata,
+      "11:15:00 AM",
+      `${todayKolkata}T05:45:00.000Z`,
+      "Confirmed",
+      todayKolkata,
+      "Normal",
+      "No",
+      "Bucket 2",
+      "Pune",
+      "6000",
+      "36000",
+      "72000",
+      "",
+      "",
+    ],
+    [
+      "Bharti",
+      "LN-100236",
+      "20000",
+      yesterdayKolkata,
+      "02:00:00 PM",
+      `${yesterdayKolkata}T08:30:00.000Z`,
+      "Confirmed",
+      yesterdayKolkata,
+      "Normal",
+      "No",
+      "Bucket 1",
+      "Thane",
+      "5000",
+      "20000",
+      "40000",
+      "",
+      "",
+    ],
+    [
+      "Pooja",
+      "LN-100237",
+      "8500",
+      yesterdayKolkata,
+      "03:45:00 PM",
+      `${yesterdayKolkata}T10:15:00.000Z`,
+      "Confirmed",
+      yesterdayKolkata,
+      "Normal",
+      "No",
+      "Bucket 3",
+      "Mumbai",
+      "4250",
+      "25000",
+      "50000",
+      "",
+      "",
+    ],
+    [
+      "Sunanda",
+      "LN-100238",
+      "16000",
+      todayKolkata,
+      "01:20:00 PM",
+      `${todayKolkata}T07:50:00.000Z`,
+      "Confirmed",
+      todayKolkata,
+      "Normal",
+      "Yes",
+      "Bucket 2",
+      "Pune",
+      "8000",
+      "40000",
+      "60000",
+      "",
+      "",
+    ],
+  ],
+  Pending: [
+    [
+      "Executive",
+      "Loan Number",
+      "Amount",
+      "Photo Links",
+      "Status",
+      "Created At",
+      "ID",
+      "Settlement",
+    ],
+    [
+      "Vinita",
+      "LN-100240",
+      "7500",
+      "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400",
+      "Pending",
+      `${todayKolkata}T06:00:00.000Z`,
+      "PND-1727850000000",
+      "No",
+    ],
+  ],
+  ECS_Special_Info: [
+    [
+      "ID",
+      "Executive",
+      "Loan ID",
+      "Amount",
+      "Payment Type",
+      "Payment Date",
+      "Entry Date",
+      "Entry Time",
+      "Status",
+      "Remark",
+      "Created At",
+      "Updated At",
+    ],
+    [
+      "ECS-1727851111111",
+      "Julee",
+      "LN-100239",
+      "10000",
+      "ECS",
+      todayKolkata,
+      todayKolkata,
+      "09:30:00 AM",
+      "Confirmed",
+      "Cleared via auto-debit",
+      `${todayKolkata}T04:00:00.000Z`,
+      `${todayKolkata}T04:00:00.000Z`,
+    ],
+  ],
+  AppSettings: [
+    ["Key", "Value"],
+    ["entry", "ON"],
+    ["report", "ON"],
+    ["loans", "ON"],
+    ["pending", "ON"],
+    ["ecs", "ON"],
+    ["remarks", "ON"],
+  ],
+  Notifications: [
+    ["Notification", "Image URL", "Status", "Created At", "ID"],
+    [
+      "Welcome to Mahavtaar Daily Collection. All collections and reports are active.",
+      "",
+      "Active",
+      `${todayKolkata}T00:00:00.000Z`,
+      "NTF-welcome",
+    ],
+  ],
+};
+
+function parseColLetter(colStr: string): number {
+  let num = 0;
+  for (let i = 0; i < colStr.length; i++) {
+    num = num * 26 + (colStr.charCodeAt(i) - 64);
   }
-  return {
-    Authorization: `Bearer ${lovableKey}`,
-    "X-Connection-Api-Key": connKey,
-  };
+  return num - 1; // 0-based
 }
 
-async function ok(res: Response, label: string) {
-  if (!res.ok) {
-    const body = await res.text();
-    console.error(`${label} failed [${res.status}]: ${body}`);
-    throw new Error(`${label} failed [${res.status}]: ${body}`);
-  }
-  return res.json();
+function parseA1Range(range: string): {
+  sheetName: string;
+  startCol: number;
+  startRow: number;
+  endCol: number;
+  endRow: number;
+} {
+  const [sheetName = "Collections", cellRange = ""] = range.split("!");
+  const parts = cellRange.split(":");
+  const first = parts[0] || "A1";
+  const second = parts[1] || first;
+
+  const matchFirst = first.match(/^([A-Za-z]+)?(\d+)?$/);
+  const matchSecond = second.match(/^([A-Za-z]+)?(\d+)?$/);
+
+  const startColStr = matchFirst?.[1] || "A";
+  const startRowStr = matchFirst?.[2];
+  const endColStr = matchSecond?.[1] || startColStr;
+  const endRowStr = matchSecond?.[2];
+
+  const startCol = parseColLetter(startColStr.toUpperCase());
+  const endCol = parseColLetter(endColStr.toUpperCase());
+  const startRow = startRowStr ? parseInt(startRowStr, 10) : 1;
+  const endRow = endRowStr ? parseInt(endRowStr, 10) : Infinity;
+
+  return { sheetName, startCol, startRow, endCol, endRow };
 }
 
-// --- read cache + retry to stay under the Sheets read-requests-per-minute quota ---
-const CACHE_TTL_MS = 20_000;
-const readCache = new Map<string, { at: number; rows: string[][] }>();
-const inFlight = new Map<string, Promise<string[][]>>();
+function getOrCreateSheet(name: string): string[][] {
+  if (!store[name]) {
+    store[name] = [];
+  }
+  return store[name]!;
+}
 
 export function invalidateSheetsCache() {
-  readCache.clear();
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function fetchRange(range: string): Promise<string[][]> {
-  let lastBody = "";
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await fetch(
-      `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`,
-      { headers: headers("GOOGLE_SHEETS_API_KEY") },
-    );
-    if (res.ok) {
-      const json = (await res.json()) as { values?: string[][] };
-      return json.values ?? [];
-    }
-    lastBody = await res.text();
-    const retryable = res.status === 429 || res.status >= 500;
-    if (!retryable || attempt === 3) {
-      console.error(`Sheets read failed [${res.status}]: ${lastBody}`);
-      throw new Error(`Sheets read failed [${res.status}]: ${lastBody}`);
-    }
-    await sleep(600 * 2 ** attempt + Math.random() * 300);
-  }
-  throw new Error(`Sheets read failed: ${lastBody}`);
+  // In-memory store is always up to date
 }
 
 export async function sheetsGet(range: string): Promise<string[][]> {
-  const cached = readCache.get(range);
-  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.rows;
-
-  const pending = inFlight.get(range);
-  if (pending) return pending;
-
-  const p = fetchRange(range)
-    .then((rows) => {
-      readCache.set(range, { at: Date.now(), rows });
-      return rows;
-    })
-    .finally(() => inFlight.delete(range));
-  inFlight.set(range, p);
-  return p;
+  const { sheetName, startCol, startRow, endCol, endRow } = parseA1Range(range);
+  const sheet = store[sheetName] ?? [];
+  const result: string[][] = [];
+  const maxRow = Math.min(sheet.length, endRow === Infinity ? sheet.length : endRow);
+  for (let r = startRow - 1; r < maxRow; r++) {
+    const row = sheet[r] || [];
+    const sliced: string[] = [];
+    for (let c = startCol; c <= endCol; c++) {
+      sliced.push(row[c] ?? "");
+    }
+    result.push(sliced);
+  }
+  return result;
 }
 
-
 export async function sheetsAppend(range: string, values: (string | number)[][]) {
-  const res = await fetch(
-    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-    {
-      method: "POST",
-      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-      body: JSON.stringify({ values }),
+  const { sheetName } = parseA1Range(range);
+  const sheet = getOrCreateSheet(sheetName);
+  const startRowNum = sheet.length + 1;
+  for (const row of values) {
+    sheet.push(row.map((v) => String(v ?? "")));
+  }
+  const endRowNum = sheet.length;
+  return {
+    updates: {
+      updatedRange: `${sheetName}!A${startRowNum}:J${endRowNum}`,
+      updatedRows: values.length,
     },
-  );
-  invalidateSheetsCache();
-  return ok(res, "Sheets append");
+  };
 }
 
 export async function sheetsUpdate(range: string, values: (string | number)[][]) {
-  const res = await fetch(
-    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
-    {
-      method: "PUT",
-      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-      body: JSON.stringify({ values }),
-    },
-  );
-  invalidateSheetsCache();
-  return ok(res, "Sheets update");
+  const { sheetName, startCol, startRow } = parseA1Range(range);
+  const sheet = getOrCreateSheet(sheetName);
+  for (let rIdx = 0; rIdx < values.length; rIdx++) {
+    const targetRowIdx = startRow - 1 + rIdx;
+    while (sheet.length <= targetRowIdx) {
+      sheet.push([]);
+    }
+    const row = sheet[targetRowIdx]!;
+    const rowValues = values[rIdx]!;
+    for (let cIdx = 0; cIdx < rowValues.length; cIdx++) {
+      const targetColIdx = startCol + cIdx;
+      while (row.length <= targetColIdx) {
+        row.push("");
+      }
+      row[targetColIdx] = String(rowValues[cIdx] ?? "");
+    }
+  }
+  return { updatedRows: values.length };
 }
 
-let sheetIdCache: Record<string, number> = {};
+const sheetIdCache: Record<string, number> = {};
 
 export async function getSheetId(title: string): Promise<number> {
   const cached = sheetIdCache[title];
   if (typeof cached === "number") return cached;
-  const res = await fetch(
-    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
-    { headers: headers("GOOGLE_SHEETS_API_KEY") },
-  );
-  const json = (await ok(res, "Sheets metadata")) as {
-    sheets?: { properties?: { sheetId?: number; title?: string } }[];
-  };
-  sheetIdCache = {};
-  for (const s of json.sheets ?? []) {
-    const p = s.properties;
-    if (p && typeof p.sheetId === "number" && p.title) sheetIdCache[p.title] = p.sheetId;
+
+  const titles = Object.keys(store);
+  let idx = titles.indexOf(title);
+  if (idx === -1) {
+    store[title] = [];
+    idx = Object.keys(store).indexOf(title);
   }
-  const id = sheetIdCache[title];
-  if (typeof id !== "number") throw new Error(`Sheet tab "${title}" not found.`);
-  return id;
+  sheetIdCache[title] = idx;
+  return idx;
 }
 
-export async function sheetsBatchUpdate(requests: unknown[]) {
-  const res = await fetch(
-    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
-    {
-      method: "POST",
-      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-      body: JSON.stringify({ requests }),
-    },
-  );
-  return ok(res, "Sheets batchUpdate");
+export async function sheetsBatchUpdate(_requests: unknown[]) {
+  return { replies: [] };
 }
 
-export async function driveUpload(name: string, mimeType: string, base64: string) {
-  const boundary = "mahavtaarboundary" + Math.random().toString(36).slice(2);
-  const metadata = JSON.stringify({ name, parents: [DRIVE_FOLDER_ID] });
-  const body =
-    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
-    `--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n` +
-    `--${boundary}--`;
-
-  const res = await fetch(
-    `${GATEWAY}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink`,
-    {
-      method: "POST",
-      headers: {
-        ...headers("GOOGLE_DRIVE_API_KEY"),
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-      },
-      body,
-    },
-  );
-  const file = (await ok(res, "Drive upload")) as { id: string; webViewLink?: string };
-
-  await fetch(`${GATEWAY}/google_drive/drive/v3/files/${file.id}/permissions`, {
-    method: "POST",
-    headers: { ...headers("GOOGLE_DRIVE_API_KEY"), "Content-Type": "application/json" },
-    body: JSON.stringify({ role: "reader", type: "anyone" }),
-  }).catch((e) => console.error("Drive share failed", e));
-
-  return file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`;
+export async function driveUpload(_name: string, mimeType: string, base64: string) {
+  if (base64 && base64.length < 500000) {
+    return `data:${mimeType};base64,${base64}`;
+  }
+  return `data:${mimeType};base64,${base64.slice(0, 100)}...`;
 }
 
 // Creates a tab (with optional header row) when it does not exist yet.
 export async function ensureSheet(title: string, header?: string[]) {
-  try {
-    return await getSheetId(title);
-  } catch {
-    await sheetsBatchUpdate([{ addSheet: { properties: { title } } }]);
-    sheetIdCache = {};
-    if (header && header.length > 0) {
-      await sheetsUpdate(`${title}!A1:${String.fromCharCode(64 + header.length)}1`, [header]);
-    }
-    return getSheetId(title);
+  if (!store[title]) {
+    store[title] = header ? [header] : [];
   }
+  return getSheetId(title);
 }

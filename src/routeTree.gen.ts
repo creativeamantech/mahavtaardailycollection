@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EcsRouteImport } from './routes/ecs'
 import { Route as LoansRouteImport } from './routes/loans'
-import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PendingRouteImport } from './routes/pending'
 import { Route as ReportRouteImport } from './routes/report'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -30,11 +29,6 @@ const EcsRoute = EcsRouteImport.update({
 const LoansRoute = LoansRouteImport.update({
   id: '/loans',
   path: '/loans',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PendingRoute = PendingRouteImport.update({
@@ -57,7 +51,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ecs': typeof EcsRoute
   '/loans': typeof LoansRoute
-  '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
@@ -66,7 +59,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ecs': typeof EcsRoute
   '/loans': typeof LoansRoute
-  '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
@@ -76,46 +68,23 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/ecs': typeof EcsRoute
   '/loans': typeof LoansRoute
-  '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/ecs'
-    | '/loans'
-    | '/notifications'
-    | '/pending'
-    | '/report'
-    | '/settings'
+  fullPaths: '/' | '/ecs' | '/loans' | '/pending' | '/report' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/ecs'
-    | '/loans'
-    | '/notifications'
-    | '/pending'
-    | '/report'
-    | '/settings'
+  to: '/' | '/ecs' | '/loans' | '/pending' | '/report' | '/settings'
   id:
-    | '__root__'
-    | '/'
-    | '/ecs'
-    | '/loans'
-    | '/notifications'
-    | '/pending'
-    | '/report'
-    | '/settings'
+    '__root__' | '/' | '/ecs' | '/loans' | '/pending' | '/report' | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   EcsRoute: typeof EcsRoute
   LoansRoute: typeof LoansRoute
-  NotificationsRoute: typeof NotificationsRoute
   PendingRoute: typeof PendingRoute
   ReportRoute: typeof ReportRoute
   SettingsRoute: typeof SettingsRoute
@@ -142,13 +111,6 @@ declare module '@tanstack/react-router' {
       path: '/loans'
       fullPath: '/loans'
       preLoaderRoute: typeof LoansRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pending': {
@@ -179,7 +141,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   EcsRoute: EcsRoute,
   LoansRoute: LoansRoute,
-  NotificationsRoute: NotificationsRoute,
   PendingRoute: PendingRoute,
   ReportRoute: ReportRoute,
   SettingsRoute: SettingsRoute,

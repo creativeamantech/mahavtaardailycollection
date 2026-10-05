@@ -1,15 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const executives = [
-  "Aarti",
-  "Ankita",
-  "Bharti",
-  "Julee",
-  "Pooja",
-  "Sunanda",
-  "Vinita",
-] as const;
+const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 
 const entrySchema = z.object({
   executive: z.enum(executives),
@@ -17,7 +9,10 @@ const entrySchema = z.object({
   amount: z.number().positive().max(100000000),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().trim().min(1).max(20),
-  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  entryDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   entryType: z.enum(["Normal", "Previous Paid File"]).default("Normal"),
   settlement: z.boolean().default(false),
   receiptLinks: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
@@ -41,13 +36,17 @@ const pendingSchema = z.object({
     .max(10),
 });
 
-
 const receiptSchema = z.object({
   loanNumber: z.string().trim().min(1).max(60),
   name: z.string().trim().min(1).max(120),
-  mimeType: z.string().trim().min(1).max(80).refine((m) => m.startsWith("image/"), {
-    message: "Only image files are allowed.",
-  }),
+  mimeType: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .refine((m) => m.startsWith("image/"), {
+      message: "Only image files are allowed.",
+    }),
   base64: z.string().min(1).max(9_000_000),
 });
 
@@ -94,9 +93,7 @@ export const saveCollection = createServerFn({ method: "POST" })
 
     // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
     // so they are written to the exact row the append landed on.
-    const rowNum = Number(
-      /![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0",
-    );
+    const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
     if (data.receiptLinks.length > 0 || data.remark !== "") {
       if (rowNum > 0) {
         const { sheetsUpdate } = await import("./mahavtaar.server");
@@ -140,10 +137,11 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
   const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
   // Read K:O too — those are maintained with formulas in the sheet and come back
   // as their calculated values (never the formula text).
-  // T = Allocation Category, U = Allocation Date (sheet-maintained values).
-  const rows = await sheetsGet("Collections!A2:U");
+  const rows = await sheetsGet("Collections!A2:Q");
   const num = (v: string | undefined) => {
-    const s = String(v ?? "").replace(/[^0-9.-]/g, "").trim();
+    const s = String(v ?? "")
+      .replace(/[^0-9.-]/g, "")
+      .trim();
     return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
   };
   return rows
@@ -151,9 +149,6 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
     .map((r, i) => {
       const paymentDate = normalizeSheetDate(r[3] ?? "");
       const entryDateRaw = (r[7] ?? "").trim();
-      const allocRaw = (r[20] ?? "").trim();
-      const allocationDate = allocRaw ? normalizeSheetDate(allocRaw) : "";
-      const validAlloc = /^\d{4}-\d{2}-\d{2}$/.test(allocationDate);
       return {
         bucket: (r[10] ?? "").trim(),
         city: (r[11] ?? "").trim(),
@@ -162,25 +157,22 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
         foreclosure: num(r[14]),
         row: i + 2,
         executive: r[0] ?? "",
-        loanId: String(r[1] ?? "").replace(/^['`\u2018\u2019]+/, "").trim(),
+        loanId: String(r[1] ?? "")
+          .replace(/^['`\u2018\u2019]+/, "")
+          .trim(),
         amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
         date: paymentDate,
         time: normalizeSheetTime(r[4] ?? ""),
         createdAt: (r[5] ?? "").trim(),
         status: r[6] ?? "",
         entryDate: entryDateRaw ? normalizeSheetDate(entryDateRaw) : paymentDate,
-        entryType:
-          (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
+        entryType: (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
         settlement: (r[9] ?? "").trim().toLowerCase() === "yes",
         receiptLinks: (r[15] ?? "")
           .split(/[|,\s]+/)
           .map((s) => s.trim())
           .filter((s) => s.startsWith("http")),
         remark: (r[16] ?? "").trim(),
-        allocationCategory: (r[19] ?? "").trim(),
-        allocationDate: validAlloc ? allocationDate : "",
-        // Payment before allocation = Already Paid (reporting rule only).
-        alreadyPaid: validAlloc && paymentDate !== "" && paymentDate < allocationDate,
       };
     });
 });
@@ -218,7 +210,10 @@ export const getPending = createServerFn({ method: "GET" }).handler(async () => 
       executive: r[0] ?? "",
       loanNumber: r[1] ?? "",
       amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-      links: (r[3] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+      links: (r[3] ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
       status: r[4] ?? "",
       id: r[6] ?? "",
       settlement: (r[7] ?? "").trim().toLowerCase() === "yes",
@@ -255,5 +250,4 @@ export const markPendingDone = createServerFn({ method: "POST" })
       ],
     ]);
     return { ok: true as const };
-
   });
