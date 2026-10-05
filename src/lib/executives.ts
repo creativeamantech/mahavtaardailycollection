@@ -39,6 +39,7 @@ export function formatAmount(n: number) {
 // Google Sheets can store dates/times as serial numbers. Normalise both back
 // to the plain strings the report filters on.
 const SHEET_EPOCH = Date.UTC(1899, 11, 30);
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 export function normalizeSheetDate(value: string): string {
   const v = (value ?? "").trim();
@@ -49,6 +50,15 @@ export function normalizeSheetDate(value: string): string {
   }
   const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // d/m/yyyy
   if (m) return `${m[3]}-${m[2]!.padStart(2, "0")}-${m[1]!.padStart(2, "0")}`;
+  // d-Mon-yy / d-Mon-yyyy / d Mon yyyy (e.g. 1-Oct-26)
+  const mm = v.match(/^(\d{1,2})[-\s/]([A-Za-z]{3})[A-Za-z]*[-\s/,]+(\d{2}|\d{4})$/);
+  if (mm) {
+    const mon = MONTHS.indexOf(mm[2]!.toLowerCase());
+    if (mon >= 0) {
+      const y = mm[3]!.length === 2 ? `20${mm[3]}` : mm[3]!;
+      return `${y}-${String(mon + 1).padStart(2, "0")}-${mm[1]!.padStart(2, "0")}`;
+    }
+  }
   const parsed = new Date(v);
   return Number.isNaN(parsed.getTime()) ? v : todayISO(parsed);
 }

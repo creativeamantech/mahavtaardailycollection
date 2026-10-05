@@ -69,7 +69,8 @@ function LoansPage() {
     queryFn: () => fetchCollections(),
   });
 
-  const allRows = useMemo(() => data ?? [], [data]);
+  // Already Paid payments (before Allocation Date) never count as collection.
+  const allRows = useMemo(() => (data ?? []).filter((r) => !r.alreadyPaid), [data]);
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
   // Month-scoped dataset — searches and every report below reuse it.
