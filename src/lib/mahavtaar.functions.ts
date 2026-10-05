@@ -140,7 +140,8 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
   const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
   // Read K:O too — those are maintained with formulas in the sheet and come back
   // as their calculated values (never the formula text).
-  const rows = await sheetsGet("Collections!A2:Q");
+  // T = Allocation Category, U = Allocation Date (sheet-maintained values).
+  const rows = await sheetsGet("Collections!A2:U");
   const num = (v: string | undefined) => {
     const s = String(v ?? "").replace(/[^0-9.-]/g, "").trim();
     return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
@@ -150,6 +151,9 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
     .map((r, i) => {
       const paymentDate = normalizeSheetDate(r[3] ?? "");
       const entryDateRaw = (r[7] ?? "").trim();
+      const allocRaw = (r[20] ?? "").trim();
+      const allocationDate = allocRaw ? normalizeSheetDate(allocRaw) : "";
+      const validAlloc = /^\d{4}-\d{2}-\d{2}$/.test(allocationDate);
       return {
         bucket: (r[10] ?? "").trim(),
         city: (r[11] ?? "").trim(),
@@ -173,6 +177,10 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
           .map((s) => s.trim())
           .filter((s) => s.startsWith("http")),
         remark: (r[16] ?? "").trim(),
+        allocationCategory: (r[19] ?? "").trim(),
+        allocationDate: validAlloc ? allocationDate : "",
+        // Payment before allocation = Already Paid (reporting rule only).
+        alreadyPaid: validAlloc && paymentDate !== "" && paymentDate < allocationDate,
       };
     });
 });
