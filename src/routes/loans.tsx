@@ -24,6 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ALL_CATEGORIES,
+  AlreadyPaidSection,
+  CategoryFilter,
+  categoryMatches,
+  uniqueCategories,
+} from "@/components/AllocationFilters";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 
@@ -70,13 +77,28 @@ function LoansPage() {
   });
 
   // Already Paid payments (before Allocation Date) never count as collection.
-  const allRows = useMemo(() => (data ?? []).filter((r) => !r.alreadyPaid), [data]);
+  const [category, setCategory] = useState(ALL_CATEGORIES);
+  const categories = useMemo(() => uniqueCategories(data ?? []), [data]);
+  const allRows = useMemo(
+    () => (data ?? []).filter((r) => !r.alreadyPaid && categoryMatches(r.allocationCategory, category)),
+    [data, category],
+  );
   const [month, setMonth] = useState(currentMonthKey());
-  const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
+  const months = useMemo(() => monthOptions((data ?? []).map((r) => r.date)), [data]);
   // Month-scoped dataset — searches and every report below reuse it.
   const rows = useMemo(
     () => allRows.filter((r) => monthKey(r.date) === month),
     [allRows, month],
+  );
+  const alreadyPaid = useMemo(
+    () =>
+      (data ?? []).filter(
+        (r) =>
+          r.alreadyPaid &&
+          monthKey(r.date) === month &&
+          categoryMatches(r.allocationCategory, category),
+      ),
+    [data, month, category],
   );
   const loans = useMemo(() => summariseLoans(rows), [rows]);
 
@@ -143,6 +165,9 @@ function LoansPage() {
       <div className="mt-4">
         <MonthSelect value={month} onChange={setMonth} options={months} />
       </div>
+      <div className="mt-3">
+        <CategoryFilter value={category} onChange={setCategory} options={categories} />
+      </div>
 
 
       {isLoading && <p className="mt-6 text-base">Loading loan details...</p>}
@@ -184,6 +209,13 @@ function LoansPage() {
             </p>
           ) : (
             results.map((l) => <LoanCard key={l.loanId} loan={l} />)
+          )}
+          {alreadyPaid.some((r) => r.loanId.toLowerCase().includes(query.trim().toLowerCase())) && (
+            <AlreadyPaidSection
+              rows={alreadyPaid.filter((r) =>
+                r.loanId.toLowerCase().includes(query.trim().toLowerCase()),
+              )}
+            />
           )}
         </div>
       )}
@@ -281,6 +313,10 @@ function LoansPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="mt-10">
+        <AlreadyPaidSection rows={alreadyPaid} />
       </section>
 
       <section className="mt-10">
