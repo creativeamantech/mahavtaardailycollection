@@ -37,6 +37,9 @@ export type ExportCollection = {
   pos?: number | null;
   foreclosure?: number | null;
   remark?: string;
+  casesCategory?: string;
+  allocationDate?: string;
+  isAlreadyPaid?: boolean;
 };
 
 function toCollectionRows(rows: ExportCollection[]): CollectionRow[] {
@@ -52,6 +55,9 @@ function toCollectionRows(rows: ExportCollection[]): CollectionRow[] {
     emiAmount: r.emiAmount ?? null,
     pos: r.pos ?? null,
     foreclosure: r.foreclosure ?? null,
+    casesCategory: r.casesCategory ?? "",
+    allocationDate: r.allocationDate ?? "",
+    isAlreadyPaid: r.isAlreadyPaid ?? false,
   }));
 }
 
@@ -66,6 +72,9 @@ export function collectionCsv(rows: ExportCollection[]) {
       "Settlement",
       "Bucket",
       "City",
+      "Cases Category",
+      "Allocation Date",
+      "Status",
       "Remark",
     ],
     rows.map((r) => [
@@ -77,6 +86,9 @@ export function collectionCsv(rows: ExportCollection[]) {
       r.settlement ? "Yes" : "No",
       r.bucket ?? "",
       r.city ?? "",
+      r.casesCategory ?? "",
+      r.allocationDate ?? "",
+      r.isAlreadyPaid ? "Already Paid" : "Confirmed",
       r.remark ?? "",
     ]),
   );

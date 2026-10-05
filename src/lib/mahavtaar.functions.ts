@@ -135,44 +135,106 @@ export const markConflictRows = createServerFn({ method: "POST" })
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet } = await import("./mahavtaar.server");
   const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
-  // Read K:O too — those are maintained with formulas in the sheet and come back
-  // as their calculated values (never the formula text).
-  const rows = await sheetsGet("Collections!A2:Q");
+
+  // Read all columns from A1 to AZ to capture dynamic columns including Cases Category and Allocation Date
+  const allRows = await sheetsGet("Collections!A1:AZ");
+  if (!allRows || allRows.length === 0) return [];
+
+  const rawHeaders = allRows[0] || [];
+  const headers = rawHeaders.map((h) => String(h ?? "").trim());
+  const dataRows = allRows.slice(1);
+
+  // Helper to find column index by matching patterns against headers
+  const findCol = (patterns: RegExp[], fallback: number): number => {
+    const idx = headers.findIndex((h) => patterns.some((p) => p.test(h)));
+    return idx !== -1 ? idx : fallback;
+  };
+
+  const colExecutive = findCol([/^exec/i], 0);
+  const colLoanId = findCol([/^loan/i], 1);
+  const colAmount = findCol([/^amount/i], 2);
+  const colDate = findCol([/^payment\s*date/i, /^date$/i], 3);
+  const colTime = findCol([/^time/i], 4);
+  const colCreatedAt = findCol([/created/i], 5);
+  const colStatus = findCol([/^status/i], 6);
+  const colEntryDate = findCol([/entry\s*date/i], 7);
+  const colEntryType = findCol([/entry\s*type/i], 8);
+  const colSettlement = findCol([/settle/i], 9);
+  const colBucket = findCol([/bucket/i], 10);
+  const colCity = findCol([/city/i], 11);
+  const colEmiAmount = findCol([/emi/i], 12);
+  const colPos = findCol([/pos/i], 13);
+  const colForeclosure = findCol([/foreclos/i], 14);
+  const colReceiptLinks = findCol([/receipt/i, /link/i], 15);
+  const colRemark = findCol([/remark/i], 16);
+  const colCasesCategory = findCol([/cases?\s*category/i, /^category$/i], 17);
+  const colAllocationDate = findCol([/allocat(ion)?\s*date/i], 18);
+
   const num = (v: string | undefined) => {
     const s = String(v ?? "")
       .replace(/[^0-9.-]/g, "")
       .trim();
     return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
   };
-  return rows
-    .filter((r) => r[0])
+
+  return dataRows
+    .filter((r) => r[colExecutive])
     .map((r, i) => {
-      const paymentDate = normalizeSheetDate(r[3] ?? "");
-      const entryDateRaw = (r[7] ?? "").trim();
+      const paymentDate = normalizeSheetDate(r[colDate] ?? "");
+      const entryDateRaw = (r[colEntryDate] ?? "").trim();
+      const allocationDateRaw = (r[colAllocationDate] ?? "").trim();
+      const allocationDate = allocationDateRaw ? normalizeSheetDate(allocationDateRaw) : "";
+      const casesCategory = (r[colCasesCategory] ?? "").trim();
+
+      // Allocation Date logic:
+      // If Payment Date < Allocation Date -> "Already Paid"
+      // If Payment Date = Allocation Date -> NOT Already Paid
+      // If Payment Date > Allocation Date -> NOT Already Paid (normal)
+      let isAlreadyPaid = false;
+      if (paymentDate && allocationDate) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) && /^\d{4}-\d{2}-\d{2}$/.test(allocationDate)) {
+          isAlreadyPaid = paymentDate < allocationDate;
+        } else {
+          const tPay = new Date(paymentDate).getTime();
+          const tAlloc = new Date(allocationDate).getTime();
+          if (!Number.isNaN(tPay) && !Number.isNaN(tAlloc)) {
+            isAlreadyPaid = tPay < tAlloc;
+          }
+        }
+      }
+
+      const originalStatus = (r[colStatus] ?? "").trim();
+      const status = isAlreadyPaid ? "Already Paid" : originalStatus;
+
       return {
-        bucket: (r[10] ?? "").trim(),
-        city: (r[11] ?? "").trim(),
-        emiAmount: num(r[12]),
-        pos: num(r[13]),
-        foreclosure: num(r[14]),
+        bucket: (r[colBucket] ?? "").trim(),
+        city: (r[colCity] ?? "").trim(),
+        emiAmount: num(r[colEmiAmount]),
+        pos: num(r[colPos]),
+        foreclosure: num(r[colForeclosure]),
         row: i + 2,
-        executive: r[0] ?? "",
-        loanId: String(r[1] ?? "")
+        executive: r[colExecutive] ?? "",
+        loanId: String(r[colLoanId] ?? "")
           .replace(/^['`\u2018\u2019]+/, "")
           .trim(),
-        amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
+        amount: Number(String(r[colAmount] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
         date: paymentDate,
-        time: normalizeSheetTime(r[4] ?? ""),
-        createdAt: (r[5] ?? "").trim(),
-        status: r[6] ?? "",
+        time: normalizeSheetTime(r[colTime] ?? ""),
+        createdAt: (r[colCreatedAt] ?? "").trim(),
+        status,
+        originalStatus,
         entryDate: entryDateRaw ? normalizeSheetDate(entryDateRaw) : paymentDate,
-        entryType: (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
-        settlement: (r[9] ?? "").trim().toLowerCase() === "yes",
-        receiptLinks: (r[15] ?? "")
+        entryType:
+          (r[colEntryType] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
+        settlement: (r[colSettlement] ?? "").trim().toLowerCase() === "yes",
+        receiptLinks: (r[colReceiptLinks] ?? "")
           .split(/[|,\s]+/)
           .map((s) => s.trim())
           .filter((s) => s.startsWith("http")),
-        remark: (r[16] ?? "").trim(),
+        remark: (r[colRemark] ?? "").trim(),
+        casesCategory,
+        allocationDate,
+        isAlreadyPaid,
       };
     });
 });

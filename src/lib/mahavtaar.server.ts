@@ -96,6 +96,8 @@ const store: Record<string, string[][]> = {
       "Foreclosure",
       "Receipt Links",
       "Remark",
+      "Cases Category",
+      "Allocation Date",
     ],
   ],
   Pending: [

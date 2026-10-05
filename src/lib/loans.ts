@@ -14,6 +14,9 @@ export type CollectionRow = {
   emiAmount?: number | null;
   pos?: number | null;
   foreclosure?: number | null;
+  casesCategory?: string;
+  allocationDate?: string;
+  isAlreadyPaid?: boolean;
 };
 
 export type LoanSummary = {
@@ -41,6 +44,9 @@ export type LoanSummary = {
   paidCase: boolean;
   status: string;
   lastDate: string;
+  casesCategory?: string;
+  allocationDate?: string;
+  isAlreadyPaid?: boolean;
 };
 
 // Loan IDs are sometimes stored in the sheet with a leading apostrophe
@@ -112,6 +118,9 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
     cur.emiAmount = pickNum(cur.emiAmount, r.emiAmount);
     cur.pos = pickNum(cur.pos, r.pos);
     cur.foreclosure = pickNum(cur.foreclosure, r.foreclosure);
+    cur.casesCategory = pick(cur.casesCategory ?? "", r.casesCategory);
+    cur.allocationDate = pick(cur.allocationDate ?? "", r.allocationDate);
+    if (r.isAlreadyPaid) cur.isAlreadyPaid = true;
     if (r.settlement) cur.settlement = true;
     if (r.date > cur.lastDate) cur.lastDate = r.date;
     map.set(id, cur);
@@ -166,7 +175,8 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
       l.mainPaid = l.paidEmiCount >= 1 || l.settlement || l.foreclosurePaid;
       l.paidCase = l.mainPaid;
 
-      if (l.settlement) l.status = "Settlement Paid";
+      if (l.isAlreadyPaid) l.status = "Already Paid";
+      else if (l.settlement) l.status = "Settlement Paid";
       else if (l.emiPaid) l.status = "EMI Paid";
       else if (l.foreclosurePaid) l.status = "Foreclosure Paid";
       else if (l.shortAmount !== null) l.status = "EMI Short Amount";

@@ -80,7 +80,107 @@ type Collection = {
   foreclosure?: number | null;
   receiptLinks?: string[];
   remark?: string;
+  casesCategory?: string;
+  allocationDate?: string;
+  isAlreadyPaid?: boolean;
 };
+
+const ALL_CATEGORIES = "__all__";
+
+function CategoryFilter({
+  value,
+  onChange,
+  categories,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  categories: string[];
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-base" htmlFor="cases-category-filter">
+        Cases Category
+      </Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="cases-category-filter" className="h-12 text-base">
+          <SelectValue placeholder="All Categories" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_CATEGORIES} className="text-base">
+            All Categories
+          </SelectItem>
+          {categories.map((c) => (
+            <SelectItem key={c} value={c} className="text-base">
+              {c}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function AlreadyPaidWarningCard({ cases }: { cases: Collection[] }) {
+  if (cases.length === 0) return null;
+  return (
+    <div className="rounded-xl border-2 border-red-500 bg-red-50 p-4 shadow-sm dark:border-red-600 dark:bg-red-950/40">
+      <div className="flex items-start gap-3">
+        <span className="text-2xl" aria-hidden>
+          ⚠️
+        </span>
+        <div className="flex-1 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-lg font-bold text-red-900 dark:text-red-200">
+              Already Paid Detected ({cases.length} {cases.length === 1 ? "case" : "cases"})
+            </h3>
+            <span className="rounded-full bg-red-200 px-2.5 py-0.5 text-xs font-bold text-red-900 dark:bg-red-900/60 dark:text-red-100">
+              Excluded from Collection Totals
+            </span>
+          </div>
+          <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+            Already Paid: This case has a payment date before its Allocation Date. Please remove
+            this case from your allocation.
+          </p>
+
+          <div className="mt-3 overflow-x-auto rounded-lg border border-red-200 bg-background">
+            <table className="w-full text-xs sm:text-sm">
+              <thead className="bg-red-100/60 text-red-950 dark:bg-red-950/60 dark:text-red-200">
+                <tr>
+                  <th className="p-2.5 text-left font-semibold">Loan ID</th>
+                  <th className="p-2.5 text-left font-semibold">Executive</th>
+                  <th className="p-2.5 text-left font-semibold">Payment Date</th>
+                  <th className="p-2.5 text-left font-semibold">Allocation Date</th>
+                  <th className="p-2.5 text-right font-semibold">Amount</th>
+                  <th className="p-2.5 text-left font-semibold">Category</th>
+                  <th className="p-2.5 text-left font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-red-100 dark:divide-red-900/50">
+                {cases.map((c, i) => (
+                  <tr key={`${c.loanId ?? ""}-${c.date}-${i}`}>
+                    <td className="p-2.5 font-bold">{c.loanId || "—"}</td>
+                    <td className="p-2.5">{c.executive}</td>
+                    <td className="p-2.5 font-semibold text-red-700 dark:text-red-400">{c.date}</td>
+                    <td className="p-2.5 font-medium">{c.allocationDate || "—"}</td>
+                    <td className="p-2.5 text-right font-bold tabular-nums">
+                      {formatAmount(c.amount)}
+                    </td>
+                    <td className="p-2.5">{c.casesCategory || "—"}</td>
+                    <td className="p-2.5">
+                      <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900 dark:text-red-200">
+                        Already Paid
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function BucketFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -341,18 +441,54 @@ function ReportPage() {
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
-  const allRows = data ?? [];
+  const allRows = useMemo(() => data ?? [], [data]);
+
+  // Dynamically extract all unique category values currently present in the Cases Category column
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of allRows) {
+      const cat = (r.casesCategory ?? "").trim();
+      if (cat) set.add(cat);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [allRows]);
+
+  const [category, setCategory] = useState(ALL_CATEGORIES);
+
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
-  // Every report below works off this month-scoped dataset only.
-  const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
+
+  // Month-scoped dataset
+  const monthRows = useMemo(
+    () => allRows.filter((r) => monthKey(r.date) === month),
+    [allRows, month],
+  );
+
+  // Category-filtered dataset
+  const categoryRows = useMemo(
+    () =>
+      category === ALL_CATEGORIES
+        ? monthRows
+        : monthRows.filter((r) => (r.casesCategory ?? "").trim() === category),
+    [monthRows, category],
+  );
+
+  // EXCLUDE Already Paid cases from valid collection totals and calculations
+  const validRows = useMemo(() => categoryRows.filter((r) => !r.isAlreadyPaid), [categoryRows]);
+
+  // Keep Already Paid cases identifiable and isolated
+  const alreadyPaidCases = useMemo(
+    () => categoryRows.filter((r) => r.isAlreadyPaid),
+    [categoryRows],
+  );
+
   const dateRows = useMemo(
-    () => rows.filter((r) => bucketMatches(r.bucket, dateBucket)),
-    [rows, dateBucket],
+    () => validRows.filter((r) => bucketMatches(r.bucket, dateBucket)),
+    [validRows, dateBucket],
   );
   const overallRows = useMemo(
-    () => rows.filter((r) => bucketMatches(r.bucket, overallBucket)),
-    [rows, overallBucket],
+    () => validRows.filter((r) => bucketMatches(r.bucket, overallBucket)),
+    [validRows, overallBucket],
   );
   const dateScoped = useMemo(
     () => dateRows.filter((r) => inRange(r, from, to)),
@@ -383,8 +519,13 @@ function ReportPage() {
         </Button>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MonthSelect value={month} onChange={setMonth} options={months} />
+        <CategoryFilter value={category} onChange={setCategory} categories={categories} />
+      </div>
+
+      <div className="mt-4">
+        <AlreadyPaidWarningCard cases={alreadyPaidCases} />
       </div>
 
       {isLoading && <p className="mt-6 text-base">Loading report...</p>}
@@ -447,7 +588,7 @@ function ReportPage() {
         </TabsContent>
       </Tabs>
 
-      <TopPerformers rows={rows} />
+      <TopPerformers rows={validRows} />
     </main>
   );
 }

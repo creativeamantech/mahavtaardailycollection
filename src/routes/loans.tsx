@@ -49,6 +49,7 @@ export const Route = createFileRoute("/loans")({
 const ALL = "__all__";
 
 function statusClass(status: string) {
+  if (status === "Already Paid") return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
   if (status === "Settlement Paid") return "bg-violet-100 text-violet-800";
   if (status === "EMI Paid") return "bg-emerald-100 text-emerald-800";
   if (status.startsWith("POS Paid") || status === "Foreclosure Paid")
@@ -71,11 +72,43 @@ function LoansPage() {
   });
 
   const allRows = useMemo(() => data ?? [], [data]);
+
+  // Dynamically extract all unique category values currently present in the Cases Category column
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of allRows) {
+      const cat = (r.casesCategory ?? "").trim();
+      if (cat) set.add(cat);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [allRows]);
+
+  const [category, setCategory] = useState(ALL);
+
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
-  // Month-scoped dataset — searches and every report below reuse it.
-  const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
+
+  // Month-scoped dataset
+  const monthRows = useMemo(
+    () => allRows.filter((r) => monthKey(r.date) === month),
+    [allRows, month],
+  );
+
+  // Category-filtered dataset
+  const rows = useMemo(
+    () =>
+      category === ALL
+        ? monthRows
+        : monthRows.filter((r) => (r.casesCategory ?? "").trim() === category),
+    [monthRows, category],
+  );
+
+  // For loan searches:
   const loans = useMemo(() => summariseLoans(rows), [rows]);
+
+  // For city/bucket executive reports: EXCLUDE Already Paid cases
+  const validReportRows = useMemo(() => rows.filter((r) => !r.isAlreadyPaid), [rows]);
+  const validReportLoans = useMemo(() => summariseLoans(validReportRows), [validReportRows]);
 
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
@@ -87,21 +120,21 @@ function LoansPage() {
   }, [loans, query]);
 
   const [showShort, setShowShort] = useState(false);
-  const shorts = useMemo(() => shortEmiRows(loans), [loans]);
+  const shorts = useMemo(() => shortEmiRows(validReportLoans), [validReportLoans]);
 
   // Date-wise city report
   const [date, setDate] = useState(todayISO());
   const [dateBucket, setDateBucket] = useState(ALL);
   const buckets = useMemo(
-    () => [...new Set(loans.map((l) => l.bucket))].filter(Boolean).sort(),
-    [loans],
+    () => [...new Set(validReportLoans.map((l) => l.bucket))].filter(Boolean).sort(),
+    [validReportLoans],
   );
   const dateSections = useMemo(() => {
-    const scoped = rows.filter(
+    const scoped = validReportRows.filter(
       (r) => r.date === date && (dateBucket === ALL || (r.bucket ?? "") === dateBucket),
     );
     return executiveSections(summariseLoans(scoped));
-  }, [rows, date, dateBucket]);
+  }, [validReportRows, date, dateBucket]);
 
   // Overall bucket -> city report (all dates in the selected month).
   // Rendered only after the user asks for it; no extra API call is made,
@@ -110,11 +143,11 @@ function LoansPage() {
   const overallSections = useMemo(
     () =>
       showOverall
-        ? [...executiveSections(loans)].sort(
+        ? [...executiveSections(validReportLoans)].sort(
             (a, b) => a.bucket.localeCompare(b.bucket) || a.city.localeCompare(b.city),
           )
         : [],
-    [loans, showOverall],
+    [validReportLoans, showOverall],
   );
 
   return (
@@ -136,8 +169,26 @@ function LoansPage() {
         </Button>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MonthSelect value={month} onChange={setMonth} options={months} />
+        <div className="space-y-2">
+          <Label className="text-base">Cases Category</Label>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="h-12 text-base">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="text-base">
+                All Categories
+              </SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c} className="text-base">
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {isLoading && <p className="mt-6 text-base">Loading loan details...</p>}
@@ -385,6 +436,14 @@ function Td({ children, right }: { children: React.ReactNode; right?: boolean })
 function LoanCard({ loan }: { loan: LoanSummary }) {
   return (
     <div className="rounded-xl border p-4">
+      {loan.isAlreadyPaid && (
+        <div className="mb-4 rounded-xl border-2 border-red-500 bg-red-50 p-4 text-red-900 shadow-sm dark:border-red-600 dark:bg-red-950/40 dark:text-red-200">
+          <p className="font-bold text-sm">
+            ⚠️ Already Paid: This case has a payment date before its Allocation Date. Please remove
+            this case from your allocation.
+          </p>
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-lg font-bold">{loan.loanId}</p>
@@ -398,6 +457,8 @@ function LoanCard({ loan }: { loan: LoanSummary }) {
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-base">
+        <Field k="Cases Category" v={loan.casesCategory ?? ""} />
+        <Field k="Allocation Date" v={loan.allocationDate ?? ""} />
         <Field k="Bucket" v={loan.bucket} />
         <Field k="City" v={loan.city} />
         <Field k="EMI Amount" v={money(loan.emiAmount)} />
@@ -423,9 +484,16 @@ function LoanCard({ loan }: { loan: LoanSummary }) {
       </dl>
 
       <div className="mt-3 flex flex-wrap gap-1">
+        {loan.isAlreadyPaid && (
+          <Tag className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+            Already Paid
+          </Tag>
+        )}
         {loan.settlement && <Tag className="bg-violet-100 text-violet-800">Settlement Paid</Tag>}
         {loan.emiPaid && <Tag className="bg-emerald-100 text-emerald-800">EMI Paid</Tag>}
-        {loan.mainPaid && <Tag className="bg-emerald-100 text-emerald-800">Main Paid</Tag>}
+        {loan.mainPaid && !loan.isAlreadyPaid && (
+          <Tag className="bg-emerald-100 text-emerald-800">Main Paid</Tag>
+        )}
         {loan.posPaid && (
           <Tag className="bg-sky-100 text-sky-800">
             {loan.mainPaid ? "POS Paid" : "POS Paid — Not Main Paid"}
