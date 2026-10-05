@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -97,7 +97,11 @@ function EcsForm() {
   const [isPrevious, setIsPrevious] = useState(false);
   const [prevDate, setPrevDate] = useState("");
   const [remark, setRemark] = useState("");
-  const [time, setTime] = useState(nowTime());
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    setTime(nowTime());
+  }, []);
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [slip, setSlip] = useState<Slip | null>(null);

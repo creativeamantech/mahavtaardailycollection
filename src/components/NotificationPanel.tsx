@@ -1,10 +1,17 @@
+import { useEffect, useState } from "react";
 import { useAppConfig } from "@/hooks/useAppConfig";
 
 // Compact banner showing the latest active notification. Uses the shared
 // app-config query, so no extra API call per page.
 export function NotificationPanel({ className = "" }: { className?: string }) {
+  const [mounted, setMounted] = useState(false);
   const { activeNotification } = useAppConfig();
-  if (!activeNotification) return null;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || !activeNotification) return null;
 
   return (
     <div

@@ -137,3 +137,15 @@ export const removeNotification = createServerFn({ method: "POST" })
     await sheetsUpdate(`${NOTIF_TAB}!C${idx + 2}`, [["Removed"]]);
     return { ok: true as const };
   });
+
+export const getConnectionInfo = createServerFn({ method: "GET" }).handler(async () => {
+  const { SPREADSHEET_ID, DRIVE_FOLDER_ID, isGatewayConfigured } =
+    await import("./mahavtaar.server");
+  return {
+    spreadsheetId: SPREADSHEET_ID,
+    driveFolderId: DRIVE_FOLDER_ID,
+    isGatewayActive: isGatewayConfigured(),
+    spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`,
+    driveFolderUrl: `https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`,
+  };
+});

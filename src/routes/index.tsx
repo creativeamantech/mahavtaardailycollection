@@ -1,7 +1,7 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -98,7 +98,11 @@ function EntryPage() {
   const [loanId, setLoanId] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
-  const [time, setTime] = useState(nowTime());
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    setTime(nowTime());
+  }, []);
   const [confirmed, setConfirmed] = useState(false);
   const [isPrevious, setIsPrevious] = useState(false);
   const [settlement, setSettlement] = useState(false);

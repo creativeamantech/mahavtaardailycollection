@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
 import {
   FEATURES,
   addNotification,
+  getConnectionInfo,
   removeNotification,
   saveFeatureFlags,
   verifySettingsPassword,
@@ -111,6 +112,13 @@ function SettingsContent() {
   const saveFlags = useServerFn(saveFeatureFlags);
   const addNotif = useServerFn(addNotification);
   const removeNotif = useServerFn(removeNotification);
+  const fetchConn = useServerFn(getConnectionInfo);
+
+  const { data: conn } = useQuery({
+    queryKey: ["connection-info"],
+    queryFn: () => fetchConn(),
+    staleTime: 60_000,
+  });
 
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -154,6 +162,71 @@ function SettingsContent() {
   return (
     <div className="space-y-8">
       <NotificationPanel />
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Google Drive &amp; Google Sheets Connection</h2>
+        <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">Integration Source</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              Connected via Lovable
+            </span>
+          </div>
+
+          <div className="grid gap-3 pt-1">
+            <div className="rounded-md border bg-background p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Google Sheets (Database File)</p>
+                  <p className="truncate text-xs font-mono text-muted-foreground mt-0.5">
+                    {conn?.spreadsheetId ?? "1AXLakW3subO9H-O9iWIpXJyjT4JLXRTG5uiL3dWsY5g"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tabs: Collections, Pending, ECS_Special_Info, AppSettings, Notifications
+                  </p>
+                </div>
+                <a
+                  href={
+                    conn?.spreadsheetUrl ??
+                    "https://docs.google.com/spreadsheets/d/1AXLakW3subO9H-O9iWIpXJyjT4JLXRTG5uiL3dWsY5g/edit"
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-xs font-medium text-primary underline"
+                >
+                  Open Sheet ↗
+                </a>
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-background p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Google Drive (Attachments Folder)</p>
+                  <p className="truncate text-xs font-mono text-muted-foreground mt-0.5">
+                    {conn?.driveFolderId ?? "1iBlXqe09aG5kA_hHf3WtFILnA1RibCf7"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Payment Receipts, Slips &amp; Notification Attachments
+                  </p>
+                </div>
+                <a
+                  href={
+                    conn?.driveFolderUrl ??
+                    "https://drive.google.com/drive/folders/1iBlXqe09aG5kA_hHf3WtFILnA1RibCf7"
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-xs font-medium text-primary underline"
+                >
+                  Open Folder ↗
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Page &amp; Feature Visibility</h2>

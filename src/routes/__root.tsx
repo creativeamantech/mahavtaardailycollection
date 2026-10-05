@@ -8,13 +8,13 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppConfig } from "@/hooks/useAppConfig";
-import { FEATURES } from "@/lib/app-config.functions";
+import { DEFAULT_FLAGS, FEATURES } from "@/lib/app-config.functions";
 import { useRouterState } from "@tanstack/react-router";
 
 function NotFoundComponent() {
@@ -163,10 +163,17 @@ function RootComponent() {
 }
 
 function AppShell() {
+  const [mounted, setMounted] = useState(false);
   const { flags } = useAppConfig();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const current = FEATURES.find((f) => f.path === pathname);
-  const disabled = current ? flags[current.key] === false : false;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const activeFlags = mounted ? flags : DEFAULT_FLAGS;
+  const disabled = mounted && current ? flags[current.key] === false : false;
   return (
     <>
       <div className="min-h-screen bg-background">
@@ -174,7 +181,7 @@ function AppShell() {
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
             <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
             <nav className="mt-2 flex flex-wrap gap-2">
-              {NAV.filter((n) => flags[n.key] !== false).map((n) => (
+              {NAV.filter((n) => activeFlags[n.key] !== false).map((n) => (
                 <Link
                   key={n.to}
                   to={n.to}
