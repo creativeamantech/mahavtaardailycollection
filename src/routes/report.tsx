@@ -348,21 +348,62 @@ function ReportPage() {
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
-  const allRows = data ?? [];
+  const rawRows = data ?? [];
+  const [dateCategory, setDateCategory] = useState(ALL_CATEGORIES);
+  const [overallCategory, setOverallCategory] = useState(ALL_CATEGORIES);
+  const categories = useMemo(
+    () =>
+      [...new Set(rawRows.map((r) => r.allocationCategory).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [rawRows],
+  );
+  // Already Paid payments are excluded from every collection figure below.
+  const allRows = useMemo(() => rawRows.filter((r) => !r.alreadyPaid), [rawRows]);
   const [month, setMonth] = useState(currentMonthKey());
-  const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
+  const months = useMemo(() => monthOptions(rawRows.map((r) => r.date)), [rawRows]);
+  const alreadyPaidMonth = useMemo(
+    () => rawRows.filter((r) => r.alreadyPaid && monthKey(r.date) === month),
+    [rawRows, month],
+  );
   // Every report below works off this month-scoped dataset only.
   const rows = useMemo(
     () => allRows.filter((r) => monthKey(r.date) === month),
     [allRows, month],
   );
+  const catOk = (c: string | undefined, f: string) => f === ALL_CATEGORIES || c === f;
   const dateRows = useMemo(
-    () => rows.filter((r) => bucketMatches(r.bucket, dateBucket)),
-    [rows, dateBucket],
+    () =>
+      rows.filter(
+        (r) => bucketMatches(r.bucket, dateBucket) && catOk(r.allocationCategory, dateCategory),
+      ),
+    [rows, dateBucket, dateCategory],
   );
   const overallRows = useMemo(
-    () => rows.filter((r) => bucketMatches(r.bucket, overallBucket)),
-    [rows, overallBucket],
+    () =>
+      rows.filter(
+        (r) =>
+          bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
+      ),
+    [rows, overallBucket, overallCategory],
+  );
+  const dateAlready = useMemo(
+    () =>
+      alreadyPaidMonth.filter(
+        (r) =>
+          inRange(r, from, to) &&
+          bucketMatches(r.bucket, dateBucket) &&
+          catOk(r.allocationCategory, dateCategory),
+      ),
+    [alreadyPaidMonth, from, to, dateBucket, dateCategory],
+  );
+  const overallAlready = useMemo(
+    () =>
+      alreadyPaidMonth.filter(
+        (r) =>
+          bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
+      ),
+    [alreadyPaidMonth, overallBucket, overallCategory],
   );
   const dateScoped = useMemo(
     () => dateRows.filter((r) => inRange(r, from, to)),
