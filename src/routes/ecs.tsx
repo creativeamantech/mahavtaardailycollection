@@ -39,8 +39,7 @@ export const Route = createFileRoute("/ecs")({
       { property: "og:title", content: "ECS / Special Entry — Mahavtaar Daily Collection" },
       {
         property: "og:description",
-        content:
-          "Information-only ECS and Special payment register with remarks and status updates.",
+        content: "Information-only ECS and Special payment register with remarks and status updates.",
       },
     ],
   }),
@@ -478,12 +477,7 @@ function EcsReport() {
           <span className="text-base">Show all dates</span>
         </label>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <FilterSelect
-            label="Executive"
-            value={exec}
-            onChange={setExec}
-            options={[...EXECUTIVES]}
-          />
+          <FilterSelect label="Executive" value={exec} onChange={setExec} options={[...EXECUTIVES]} />
           <FilterSelect label="Type" value={type} onChange={setType} options={["ECS", "Special"]} />
           <FilterSelect
             label="Status"

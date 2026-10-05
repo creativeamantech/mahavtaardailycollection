@@ -3,7 +3,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { formatAmount, todayISO } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
@@ -277,6 +285,7 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
   );
 }
 
+
 // Reports always filter on Payment Date (r.date), never the Entry Date.
 function inRange(r: Collection, from?: string, to?: string) {
   if (from && r.date < from) return false;
@@ -288,13 +297,9 @@ function summarise(rows: Collection[], from?: string, to?: string): Row[] {
   const map = new Map<string, Row>();
   for (const r of rows) {
     if (!inRange(r, from, to)) continue;
-    const cur = map.get(r.executive) ?? {
-      executive: r.executive,
-      total: 0,
-      count: 0,
-      normalCount: 0,
-      previousCount: 0,
-    };
+    const cur =
+      map.get(r.executive) ??
+      { executive: r.executive, total: 0, count: 0, normalCount: 0, previousCount: 0 };
     cur.total += r.amount;
     cur.count += 1;
     if (r.entryType === "Previous Paid File") cur.previousCount += 1;
@@ -305,7 +310,9 @@ function summarise(rows: Collection[], from?: string, to?: string): Row[] {
 }
 
 function previousStats(rows: Collection[], from?: string, to?: string) {
-  const items = rows.filter((r) => r.entryType === "Previous Paid File" && inRange(r, from, to));
+  const items = rows.filter(
+    (r) => r.entryType === "Previous Paid File" && inRange(r, from, to),
+  );
   return { count: items.length, total: items.reduce((s, r) => s + r.amount, 0) };
 }
 
@@ -345,7 +352,10 @@ function ReportPage() {
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
   // Every report below works off this month-scoped dataset only.
-  const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
+  const rows = useMemo(
+    () => allRows.filter((r) => monthKey(r.date) === month),
+    [allRows, month],
+  );
   const dateRows = useMemo(
     () => rows.filter((r) => bucketMatches(r.bucket, dateBucket)),
     [rows, dateBucket],
@@ -386,6 +396,7 @@ function ReportPage() {
       <div className="mt-4">
         <MonthSelect value={month} onChange={setMonth} options={months} />
       </div>
+
 
       {isLoading && <p className="mt-6 text-base">Loading report...</p>}
       {error && (
@@ -448,6 +459,7 @@ function ReportPage() {
       </Tabs>
 
       <TopPerformers rows={rows} />
+
     </main>
   );
 }
@@ -510,14 +522,7 @@ function ReportBlock({ rows }: { rows: Row[] }) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="executive"
-              tick={{ fontSize: 12 }}
-              interval={0}
-              angle={-25}
-              dy={10}
-              height={50}
-            />
+            <XAxis dataKey="executive" tick={{ fontSize: 12 }} interval={0} angle={-25} dy={10} height={50} />
             <YAxis tick={{ fontSize: 12 }} width={60} />
             <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
             <Bar dataKey="total" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />

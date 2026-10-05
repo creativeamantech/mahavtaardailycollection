@@ -105,6 +105,7 @@ function PendingPage() {
       setSettlement(false);
       setFileKey((k) => k + 1);
 
+
       qc.invalidateQueries({ queryKey: ["pending"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Upload failed"),
@@ -205,6 +206,8 @@ function PendingPage() {
           <span className="text-base leading-snug">Settlement Payment</span>
         </label>
 
+
+
         <Button
           className="h-14 w-full text-lg"
           disabled={!valid || submit.isPending}
@@ -233,6 +236,7 @@ function PendingPage() {
                     Settlement
                   </span>
                 )}
+
               </div>
               <Button
                 className="h-11 text-base"
@@ -272,13 +276,10 @@ function PendingPage() {
             <Line k="Pending Amount" v={formatAmount(Number(amount) || 0)} />
             <Line k="Photos" v={`${files.length}`} />
             <Line k="Settlement Payment" v={settlement ? "Yes" : "No"} />
+
           </dl>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              className="h-12 text-base"
-              onClick={() => setShowConfirm(false)}
-            >
+            <Button variant="outline" className="h-12 text-base" onClick={() => setShowConfirm(false)}>
               Cancel / Edit
             </Button>
             <Button
@@ -302,11 +303,7 @@ function PendingPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              className="h-12 text-base"
-              onClick={() => setDoneTarget(null)}
-            >
+            <Button variant="outline" className="h-12 text-base" onClick={() => setDoneTarget(null)}>
               Cancel
             </Button>
             <Button

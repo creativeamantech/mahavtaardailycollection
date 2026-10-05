@@ -46,9 +46,7 @@ export type LoanSummary = {
 // Loan IDs are sometimes stored in the sheet with a leading apostrophe
 // ('123456) to force text. Normalise for matching, grouping and display.
 export function normaliseLoanId(id: string | undefined) {
-  return String(id ?? "")
-    .replace(/^['`\u2018\u2019]+/, "")
-    .trim();
+  return String(id ?? "").replace(/^['`\u2018\u2019]+/, "").trim();
 }
 
 // Fixed bucket-wise EMI limits: Bucket 1 -> 2 EMI ... Bucket 5 -> 6 EMI.
@@ -317,10 +315,7 @@ function addLoan(m: ExecutiveMetrics, l: LoanSummary) {
 // A loan counts once per executive that touched it, exactly like the
 // previous city matrix did.
 export function executiveSections(loans: LoanSummary[]): ReportSection[] {
-  const map = new Map<
-    string,
-    { city: string; bucket: string; execs: Map<string, ExecutiveMetrics> }
-  >();
+  const map = new Map<string, { city: string; bucket: string; execs: Map<string, ExecutiveMetrics> }>();
   for (const l of loans) {
     const city = l.city || "—";
     const bucket = l.bucket || "—";

@@ -1,6 +1,0 @@
-{
-  "name": "Mahavtaar Daily Collection",
-  "description": "Record daily loan collections by executive with instant confirmation, reports, pending receipts, and printable receipts.",
-  "permissions": [],
-  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

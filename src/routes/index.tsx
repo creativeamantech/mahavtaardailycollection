@@ -45,8 +45,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Mahavtaar Daily Collection" },
       {
         property: "og:description",
-        content:
-          "Record daily loan collections by executive with instant confirmation and printable receipts.",
+        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
     ],
   }),
@@ -91,6 +90,8 @@ async function fileToBase64(file: File) {
   return btoa(binary);
 }
 
+
+
 function EntryPage() {
   const today = todayISO();
   const yesterday = todayISO(new Date(Date.now() - 86400000));
@@ -110,6 +111,7 @@ function EntryPage() {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
+
 
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
@@ -249,7 +251,8 @@ function EntryPage() {
         time,
         entryDate: today,
         entryType: (isPrevious ? "Previous Paid File" : "Normal") as
-          "Normal" | "Previous Paid File",
+          | "Normal"
+          | "Previous Paid File",
         settlement,
       };
       const saved = (await save({
@@ -294,6 +297,7 @@ function EntryPage() {
       setUploadError("");
       setFileKey((k) => k + 1);
       toast.success("Entry saved");
+
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save entry");
     } finally {
@@ -319,6 +323,7 @@ function EntryPage() {
       ["Entry Type", receipt.entryType],
       ["Settlement Payment", receipt.settlement ? "Yes" : "No"],
       ["Status", "Confirmed"],
+
     ];
     let y = 120;
     lines.forEach(([k, v]) => {
@@ -403,6 +408,7 @@ function EntryPage() {
           <span className="text-base leading-snug">Settlement Payment</span>
         </label>
 
+
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
             checked={isPrevious}
@@ -464,7 +470,13 @@ function EntryPage() {
             <Label className="text-base" htmlFor="date">
               {isPrevious ? "Payment Date" : "Date"}
             </Label>
-            <Input id="date" type="date" className="h-12 text-base" value={paymentDate} readOnly />
+            <Input
+              id="date"
+              type="date"
+              className="h-12 text-base"
+              value={paymentDate}
+              readOnly
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-base" htmlFor="time">
@@ -494,7 +506,9 @@ function EntryPage() {
                 document.getElementById("receiptImage")?.click();
             }}
             className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
-              dragOver ? "border-primary bg-primary/10" : "border-muted-foreground/30 bg-muted/30"
+              dragOver
+                ? "border-primary bg-primary/10"
+                : "border-muted-foreground/30 bg-muted/30"
             }`}
           >
             <p className="text-base font-medium">
@@ -573,27 +587,25 @@ function EntryPage() {
           )}
         </div>
 
-        {remarksOn && (
-          <div className="space-y-2">
-            <Label className="text-base" htmlFor="remark">
-              Remark (only if receipt image is not available)
-            </Label>
-            <Input
-              id="remark"
-              className="h-12 text-base"
-              maxLength={200}
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="e.g. Receipt not received from customer"
-              disabled={receiptLink !== ""}
-            />
-            {receiptLink === "" && remark.trim() !== "" && !remarkValid && (
-              <p className="text-sm font-medium text-destructive">
-                Remark must have more than 3 words.
-              </p>
-            )}
-          </div>
-        )}
+        {remarksOn && <div className="space-y-2">
+          <Label className="text-base" htmlFor="remark">
+            Remark (only if receipt image is not available)
+          </Label>
+          <Input
+            id="remark"
+            className="h-12 text-base"
+            maxLength={200}
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            placeholder="e.g. Receipt not received from customer"
+            disabled={receiptLink !== ""}
+          />
+          {receiptLink === "" && remark.trim() !== "" && !remarkValid && (
+            <p className="text-sm font-medium text-destructive">
+              Remark must have more than 3 words.
+            </p>
+          )}
+        </div>}
 
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
@@ -610,8 +622,8 @@ function EntryPage() {
         {conflicts.length > 0 && (
           <div className="space-y-2 rounded-lg border-2 border-red-500 bg-red-50 p-3">
             <p className="text-base font-bold text-red-700">
-              PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by another
-              Executive.
+              PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by
+              another Executive.
             </p>
             <ul className="space-y-2 text-sm text-red-900">
               {conflicts.map((c) => (
@@ -702,11 +714,7 @@ function EntryPage() {
             </p>
           )}
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              className="h-12 text-base"
-              onClick={() => setShowConfirm(false)}
-            >
+            <Button variant="outline" className="h-12 text-base" onClick={() => setShowConfirm(false)}>
               Cancel / Edit
             </Button>
             <Button className="h-12 text-base" onClick={doSave} disabled={saving}>
@@ -731,6 +739,7 @@ function EntryPage() {
               <Row k="Entry Type" v={receipt.entryType} />
               <Row k="Settlement Payment" v={receipt.settlement ? "Yes" : "No"} />
               <Row k="Status" v="Confirmed" />
+
             </dl>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 print:hidden">

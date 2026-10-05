@@ -51,8 +51,7 @@ const ALL = "__all__";
 function statusClass(status: string) {
   if (status === "Settlement Paid") return "bg-violet-100 text-violet-800";
   if (status === "EMI Paid") return "bg-emerald-100 text-emerald-800";
-  if (status.startsWith("POS Paid") || status === "Foreclosure Paid")
-    return "bg-sky-100 text-sky-800";
+  if (status.startsWith("POS Paid") || status === "Foreclosure Paid") return "bg-sky-100 text-sky-800";
   if (status === "EMI Short Amount") return "bg-amber-100 text-amber-900";
   return "bg-muted text-muted-foreground";
 }
@@ -74,7 +73,10 @@ function LoansPage() {
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(allRows.map((r) => r.date)), [allRows]);
   // Month-scoped dataset — searches and every report below reuse it.
-  const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
+  const rows = useMemo(
+    () => allRows.filter((r) => monthKey(r.date) === month),
+    [allRows, month],
+  );
   const loans = useMemo(() => summariseLoans(rows), [rows]);
 
   const [search, setSearch] = useState("");
@@ -117,6 +119,7 @@ function LoansPage() {
     [loans, showOverall],
   );
 
+
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -139,6 +142,7 @@ function LoansPage() {
       <div className="mt-4">
         <MonthSelect value={month} onChange={setMonth} options={months} />
       </div>
+
 
       {isLoading && <p className="mt-6 text-base">Loading loan details...</p>}
       {error && (
@@ -364,6 +368,7 @@ function SectionTable({ title, section }: { title: string; section: ReportSectio
   );
 }
 
+
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
     <th
@@ -376,9 +381,7 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 
 function Td({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <td className={`whitespace-nowrap px-2 py-2 sm:p-3 ${right ? "text-right" : "text-left"}`}>
-      {children}
-    </td>
+    <td className={`whitespace-nowrap px-2 py-2 sm:p-3 ${right ? "text-right" : "text-left"}`}>{children}</td>
   );
 }
 
@@ -390,9 +393,7 @@ function LoanCard({ loan }: { loan: LoanSummary }) {
           <p className="text-lg font-bold">{loan.loanId}</p>
           <p className="text-sm text-muted-foreground">{loan.executive}</p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-semibold ${statusClass(loan.status)}`}
-        >
+        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusClass(loan.status)}`}>
           {loan.status}
         </span>
       </div>
@@ -438,11 +439,7 @@ function LoanCard({ loan }: { loan: LoanSummary }) {
 }
 
 function Tag({ children, className }: { children: React.ReactNode; className: string }) {
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${className}`}>
-      {children}
-    </span>
-  );
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${className}`}>{children}</span>;
 }
 
 function Field({ k, v }: { k: string; v: string }) {
