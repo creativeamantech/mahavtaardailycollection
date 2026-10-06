@@ -22,13 +22,14 @@ export function useAppConfig() {
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS, ...(query.data?.flags ?? {}) };
   const notifications: Notification[] = query.data?.notifications ?? [];
+  const defaultCategory = query.data?.defaultCategory ?? "";
   const activeNotification =
     [...notifications]
       .filter((n) => n.status.toLowerCase() !== "removed")
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .pop() ?? null;
 
-  return { ...query, flags, notifications, activeNotification };
+  return { ...query, flags, notifications, activeNotification, defaultCategory };
 }
 
 export function useFeatureEnabled(key: string) {
