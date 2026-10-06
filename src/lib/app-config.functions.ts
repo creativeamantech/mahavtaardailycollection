@@ -80,7 +80,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }))
     .filter((n) => n.text !== "" || n.imageUrl !== "");
 
-  return { flags, notifications };
+  return { flags, notifications, defaultCategory };
 });
 
 export const verifySettingsPassword = createServerFn({ method: "POST" })
@@ -100,13 +100,48 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     z.object({ flags: z.record(z.string().max(40), z.boolean()) }).parse(d),
   )
   .handler(async ({ data }) => {
-    const { sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
+    const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
+    // Preserve the default-category row so flag saves never wipe it.
+    let defaultCategory = "";
+    try {
+      const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
+      defaultCategory =
+        rows.find((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY)?.[1]?.trim() ?? "";
+    } catch {
+      /* keep "" */
+    }
     const entries = Object.entries(data.flags);
     const values = entries.map(([k, v]) => [k, v ? "ON" : "OFF"]);
+    values.push([DEFAULT_CATEGORY_KEY, defaultCategory]);
     // Pad so removed keys never leave stale rows behind.
     while (values.length < 40) values.push(["", ""]);
     await sheetsUpdate(`${SETTINGS_TAB}!A2:B41`, values);
+    return { ok: true as const };
+  });
+
+export const saveDefaultCategory = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ category: z.string().trim().max(80) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
+    await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
+    let rows: string[][] = [];
+    try {
+      rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
+    } catch {
+      /* empty tab */
+    }
+    const idx = rows.findIndex((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY);
+    if (idx >= 0) {
+      await sheetsUpdate(`${SETTINGS_TAB}!B${idx + 2}`, [[data.category]]);
+    } else {
+      const row = rows.length + 2;
+      await sheetsUpdate(`${SETTINGS_TAB}!A${row}:B${row}`, [
+        [DEFAULT_CATEGORY_KEY, data.category],
+      ]);
+    }
     return { ok: true as const };
   });
 
