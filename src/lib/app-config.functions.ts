@@ -32,6 +32,8 @@ export type Notification = {
 
 const SETTINGS_TAB = "AppSettings";
 const NOTIF_TAB = "Notifications";
+// AppSettings key holding the default allocation category ("" = All Categories).
+export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
 
 export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet, ensureSheet } = await import("./mahavtaar.server");
@@ -57,9 +59,15 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
   }
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS };
+  let defaultCategory = "";
   for (const r of settingRows) {
     const key = (r[0] ?? "").trim();
-    if (key !== "") flags[key] = (r[1] ?? "").trim().toUpperCase() !== "OFF";
+    if (key === "") continue;
+    if (key === DEFAULT_CATEGORY_KEY) {
+      defaultCategory = (r[1] ?? "").trim();
+      continue;
+    }
+    flags[key] = (r[1] ?? "").trim().toUpperCase() !== "OFF";
   }
 
   const notifications: Notification[] = notifRows
