@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 // Same session unlock is shared by Settings and Already Paid.
 export const SETTINGS_SESSION_KEY = "mahavtaar-settings-unlocked";
 
-export function PasswordGate({ onUnlock, label = label }: { onUnlock: () => void; label?: string }) {
+export function PasswordGate({ onUnlock, label = "Unlock Settings" }: { onUnlock: () => void; label?: string }) {
   const verify = useServerFn(verifySettingsPassword);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
