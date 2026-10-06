@@ -9,9 +9,9 @@ import {
   addNotification,
   removeNotification,
   saveFeatureFlags,
-  verifySettingsPassword,
 } from "@/lib/app-config.functions";
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
+import { PasswordGate, SETTINGS_SESSION_KEY as SESSION_KEY } from "@/components/PasswordGate";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,6 @@ export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
-const SESSION_KEY = "mahavtaar-settings-unlocked";
 
 function SettingsPage() {
   const [unlocked, setUnlocked] = useState(false);
@@ -60,49 +59,6 @@ function SettingsPage() {
         />
       )}
     </main>
-  );
-}
-
-function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
-  const verify = useServerFn(verifySettingsPassword);
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <form
-      className="space-y-3 rounded-lg border p-4"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setError("");
-        try {
-          const res = await verify({ data: { password } });
-          if (res.ok) onUnlock();
-          else setError("Incorrect password");
-        } catch {
-          setError("Incorrect password");
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <Label className="text-base" htmlFor="settings-password">
-        Enter settings password
-      </Label>
-      <Input
-        id="settings-password"
-        type="password"
-        autoComplete="off"
-        className="h-12 text-base"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      {error !== "" && <p className="text-sm font-medium text-destructive">{error}</p>}
-      <Button type="submit" className="h-12 w-full text-base" disabled={busy}>
-        {busy ? "Checking…" : "Unlock Settings"}
-      </Button>
-    </form>
   );
 }
 

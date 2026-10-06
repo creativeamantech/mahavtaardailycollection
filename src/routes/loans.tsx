@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/select";
 import {
   ALL_CATEGORIES,
-  AlreadyPaidSection,
   CategoryFilter,
   categoryMatches,
   uniqueCategories,
@@ -89,16 +88,6 @@ function LoansPage() {
   const rows = useMemo(
     () => allRows.filter((r) => monthKey(r.date) === month),
     [allRows, month],
-  );
-  const alreadyPaid = useMemo(
-    () =>
-      (data ?? []).filter(
-        (r) =>
-          r.alreadyPaid &&
-          monthKey(r.date) === month &&
-          categoryMatches(r.allocationCategory, category),
-      ),
-    [data, month, category],
   );
   const loans = useMemo(() => summariseLoans(rows), [rows]);
 
@@ -210,13 +199,6 @@ function LoansPage() {
           ) : (
             results.map((l) => <LoanCard key={l.loanId} loan={l} />)
           )}
-          {alreadyPaid.some((r) => r.loanId.toLowerCase().includes(query.trim().toLowerCase())) && (
-            <AlreadyPaidSection
-              rows={alreadyPaid.filter((r) =>
-                r.loanId.toLowerCase().includes(query.trim().toLowerCase()),
-              )}
-            />
-          )}
         </div>
       )}
 
@@ -313,10 +295,6 @@ function LoansPage() {
             ))}
           </div>
         )}
-      </section>
-
-      <section className="mt-10">
-        <AlreadyPaidSection rows={alreadyPaid} />
       </section>
 
       <section className="mt-10">

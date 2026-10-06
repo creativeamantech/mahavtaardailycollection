@@ -29,7 +29,7 @@ import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport } from "@/lib/export";
-import { ALL_CATEGORIES, AlreadyPaidSection, CategoryFilter } from "@/components/AllocationFilters";
+import { ALL_CATEGORIES, CategoryFilter } from "@/components/AllocationFilters";
 
 // Export button — reuses the rows already displayed, no extra API call.
 function ExportButton({ rows, label }: { rows: Collection[]; label: string }) {
@@ -353,8 +353,9 @@ function ReportPage() {
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
   const rawRows = data ?? [];
-  const [dateCategory, setDateCategory] = useState(ALL_CATEGORIES);
-  const [overallCategory, setOverallCategory] = useState(ALL_CATEGORIES);
+  const [category, setCategory] = useState(ALL_CATEGORIES);
+  const dateCategory = category;
+  const overallCategory = category;
   const categories = useMemo(
     () =>
       [...new Set(rawRows.map((r) => r.allocationCategory).filter(Boolean))].sort((a, b) =>
@@ -366,10 +367,6 @@ function ReportPage() {
   const allRows = useMemo(() => rawRows.filter((r) => !r.alreadyPaid), [rawRows]);
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(rawRows.map((r) => r.date)), [rawRows]);
-  const alreadyPaidMonth = useMemo(
-    () => rawRows.filter((r) => r.alreadyPaid && monthKey(r.date) === month),
-    [rawRows, month],
-  );
   // Every report below works off this month-scoped dataset only.
   const rows = useMemo(
     () => allRows.filter((r) => monthKey(r.date) === month),
@@ -390,24 +387,6 @@ function ReportPage() {
           bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
       ),
     [rows, overallBucket, overallCategory],
-  );
-  const dateAlready = useMemo(
-    () =>
-      alreadyPaidMonth.filter(
-        (r) =>
-          inRange(r, from, to) &&
-          bucketMatches(r.bucket, dateBucket) &&
-          catOk(r.allocationCategory, dateCategory),
-      ),
-    [alreadyPaidMonth, from, to, dateBucket, dateCategory],
-  );
-  const overallAlready = useMemo(
-    () =>
-      alreadyPaidMonth.filter(
-        (r) =>
-          bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
-      ),
-    [alreadyPaidMonth, overallBucket, overallCategory],
   );
   const dateScoped = useMemo(
     () => dateRows.filter((r) => inRange(r, from, to)),
@@ -440,6 +419,9 @@ function ReportPage() {
 
       <div className="mt-4">
         <MonthSelect value={month} onChange={setMonth} options={months} />
+      </div>
+      <div className="mt-3">
+        <CategoryFilter value={category} onChange={setCategory} options={categories} />
       </div>
 
 
@@ -488,30 +470,22 @@ function ReportPage() {
             </div>
           </div>
           <BucketFilter value={dateBucket} onChange={setDateBucket} />
-          <CategoryFilter value={dateCategory} onChange={setDateCategory} options={categories} />
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} />
           <ExportButton rows={dateScoped} label={`${from}_to_${to}`} />
-          <AlreadyPaidSection rows={dateAlready} />
         </TabsContent>
 
         <TabsContent value="overall" className="mt-4 space-y-4">
           <BucketFilter value={overallBucket} onChange={setOverallBucket} />
-          <CategoryFilter
-            value={overallCategory}
-            onChange={setOverallCategory}
-            options={categories}
-          />
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
           <ExportButton rows={overallRows} label={month} />
-          <AlreadyPaidSection rows={overallAlready} />
         </TabsContent>
       </Tabs>
 
-      <TopPerformers rows={rows} />
+      <TopPerformers rows={rows.filter((r) => catOk(r.allocationCategory, category))} />
 
     </main>
   );

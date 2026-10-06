@@ -136,6 +136,7 @@ const NAV = [
   { to: "/pending", label: "Pending", key: "pending" },
   { to: "/ecs", label: "ECS / Special", key: "ecs" },
   { to: "/notifications", label: "Notifications", key: "notifications" },
+  { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
   { to: "/settings", label: "Settings", key: "settings" },
 ] as const;
 

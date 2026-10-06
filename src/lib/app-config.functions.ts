@@ -11,6 +11,7 @@ export const FEATURES = [
   { key: "pending", label: "Pending Receipts", path: "/pending" },
   { key: "ecs", label: "ECS / Special", path: "/ecs" },
   { key: "notifications", label: "Notifications", path: "/notifications" },
+  { key: "alreadyPaid", label: "Already Paid", path: "/already-paid" },
   { key: "remarks", label: "Remarks", path: null },
 ] as const;
 
