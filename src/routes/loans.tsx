@@ -199,8 +199,6 @@ function LoansPage() {
           ) : (
             results.map((l) => <LoanCard key={l.loanId} loan={l} />)
           )}
-            />
-          )}
         </div>
       )}
 
