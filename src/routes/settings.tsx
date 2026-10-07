@@ -170,7 +170,7 @@ function SettingsContent() {
             <span className="text-sm font-semibold">Integration Source</span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
               <span className="size-1.5 rounded-full bg-emerald-500" />
-              Connected via Lovable
+              Connected via Connectors
             </span>
           </div>
 
@@ -197,6 +197,24 @@ function SettingsContent() {
                 >
                   Open Sheet ↗
                 </a>
+              </div>
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50/60 p-2.5 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+                <p className="font-semibold">To load live data into this app:</p>
+                <ol className="mt-1 list-decimal space-y-0.5 pl-4">
+                  <li>
+                    Click <strong>Open Sheet ↗</strong> above to open your Google Spreadsheet.
+                  </li>
+                  <li>
+                    Click <strong>Share</strong> in the top right of Google Sheets.
+                  </li>
+                  <li>
+                    Under <em>General access</em>, change to <strong>"Anyone with the link"</strong>{" "}
+                    (Viewer).
+                  </li>
+                  <li>
+                    Return here and tap <strong>Refresh</strong> on Report or Loan Details!
+                  </li>
+                </ol>
               </div>
             </div>
 

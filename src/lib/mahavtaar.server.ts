@@ -38,6 +38,7 @@ const inFlight = new Map<string, Promise<string[][]>>();
 
 export function invalidateSheetsCache() {
   readCache.clear();
+  publicSheetCache.clear();
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -183,6 +184,72 @@ function getOrCreateSheet(name: string): string[][] {
   return store[name]!;
 }
 
+function parseCsv(csvText: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentVal = "";
+  let insideQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentVal += '"';
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === "," && !insideQuotes) {
+      currentRow.push(currentVal);
+      currentVal = "";
+    } else if ((char === "\r" || char === "\n") && !insideQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        i++;
+      }
+      currentRow.push(currentVal);
+      rows.push(currentRow);
+      currentRow = [];
+      currentVal = "";
+    } else {
+      currentVal += char;
+    }
+  }
+
+  if (currentVal || currentRow.length > 0) {
+    currentRow.push(currentVal);
+    rows.push(currentRow);
+  }
+
+  return rows;
+}
+
+const publicSheetCache = new Map<string, { at: number; rows: string[][] }>();
+
+async function fetchPublicSheetCsv(sheetName: string): Promise<string[][] | null> {
+  const cached = publicSheetCache.get(sheetName);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+    return cached.rows;
+  }
+
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+    const res = await fetch(url, { headers: { Accept: "text/csv, text/plain" } });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text || text.includes("<!DOCTYPE html>")) return null;
+    const rows = parseCsv(text);
+    if (rows.length > 0) {
+      publicSheetCache.set(sheetName, { at: Date.now(), rows });
+      return rows;
+    }
+  } catch (err) {
+    console.warn(`[Mahavtaar] Could not fetch public sheet ${sheetName}:`, err);
+  }
+  return null;
+}
+
 export async function sheetsGet(range: string): Promise<string[][]> {
   if (isGatewayConfigured()) {
     const cached = readCache.get(range);
@@ -209,9 +276,11 @@ export async function sheetsGet(range: string): Promise<string[][]> {
     return promise;
   }
 
-  // Self-contained store (zero mock data)
   const { sheetName, startCol, startRow, endCol, endRow } = parseA1Range(range);
-  const sheet = store[sheetName] ?? [];
+
+  // Try direct public Google Sheet fetch
+  const publicRows = await fetchPublicSheetCsv(sheetName);
+  const sheet = publicRows && publicRows.length > 0 ? publicRows : (store[sheetName] ?? []);
   const result: string[][] = [];
   const maxRow = Math.min(sheet.length, endRow === Infinity ? sheet.length : endRow);
   for (let r = startRow - 1; r < maxRow; r++) {
