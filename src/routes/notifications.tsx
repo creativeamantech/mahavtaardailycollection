@@ -52,9 +52,7 @@ function NotificationsPage() {
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
       <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
 
-      {isLoading && (
-        <p className="text-sm text-muted-foreground">Loading notifications…</p>
-      )}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading notifications…</p>}
 
       {!isLoading && history.length === 0 && (
         <p className="text-sm text-muted-foreground">No notifications yet.</p>
@@ -76,9 +74,7 @@ function NotificationsPage() {
               const { date, time } = formatDateTime(n.createdAt);
               return (
                 <article key={n.id} className="rounded-lg border p-3">
-                  <p className="whitespace-pre-wrap break-words text-sm leading-snug">
-                    {n.text}
-                  </p>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-snug">{n.text}</p>
                   {n.imageUrl !== "" && (
                     <a
                       href={n.imageUrl}

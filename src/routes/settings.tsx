@@ -25,8 +25,7 @@ export const Route = createFileRoute("/settings")({
       { title: "Settings — Mahavtaar Daily Collection" },
       {
         name: "description",
-        content:
-          "Protected settings to control page visibility and publish app notifications.",
+        content: "Protected settings to control page visibility and publish app notifications.",
       },
       { property: "og:title", content: "Settings — Mahavtaar Daily Collection" },
       {
@@ -37,7 +36,6 @@ export const Route = createFileRoute("/settings")({
   }),
   component: SettingsPage,
 });
-
 
 function SettingsPage() {
   const [unlocked, setUnlocked] = useState(false);
@@ -76,9 +74,7 @@ function SettingsContent() {
   );
   const [saving, setSaving] = useState(false);
 
-  const activeNotifications = notifications.filter(
-    (n) => n.status.toLowerCase() !== "removed",
-  );
+  const activeNotifications = notifications.filter((n) => n.status.toLowerCase() !== "removed");
 
   async function toggle(key: string, value: boolean) {
     const next = { ...flags, [key]: value };

@@ -18,9 +18,7 @@ export const FEATURES = [
 export type FeatureKey = (typeof FEATURES)[number]["key"];
 export type FeatureFlags = Record<string, boolean>;
 
-export const DEFAULT_FLAGS: FeatureFlags = Object.fromEntries(
-  FEATURES.map((f) => [f.key, true]),
-);
+export const DEFAULT_FLAGS: FeatureFlags = Object.fromEntries(FEATURES.map((f) => [f.key, true]));
 
 export type Notification = {
   id: string;
@@ -49,13 +47,9 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
   try {
     notifRows = await sheetsGet(`${NOTIF_TAB}!A2:E`);
   } catch {
-    await ensureSheet(NOTIF_TAB, [
-      "Notification",
-      "Image URL",
-      "Status",
-      "Created At",
-      "ID",
-    ]).catch(() => undefined);
+    await ensureSheet(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]).catch(
+      () => undefined,
+    );
   }
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS };
@@ -121,9 +115,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
   });
 
 export const saveDefaultCategory = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) =>
-    z.object({ category: z.string().trim().max(80) }).parse(d),
-  )
+  .inputValidator((d: unknown) => z.object({ category: z.string().trim().max(80) }).parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
@@ -162,13 +154,7 @@ export const addNotification = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { sheetsAppend, driveUpload, ensureSheet } = await import("./mahavtaar.server");
-    await ensureSheet(NOTIF_TAB, [
-      "Notification",
-      "Image URL",
-      "Status",
-      "Created At",
-      "ID",
-    ]);
+    await ensureSheet(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
     let imageUrl = "";
     if (data.image) {
       imageUrl = await driveUpload(
@@ -189,9 +175,7 @@ export const removeNotification = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
     const rows = await sheetsGet(`${NOTIF_TAB}!A2:E`);
-    const idx = rows.findIndex(
-      (r, i) => ((r[4] ?? "").trim() || `row-${i + 2}`) === data.id,
-    );
+    const idx = rows.findIndex((r, i) => ((r[4] ?? "").trim() || `row-${i + 2}`) === data.id);
     if (idx === -1) throw new Error("Notification not found.");
     await sheetsUpdate(`${NOTIF_TAB}!C${idx + 2}`, [["Removed"]]);
     return { ok: true as const };

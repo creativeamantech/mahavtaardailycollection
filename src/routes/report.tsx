@@ -1,17 +1,9 @@
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { formatAmount, todayISO } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
@@ -289,7 +281,6 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
   );
 }
 
-
 // Reports always filter on Payment Date (r.date), never the Entry Date.
 function inRange(r: Collection, from?: string, to?: string) {
   if (from && r.date < from) return false;
@@ -301,9 +292,13 @@ function summarise(rows: Collection[], from?: string, to?: string): Row[] {
   const map = new Map<string, Row>();
   for (const r of rows) {
     if (!inRange(r, from, to)) continue;
-    const cur =
-      map.get(r.executive) ??
-      { executive: r.executive, total: 0, count: 0, normalCount: 0, previousCount: 0 };
+    const cur = map.get(r.executive) ?? {
+      executive: r.executive,
+      total: 0,
+      count: 0,
+      normalCount: 0,
+      previousCount: 0,
+    };
     cur.total += r.amount;
     cur.count += 1;
     if (r.entryType === "Previous Paid File") cur.previousCount += 1;
@@ -314,9 +309,7 @@ function summarise(rows: Collection[], from?: string, to?: string): Row[] {
 }
 
 function previousStats(rows: Collection[], from?: string, to?: string) {
-  const items = rows.filter(
-    (r) => r.entryType === "Previous Paid File" && inRange(r, from, to),
-  );
+  const items = rows.filter((r) => r.entryType === "Previous Paid File" && inRange(r, from, to));
   return { count: items.length, total: items.reduce((s, r) => s + r.amount, 0) };
 }
 
@@ -352,7 +345,7 @@ function ReportPage() {
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
-  const rawRows = data ?? [];
+  const rawRows = useMemo(() => data ?? [], [data]);
   const [category, setCategory] = useState(ALL_CATEGORIES);
   const dateCategory = category;
   const overallCategory = category;
@@ -368,10 +361,7 @@ function ReportPage() {
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(rawRows.map((r) => r.date)), [rawRows]);
   // Every report below works off this month-scoped dataset only.
-  const rows = useMemo(
-    () => allRows.filter((r) => monthKey(r.date) === month),
-    [allRows, month],
-  );
+  const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
   const catOk = (c: string | undefined, f: string) => f === ALL_CATEGORIES || c === f;
   const dateRows = useMemo(
     () =>
@@ -423,7 +413,6 @@ function ReportPage() {
       <div className="mt-3">
         <CategoryFilter value={category} onChange={setCategory} options={categories} />
       </div>
-
 
       {isLoading && <p className="mt-6 text-base">Loading report...</p>}
       {error && (
@@ -486,12 +475,16 @@ function ReportPage() {
       </Tabs>
 
       <TopPerformers rows={rows.filter((r) => catOk(r.allocationCategory, category))} />
-
     </main>
   );
 }
 
 function ReportBlock({ rows }: { rows: Row[] }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const total = rows.reduce((s, r) => s + r.total, 0);
   const cases = rows.reduce((s, r) => s + r.count, 0);
 
@@ -546,15 +539,28 @@ function ReportBlock({ rows }: { rows: Row[] }) {
       </div>
 
       <div className="h-72 rounded-xl border p-3">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="executive" tick={{ fontSize: 12 }} interval={0} angle={-25} dy={10} height={50} />
-            <YAxis tick={{ fontSize: 12 }} width={60} />
-            <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
-            <Bar dataKey="total" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {mounted ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="executive"
+                tick={{ fontSize: 12 }}
+                interval={0}
+                angle={-25}
+                dy={10}
+                height={50}
+              />
+              <YAxis tick={{ fontSize: 12 }} width={60} />
+              <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
+              <Bar dataKey="total" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Loading chart...
+          </div>
+        )}
       </div>
     </div>
   );

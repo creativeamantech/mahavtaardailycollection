@@ -21,7 +21,8 @@ export const Route = createFileRoute("/already-paid")({
       { title: "Already Paid Cases — Mahavtaar Daily Collection" },
       {
         name: "description",
-        content: "Protected list of payments made before their allocation date, for reference only.",
+        content:
+          "Protected list of payments made before their allocation date, for reference only.",
       },
       { property: "og:title", content: "Already Paid Cases — Mahavtaar Daily Collection" },
       {
@@ -72,17 +73,24 @@ function AlreadyPaidContent() {
   const rows = useMemo(
     () =>
       all
-        .filter((r) => monthKey(r.date) === month && categoryMatches(r.allocationCategory, category))
+        .filter(
+          (r) => monthKey(r.date) === month && categoryMatches(r.allocationCategory, category),
+        )
         .sort((a, b) => (a.date < b.date ? 1 : -1)),
     [all, month, category],
   );
   return (
     <div className="space-y-4">
       <p className="text-base text-muted-foreground">
-        Payments made before the Allocation Date. Reference only — never counted in any
-        collection total.
+        Payments made before the Allocation Date. Reference only — never counted in any collection
+        total.
       </p>
-      <Button variant="outline" className="h-12 text-base" onClick={() => refetch()} disabled={isFetching}>
+      <Button
+        variant="outline"
+        className="h-12 text-base"
+        onClick={() => refetch()}
+        disabled={isFetching}
+      >
         {isFetching ? "Refreshing..." : "Refresh"}
       </Button>
       <MonthSelect value={month} onChange={setMonth} options={months} />

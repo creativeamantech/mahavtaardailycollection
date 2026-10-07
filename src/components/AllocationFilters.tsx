@@ -111,4 +111,3 @@ export function AlreadyPaidSection({ rows }: { rows: Collection[] }) {
     </section>
   );
 }
-
