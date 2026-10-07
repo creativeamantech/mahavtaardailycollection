@@ -1,6 +1,6 @@
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -594,6 +594,11 @@ function ReportPage() {
 }
 
 function ReportBlock({ rows }: { rows: Row[] }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const total = rows.reduce((s, r) => s + r.total, 0);
   const cases = rows.reduce((s, r) => s + r.count, 0);
 
@@ -648,22 +653,28 @@ function ReportBlock({ rows }: { rows: Row[] }) {
       </div>
 
       <div className="h-72 rounded-xl border p-3">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="executive"
-              tick={{ fontSize: 12 }}
-              interval={0}
-              angle={-25}
-              dy={10}
-              height={50}
-            />
-            <YAxis tick={{ fontSize: 12 }} width={60} />
-            <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
-            <Bar dataKey="total" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {mounted ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="executive"
+                tick={{ fontSize: 12 }}
+                interval={0}
+                angle={-25}
+                dy={10}
+                height={50}
+              />
+              <YAxis tick={{ fontSize: 12 }} width={60} />
+              <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
+              <Bar dataKey="total" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Loading chart...
+          </div>
+        )}
       </div>
     </div>
   );
