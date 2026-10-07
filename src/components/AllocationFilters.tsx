@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { formatAmount } from "@/lib/executives";
-import { useAppConfig } from "@/hooks/useAppConfig";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -31,21 +30,6 @@ export function uniqueCategories(rows: { allocationCategory?: string }[]) {
 }
 
 export const ALL_CATEGORIES = "__all_categories__";
-
-// Category filter state that starts on the Settings-chosen default category
-// (applied once, when the config arrives; the user can still change it freely).
-export function useCategoryFilter() {
-  const { defaultCategory } = useAppConfig();
-  const [category, setCategory] = useState(ALL_CATEGORIES);
-  const applied = useRef(false);
-  useEffect(() => {
-    if (!applied.current && defaultCategory !== "") {
-      applied.current = true;
-      setCategory(defaultCategory);
-    }
-  }, [defaultCategory]);
-  return [category, setCategory] as const;
-}
 
 export function CategoryFilter({
   value,
