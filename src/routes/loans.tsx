@@ -29,6 +29,7 @@ import {
   CategoryFilter,
   categoryMatches,
   uniqueCategories,
+  useCategoryFilter,
 } from "@/components/AllocationFilters";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
@@ -77,7 +78,7 @@ function LoansPage() {
   });
 
   // Already Paid payments (before Allocation Date) never count as collection.
-  const [category, setCategory] = useState(ALL_CATEGORIES);
+  const [category, setCategory] = useCategoryFilter();
   const categories = useMemo(() => uniqueCategories(data ?? []), [data]);
   const allRows = useMemo(
     () =>

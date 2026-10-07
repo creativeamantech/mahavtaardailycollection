@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatAmount } from "@/lib/executives";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { Label } from "@/components/ui/label";
@@ -36,14 +36,24 @@ export const ALL_CATEGORIES = "__all_categories__";
 // (applied once, when the config arrives; the user can still change it freely).
 export function useCategoryFilter() {
   const { defaultCategory } = useAppConfig();
-  const [category, setCategory] = useState(ALL_CATEGORIES);
-  const applied = useRef(false);
+  const targetDefault =
+    defaultCategory && defaultCategory !== ALL_CATEGORIES ? defaultCategory : ALL_CATEGORIES;
+  const [category, setCategoryState] = useState(targetDefault);
+  const lastDefaultRef = useRef(defaultCategory);
+  const userModified = useRef(false);
+
   useEffect(() => {
-    if (!applied.current && defaultCategory !== "") {
-      applied.current = true;
-      setCategory(defaultCategory);
+    if (!userModified.current && defaultCategory !== lastDefaultRef.current) {
+      lastDefaultRef.current = defaultCategory;
+      setCategoryState(targetDefault);
     }
-  }, [defaultCategory]);
+  }, [defaultCategory, targetDefault]);
+
+  const setCategory = (val: string | ((prev: string) => string)) => {
+    userModified.current = true;
+    setCategoryState(val);
+  };
+
   return [category, setCategory] as const;
 }
 
@@ -56,6 +66,13 @@ export function CategoryFilter({
   onChange: (v: string) => void;
   options: string[];
 }) {
+  const mergedOptions = useMemo(() => {
+    if (value && value !== ALL_CATEGORIES && !options.includes(value)) {
+      return [value, ...options];
+    }
+    return options;
+  }, [value, options]);
+
   return (
     <div className="space-y-2">
       <Label className="text-base">Allocation Category</Label>
@@ -67,7 +84,7 @@ export function CategoryFilter({
           <SelectItem value={ALL_CATEGORIES} className="text-base">
             All Categories
           </SelectItem>
-          {options.map((c) => (
+          {mergedOptions.map((c) => (
             <SelectItem key={c} value={c} className="text-base">
               {c}
             </SelectItem>

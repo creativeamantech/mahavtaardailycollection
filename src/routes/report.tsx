@@ -21,7 +21,7 @@ import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport } from "@/lib/export";
-import { ALL_CATEGORIES, CategoryFilter } from "@/components/AllocationFilters";
+import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
 
 // Export button — reuses the rows already displayed, no extra API call.
 function ExportButton({ rows, label }: { rows: Collection[]; label: string }) {
@@ -346,7 +346,7 @@ function ReportPage() {
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
   const rawRows = useMemo(() => data ?? [], [data]);
-  const [category, setCategory] = useState(ALL_CATEGORIES);
+  const [category, setCategory] = useCategoryFilter();
   const dateCategory = category;
   const overallCategory = category;
   const categories = useMemo(

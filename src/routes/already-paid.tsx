@@ -13,6 +13,7 @@ import {
   CategoryFilter,
   categoryMatches,
   uniqueCategories,
+  useCategoryFilter,
 } from "@/components/AllocationFilters";
 
 export const Route = createFileRoute("/already-paid")({
@@ -67,7 +68,7 @@ function AlreadyPaidContent() {
   });
   const all = useMemo(() => (data ?? []).filter((r) => r.alreadyPaid), [data]);
   const [month, setMonth] = useState(currentMonthKey());
-  const [category, setCategory] = useState(ALL_CATEGORIES);
+  const [category, setCategory] = useCategoryFilter();
   const months = useMemo(() => monthOptions((data ?? []).map((r) => r.date)), [data]);
   const categories = useMemo(() => uniqueCategories(data ?? []), [data]);
   const rows = useMemo(

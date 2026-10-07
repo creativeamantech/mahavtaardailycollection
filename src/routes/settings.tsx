@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
@@ -8,16 +8,26 @@ import {
   FEATURES,
   addNotification,
   removeNotification,
+  saveDefaultCategory,
   saveFeatureFlags,
 } from "@/lib/app-config.functions";
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
 import { PasswordGate, SETTINGS_SESSION_KEY as SESSION_KEY } from "@/components/PasswordGate";
 import { NotificationPanel } from "@/components/NotificationPanel";
+import { ALL_CATEGORIES, uniqueCategories } from "@/components/AllocationFilters";
+import { getCollections } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -62,10 +72,35 @@ function SettingsPage() {
 
 function SettingsContent() {
   const qc = useQueryClient();
-  const { flags, notifications, isLoading } = useAppConfig();
+  const { flags, notifications, defaultCategory, isLoading } = useAppConfig();
   const saveFlags = useServerFn(saveFeatureFlags);
+  const saveDefaultCat = useServerFn(saveDefaultCategory);
   const addNotif = useServerFn(addNotification);
   const removeNotif = useServerFn(removeNotification);
+  const fetchCollections = useServerFn(getCollections);
+
+  const { data: collectionsData } = useQuery({
+    queryKey: ["collections"],
+    queryFn: () => fetchCollections(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const detectedCategories = useMemo(
+    () => uniqueCategories(collectionsData ?? []),
+    [collectionsData],
+  );
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set(detectedCategories);
+    if (defaultCategory && defaultCategory !== ALL_CATEGORIES) {
+      set.add(defaultCategory);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [detectedCategories, defaultCategory]);
+
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState("");
 
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -75,6 +110,38 @@ function SettingsContent() {
   const [saving, setSaving] = useState(false);
 
   const activeNotifications = notifications.filter((n) => n.status.toLowerCase() !== "removed");
+
+  async function handleSaveCategory(category: string) {
+    const categoryToSave = category === ALL_CATEGORIES ? "" : category.trim();
+    setSavingCategory(true);
+    qc.setQueryData(APP_CONFIG_KEY, (old: unknown) =>
+      old ? { ...(old as object), defaultCategory: categoryToSave } : old,
+    );
+    try {
+      await saveDefaultCat({ data: { category: categoryToSave } });
+      toast.success(
+        categoryToSave
+          ? `Default allocation category saved: "${categoryToSave}"`
+          : "Default allocation category set to All Categories",
+      );
+      setIsCustomCategory(false);
+      setCustomCategoryInput("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save default category");
+      await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
+    } finally {
+      setSavingCategory(false);
+    }
+  }
+
+  function handleSelectCategoryChange(val: string) {
+    if (val === "__custom__") {
+      setIsCustomCategory(true);
+      return;
+    }
+    setIsCustomCategory(false);
+    void handleSaveCategory(val);
+  }
 
   async function toggle(key: string, value: boolean) {
     const next = { ...flags, [key]: value };
@@ -129,6 +196,92 @@ function SettingsContent() {
               />
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Default Allocation Category</h2>
+          <p className="text-sm text-muted-foreground">
+            Sets the starting category filter for Report, Loan Details, and Already Paid. Users can
+            still change the filter on any screen during their session.
+          </p>
+        </div>
+        <div className="space-y-3 rounded-lg border p-4">
+          <div className="space-y-2">
+            <Label className="text-base" htmlFor="default-allocation-category">
+              Select Starting Category
+            </Label>
+            <Select
+              value={isCustomCategory ? "__custom__" : defaultCategory || ALL_CATEGORIES}
+              onValueChange={handleSelectCategoryChange}
+              disabled={isLoading || savingCategory}
+            >
+              <SelectTrigger id="default-allocation-category" className="h-12 text-base">
+                <SelectValue placeholder="Choose default category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_CATEGORIES} className="text-base">
+                  All Categories (No filter)
+                </SelectItem>
+                {categoryOptions.map((c) => (
+                  <SelectItem key={c} value={c} className="text-base">
+                    {c}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__custom__" className="text-base font-medium text-primary">
+                  + Custom / New Category…
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isCustomCategory && (
+            <div className="space-y-2 rounded-md border border-dashed bg-muted/20 p-3">
+              <Label className="text-sm font-medium" htmlFor="custom-category-name">
+                Enter Custom Category Name
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="custom-category-name"
+                  className="h-12 text-base"
+                  placeholder="e.g. Retail, SME, Corporate"
+                  value={customCategoryInput}
+                  onChange={(e) => setCustomCategoryInput(e.target.value)}
+                  maxLength={80}
+                  disabled={savingCategory}
+                />
+                <Button
+                  className="h-12 shrink-0 px-5 text-base"
+                  disabled={savingCategory || customCategoryInput.trim() === ""}
+                  onClick={() => void handleSaveCategory(customCategoryInput.trim())}
+                >
+                  {savingCategory ? "Saving…" : "Save"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-12 shrink-0 text-base"
+                  disabled={savingCategory}
+                  onClick={() => {
+                    setIsCustomCategory(false);
+                    setCustomCategoryInput("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-sm text-muted-foreground">
+            <span>
+              Active Default:{" "}
+              <strong className="text-foreground">
+                {defaultCategory ? defaultCategory : "All Categories"}
+              </strong>
+            </span>
+            {savingCategory && <span className="font-medium text-primary">Saving changes…</span>}
+          </div>
         </div>
       </section>
 
