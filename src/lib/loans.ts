@@ -9,6 +9,8 @@ export type CollectionRow = {
   date: string;
   entryType?: string;
   settlement?: boolean;
+  settlementType?: "No" | "Settlement" | "Foreclosure" | string;
+  foreclosureEntry?: boolean;
   bucket?: string;
   city?: string;
   emiAmount?: number | null;
@@ -113,6 +115,7 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
     cur.pos = pickNum(cur.pos, r.pos);
     cur.foreclosure = pickNum(cur.foreclosure, r.foreclosure);
     if (r.settlement) cur.settlement = true;
+    if (r.foreclosureEntry || r.settlementType === "Foreclosure") cur.foreclosurePaid = true;
     if (r.date > cur.lastDate) cur.lastDate = r.date;
     map.set(id, cur);
   }
@@ -128,7 +131,8 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
 
       l.posPaid = l.pos !== null && l.pos > 0 && l.totalPaid >= l.pos;
       l.foreclosurePaid =
-        l.foreclosure !== null && l.foreclosure > 0 && l.totalPaid >= l.foreclosure;
+        (l.foreclosure !== null && l.foreclosure > 0 && l.totalPaid >= l.foreclosure) ||
+        l.foreclosurePaid;
 
       const emi = l.emiAmount;
       const limit = l.applicableEmiCount;

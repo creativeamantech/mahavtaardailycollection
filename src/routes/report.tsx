@@ -74,6 +74,8 @@ type Collection = {
   entryType?: string;
   createdAt?: string;
   settlement?: boolean;
+  settlementType?: string;
+  foreclosureEntry?: boolean;
   bucket?: string;
   city?: string;
   emiAmount?: number | null;
@@ -121,6 +123,8 @@ function LoanStatsCards({ rows }: { rows: Collection[] }) {
             amount: r.amount,
             date: r.date,
             settlement: r.settlement ?? false,
+            settlementType: r.settlementType,
+            foreclosureEntry: r.foreclosureEntry,
             bucket: r.bucket ?? "",
             city: r.city ?? "",
             emiAmount: r.emiAmount ?? null,

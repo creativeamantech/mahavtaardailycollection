@@ -62,6 +62,7 @@ type Receipt = {
   entryDate: string;
   entryType: "Normal" | "Previous Paid File";
   settlement: boolean;
+  settlementType?: "No" | "Settlement" | "Foreclosure";
   receiptLink?: string;
 };
 
@@ -104,7 +105,9 @@ function EntryPage() {
   }, []);
   const [confirmed, setConfirmed] = useState(false);
   const [isPrevious, setIsPrevious] = useState(false);
-  const [settlement, setSettlement] = useState(false);
+  const [settlementType, setSettlementType] = useState<"No" | "Settlement" | "Foreclosure">("No");
+  const [showSettlementPrompt, setShowSettlementPrompt] = useState(false);
+  const [settlementStep, setSettlementStep] = useState<"ask" | "choose">("ask");
   const [prevConfirmed, setPrevConfirmed] = useState(false);
 
   const [prevDate, setPrevDate] = useState("");
@@ -237,11 +240,24 @@ function EntryPage() {
     [matches, executive],
   );
 
-  async function openConfirm() {
+  async function startSubmitFlow() {
     if (!valid) return;
     setTime(nowTime());
     // Refresh right before submission so the check uses the latest data.
     await refetchCollections();
+    setSettlementStep("ask");
+    setShowSettlementPrompt(true);
+  }
+
+  function handleSettlementNo() {
+    setSettlementType("No");
+    setShowSettlementPrompt(false);
+    setShowConfirm(true);
+  }
+
+  function handleSettlementChoice(choice: "Settlement" | "Foreclosure") {
+    setSettlementType(choice);
+    setShowSettlementPrompt(false);
     setShowConfirm(true);
   }
 
@@ -257,7 +273,8 @@ function EntryPage() {
         entryDate: today,
         entryType: (isPrevious ? "Previous Paid File" : "Normal") as
           "Normal" | "Previous Paid File",
-        settlement,
+        settlement: settlementType === "Settlement",
+        settlementType,
       };
       const saved = (await save({
         data: {
@@ -291,7 +308,7 @@ function EntryPage() {
       setConfirmed(false);
       setDate(today);
       setIsPrevious(false);
-      setSettlement(false);
+      setSettlementType("No");
       setPrevConfirmed(false);
       setPrevDate("");
       pendingFiles.forEach((p) => URL.revokeObjectURL(p.preview));
@@ -324,7 +341,10 @@ function EntryPage() {
       ["Entry Date", receipt.entryDate],
       ["Entry Time", receipt.time],
       ["Entry Type", receipt.entryType],
-      ["Settlement Payment", receipt.settlement ? "Yes" : "No"],
+      [
+        "Settlement / Foreclosure",
+        receipt.settlementType || (receipt.settlement ? "Settlement" : "No"),
+      ],
       ["Status", "Confirmed"],
     ];
     let y = 120;
@@ -400,15 +420,6 @@ function EntryPage() {
             placeholder="0"
           />
         </div>
-
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
-          <Checkbox
-            checked={settlement}
-            onCheckedChange={(v) => setSettlement(v === true)}
-            className="mt-1 size-5"
-          />
-          <span className="text-base leading-snug">Settlement Payment</span>
-        </label>
 
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <Checkbox
@@ -651,7 +662,7 @@ function EntryPage() {
           </div>
         )}
 
-        <Button className="h-14 w-full text-lg" disabled={!valid} onClick={openConfirm}>
+        <Button className="h-14 w-full text-lg" disabled={!valid} onClick={startSubmitFlow}>
           Submit
         </Button>
         {!proofValid && (
@@ -671,6 +682,75 @@ function EntryPage() {
           View reports
         </Link>
       </div>
+
+      <Dialog
+        open={showSettlementPrompt}
+        onOpenChange={(open) => {
+          setShowSettlementPrompt(open);
+          if (!open) setSettlementStep("ask");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-center leading-snug">
+              क्या यह Settlement या Foreclosure है?
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm pt-1">
+              {settlementStep === "ask"
+                ? "कृपया पुष्टि करें कि यह पेमेंट Settlement या Foreclosure है या सामान्य पेमेंट।"
+                : "कृपया विकल्प चुनें:"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {settlementStep === "ask" ? (
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-14 text-lg font-semibold"
+                onClick={handleSettlementNo}
+              >
+                No
+              </Button>
+              <Button
+                type="button"
+                className="h-14 text-lg font-semibold"
+                onClick={() => setSettlementStep("choose")}
+              >
+                Yes
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              <div className="grid grid-cols-1 gap-2.5">
+                <Button
+                  type="button"
+                  className="h-14 text-lg font-semibold"
+                  onClick={() => handleSettlementChoice("Settlement")}
+                >
+                  Settlement
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-14 text-lg font-semibold border-primary/40 hover:bg-primary/10"
+                  onClick={() => handleSettlementChoice("Foreclosure")}
+                >
+                  Foreclosure
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 w-full text-sm text-muted-foreground"
+                onClick={() => setSettlementStep("ask")}
+              >
+                ← वापस जाएं (Back)
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent>
@@ -697,7 +777,7 @@ function EntryPage() {
             <Row k="Entry Date" v={today} />
             <Row k="Entry Time" v={time} />
             <Row k="Entry Type" v={isPrevious ? "Previous Paid File" : "Normal"} />
-            <Row k="Settlement Payment" v={settlement ? "Yes" : "No"} />
+            <Row k="Settlement / Foreclosure" v={settlementType} />
             <Row k="Receipt Images" v={`${receipts.length} uploaded`} />
             {receiptLink === "" && <Row k="Remark" v={remark.trim()} />}
           </dl>
@@ -736,7 +816,10 @@ function EntryPage() {
               <Row k="Entry Date" v={receipt.entryDate} />
               <Row k="Entry Time" v={receipt.time} />
               <Row k="Entry Type" v={receipt.entryType} />
-              <Row k="Settlement Payment" v={receipt.settlement ? "Yes" : "No"} />
+              <Row
+                k="Settlement / Foreclosure"
+                v={receipt.settlementType || (receipt.settlement ? "Settlement" : "No")}
+              />
               <Row k="Status" v="Confirmed" />
             </dl>
           </div>

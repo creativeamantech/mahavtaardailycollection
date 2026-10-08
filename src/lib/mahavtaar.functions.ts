@@ -14,7 +14,8 @@ const entrySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   entryType: z.enum(["Normal", "Previous Paid File"]).default("Normal"),
-  settlement: z.boolean().default(false),
+  settlement: z.union([z.boolean(), z.string()]).default(false),
+  settlementType: z.enum(["No", "Settlement", "Foreclosure"]).optional(),
   receiptLinks: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
   remark: z.string().trim().max(300).default(""),
 });
@@ -76,6 +77,20 @@ export const saveCollection = createServerFn({ method: "POST" })
     } else if (data.date !== entryDate) {
       throw new Error("Normal entries must use today's date.");
     }
+    let settlementValue = "No";
+    if (data.settlementType) {
+      settlementValue = data.settlementType;
+    } else if (typeof data.settlement === "string") {
+      const s = data.settlement.trim().toLowerCase();
+      if (s === "settlement") settlementValue = "Settlement";
+      else if (s === "foreclosure") settlementValue = "Foreclosure";
+      else if (s === "yes") settlementValue = "Settlement";
+      else settlementValue = "No";
+    } else if (data.settlement === true) {
+      settlementValue = "Settlement";
+    } else {
+      settlementValue = "No";
+    }
     const appended = (await sheetsAppend("Collections!A:J", [
       [
         data.executive,
@@ -87,7 +102,7 @@ export const saveCollection = createServerFn({ method: "POST" })
         "Confirmed",
         entryDate,
         data.entryType,
-        data.settlement ? "Yes" : "No",
+        settlementValue,
       ],
     ])) as { updates?: { updatedRange?: string } };
 
@@ -154,6 +169,15 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
         const allocRaw = (r[20] ?? "").trim();
         const allocationDate = allocRaw ? normalizeSheetDate(allocRaw) : "";
         const validAlloc = /^\d{4}-\d{2}-\d{2}$/.test(allocationDate);
+        const settlementRaw = (r[9] ?? "").trim();
+        const settlementLower = settlementRaw.toLowerCase();
+        const isSettlement = settlementLower === "yes" || settlementLower === "settlement";
+        const isForeclosure = settlementLower === "foreclosure";
+        const settlementType: "No" | "Settlement" | "Foreclosure" = isForeclosure
+          ? "Foreclosure"
+          : isSettlement
+            ? "Settlement"
+            : "No";
         return {
           bucket: (r[10] ?? "").trim(),
           city: (r[11] ?? "").trim(),
@@ -172,7 +196,9 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
           status: r[6] ?? "",
           entryDate: entryDateRaw ? normalizeSheetDate(entryDateRaw) : paymentDate,
           entryType: (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
-          settlement: (r[9] ?? "").trim().toLowerCase() === "yes",
+          settlement: isSettlement,
+          settlementType,
+          foreclosureEntry: isForeclosure,
           receiptLinks: (r[15] ?? "")
             .split(/[|,\s]+/)
             .map((s) => s.trim())

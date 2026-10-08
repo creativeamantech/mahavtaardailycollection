@@ -31,6 +31,8 @@ export type ExportCollection = {
   date: string;
   entryType?: string;
   settlement?: boolean;
+  settlementType?: string;
+  foreclosureEntry?: boolean;
   bucket?: string;
   city?: string;
   emiAmount?: number | null;
@@ -47,6 +49,8 @@ function toCollectionRows(rows: ExportCollection[]): CollectionRow[] {
     date: r.date,
     entryType: r.entryType ?? "",
     settlement: r.settlement ?? false,
+    settlementType: r.settlementType,
+    foreclosureEntry: r.foreclosureEntry,
     bucket: r.bucket ?? "",
     city: r.city ?? "",
     emiAmount: r.emiAmount ?? null,
@@ -74,7 +78,7 @@ export function collectionCsv(rows: ExportCollection[]) {
       r.loanId ?? "",
       r.amount,
       r.entryType || "Normal",
-      r.settlement ? "Yes" : "No",
+      r.settlementType || (r.settlement ? "Settlement" : "No"),
       r.bucket ?? "",
       r.city ?? "",
       r.remark ?? "",
@@ -127,6 +131,8 @@ export type ExportAlreadyPaid = {
   allocationCategory?: string;
   entryType?: string;
   settlement?: boolean;
+  settlementType?: string;
+  foreclosureEntry?: boolean;
   bucket?: string;
   city?: string;
   emiAmount?: number | null;
@@ -168,7 +174,7 @@ export function alreadyPaidCsv(rows: ExportAlreadyPaid[]) {
       r.city ?? "",
       r.emiAmount ?? "",
       r.pos ?? "",
-      r.settlement ? "Yes" : "No",
+      r.settlementType || (r.settlement ? "Settlement" : "No"),
       r.entryType || "Normal",
       r.entryDate ?? "",
       r.time ?? "",
