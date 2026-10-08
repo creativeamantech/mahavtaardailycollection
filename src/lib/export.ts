@@ -117,3 +117,67 @@ export function downloadCollectionExport(rows: ExportCollection[], label: string
   downloadCsv(`collection-${label}.csv`, collectionCsv(rows));
   downloadCsv(`short-emi-${label}.csv`, shortEmiCsv(rows));
 }
+
+export type ExportAlreadyPaid = {
+  executive: string;
+  loanId?: string;
+  amount: number;
+  date: string;
+  allocationDate?: string;
+  allocationCategory?: string;
+  entryType?: string;
+  settlement?: boolean;
+  bucket?: string;
+  city?: string;
+  emiAmount?: number | null;
+  pos?: number | null;
+  foreclosure?: number | null;
+  remark?: string;
+  entryDate?: string;
+  time?: string;
+};
+
+export function alreadyPaidCsv(rows: ExportAlreadyPaid[]) {
+  const list = Array.isArray(rows) ? rows : [];
+  return toCsv(
+    [
+      "Payment Date",
+      "Allocation Date",
+      "Loan ID",
+      "Executive Name",
+      "Amount",
+      "Allocation Category",
+      "Bucket",
+      "City",
+      "EMI Amount",
+      "POS",
+      "Settlement",
+      "Entry Type",
+      "Entry Date",
+      "Time",
+      "Remark",
+    ],
+    list.map((r) => [
+      r.date,
+      r.allocationDate ?? "",
+      r.loanId ?? "",
+      r.executive,
+      r.amount,
+      r.allocationCategory ?? "",
+      r.bucket ?? "",
+      r.city ?? "",
+      r.emiAmount ?? "",
+      r.pos ?? "",
+      r.settlement ? "Yes" : "No",
+      r.entryType || "Normal",
+      r.entryDate ?? "",
+      r.time ?? "",
+      r.remark ?? "",
+    ]),
+  );
+}
+
+export function downloadAlreadyPaidCsv(rows: ExportAlreadyPaid[], label = "") {
+  const fileSuffix = label ? `-${label}` : "";
+  downloadCsv(`already-paid${fileSuffix}.csv`, alreadyPaidCsv(rows));
+}

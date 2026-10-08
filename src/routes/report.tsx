@@ -335,7 +335,23 @@ function ReportPage() {
   const fetchCollections = useServerFn(getCollections);
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
-    queryFn: () => fetchCollections(),
+    queryFn: async () => {
+      const res = await fetchCollections();
+      if (!Array.isArray(res)) {
+        if (res && typeof res === "object" && "message" in res) {
+          throw new Error(
+            String((res as { message?: unknown }).message || "Failed to load collections"),
+          );
+        }
+        if (res && typeof res === "object" && "error" in res) {
+          throw new Error(
+            String((res as { error?: unknown }).error || "Failed to load collections"),
+          );
+        }
+        throw new Error("Unable to load collections from server");
+      }
+      return res;
+    },
     refetchOnWindowFocus: true,
   });
 
@@ -345,7 +361,7 @@ function ReportPage() {
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
-  const rawRows = useMemo(() => data ?? [], [data]);
+  const rawRows = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const [category, setCategory] = useCategoryFilter();
   const dateCategory = category;
   const overallCategory = category;

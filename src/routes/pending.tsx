@@ -71,10 +71,14 @@ function PendingPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [doneTarget, setDoneTarget] = useState<{ id: string; loanNumber: string } | null>(null);
 
-  const { data: pending = [], isLoading } = useQuery({
+  const { data: rawPending = [], isLoading } = useQuery({
     queryKey: ["pending"],
-    queryFn: () => fetchPending(),
+    queryFn: async () => {
+      const res = await fetchPending();
+      return Array.isArray(res) ? res : [];
+    },
   });
+  const pending = Array.isArray(rawPending) ? rawPending : [];
 
   const submit = useMutation({
     mutationFn: async () => {

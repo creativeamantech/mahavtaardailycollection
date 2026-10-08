@@ -396,7 +396,10 @@ function EcsReport() {
   const load = useServerFn(getEcsEntries);
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["ecs-entries"],
-    queryFn: () => load(),
+    queryFn: async () => {
+      const res = await load();
+      return Array.isArray(res) ? res : [];
+    },
   });
 
   const [from, setFrom] = useState(today);
@@ -414,7 +417,7 @@ function EcsReport() {
   const update = useServerFn(updateEcsEntry);
 
   const rows = useMemo(() => {
-    const list = data ?? [];
+    const list = Array.isArray(data) ? data : [];
     return list.filter((r) => {
       if (!allDates) {
         if (from && r.paymentDate < from) return false;

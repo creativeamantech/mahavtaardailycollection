@@ -18,11 +18,14 @@ export function monthLabel(key: string) {
 
 // Options built dynamically from the dataset, newest first. The current month
 // is always present so a fresh month starts with its own (empty) period.
-export function monthOptions(dates: string[]) {
+export function monthOptions(dates: string[] | unknown) {
   const set = new Set<string>();
-  for (const d of dates) {
-    const k = monthKey(d);
-    if (/^\d{4}-\d{2}$/.test(k)) set.add(k);
+  const list = Array.isArray(dates) ? dates : [];
+  for (const d of list) {
+    if (typeof d === "string") {
+      const k = monthKey(d);
+      if (/^\d{4}-\d{2}$/.test(k)) set.add(k);
+    }
   }
   set.add(currentMonthKey());
   return [...set].sort().reverse();

@@ -49,23 +49,28 @@ export const saveEcsEntry = createServerFn({ method: "POST" })
   });
 
 export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () => {
-  const { sheetsGet } = await import("./mahavtaar.server");
-  const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
-  const rows = await sheetsGet("ECS_Special_Info!A2:L");
-  return rows
-    .filter((r) => (r[0] ?? "").trim() !== "")
-    .map((r) => ({
-      id: r[0] ?? "",
-      executive: r[1] ?? "",
-      loanId: r[2] ?? "",
-      amount: Number(String(r[3] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-      paymentType: (r[4] ?? "ECS") as "ECS" | "Special",
-      paymentDate: normalizeSheetDate(r[5] ?? ""),
-      entryDate: normalizeSheetDate(r[6] ?? ""),
-      entryTime: normalizeSheetTime(r[7] ?? ""),
-      status: r[8] ?? "Confirmed",
-      remark: r[9] ?? "",
-    }));
+  try {
+    const { sheetsGet } = await import("./mahavtaar.server");
+    const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
+    const rows = await sheetsGet("ECS_Special_Info!A2:L");
+    return (rows ?? [])
+      .filter((r) => (r[0] ?? "").trim() !== "")
+      .map((r) => ({
+        id: r[0] ?? "",
+        executive: r[1] ?? "",
+        loanId: r[2] ?? "",
+        amount: Number(String(r[3] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
+        paymentType: (r[4] ?? "ECS") as "ECS" | "Special",
+        paymentDate: normalizeSheetDate(r[5] ?? ""),
+        entryDate: normalizeSheetDate(r[6] ?? ""),
+        entryTime: normalizeSheetTime(r[7] ?? ""),
+        status: r[8] ?? "Confirmed",
+        remark: r[9] ?? "",
+      }));
+  } catch (err) {
+    console.error("Failed to read ECS entries from Google Sheets:", err);
+    return [];
+  }
 });
 
 export const updateEcsEntry = createServerFn({ method: "POST" })

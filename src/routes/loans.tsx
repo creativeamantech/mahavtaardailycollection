@@ -74,19 +74,36 @@ function LoansPage() {
   // below reuse this single result. No per-loan or per-filter API calls.
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
-    queryFn: () => fetchCollections(),
+    queryFn: async () => {
+      const res = await fetchCollections();
+      if (!Array.isArray(res)) {
+        if (res && typeof res === "object" && "message" in res) {
+          throw new Error(
+            String((res as { message?: unknown }).message || "Failed to load collections"),
+          );
+        }
+        if (res && typeof res === "object" && "error" in res) {
+          throw new Error(
+            String((res as { error?: unknown }).error || "Failed to load collections"),
+          );
+        }
+        throw new Error("Unable to load collections from server");
+      }
+      return res;
+    },
   });
 
+  const collections = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   // Already Paid payments (before Allocation Date) never count as collection.
   const [category, setCategory] = useCategoryFilter();
-  const categories = useMemo(() => uniqueCategories(data ?? []), [data]);
+  const categories = useMemo(() => uniqueCategories(collections), [collections]);
   const allRows = useMemo(
     () =>
-      (data ?? []).filter((r) => !r.alreadyPaid && categoryMatches(r.allocationCategory, category)),
-    [data, category],
+      collections.filter((r) => !r.alreadyPaid && categoryMatches(r.allocationCategory, category)),
+    [collections, category],
   );
   const [month, setMonth] = useState(currentMonthKey());
-  const months = useMemo(() => monthOptions((data ?? []).map((r) => r.date)), [data]);
+  const months = useMemo(() => monthOptions(collections.map((r) => r.date)), [collections]);
   // Month-scoped dataset — searches and every report below reuse it.
   const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
   const loans = useMemo(() => summariseLoans(rows), [rows]);

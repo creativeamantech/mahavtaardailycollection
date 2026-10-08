@@ -81,12 +81,15 @@ function SettingsContent() {
 
   const { data: collectionsData } = useQuery({
     queryKey: ["collections"],
-    queryFn: () => fetchCollections(),
+    queryFn: async () => {
+      const res = await fetchCollections();
+      return Array.isArray(res) ? res : [];
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const detectedCategories = useMemo(
-    () => uniqueCategories(collectionsData ?? []),
+    () => uniqueCategories(Array.isArray(collectionsData) ? collectionsData : []),
     [collectionsData],
   );
 

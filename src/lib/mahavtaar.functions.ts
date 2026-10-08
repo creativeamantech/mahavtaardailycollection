@@ -133,56 +133,61 @@ export const markConflictRows = createServerFn({ method: "POST" })
   });
 
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
-  const { sheetsGet } = await import("./mahavtaar.server");
-  const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
-  // Read K:O too — those are maintained with formulas in the sheet and come back
-  // as their calculated values (never the formula text).
-  // T = Allocation Category, U = Allocation Date (sheet-maintained values).
-  const rows = await sheetsGet("Collections!A2:U");
-  const num = (v: string | undefined) => {
-    const s = String(v ?? "")
-      .replace(/[^0-9.-]/g, "")
-      .trim();
-    return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
-  };
-  return rows
-    .filter((r) => r[0])
-    .map((r, i) => {
-      const paymentDate = normalizeSheetDate(r[3] ?? "");
-      const entryDateRaw = (r[7] ?? "").trim();
-      const allocRaw = (r[20] ?? "").trim();
-      const allocationDate = allocRaw ? normalizeSheetDate(allocRaw) : "";
-      const validAlloc = /^\d{4}-\d{2}-\d{2}$/.test(allocationDate);
-      return {
-        bucket: (r[10] ?? "").trim(),
-        city: (r[11] ?? "").trim(),
-        emiAmount: num(r[12]),
-        pos: num(r[13]),
-        foreclosure: num(r[14]),
-        row: i + 2,
-        executive: r[0] ?? "",
-        loanId: String(r[1] ?? "")
-          .replace(/^['`\u2018\u2019]+/, "")
-          .trim(),
-        amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-        date: paymentDate,
-        time: normalizeSheetTime(r[4] ?? ""),
-        createdAt: (r[5] ?? "").trim(),
-        status: r[6] ?? "",
-        entryDate: entryDateRaw ? normalizeSheetDate(entryDateRaw) : paymentDate,
-        entryType: (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
-        settlement: (r[9] ?? "").trim().toLowerCase() === "yes",
-        receiptLinks: (r[15] ?? "")
-          .split(/[|,\s]+/)
-          .map((s) => s.trim())
-          .filter((s) => s.startsWith("http")),
-        remark: (r[16] ?? "").trim(),
-        allocationCategory: (r[19] ?? "").trim(),
-        allocationDate: validAlloc ? allocationDate : "",
-        // Payment before allocation = Already Paid (reporting rule only).
-        alreadyPaid: validAlloc && paymentDate !== "" && paymentDate < allocationDate,
-      };
-    });
+  try {
+    const { sheetsGet } = await import("./mahavtaar.server");
+    const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
+    // Read K:O too — those are maintained with formulas in the sheet and come back
+    // as their calculated values (never the formula text).
+    // T = Allocation Category, U = Allocation Date (sheet-maintained values).
+    const rows = await sheetsGet("Collections!A2:U");
+    const num = (v: string | undefined) => {
+      const s = String(v ?? "")
+        .replace(/[^0-9.-]/g, "")
+        .trim();
+      return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
+    };
+    return (rows ?? [])
+      .filter((r) => r[0])
+      .map((r, i) => {
+        const paymentDate = normalizeSheetDate(r[3] ?? "");
+        const entryDateRaw = (r[7] ?? "").trim();
+        const allocRaw = (r[20] ?? "").trim();
+        const allocationDate = allocRaw ? normalizeSheetDate(allocRaw) : "";
+        const validAlloc = /^\d{4}-\d{2}-\d{2}$/.test(allocationDate);
+        return {
+          bucket: (r[10] ?? "").trim(),
+          city: (r[11] ?? "").trim(),
+          emiAmount: num(r[12]),
+          pos: num(r[13]),
+          foreclosure: num(r[14]),
+          row: i + 2,
+          executive: r[0] ?? "",
+          loanId: String(r[1] ?? "")
+            .replace(/^['`\u2018\u2019]+/, "")
+            .trim(),
+          amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
+          date: paymentDate,
+          time: normalizeSheetTime(r[4] ?? ""),
+          createdAt: (r[5] ?? "").trim(),
+          status: r[6] ?? "",
+          entryDate: entryDateRaw ? normalizeSheetDate(entryDateRaw) : paymentDate,
+          entryType: (r[8] ?? "").trim() === "Previous Paid File" ? "Previous Paid File" : "Normal",
+          settlement: (r[9] ?? "").trim().toLowerCase() === "yes",
+          receiptLinks: (r[15] ?? "")
+            .split(/[|,\s]+/)
+            .map((s) => s.trim())
+            .filter((s) => s.startsWith("http")),
+          remark: (r[16] ?? "").trim(),
+          allocationCategory: (r[19] ?? "").trim(),
+          allocationDate: validAlloc ? allocationDate : "",
+          // Payment before allocation = Already Paid (reporting rule only).
+          alreadyPaid: validAlloc && paymentDate !== "" && paymentDate < allocationDate,
+        };
+      });
+  } catch (err) {
+    console.error("Failed to read collections from Google Sheets:", err);
+    return [];
+  }
 });
 
 export const savePending = createServerFn({ method: "POST" })
@@ -210,23 +215,28 @@ export const savePending = createServerFn({ method: "POST" })
   });
 
 export const getPending = createServerFn({ method: "GET" }).handler(async () => {
-  const { sheetsGet } = await import("./mahavtaar.server");
-  const rows = await sheetsGet("Pending!A2:H");
-  return rows
-    .map((r, i) => ({
-      row: i + 2,
-      executive: r[0] ?? "",
-      loanNumber: r[1] ?? "",
-      amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-      links: (r[3] ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      status: r[4] ?? "",
-      id: r[6] ?? "",
-      settlement: (r[7] ?? "").trim().toLowerCase() === "yes",
-    }))
-    .filter((r) => r.loanNumber && r.status === "Pending");
+  try {
+    const { sheetsGet } = await import("./mahavtaar.server");
+    const rows = await sheetsGet("Pending!A2:H");
+    return (rows ?? [])
+      .map((r, i) => ({
+        row: i + 2,
+        executive: r[0] ?? "",
+        loanNumber: r[1] ?? "",
+        amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
+        links: (r[3] ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        status: r[4] ?? "",
+        id: r[6] ?? "",
+        settlement: (r[7] ?? "").trim().toLowerCase() === "yes",
+      }))
+      .filter((r) => r.loanNumber && r.status === "Pending");
+  } catch (err) {
+    console.error("Failed to read pending from Google Sheets:", err);
+    return [];
+  }
 });
 
 export const markPendingDone = createServerFn({ method: "POST" })

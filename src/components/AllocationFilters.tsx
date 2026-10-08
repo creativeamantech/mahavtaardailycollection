@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Download } from "lucide-react";
 import { formatAmount } from "@/lib/executives";
 import { useAppConfig } from "@/hooks/useAppConfig";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -24,10 +26,20 @@ export function categoryMatches(c: string | undefined, filter: string) {
   return filter === ALL_CATEGORIES || (c ?? "") === filter;
 }
 
-export function uniqueCategories(rows: { allocationCategory?: string }[]) {
-  return [...new Set(rows.map((r) => r.allocationCategory ?? "").filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b),
-  );
+export function uniqueCategories(rows: { allocationCategory?: string }[] | unknown) {
+  const list = Array.isArray(rows) ? rows : [];
+  return [
+    ...new Set(
+      list
+        .map(
+          (r) =>
+            (r && typeof r === "object"
+              ? (r as { allocationCategory?: string }).allocationCategory
+              : "") ?? "",
+        )
+        .filter(Boolean),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
 }
 
 export const ALL_CATEGORIES = "__all_categories__";
@@ -97,15 +109,35 @@ export function CategoryFilter({
 
 // Informational only — these payments were made before the Allocation Date
 // and never contribute to any collection total.
-export function AlreadyPaidSection({ rows }: { rows: Collection[] }) {
+export function AlreadyPaidSection({
+  rows,
+  onDownload,
+}: {
+  rows: Collection[];
+  onDownload?: () => void;
+}) {
   const total = rows.reduce((s, r) => s + r.amount, 0);
   return (
     <section className="rounded-xl border border-dashed p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-lg font-semibold">Already Paid ({rows.length})</h3>
-        <p className="text-sm text-muted-foreground">
-          Info only · {formatAmount(total)} · not counted in collection
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-lg font-semibold">Already Paid ({rows.length})</h3>
+          <p className="text-sm text-muted-foreground">
+            Info only · {formatAmount(total)} · not counted in collection
+          </p>
+        </div>
+        {onDownload && rows.length > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-sm"
+            onClick={onDownload}
+          >
+            <Download className="h-4 w-4" />
+            Download CSV
+          </Button>
+        )}
       </div>
       {rows.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">No Already Paid cases.</p>

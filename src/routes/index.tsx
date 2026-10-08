@@ -118,11 +118,15 @@ function EntryPage() {
   const uploadReceipt = useServerFn(uploadReceiptImage);
   const fetchCollections = useServerFn(getCollections);
   const flagConflicts = useServerFn(markConflictRows);
-  const { data: existing = [], refetch: refetchCollections } = useQuery({
+  const { data: rawExisting = [], refetch: refetchCollections } = useQuery({
     queryKey: ["collections"],
-    queryFn: () => fetchCollections(),
+    queryFn: async () => {
+      const res = await fetchCollections();
+      return Array.isArray(res) ? res : [];
+    },
     staleTime: 60_000,
   });
+  const existing = useMemo(() => (Array.isArray(rawExisting) ? rawExisting : []), [rawExisting]);
   const [receipts, setReceipts] = useState<{ name: string; link: string }[]>([]);
   const [pendingFiles, setPendingFiles] = useState<{ file: File; preview: string }[]>([]);
   const [uploading, setUploading] = useState(false);
