@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -79,27 +79,37 @@ export function ExecutiveCitiesPage() {
     queryKey: ["collections"],
     queryFn: async () => {
       const res = await fetchCollections();
-      if (!Array.isArray(res)) {
-        if (res && typeof res === "object" && "message" in res) {
-          throw new Error(
-            String((res as { message?: unknown }).message || "Failed to load collections"),
-          );
-        }
-        if (res && typeof res === "object" && "error" in res) {
-          throw new Error(
-            String((res as { error?: unknown }).error || "Failed to load collections"),
-          );
-        }
-        throw new Error("Unable to load collections from server");
+      if (Array.isArray(res)) return res;
+      if (res && typeof res === "object" && "message" in res) {
+        throw new Error(
+          String((res as { message?: unknown }).message || "Failed to load collections"),
+        );
       }
-      return res;
+      if (res && typeof res === "object" && "error" in res) {
+        throw new Error(String((res as { error?: unknown }).error || "Failed to load collections"));
+      }
+      return [];
     },
+    staleTime: 30_000,
   });
 
   const data = useMemo(() => (Array.isArray(rawData) ? rawData : []), [rawData]);
 
-  const [dateMode, setDateMode] = useState<DateFilterMode>("month");
-  const [selectedDate, setSelectedDate] = useState(todayISO());
+  const [dateMode, setDateMode] = useState<DateFilterMode>("date");
+  const [selectedDate, setSelectedDate] = useState(() => todayISO());
+  const userChangedDate = useRef(false);
+
+  // If today has no records in the dataset, fallback to the latest available date
+  useEffect(() => {
+    if (userChangedDate.current || data.length === 0) return;
+    const hasCurrent = data.some((r) => r.date === selectedDate);
+    if (!hasCurrent) {
+      const datesWithData = [...new Set(data.map((r) => r.date).filter(Boolean))].sort().reverse();
+      if (datesWithData.length > 0 && datesWithData[0]) {
+        setSelectedDate(datesWithData[0]);
+      }
+    }
+  }, [data, selectedDate]);
 
   const months = useMemo(() => monthOptions(data.map((r) => r.date)), [data]);
   const [month, setMonth] = useState(() => currentMonthKey());
@@ -112,7 +122,7 @@ export function ExecutiveCitiesPage() {
   }, [months, month]);
 
   const categories = useMemo(() => uniqueCategories(data), [data]);
-  const { category, setCategory } = useCategoryFilter();
+  const [category, setCategory] = useCategoryFilter();
 
   const [bucket, setBucket] = useState(ALL);
   const buckets = useMemo(
@@ -390,17 +400,6 @@ export function ExecutiveCitiesPage() {
               <button
                 type="button"
                 className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-all ${
-                  dateMode === "month"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => setDateMode("month")}
-              >
-                Month-wise
-              </button>
-              <button
-                type="button"
-                className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-all ${
                   dateMode === "date"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -408,6 +407,17 @@ export function ExecutiveCitiesPage() {
                 onClick={() => setDateMode("date")}
               >
                 Date-wise
+              </button>
+              <button
+                type="button"
+                className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-all ${
+                  dateMode === "month"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setDateMode("month")}
+              >
+                Month-wise
               </button>
               <button
                 type="button"
@@ -423,12 +433,6 @@ export function ExecutiveCitiesPage() {
             </div>
           </div>
 
-          {dateMode === "month" && (
-            <div className="space-y-1.5">
-              <MonthSelect value={month} onChange={setMonth} options={months} />
-            </div>
-          )}
-
           {dateMode === "date" && (
             <div className="space-y-1.5">
               <Label className="text-base" htmlFor="exec-city-date">
@@ -439,8 +443,17 @@ export function ExecutiveCitiesPage() {
                 type="date"
                 className="h-12 text-base"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                onChange={(e) => {
+                  userChangedDate.current = true;
+                  setSelectedDate(e.target.value);
+                }}
               />
+            </div>
+          )}
+
+          {dateMode === "month" && (
+            <div className="space-y-1.5">
+              <MonthSelect value={month} onChange={setMonth} options={months} />
             </div>
           )}
 
@@ -722,8 +735,22 @@ export function ExecutiveCitiesPage() {
         )}
 
         {error && (
-          <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-6 text-center text-destructive">
-            Could not load collection data. Please click Refresh to try again.
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-center text-destructive">
+            <p className="font-semibold text-base">Could not load collection data</p>
+            <p className="mt-1 text-sm opacity-90">
+              {error instanceof Error
+                ? error.message
+                : "An error occurred while fetching from server."}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 bg-background text-foreground hover:bg-muted"
+              onClick={() => refetch()}
+            >
+              <RotateCw className="mr-2 h-4 w-4" /> Try Again
+            </Button>
           </div>
         )}
 

@@ -22,8 +22,9 @@ type Collection = {
   allocationDate?: string;
 };
 
-export function categoryMatches(c: string | undefined, filter: string) {
-  return filter === ALL_CATEGORIES || (c ?? "") === filter;
+export function categoryMatches(c: string | undefined, filter: string | undefined | null) {
+  if (!filter || filter === ALL_CATEGORIES) return true;
+  return (c ?? "") === filter;
 }
 
 export function uniqueCategories(rows: { allocationCategory?: string }[] | unknown) {
