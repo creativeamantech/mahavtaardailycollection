@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Download,
   RotateCw,
@@ -11,6 +12,7 @@ import {
   Receipt,
   Layers,
   Calendar,
+  Filter,
 } from "lucide-react";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import {
@@ -66,22 +68,48 @@ const ALL = "__all__";
 type DateFilterMode = "month" | "date" | "all";
 
 export function ExecutiveCitiesPage() {
+  const fetchCollections = useServerFn(getCollections);
   const {
-    data = [],
+    data: rawData = [],
     isLoading,
     error,
     refetch,
     isFetching,
   } = useQuery({
     queryKey: ["collections"],
-    queryFn: () => getCollections(),
+    queryFn: async () => {
+      const res = await fetchCollections();
+      if (!Array.isArray(res)) {
+        if (res && typeof res === "object" && "message" in res) {
+          throw new Error(
+            String((res as { message?: unknown }).message || "Failed to load collections"),
+          );
+        }
+        if (res && typeof res === "object" && "error" in res) {
+          throw new Error(
+            String((res as { error?: unknown }).error || "Failed to load collections"),
+          );
+        }
+        throw new Error("Unable to load collections from server");
+      }
+      return res;
+    },
   });
+
+  const data = useMemo(() => (Array.isArray(rawData) ? rawData : []), [rawData]);
 
   const [dateMode, setDateMode] = useState<DateFilterMode>("month");
   const [selectedDate, setSelectedDate] = useState(todayISO());
 
   const months = useMemo(() => monthOptions(data.map((r) => r.date)), [data]);
   const [month, setMonth] = useState(() => currentMonthKey());
+
+  // If current month has no data yet, automatically switch to first available month
+  useEffect(() => {
+    if (months.length > 0 && !months.some((m) => m.key === month)) {
+      setMonth(months[0]!.key);
+    }
+  }, [months, month]);
 
   const categories = useMemo(() => uniqueCategories(data), [data]);
   const { category, setCategory } = useCategoryFilter();
@@ -95,10 +123,17 @@ export function ExecutiveCitiesPage() {
   const [selectedExecutive, setSelectedExecutive] = useState<string>(ALL);
   const [citySearch, setCitySearch] = useState("");
   const [includeBucket, setIncludeBucket] = useState(false);
+  const [excludeAlreadyPaid, setExcludeAlreadyPaid] = useState(true);
+
+  // Count already paid cases in total dataset
+  const alreadyPaidCount = useMemo(() => data.filter((r) => r.alreadyPaid).length, [data]);
 
   // Filter raw collection rows based on selected filters
   const filteredRows = useMemo(() => {
     return data.filter((r) => {
+      // Exclude Already Paid (matching loans.tsx city table by default)
+      if (excludeAlreadyPaid && r.alreadyPaid) return false;
+
       // Date filter
       if (dateMode === "month") {
         if (month && monthKey(r.date) !== month) return false;
@@ -114,7 +149,7 @@ export function ExecutiveCitiesPage() {
 
       return true;
     });
-  }, [data, dateMode, month, selectedDate, bucket, category]);
+  }, [data, excludeAlreadyPaid, dateMode, month, selectedDate, bucket, category]);
 
   // Summarise loans for the filtered scope
   const loanSummaries = useMemo(() => {
@@ -474,16 +509,35 @@ export function ExecutiveCitiesPage() {
             </div>
           </div>
 
-          <div className="space-y-1.5 flex flex-col justify-end">
+          <div className="space-y-1.5 flex flex-col justify-end gap-2 sm:flex-row">
             <Button
               type="button"
               variant={includeBucket ? "default" : "outline"}
-              className="h-12 text-sm font-medium"
+              className="h-12 flex-1 text-sm font-medium"
               onClick={() => setIncludeBucket((prev) => !prev)}
             >
               <Layers className="mr-2 h-4 w-4" />
               {includeBucket ? "Breakdown: City + Bucket" : "Breakdown: City Only"}
             </Button>
+
+            {alreadyPaidCount > 0 && (
+              <Button
+                type="button"
+                variant={excludeAlreadyPaid ? "outline" : "secondary"}
+                className={`h-12 text-sm font-medium ${
+                  excludeAlreadyPaid
+                    ? "text-muted-foreground"
+                    : "border-red-300 bg-red-50 text-red-700"
+                }`}
+                onClick={() => setExcludeAlreadyPaid((prev) => !prev)}
+              >
+                <Filter className="mr-2 h-4 w-4 text-red-600" />
+                {excludeAlreadyPaid ? "Exclude Already Paid" : "Include Already Paid"}
+                <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-800">
+                  {alreadyPaidCount}
+                </span>
+              </Button>
+            )}
           </div>
         </div>
       </section>
@@ -537,8 +591,8 @@ export function ExecutiveCitiesPage() {
               >
                 <div className="text-xs font-semibold sm:text-sm">{exec}</div>
                 <div
-                  className={`text-[10px] sm:text-xs ${
-                    isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
+                  className={`text-[10px] sm:text-xs font-medium ${
+                    isSelected ? "text-primary-foreground/90 font-bold" : "text-muted-foreground"
                   }`}
                 >
                   {count > 0 ? `${count} cities · ${formatAmount(amount)}` : "No data"}
@@ -548,6 +602,115 @@ export function ExecutiveCitiesPage() {
           })}
         </div>
       </section>
+
+      {/* All Executives Summary Comparison Table (when All Executives selected) */}
+      {selectedExecutive === ALL && !isLoading && sections.length > 0 && (
+        <section className="mt-6 rounded-xl border bg-card shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-bold text-foreground sm:text-base">
+                Executive Comparison Summary Table
+              </h3>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Total:{" "}
+              <strong className="text-primary font-bold">
+                {formatAmount(overallMetrics.totalCollection)}
+              </strong>
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b bg-muted/20 text-muted-foreground font-semibold">
+                  <th className="px-3 py-2.5 text-left">Executive</th>
+                  <th className="px-3 py-2.5 text-right">Cities</th>
+                  <th className="px-3 py-2.5 text-right font-bold text-foreground">
+                    Collection Amount
+                  </th>
+                  <th className="px-3 py-2.5 text-right">Cases</th>
+                  <th className="px-3 py-2.5 text-right text-emerald-700">Main Paid</th>
+                  <th className="px-3 py-2.5 text-right">EMI Count</th>
+                  <th className="px-3 py-2.5 text-right">POS*</th>
+                  <th className="px-3 py-2.5 text-right text-sky-700">Paid POS</th>
+                  <th className="px-3 py-2.5 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sections.map((sec) => (
+                  <tr key={sec.executive} className="border-b last:border-b-0 hover:bg-muted/30">
+                    <td className="px-3 py-2 font-medium text-foreground text-left">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                          {sec.executive.charAt(0)}
+                        </span>
+                        <span>{sec.executive}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      {sec.rows.length}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-bold text-primary">
+                      {formatAmount(sec.total.collection)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                      {sec.total.cases}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-emerald-700">
+                      {sec.total.mainPaid}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{sec.total.paidEmi}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      {sec.total.posPaidNotMain}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-sky-700">
+                      {formatAmount(sec.total.paidPos)}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
+                        onClick={() => setSelectedExecutive(sec.executive)}
+                      >
+                        View Cities
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-t-2 bg-muted/60 font-bold text-foreground">
+                  <td className="px-3 py-2.5 text-left font-bold">TOTAL OVERALL</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold">
+                    {overallMetrics.cityCount}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-primary text-sm sm:text-base">
+                    {formatAmount(overallMetrics.totalCollection)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold">
+                    {overallMetrics.totalCases}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-emerald-700">
+                    {overallMetrics.totalMainPaid}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold">
+                    {overallMetrics.totalEmi}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-muted-foreground">
+                    {sections.reduce((acc, s) => acc + s.total.posPaidNotMain, 0)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-sky-700">
+                    {formatAmount(sections.reduce((acc, s) => acc + s.total.paidPos, 0))}
+                  </td>
+                  <td className="px-3 py-2.5" />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Main Content: Tables */}
       <section className="mt-8 space-y-6">

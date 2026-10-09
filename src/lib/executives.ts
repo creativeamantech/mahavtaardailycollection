@@ -32,8 +32,9 @@ export function nowTime(date: Date = new Date()) {
   });
 }
 
-export function formatAmount(n: number) {
-  return "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+export function formatAmount(n: number | null | undefined) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "₹0";
+  return "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 
 // Google Sheets can store dates/times as serial numbers. Normalise both back
