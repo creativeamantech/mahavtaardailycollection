@@ -146,6 +146,7 @@ const NAV = [
   { to: "/", label: "Entry", key: "entry" },
   { to: "/report", label: "Report", key: "report" },
   { to: "/loans", label: "Loan Details", key: "loans" },
+  { to: "/executive-cities", label: "Exec Cities", key: "execCities" },
   { to: "/pending", label: "Pending", key: "pending" },
   { to: "/ecs", label: "ECS / Special", key: "ecs" },
   { to: "/notifications", label: "Notifications", key: "notifications" },

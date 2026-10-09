@@ -1,3 +1,5 @@
+import { EXECUTIVES } from "./executives";
+
 // Loan-level aggregation. Bucket / City / EMI Amount / POS / Foreclosure come
 // from the Google Sheet as already-calculated values — nothing is derived here.
 // Only the confirmed Collection Amount is ever summed per Loan ID.
@@ -354,4 +356,109 @@ export function executiveSections(loans: LoanSummary[]): ReportSection[] {
     })
     .filter((s) => s.rows.length > 0)
     .sort((a, b) => a.city.localeCompare(b.city) || a.bucket.localeCompare(b.bucket));
+}
+
+export type ExecutiveCityRow = {
+  city: string;
+  bucket?: string;
+  collection: number;
+  cases: number;
+  mainPaid: number;
+  paidEmi: number;
+  posPaidNotMain: number;
+  paidPos: number;
+};
+
+export type ExecutiveCitySection = {
+  executive: string;
+  rows: ExecutiveCityRow[];
+  total: ExecutiveCityRow;
+};
+
+// Groups loans per Executive with one row per City (or City + Bucket).
+export function executiveCitySections(
+  loans: LoanSummary[],
+  options?: { includeBucket?: boolean },
+): ExecutiveCitySection[] {
+  const includeBucket = options?.includeBucket ?? false;
+  const execMap = new Map<string, Map<string, ExecutiveCityRow>>();
+
+  for (const l of loans) {
+    const city = l.city || "—";
+    const bucket = l.bucket || "—";
+    const rowKey = includeBucket ? `${city}||${bucket}` : city;
+    const rowLabel = includeBucket ? `${city} (${bucket})` : city;
+
+    for (const e of l.executives) {
+      let cityMap = execMap.get(e);
+      if (!cityMap) {
+        cityMap = new Map();
+        execMap.set(e, cityMap);
+      }
+
+      let row = cityMap.get(rowKey);
+      if (!row) {
+        row = {
+          city: rowLabel,
+          bucket: l.bucket || "",
+          collection: 0,
+          cases: 0,
+          mainPaid: 0,
+          paidEmi: 0,
+          posPaidNotMain: 0,
+          paidPos: 0,
+        };
+        cityMap.set(rowKey, row);
+      }
+
+      row.collection += l.totalPaid;
+      row.cases += 1;
+      if (l.mainPaid) {
+        row.mainPaid += 1;
+        row.paidEmi += l.paidEmiCount;
+        row.paidPos += l.pos ?? 0;
+      } else if (l.posPaid) {
+        row.posPaidNotMain += 1;
+      }
+    }
+  }
+
+  const allExecs = [...new Set([...EXECUTIVES, ...execMap.keys()])].filter(Boolean);
+  const result: ExecutiveCitySection[] = [];
+
+  for (const exec of allExecs) {
+    const cityMap = execMap.get(exec);
+    const rows = cityMap
+      ? [...cityMap.values()].sort(
+          (a, b) => b.collection - a.collection || a.city.localeCompare(b.city),
+        )
+      : [];
+
+    const total: ExecutiveCityRow = {
+      city: "TOTAL",
+      collection: 0,
+      cases: 0,
+      mainPaid: 0,
+      paidEmi: 0,
+      posPaidNotMain: 0,
+      paidPos: 0,
+    };
+
+    for (const r of rows) {
+      total.collection += r.collection;
+      total.cases += r.cases;
+      total.mainPaid += r.mainPaid;
+      total.paidEmi += r.paidEmi;
+      total.posPaidNotMain += r.posPaidNotMain;
+      total.paidPos += r.paidPos;
+    }
+
+    result.push({
+      executive: exec,
+      rows,
+      total,
+    });
+  }
+
+  return result;
 }

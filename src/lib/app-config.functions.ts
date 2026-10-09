@@ -8,6 +8,7 @@ export const FEATURES = [
   { key: "entry", label: "Payment Entry", path: "/" },
   { key: "report", label: "Reports", path: "/report" },
   { key: "loans", label: "Loan Details", path: "/loans" },
+  { key: "execCities", label: "Executive Cities", path: "/executive-cities" },
   { key: "pending", label: "Pending Receipts", path: "/pending" },
   { key: "ecs", label: "ECS / Special", path: "/ecs" },
   { key: "notifications", label: "Notifications", path: "/notifications" },
