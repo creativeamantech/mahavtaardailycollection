@@ -147,6 +147,67 @@ export const markConflictRows = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+// Marks Already Paid Collections rows with a soft red background in Google Sheets
+// so they are visually highlighted in the source sheet.
+export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        rows: z.array(z.number().int().min(2).max(1000000)).max(5000).optional(),
+      })
+      .optional()
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data }) => {
+    const { sheetsGet, getSheetId, sheetsBatchUpdate } = await import("./mahavtaar.server");
+    const { normalizeSheetDate } = await import("./executives");
+
+    let targetRows: number[] = data?.rows ?? [];
+
+    if (!targetRows || targetRows.length === 0) {
+      // Find all already-paid row indices directly from the sheet
+      const raw = await sheetsGet("Collections!A2:U");
+      targetRows = (raw ?? [])
+        .map((r, i) => {
+          const paymentDate = normalizeSheetDate(r[3] ?? "");
+          const allocRaw = (r[20] ?? "").trim();
+          const allocationDate = allocRaw ? normalizeSheetDate(allocRaw) : "";
+          const validAlloc = /^\d{4}-\d{2}-\d{2}$/.test(allocationDate);
+          const isAlreadyPaid = validAlloc && paymentDate !== "" && paymentDate < allocationDate;
+          return isAlreadyPaid ? i + 2 : 0;
+        })
+        .filter((r) => r > 1);
+    }
+
+    if (targetRows.length === 0) {
+      return { ok: true as const, count: 0 };
+    }
+
+    const sheetId = await getSheetId("Collections");
+    const red = { red: 0.98, green: 0.8, blue: 0.8 };
+    const uniqueRows = [...new Set(targetRows)];
+    const CHUNK_SIZE = 200;
+    for (let i = 0; i < uniqueRows.length; i += CHUNK_SIZE) {
+      const chunk = uniqueRows.slice(i, i + CHUNK_SIZE);
+      const requests = chunk.map((row) => ({
+        repeatCell: {
+          range: {
+            sheetId,
+            startRowIndex: row - 1,
+            endRowIndex: row,
+            startColumnIndex: 0,
+            endColumnIndex: 21,
+          },
+          cell: { userEnteredFormat: { backgroundColor: red } },
+          fields: "userEnteredFormat.backgroundColor",
+        },
+      }));
+      await sheetsBatchUpdate(requests);
+    }
+
+    return { ok: true as const, count: uniqueRows.length };
+  });
+
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
   try {
     const { sheetsGet } = await import("./mahavtaar.server");

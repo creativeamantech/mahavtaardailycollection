@@ -144,12 +144,20 @@ export function AlreadyPaidSection({
       ) : (
         <div className="mt-3 space-y-2">
           {rows.map((r, i) => (
-            <div key={`${r.loanId}-${r.createdAt}-${i}`} className="rounded-lg border p-3 text-sm">
-              <div className="flex justify-between gap-2">
-                <span className="font-semibold">{r.loanId || "—"}</span>
+            <div
+              key={`${r.loanId}-${r.createdAt}-${i}`}
+              className="rounded-lg border border-red-200 bg-red-50/50 p-3 text-sm"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{r.loanId || "—"}</span>
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                    Already Paid
+                  </span>
+                </div>
                 <span className="font-semibold">{formatAmount(r.amount)}</span>
               </div>
-              <p className="text-muted-foreground">
+              <p className="mt-1 text-muted-foreground">
                 {r.executive} · Paid {r.date} · Allocated {r.allocationDate}
               </p>
               <p className="text-muted-foreground">Category: {r.allocationCategory || "—"}</p>

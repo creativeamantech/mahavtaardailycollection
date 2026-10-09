@@ -39,6 +39,12 @@ export type ExportCollection = {
   pos?: number | null;
   foreclosure?: number | null;
   remark?: string;
+  alreadyPaid?: boolean;
+  entryDate?: string;
+  time?: string;
+  allocationDate?: string;
+  allocationCategory?: string;
+  row?: number;
 };
 
 function toCollectionRows(rows: ExportCollection[]): CollectionRow[] {
@@ -60,35 +66,54 @@ function toCollectionRows(rows: ExportCollection[]): CollectionRow[] {
 }
 
 export function collectionCsv(rows: ExportCollection[]) {
+  const list = Array.isArray(rows) ? rows : [];
   return toCsv(
     [
-      "Date",
-      "Executive Name",
+      "Payment Date",
+      "Allocation Date",
       "Loan ID",
+      "Executive Name",
       "Amount",
-      "Entry Type",
-      "Settlement",
+      "Allocation Category",
       "Bucket",
       "City",
+      "EMI Amount",
+      "POS",
+      "Foreclosure",
+      "Settlement",
+      "Entry Type",
+      "Entry Date",
+      "Time",
       "Remark",
+      "Already Paid",
     ],
-    rows.map((r) => [
+    list.map((r) => [
       r.date,
-      r.executive,
+      r.allocationDate ?? "",
       r.loanId ?? "",
+      r.executive,
       r.amount,
-      r.entryType || "Normal",
-      r.settlementType || (r.settlement ? "Settlement" : "No"),
+      r.allocationCategory ?? "",
       r.bucket ?? "",
       r.city ?? "",
+      r.emiAmount ?? "",
+      r.pos ?? "",
+      r.foreclosure ?? "",
+      r.settlementType || (r.settlement ? "Settlement" : "No"),
+      r.entryType || "Normal",
+      r.entryDate ?? "",
+      r.time ?? "",
       r.remark ?? "",
+      r.alreadyPaid ? "Already Paid" : "No",
     ]),
   );
 }
 
 // Uses the existing short EMI logic exactly; Main Paid loans never appear.
 export function shortEmiCsv(rows: ExportCollection[]) {
-  const loans: LoanSummary[] = summariseLoans(toCollectionRows(rows));
+  const loans: LoanSummary[] = summariseLoans(
+    toCollectionRows((Array.isArray(rows) ? rows : []).filter((r) => !r.alreadyPaid)),
+  );
   const byId = new Map(loans.map((l) => [l.loanId, l]));
   const shorts = shortEmiRows(loans.filter((l) => !l.mainPaid));
   return toCsv(
@@ -120,6 +145,11 @@ export function shortEmiCsv(rows: ExportCollection[]) {
 export function downloadCollectionExport(rows: ExportCollection[], label: string) {
   downloadCsv(`collection-${label}.csv`, collectionCsv(rows));
   downloadCsv(`short-emi-${label}.csv`, shortEmiCsv(rows));
+}
+
+// Download the full collections sheet CSV with all rows and the Already Paid column.
+export function downloadFullCollectionCsv(rows: ExportCollection[], label = "all") {
+  downloadCsv(`collection-full-sheet-${label}.csv`, collectionCsv(rows));
 }
 
 export type ExportAlreadyPaid = {
@@ -157,11 +187,13 @@ export function alreadyPaidCsv(rows: ExportAlreadyPaid[]) {
       "City",
       "EMI Amount",
       "POS",
+      "Foreclosure",
       "Settlement",
       "Entry Type",
       "Entry Date",
       "Time",
       "Remark",
+      "Already Paid",
     ],
     list.map((r) => [
       r.date,
@@ -174,11 +206,13 @@ export function alreadyPaidCsv(rows: ExportAlreadyPaid[]) {
       r.city ?? "",
       r.emiAmount ?? "",
       r.pos ?? "",
+      r.foreclosure ?? "",
       r.settlementType || (r.settlement ? "Settlement" : "No"),
       r.entryType || "Normal",
       r.entryDate ?? "",
       r.time ?? "",
       r.remark ?? "",
+      "Already Paid",
     ]),
   );
 }

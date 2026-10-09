@@ -1,10 +1,12 @@
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { getCollections } from "@/lib/mahavtaar.functions";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
+import { getCollections, highlightAlreadyPaidInSheet } from "@/lib/mahavtaar.functions";
 import { formatAmount, todayISO } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,20 +22,71 @@ import {
 import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
-import { downloadCollectionExport } from "@/lib/export";
+import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
 
-// Export button — reuses the rows already displayed, no extra API call.
-function ExportButton({ rows, label }: { rows: Collection[]; label: string }) {
+// Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
+function ExportButton({
+  rows,
+  fullRows,
+  label,
+  onExportSync,
+}: {
+  rows: Collection[];
+  fullRows?: Collection[];
+  label: string;
+  onExportSync?: () => Promise<void> | void;
+}) {
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async (type: "filtered" | "all") => {
+    try {
+      setExporting(true);
+      if (onExportSync) {
+        await onExportSync();
+      }
+      if (type === "filtered") {
+        downloadCollectionExport(rows, label);
+        toast.success(`Exported ${rows.length} collection cases (including Already Paid) to CSV.`);
+      } else if (fullRows && fullRows.length > 0) {
+        downloadFullCollectionCsv(fullRows, label);
+        toast.success(`Exported all ${fullRows.length} collection sheet cases to CSV.`);
+      }
+    } catch {
+      if (type === "filtered") {
+        downloadCollectionExport(rows, label);
+      } else if (fullRows) {
+        downloadFullCollectionCsv(fullRows, label);
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <Button
-      variant="outline"
-      className="h-12 w-full text-base"
-      disabled={rows.length === 0}
-      onClick={() => downloadCollectionExport(rows, label)}
-    >
-      Download Collection CSV
-    </Button>
+    <div className="space-y-2">
+      <Button
+        variant="outline"
+        className="h-12 w-full text-base font-medium"
+        disabled={rows.length === 0 || exporting}
+        onClick={() => handleExport("filtered")}
+      >
+        <Download className="mr-2 h-4 w-4" />
+        {exporting ? "Preparing CSV..." : `Download Collection CSV (${rows.length} cases)`}
+      </Button>
+      {fullRows && fullRows.length > rows.length && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-10 w-full text-sm text-muted-foreground hover:text-foreground"
+          disabled={exporting}
+          onClick={() => handleExport("all")}
+        >
+          <Download className="mr-1.5 h-3.5 w-3.5" />
+          Download Complete Collection Sheet CSV ({fullRows.length} total cases)
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -71,6 +124,8 @@ type Collection = {
   loanId?: string;
   amount: number;
   date: string;
+  time?: string;
+  entryDate?: string;
   entryType?: string;
   createdAt?: string;
   settlement?: boolean;
@@ -86,6 +141,7 @@ type Collection = {
   allocationCategory?: string;
   allocationDate?: string;
   alreadyPaid?: boolean;
+  row?: number;
 };
 
 function BucketFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -337,6 +393,9 @@ function PreviousCard({ count, total }: { count: number; total: number }) {
 
 function ReportPage() {
   const fetchCollections = useServerFn(getCollections);
+  const highlightAlreadyPaid = useServerFn(highlightAlreadyPaidInSheet);
+  const [highlighting, setHighlighting] = useState(false);
+
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
     queryFn: async () => {
@@ -376,10 +435,50 @@ function ReportPage() {
       ),
     [rawRows],
   );
-  // Already Paid payments are excluded from every collection figure below.
+
+  // Already Paid payments are excluded from collection performance figures.
   const allRows = useMemo(() => rawRows.filter((r) => !r.alreadyPaid), [rawRows]);
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(rawRows.map((r) => r.date)), [rawRows]);
+
+  // Already Paid row numbers for highlighting in Google Sheet in Red
+  const alreadyPaidCount = useMemo(() => rawRows.filter((r) => r.alreadyPaid).length, [rawRows]);
+  const alreadyPaidRowNumbers = useMemo(
+    () =>
+      rawRows
+        .filter((r) => r.alreadyPaid)
+        .map((r) => r.row)
+        .filter(Boolean) as number[],
+    [rawRows],
+  );
+
+  // Auto-sync red highlight in Google Sheets when already paid rows are detected
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (!syncedRef.current && alreadyPaidRowNumbers.length > 0) {
+      syncedRef.current = true;
+      highlightAlreadyPaid({ data: { rows: alreadyPaidRowNumbers } }).catch(() => {});
+    }
+  }, [alreadyPaidRowNumbers, highlightAlreadyPaid]);
+
+  const syncHighlight = async () => {
+    if (alreadyPaidRowNumbers.length === 0) {
+      toast.info("No Already Paid cases found to highlight in Google Sheet.");
+      return;
+    }
+    setHighlighting(true);
+    try {
+      const res = await highlightAlreadyPaid({ data: { rows: alreadyPaidRowNumbers } });
+      toast.success(
+        `${(res as { count?: number })?.count ?? alreadyPaidRowNumbers.length} Already Paid cases highlighted in Red in Google Sheet.`,
+      );
+    } catch {
+      toast.error("Could not highlight Already Paid rows in Google Sheet.");
+    } finally {
+      setHighlighting(false);
+    }
+  };
+
   // Every report below works off this month-scoped dataset only.
   const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
   const catOk = (c: string | undefined, f: string) => f === ALL_CATEGORIES || c === f;
@@ -407,6 +506,30 @@ function ReportPage() {
   const prevDateWise = useMemo(() => previousStats(dateRows, from, to), [dateRows, from, to]);
   const prevOverall = useMemo(() => previousStats(overallRows), [overallRows]);
 
+  // Export rows INCLUDE both normal and Already Paid cases, with "Already Paid" column at the end.
+  const dateScopedExportRows = useMemo(
+    () =>
+      rawRows.filter(
+        (r) =>
+          monthKey(r.date) === month &&
+          bucketMatches(r.bucket, dateBucket) &&
+          catOk(r.allocationCategory, dateCategory) &&
+          inRange(r, from, to),
+      ),
+    [rawRows, month, dateBucket, dateCategory, from, to],
+  );
+
+  const overallExportRows = useMemo(
+    () =>
+      rawRows.filter(
+        (r) =>
+          monthKey(r.date) === month &&
+          bucketMatches(r.bucket, overallBucket) &&
+          catOk(r.allocationCategory, overallCategory),
+      ),
+    [rawRows, month, overallBucket, overallCategory],
+  );
+
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
       <NotificationPanel className="mb-4" />
@@ -433,6 +556,28 @@ function ReportPage() {
       <div className="mt-3">
         <CategoryFilter value={category} onChange={setCategory} options={categories} />
       </div>
+
+      {alreadyPaidCount > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-2.5 rounded-full bg-red-600 animate-pulse" />
+            <span>
+              <strong>{alreadyPaidCount} Already Paid cases</strong> are highlighted in RED in
+              Google Sheet & included in CSV export with "Already Paid" column.
+            </span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 border-red-300 bg-white text-xs text-red-800 hover:bg-red-50"
+            disabled={highlighting}
+            onClick={syncHighlight}
+          >
+            {highlighting ? "Highlighting..." : "Re-sync Red in Google Sheet"}
+          </Button>
+        </div>
+      )}
 
       {isLoading && <p className="mt-6 text-base">Loading report...</p>}
       {error && (
@@ -482,7 +627,12 @@ function ReportPage() {
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} />
-          <ExportButton rows={dateScoped} label={`${from}_to_${to}`} />
+          <ExportButton
+            rows={dateScopedExportRows}
+            fullRows={rawRows}
+            label={`${from}_to_${to}`}
+            onExportSync={syncHighlight}
+          />
         </TabsContent>
 
         <TabsContent value="overall" className="mt-4 space-y-4">
@@ -490,7 +640,12 @@ function ReportPage() {
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
-          <ExportButton rows={overallRows} label={month} />
+          <ExportButton
+            rows={overallExportRows}
+            fullRows={rawRows}
+            label={month}
+            onExportSync={syncHighlight}
+          />
         </TabsContent>
       </Tabs>
 

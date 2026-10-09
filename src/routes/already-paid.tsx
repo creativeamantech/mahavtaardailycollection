@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
-import { getCollections } from "@/lib/mahavtaar.functions";
+import { getCollections, highlightAlreadyPaidInSheet } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
@@ -65,6 +65,9 @@ function AlreadyPaidPage() {
 
 function AlreadyPaidContent() {
   const fetchCollections = useServerFn(getCollections);
+  const highlightAlreadyPaid = useServerFn(highlightAlreadyPaidInSheet);
+  const [highlighting, setHighlighting] = useState(false);
+
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
     queryFn: async () => {
@@ -101,7 +104,39 @@ function AlreadyPaidContent() {
     [all, month, category],
   );
 
-  const handleDownloadFiltered = () => {
+  const alreadyPaidRowNumbers = useMemo(
+    () => all.map((r) => r.row).filter(Boolean) as number[],
+    [all],
+  );
+
+  // Auto-sync red highlight in Google Sheets
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (!syncedRef.current && alreadyPaidRowNumbers.length > 0) {
+      syncedRef.current = true;
+      highlightAlreadyPaid({ data: { rows: alreadyPaidRowNumbers } }).catch(() => {});
+    }
+  }, [alreadyPaidRowNumbers, highlightAlreadyPaid]);
+
+  const syncHighlight = async () => {
+    if (alreadyPaidRowNumbers.length === 0) {
+      toast.info("No Already Paid cases found to highlight in Google Sheet.");
+      return;
+    }
+    setHighlighting(true);
+    try {
+      const res = await highlightAlreadyPaid({ data: { rows: alreadyPaidRowNumbers } });
+      toast.success(
+        `${(res as { count?: number })?.count ?? alreadyPaidRowNumbers.length} Already Paid cases highlighted in Red in Google Sheet.`,
+      );
+    } catch {
+      toast.error("Could not highlight Already Paid rows in Google Sheet.");
+    } finally {
+      setHighlighting(false);
+    }
+  };
+
+  const handleDownloadFiltered = async () => {
     if (rows.length === 0) {
       toast.error("No already paid cases to download for this selection.");
       return;
@@ -110,17 +145,22 @@ function AlreadyPaidContent() {
       category && category !== ALL_CATEGORIES
         ? `-${category.toLowerCase().replace(/[^a-z0-9_-]+/g, "-")}`
         : "";
+    // Ensure red highlight is synced
+    highlightAlreadyPaid({
+      data: { rows: rows.map((r) => r.row).filter(Boolean) as number[] },
+    }).catch(() => {});
     downloadAlreadyPaidCsv(rows, `${month}${catLabel}`);
-    toast.success(`Downloaded ${rows.length} already paid cases.`);
+    toast.success(`Downloaded ${rows.length} already paid cases with "Already Paid" column.`);
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     if (all.length === 0) {
       toast.error("No already paid cases found.");
       return;
     }
+    highlightAlreadyPaid({ data: { rows: alreadyPaidRowNumbers } }).catch(() => {});
     downloadAlreadyPaidCsv(all, "all-months");
-    toast.success(`Downloaded all ${all.length} already paid cases.`);
+    toast.success(`Downloaded all ${all.length} already paid cases with "Already Paid" column.`);
   };
 
   return (
@@ -129,6 +169,29 @@ function AlreadyPaidContent() {
         Payments made before the Allocation Date. Reference only — never counted in any collection
         total.
       </p>
+
+      {all.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-2.5 rounded-full bg-red-600 animate-pulse" />
+            <span>
+              <strong>{all.length} Already Paid cases</strong> are highlighted in RED in Google
+              Sheet & exported with "Already Paid" column.
+            </span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 border-red-300 bg-white text-xs text-red-800 hover:bg-red-50"
+            disabled={highlighting}
+            onClick={syncHighlight}
+          >
+            {highlighting ? "Highlighting..." : "Re-sync Red in Google Sheet"}
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
