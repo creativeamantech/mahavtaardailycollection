@@ -9,66 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AlreadyPaidRouteImport } from './routes/already-paid'
-import { Route as EcsRouteImport } from './routes/ecs'
-import { Route as ExecutiveCitiesRouteImport } from './routes/executive-cities'
-import { Route as LoansRouteImport } from './routes/loans'
 import { Route as McpRouteImport } from './routes/mcp'
-import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as PendingRouteImport } from './routes/pending'
-import { Route as ReportRouteImport } from './routes/report'
-import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedAlreadyPaidRouteImport } from './routes/_authenticated/already-paid'
+import { Route as AuthenticatedEcsRouteImport } from './routes/_authenticated/ecs'
+import { Route as AuthenticatedExecutiveCitiesRouteImport } from './routes/_authenticated/executive-cities'
+import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedPendingRouteImport } from './routes/_authenticated/pending'
+import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AlreadyPaidRoute = AlreadyPaidRouteImport.update({
-  id: '/already-paid',
-  path: '/already-paid',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EcsRoute = EcsRouteImport.update({
-  id: '/ecs',
-  path: '/ecs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExecutiveCitiesRoute = ExecutiveCitiesRouteImport.update({
-  id: '/executive-cities',
-  path: '/executive-cities',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoansRoute = LoansRouteImport.update({
-  id: '/loans',
-  path: '/loans',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PendingRoute = PendingRouteImport.update({
-  id: '/pending',
-  path: '/pending',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReportRoute = ReportRouteImport.update({
-  id: '/report',
-  path: '/report',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
@@ -77,173 +32,158 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/_authenticated/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAlreadyPaidRoute =
+  AuthenticatedAlreadyPaidRouteImport.update({
+    id: '/_authenticated/already-paid',
+    path: '/already-paid',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedEcsRoute = AuthenticatedEcsRouteImport.update({
+  id: '/_authenticated/ecs',
+  path: '/ecs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedExecutiveCitiesRoute =
+  AuthenticatedExecutiveCitiesRouteImport.update({
+    id: '/_authenticated/executive-cities',
+    path: '/executive-cities',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedLoansRoute = AuthenticatedLoansRouteImport.update({
+  id: '/_authenticated/loans',
+  path: '/loans',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/_authenticated/notifications',
+    path: '/notifications',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedPendingRoute = AuthenticatedPendingRouteImport.update({
+  id: '/_authenticated/pending',
+  path: '/pending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedReportRoute = AuthenticatedReportRouteImport.update({
+  id: '/_authenticated/report',
+  path: '/report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/_authenticated/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/already-paid': typeof AlreadyPaidRoute
-  '/ecs': typeof EcsRoute
-  '/executive-cities': typeof ExecutiveCitiesRoute
-  '/loans': typeof LoansRoute
   '/mcp': typeof McpRoute
-  '/notifications': typeof NotificationsRoute
-  '/pending': typeof PendingRoute
-  '/report': typeof ReportRoute
-  '/settings': typeof SettingsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/ecs': typeof AuthenticatedEcsRoute
+  '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
+  '/loans': typeof AuthenticatedLoansRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/pending': typeof AuthenticatedPendingRoute
+  '/report': typeof AuthenticatedReportRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/already-paid': typeof AlreadyPaidRoute
-  '/ecs': typeof EcsRoute
-  '/executive-cities': typeof ExecutiveCitiesRoute
-  '/loans': typeof LoansRoute
   '/mcp': typeof McpRoute
-  '/notifications': typeof NotificationsRoute
-  '/pending': typeof PendingRoute
-  '/report': typeof ReportRoute
-  '/settings': typeof SettingsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/ecs': typeof AuthenticatedEcsRoute
+  '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
+  '/loans': typeof AuthenticatedLoansRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/pending': typeof AuthenticatedPendingRoute
+  '/report': typeof AuthenticatedReportRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/already-paid': typeof AlreadyPaidRoute
-  '/ecs': typeof EcsRoute
-  '/executive-cities': typeof ExecutiveCitiesRoute
-  '/loans': typeof LoansRoute
   '/mcp': typeof McpRoute
-  '/notifications': typeof NotificationsRoute
-  '/pending': typeof PendingRoute
-  '/report': typeof ReportRoute
-  '/settings': typeof SettingsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/_authenticated/ecs': typeof AuthenticatedEcsRoute
+  '/_authenticated/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
+  '/_authenticated/loans': typeof AuthenticatedLoansRoute
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/pending': typeof AuthenticatedPendingRoute
+  '/_authenticated/report': typeof AuthenticatedReportRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
+    | '/mcp'
+    | '/.well-known/oauth-protected-resource'
     | '/already-paid'
     | '/ecs'
     | '/executive-cities'
     | '/loans'
-    | '/mcp'
     | '/notifications'
     | '/pending'
     | '/report'
     | '/settings'
-    | '/.well-known/oauth-protected-resource'
+    | '/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
+    | '/mcp'
+    | '/.well-known/oauth-protected-resource'
     | '/already-paid'
     | '/ecs'
     | '/executive-cities'
     | '/loans'
-    | '/mcp'
     | '/notifications'
     | '/pending'
     | '/report'
     | '/settings'
-    | '/.well-known/oauth-protected-resource'
+    | '/'
   id:
     | '__root__'
-    | '/'
-    | '/already-paid'
-    | '/ecs'
-    | '/executive-cities'
-    | '/loans'
     | '/mcp'
-    | '/notifications'
-    | '/pending'
-    | '/report'
-    | '/settings'
     | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/already-paid'
+    | '/_authenticated/ecs'
+    | '/_authenticated/executive-cities'
+    | '/_authenticated/loans'
+    | '/_authenticated/notifications'
+    | '/_authenticated/pending'
+    | '/_authenticated/report'
+    | '/_authenticated/settings'
+    | '/_authenticated/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AlreadyPaidRoute: typeof AlreadyPaidRoute
-  EcsRoute: typeof EcsRoute
-  ExecutiveCitiesRoute: typeof ExecutiveCitiesRoute
-  LoansRoute: typeof LoansRoute
   McpRoute: typeof McpRoute
-  NotificationsRoute: typeof NotificationsRoute
-  PendingRoute: typeof PendingRoute
-  ReportRoute: typeof ReportRoute
-  SettingsRoute: typeof SettingsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  AuthenticatedAlreadyPaidRoute: typeof AuthenticatedAlreadyPaidRoute
+  AuthenticatedEcsRoute: typeof AuthenticatedEcsRoute
+  AuthenticatedExecutiveCitiesRoute: typeof AuthenticatedExecutiveCitiesRoute
+  AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedPendingRoute: typeof AuthenticatedPendingRoute
+  AuthenticatedReportRoute: typeof AuthenticatedReportRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/already-paid': {
-      id: '/already-paid'
-      path: '/already-paid'
-      fullPath: '/already-paid'
-      preLoaderRoute: typeof AlreadyPaidRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ecs': {
-      id: '/ecs'
-      path: '/ecs'
-      fullPath: '/ecs'
-      preLoaderRoute: typeof EcsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/executive-cities': {
-      id: '/executive-cities'
-      path: '/executive-cities'
-      fullPath: '/executive-cities'
-      preLoaderRoute: typeof ExecutiveCitiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/loans': {
-      id: '/loans'
-      path: '/loans'
-      fullPath: '/loans'
-      preLoaderRoute: typeof LoansRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/mcp': {
       id: '/mcp'
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pending': {
-      id: '/pending'
-      path: '/pending'
-      fullPath: '/pending'
-      preLoaderRoute: typeof PendingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/report': {
-      id: '/report'
-      path: '/report'
-      fullPath: '/report'
-      preLoaderRoute: typeof ReportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/oauth-protected-resource': {
@@ -253,22 +193,85 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/': {
+      id: '/_authenticated/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/already-paid': {
+      id: '/_authenticated/already-paid'
+      path: '/already-paid'
+      fullPath: '/already-paid'
+      preLoaderRoute: typeof AuthenticatedAlreadyPaidRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/ecs': {
+      id: '/_authenticated/ecs'
+      path: '/ecs'
+      fullPath: '/ecs'
+      preLoaderRoute: typeof AuthenticatedEcsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/executive-cities': {
+      id: '/_authenticated/executive-cities'
+      path: '/executive-cities'
+      fullPath: '/executive-cities'
+      preLoaderRoute: typeof AuthenticatedExecutiveCitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/loans': {
+      id: '/_authenticated/loans'
+      path: '/loans'
+      fullPath: '/loans'
+      preLoaderRoute: typeof AuthenticatedLoansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/pending': {
+      id: '/_authenticated/pending'
+      path: '/pending'
+      fullPath: '/pending'
+      preLoaderRoute: typeof AuthenticatedPendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/report': {
+      id: '/_authenticated/report'
+      path: '/report'
+      fullPath: '/report'
+      preLoaderRoute: typeof AuthenticatedReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AlreadyPaidRoute: AlreadyPaidRoute,
-  EcsRoute: EcsRoute,
-  ExecutiveCitiesRoute: ExecutiveCitiesRoute,
-  LoansRoute: LoansRoute,
   McpRoute: McpRoute,
-  NotificationsRoute: NotificationsRoute,
-  PendingRoute: PendingRoute,
-  ReportRoute: ReportRoute,
-  SettingsRoute: SettingsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  AuthenticatedAlreadyPaidRoute: AuthenticatedAlreadyPaidRoute,
+  AuthenticatedEcsRoute: AuthenticatedEcsRoute,
+  AuthenticatedExecutiveCitiesRoute: AuthenticatedExecutiveCitiesRoute,
+  AuthenticatedLoansRoute: AuthenticatedLoansRoute,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedPendingRoute: AuthenticatedPendingRoute,
+  AuthenticatedReportRoute: AuthenticatedReportRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
