@@ -1,5 +1,10 @@
 import { defineMcp } from "@lovable.dev/mcp-js";
 
+import loadCollectionData from "./tools/load-collection-data";
+import readAllCollections from "./tools/read-all-collections";
+import openReceiptImage from "./tools/open-receipt-image";
+import editCollectionAmount from "./tools/edit-amount";
+import writeAmansRemarks from "./tools/write-amans-remarks";
 import collectionSummary from "./tools/collection-summary";
 import loanPayments from "./tools/loan-payments";
 import pendingReceipts from "./tools/pending-receipts";
@@ -16,18 +21,15 @@ import updateSettings from "./tools/update-settings";
 import addNotification from "./tools/add-notification";
 import removeNotification from "./tools/remove-notification";
 import sheetsRaw from "./tools/sheets-raw";
-import readAllCollections from "./tools/read-all-collections";
-import openReceiptImage from "./tools/open-receipt-image";
-import editCollectionAmount from "./tools/edit-amount";
-import writeAmansRemarks from "./tools/write-amans-remarks";
 
 export default defineMcp({
   name: "daily-collection-hub",
   title: "Mahavtaar Daily Collection Hub",
-  version: "0.3.0",
+  version: "0.4.0",
   instructions:
-    "Comprehensive read and write tools for Mahavtaar Daily Collection: read every row in the complete Collections sheet, open and resolve receipt images directly in Google Drive, edit collection payment amounts, write or update Aman's Remarks (Column S), manage ECS entries, resolve conflicts, and direct Google Sheets access. Open access with no login required.",
+    "Comprehensive read and write tools for Mahavtaar Daily Collection: load and parse complete collection data structured for the application, open and resolve receipt images directly in Google Drive, edit collection payment amounts, write or update Aman's Remarks (Column S), manage ECS entries, resolve conflicts, and direct Google Sheets access. Open access with no login required.",
   tools: [
+    loadCollectionData,
     readAllCollections,
     openReceiptImage,
     editCollectionAmount,
