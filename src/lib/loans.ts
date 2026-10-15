@@ -11,8 +11,8 @@ export type CollectionRow = {
   date: string;
   entryType?: string;
   settlement?: boolean;
-  settlementType?: "No" | "Settlement" | "Foreclosure" | string;
-  foreclosureEntry?: boolean;
+  settlementType?: "No" | "Settlement" | "Foreclosure" | string | undefined;
+  foreclosureEntry?: boolean | undefined;
   bucket?: string;
   city?: string;
   emiAmount?: number | null;

@@ -239,7 +239,7 @@ export function ExecutiveCitiesPage() {
       totalMainPaid += s.total.mainPaid;
       totalEmi += s.total.paidEmi;
       for (const r of s.rows) {
-        activeCities.add(r.city.split(" (")[0].trim());
+        activeCities.add((r.city.split(" (")[0] ?? "").trim());
       }
     }
 

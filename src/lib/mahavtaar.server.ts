@@ -284,7 +284,7 @@ export async function sheetsUpdate(range: string, values: (string | number)[][])
   }
   const updates = localUpdated.get(sheetTitle)!;
   for (let r = 0; r < values.length; r++) {
-    const rowValues = values[r];
+    const rowValues = values[r] ?? [];
     for (let c = 0; c < rowValues.length; c++) {
       const targetRowIdx = startRow - 1 + r;
       const targetColIdx = startCol + c;
