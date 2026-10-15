@@ -148,6 +148,7 @@ const NAV = [
   { to: "/loans", label: "Loan Details", key: "loans" },
   { to: "/executive-cities", label: "Exec Cities", key: "execCities" },
   { to: "/pending", label: "Pending", key: "pending" },
+  { to: "/conflicts", label: "Conflicts", key: "conflicts" },
   { to: "/ecs", label: "ECS / Special", key: "ecs" },
   { to: "/notifications", label: "Notifications", key: "notifications" },
   { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
