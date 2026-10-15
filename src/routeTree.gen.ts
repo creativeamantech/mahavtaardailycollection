@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AlreadyPaidRouteImport } from './routes/already-paid'
 import { Route as EcsRouteImport } from './routes/ecs'
+import { Route as ExecutiveCitiesRouteImport } from './routes/executive-cities'
 import { Route as LoansRouteImport } from './routes/loans'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PendingRouteImport } from './routes/pending'
@@ -31,6 +32,11 @@ const AlreadyPaidRoute = AlreadyPaidRouteImport.update({
 const EcsRoute = EcsRouteImport.update({
   id: '/ecs',
   path: '/ecs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExecutiveCitiesRoute = ExecutiveCitiesRouteImport.update({
+  id: '/executive-cities',
+  path: '/executive-cities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoansRoute = LoansRouteImport.update({
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/already-paid': typeof AlreadyPaidRoute
   '/ecs': typeof EcsRoute
+  '/executive-cities': typeof ExecutiveCitiesRoute
   '/loans': typeof LoansRoute
   '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/already-paid': typeof AlreadyPaidRoute
   '/ecs': typeof EcsRoute
+  '/executive-cities': typeof ExecutiveCitiesRoute
   '/loans': typeof LoansRoute
   '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/already-paid': typeof AlreadyPaidRoute
   '/ecs': typeof EcsRoute
+  '/executive-cities': typeof ExecutiveCitiesRoute
   '/loans': typeof LoansRoute
   '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/already-paid'
     | '/ecs'
+    | '/executive-cities'
     | '/loans'
     | '/notifications'
     | '/pending'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/already-paid'
     | '/ecs'
+    | '/executive-cities'
     | '/loans'
     | '/notifications'
     | '/pending'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/already-paid'
     | '/ecs'
+    | '/executive-cities'
     | '/loans'
     | '/notifications'
     | '/pending'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlreadyPaidRoute: typeof AlreadyPaidRoute
   EcsRoute: typeof EcsRoute
+  ExecutiveCitiesRoute: typeof ExecutiveCitiesRoute
   LoansRoute: typeof LoansRoute
   NotificationsRoute: typeof NotificationsRoute
   PendingRoute: typeof PendingRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/ecs'
       fullPath: '/ecs'
       preLoaderRoute: typeof EcsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/executive-cities': {
+      id: '/executive-cities'
+      path: '/executive-cities'
+      fullPath: '/executive-cities'
+      preLoaderRoute: typeof ExecutiveCitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/loans': {
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlreadyPaidRoute: AlreadyPaidRoute,
   EcsRoute: EcsRoute,
+  ExecutiveCitiesRoute: ExecutiveCitiesRoute,
   LoansRoute: LoansRoute,
   NotificationsRoute: NotificationsRoute,
   PendingRoute: PendingRoute,
