@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
@@ -20,7 +21,7 @@ const updateSchema = z.object({
   remark: z.string().trim().max(300).optional().default(""),
 });
 
-export const saveEcsEntry = createServerFn({ method: "POST" })
+export const saveEcsEntry = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ecsSchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend } = await import("./mahavtaar.server");
@@ -48,7 +49,7 @@ export const saveEcsEntry = createServerFn({ method: "POST" })
     return { ok: true as const, id };
   });
 
-export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () => {
+export const getEcsEntries = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
   try {
     const { sheetsGet } = await import("./mahavtaar.server");
     const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
@@ -73,7 +74,7 @@ export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () 
   }
 });
 
-export const updateEcsEntry = createServerFn({ method: "POST" })
+export const updateEcsEntry = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => updateSchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");

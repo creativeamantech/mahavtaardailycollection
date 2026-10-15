@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
@@ -51,7 +52,7 @@ const receiptSchema = z.object({
   base64: z.string().min(1).max(9_000_000),
 });
 
-export const uploadReceiptImage = createServerFn({ method: "POST" })
+export const uploadReceiptImage = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => receiptSchema.parse(d))
   .handler(async ({ data }) => {
     const { driveUpload } = await import("./mahavtaar.server");
@@ -64,7 +65,7 @@ export const uploadReceiptImage = createServerFn({ method: "POST" })
     return { ok: true as const, link };
   });
 
-export const saveCollection = createServerFn({ method: "POST" })
+export const saveCollection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend } = await import("./mahavtaar.server");
@@ -122,7 +123,7 @@ export const saveCollection = createServerFn({ method: "POST" })
 
 // Marks conflicting Collections rows with a red background so the conflict is
 // visible directly in the source sheet. Cell values are never modified.
-export const markConflictRows = createServerFn({ method: "POST" })
+export const markConflictRows = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({ rows: z.array(z.number().int().min(2).max(1000000)).min(1).max(50) }).parse(d),
   )
@@ -149,7 +150,7 @@ export const markConflictRows = createServerFn({ method: "POST" })
 
 // Marks Already Paid Collections rows with a soft red background in Google Sheets
 // so they are visually highlighted in the source sheet.
-export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
+export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -208,7 +209,7 @@ export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
     return { ok: true as const, count: uniqueRows.length };
   });
 
-export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
+export async function readCollections() {
   try {
     const { sheetsGet } = await import("./mahavtaar.server");
     const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
@@ -275,9 +276,13 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
     console.error("Failed to read collections from Google Sheets:", err);
     return [];
   }
-});
+}
 
-export const savePending = createServerFn({ method: "POST" })
+export const getCollections = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(() => readCollections());
+
+export const savePending = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => pendingSchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend, driveUpload } = await import("./mahavtaar.server");
@@ -301,7 +306,7 @@ export const savePending = createServerFn({ method: "POST" })
     return { ok: true as const, links, id };
   });
 
-export const getPending = createServerFn({ method: "GET" }).handler(async () => {
+export async function readPending() {
   try {
     const { sheetsGet } = await import("./mahavtaar.server");
     const rows = await sheetsGet("Pending!A2:H");
@@ -324,9 +329,13 @@ export const getPending = createServerFn({ method: "GET" }).handler(async () => 
     console.error("Failed to read pending from Google Sheets:", err);
     return [];
   }
-});
+}
 
-export const markPendingDone = createServerFn({ method: "POST" })
+export const getPending = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(() => readPending());
+
+export const markPendingDone = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");

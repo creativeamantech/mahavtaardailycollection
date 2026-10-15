@@ -3,7 +3,7 @@ import { useAppConfig } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { toDirectDriveUrl } from "@/components/NotificationPanel";
 
-export const Route = createFileRoute("/notifications")({
+export const Route = createFileRoute("/_authenticated/notifications")({
   head: () => ({
     meta: [
       { title: "Notifications — Mahavtaar Daily Collection" },
