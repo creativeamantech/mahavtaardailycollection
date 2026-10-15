@@ -268,6 +268,8 @@ export async function readCollections() {
             .map((s) => s.trim())
             .filter((s) => s.startsWith("http")),
           remark: (r[16] ?? "").trim(),
+          actualId: (r[17] ?? "").trim(),
+          amansRemarks: (r[18] ?? "").trim(),
           allocationCategory: (r[19] ?? "").trim(),
           allocationDate: validAlloc ? allocationDate : "",
           // Payment before allocation = Already Paid (reporting rule only).
@@ -327,6 +329,7 @@ const updateCollectionRowSchema = z.object({
   settlementType: z.enum(["No", "Settlement", "Foreclosure"]).optional().default("No"),
   receiptLinks: z.array(z.string()).optional().default([]),
   remark: z.string().optional().default(""),
+  amansRemarks: z.string().optional(),
 });
 
 export const updateCollectionRow = createServerFn({ method: "POST" })
@@ -355,8 +358,34 @@ export const updateCollectionRow = createServerFn({ method: "POST" })
       [data.receiptLinks.join(", "), data.remark],
     ]);
 
+    if (data.amansRemarks !== undefined) {
+      await sheetsUpdate(`Collections!S${row}`, [[data.amansRemarks]]);
+    }
+
     invalidateSheetsCache();
     return { ok: true as const };
+  });
+
+export const updateAmansRemarks = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({ row: z.number().int().min(2), remarks: z.string() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
+    await sheetsUpdate(`Collections!S${data.row}`, [[data.remarks]]);
+    invalidateSheetsCache();
+    return { ok: true as const, row: data.row, remarks: data.remarks };
+  });
+
+export const updateCollectionAmount = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({ row: z.number().int().min(2), amount: z.number().positive() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
+    await sheetsUpdate(`Collections!C${data.row}`, [[data.amount]]);
+    invalidateSheetsCache();
+    return { ok: true as const, row: data.row, amount: data.amount };
   });
 
 export const deleteCollectionRow = createServerFn({ method: "POST" })

@@ -31,6 +31,7 @@ export default defineTool({
     entryType: z.enum(["Normal", "Previous Paid File"]).default("Normal"),
     settlementType: z.enum(["No", "Settlement", "Foreclosure"]).default("No"),
     remark: z.string().default("").describe("Remark or note."),
+    amansRemarks: z.string().optional().describe("Aman's Remarks (Column S in Collections sheet)."),
     receiptLinks: z.array(z.string()).default([]).describe("Receipt URLs."),
   },
   annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
@@ -45,6 +46,7 @@ export default defineTool({
     entryType,
     settlementType,
     remark,
+    amansRemarks,
     receiptLinks,
   }) => {
     await updateCollectionRow({
@@ -60,6 +62,7 @@ export default defineTool({
         settlement: settlementType !== "No",
         settlementType,
         remark,
+        amansRemarks,
         receiptLinks,
       },
     });

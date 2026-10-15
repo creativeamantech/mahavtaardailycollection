@@ -60,7 +60,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export const Route = createFileRoute("/conflicts")({
+export const Route = createFileRoute("/_authenticated/conflicts")({
   head: () => ({
     meta: [
       { title: "Conflict Resolution & Receipt Verification — Mahavtaar Collection" },
@@ -218,6 +218,7 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
     "No",
   );
   const [editRemark, setEditRemark] = useState("");
+  const [editAmansRemarks, setEditAmansRemarks] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Delete State
@@ -350,6 +351,7 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
       st === "Foreclosure" ? "Foreclosure" : st === "Settlement" ? "Settlement" : "No",
     );
     setEditRemark(item.remark ?? "");
+    setEditAmansRemarks(item.amansRemarks ?? "");
   }
 
   async function handleSaveEdit() {
@@ -376,6 +378,7 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
           settlementType: editSettlementType,
           receiptLinks: editingItem.receiptLinks ?? [],
           remark: editRemark.trim(),
+          amansRemarks: editAmansRemarks.trim(),
         },
       });
 
@@ -1612,6 +1615,17 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
                 value={editRemark}
                 onChange={(e) => setEditRemark(e.target.value)}
                 placeholder="Reason for correction or remark..."
+                rows={2}
+                className="text-sm"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Aman's Remarks (Column S)</Label>
+              <Textarea
+                value={editAmansRemarks}
+                onChange={(e) => setEditAmansRemarks(e.target.value)}
+                placeholder="Write Aman's Remarks (e.g. Verified by Aman, Checked, etc.)..."
                 rows={2}
                 className="text-sm"
               />

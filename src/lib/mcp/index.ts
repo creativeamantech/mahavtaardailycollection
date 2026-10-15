@@ -16,14 +16,22 @@ import updateSettings from "./tools/update-settings";
 import addNotification from "./tools/add-notification";
 import removeNotification from "./tools/remove-notification";
 import sheetsRaw from "./tools/sheets-raw";
+import readAllCollections from "./tools/read-all-collections";
+import openReceiptImage from "./tools/open-receipt-image";
+import editCollectionAmount from "./tools/edit-amount";
+import writeAmansRemarks from "./tools/write-amans-remarks";
 
 export default defineMcp({
   name: "daily-collection-hub",
   title: "Mahavtaar Daily Collection Hub",
-  version: "0.2.0",
+  version: "0.3.0",
   instructions:
-    "Full read and write tools for Mahavtaar Daily Collection. Manage daily payment collections, ECS / Special entries, conflicts & duplicates resolution, application feature flags & settings, announcement notifications, and raw Google Sheet tabs. Open access with no authentication required.",
+    "Comprehensive read and write tools for Mahavtaar Daily Collection: read every row in the complete Collections sheet, open and resolve receipt images directly in Google Drive, edit collection payment amounts, write or update Aman's Remarks (Column S), manage ECS entries, resolve conflicts, and direct Google Sheets access. Open access with no login required.",
   tools: [
+    readAllCollections,
+    openReceiptImage,
+    editCollectionAmount,
+    writeAmansRemarks,
     collectionSummary,
     loanPayments,
     pendingReceipts,

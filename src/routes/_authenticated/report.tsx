@@ -138,11 +138,19 @@ type Collection = {
   foreclosure?: number | null;
   receiptLinks?: string[];
   remark?: string;
+  amansRemarks?: string;
   allocationCategory?: string;
   allocationDate?: string;
   alreadyPaid?: boolean;
   row?: number;
 };
+
+function toDriveUrl(url: string): string {
+  if (!url) return "#";
+  const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
+  if (match) return `https://drive.google.com/file/d/${match[1]}/view`;
+  return url;
+}
 
 function BucketFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -318,17 +326,25 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                       {r.receiptLinks.map((l, n) => (
                         <a
                           key={l}
-                          href={l}
+                          href={toDriveUrl(l)}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-primary underline"
+                          className="font-medium text-primary underline hover:text-primary/80"
                         >
-                          {r.receiptLinks!.length === 1 ? "View Receipt" : `Receipt ${n + 1}`}
+                          {r.receiptLinks!.length === 1
+                            ? "Google Drive Receipt ↗"
+                            : `Google Drive Receipt #${n + 1} ↗`}
                         </a>
                       ))}
                     </p>
-                  ) : r.remark ? (
+                  ) : null}
+                  {r.remark ? (
                     <p className="mt-1 text-sm text-muted-foreground">Remark: {r.remark}</p>
+                  ) : null}
+                  {r.amansRemarks ? (
+                    <p className="mt-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                      Aman's Remarks: {r.amansRemarks}
+                    </p>
                   ) : null}
                 </div>
                 <p className="text-base font-bold">{formatAmount(r.amount)}</p>
