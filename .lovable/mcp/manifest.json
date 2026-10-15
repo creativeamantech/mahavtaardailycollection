@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "sdk_version": "3.0.6",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "daily-collection-hub",
+      "version": "0.1.0",
+      "title": "Daily Collection Hub"
+    },
+    "tools": [
+      {
+        "name": "collection_summary",
+        "title": "Collection summary by executive",
+        "description": "Total collection amount and case count per executive for a payment date range (Already Paid cases excluded).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Start payment date, YYYY-MM-DD."
+            },
+            "to": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "End payment date, YYYY-MM-DD (inclusive)."
+            },
+            "category": {
+              "description": "Optional Allocation Category filter.",
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "loan_payments",
+        "title": "Payments for a Loan ID",
+        "description": "List all recorded payments for one Loan ID, including Already Paid flags.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "loanId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60,
+              "description": "Loan ID to look up."
+            }
+          },
+          "required": [
+            "loanId"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "pending_receipts",
+        "title": "Pending receipts",
+        "description": "List payments still waiting in Pending Receipts.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
