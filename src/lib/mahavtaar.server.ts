@@ -141,11 +141,12 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
   if (updates) {
     for (const [key, val] of updates.entries()) {
       const [rStr, cStr] = key.split(",");
-      const rIdx = parseInt(rStr, 10);
-      const cIdx = parseInt(cStr, 10);
+      const rIdx = parseInt(rStr ?? "0", 10);
+      const cIdx = parseInt(cStr ?? "0", 10);
       while (allRows.length <= rIdx) allRows.push([]);
-      while (allRows[rIdx].length <= cIdx) allRows[rIdx].push("");
-      allRows[rIdx][cIdx] = val;
+      const rowArr = allRows[rIdx]!;
+      while (rowArr.length <= cIdx) rowArr.push("");
+      rowArr[cIdx] = val;
     }
   }
 
