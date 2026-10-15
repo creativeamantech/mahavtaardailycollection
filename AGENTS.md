@@ -10,3 +10,4 @@
 > the editor, so keep the branch in a working state.
 
 <!-- LOVABLE:END -->
+- MCP server lives in src/lib/mcp/ (one read-only tool per file, public/no-auth by owner choice); tools reuse the existing server functions so report rules (Already Paid exclusion) stay identical.

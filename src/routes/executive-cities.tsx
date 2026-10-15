@@ -116,8 +116,8 @@ export function ExecutiveCitiesPage() {
 
   // If current month has no data yet, automatically switch to first available month
   useEffect(() => {
-    if (months.length > 0 && !months.some((m) => m.key === month)) {
-      setMonth(months[0]!.key);
+    if (months.length > 0 && !months.some((m) => m === month)) {
+      setMonth(months[0]!);
     }
   }, [months, month]);
 
@@ -239,7 +239,7 @@ export function ExecutiveCitiesPage() {
       totalMainPaid += s.total.mainPaid;
       totalEmi += s.total.paidEmi;
       for (const r of s.rows) {
-        activeCities.add(r.city.split(" (")[0].trim());
+        activeCities.add((r.city.split(" (")[0] ?? "").trim());
       }
     }
 

@@ -101,8 +101,8 @@ function colToIdx(c: string): number {
 
 function parseRange(range: string) {
   const parts = range.split("!");
-  const sheetTitle = parts.length > 1 ? parts[0].trim().replace(/^'|'$/g, "") : "Collections";
-  const rangePart = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+  const sheetTitle = parts.length > 1 ? (parts[0] ?? "").trim().replace(/^'|'$/g, "") : "Collections";
+  const rangePart = parts.length > 1 ? (parts[1] ?? "").trim() : (parts[0] ?? "").trim();
   const match = rangePart.match(/^([A-Z]+)?(\d+)?(?::([A-Z]+)?(\d+)?)?$/i);
   let startCol = 0;
   let endCol = 26;
@@ -141,11 +141,12 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
   if (updates) {
     for (const [key, val] of updates.entries()) {
       const [rStr, cStr] = key.split(",");
-      const rIdx = parseInt(rStr, 10);
-      const cIdx = parseInt(cStr, 10);
+      const rIdx = parseInt(rStr ?? "0", 10);
+      const cIdx = parseInt(cStr ?? "0", 10);
       while (allRows.length <= rIdx) allRows.push([]);
-      while (allRows[rIdx].length <= cIdx) allRows[rIdx].push("");
-      allRows[rIdx][cIdx] = val;
+      const rowArr = allRows[rIdx]!;
+      while (rowArr.length <= cIdx) rowArr.push("");
+      rowArr[cIdx] = val;
     }
   }
 
@@ -284,7 +285,7 @@ export async function sheetsUpdate(range: string, values: (string | number)[][])
   }
   const updates = localUpdated.get(sheetTitle)!;
   for (let r = 0; r < values.length; r++) {
-    const rowValues = values[r];
+    const rowValues = values[r] ?? [];
     for (let c = 0; c < rowValues.length; c++) {
       const targetRowIdx = startRow - 1 + r;
       const targetColIdx = startCol + c;

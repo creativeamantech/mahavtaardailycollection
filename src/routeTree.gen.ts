@@ -14,10 +14,12 @@ import { Route as AlreadyPaidRouteImport } from './routes/already-paid'
 import { Route as EcsRouteImport } from './routes/ecs'
 import { Route as ExecutiveCitiesRouteImport } from './routes/executive-cities'
 import { Route as LoansRouteImport } from './routes/loans'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PendingRouteImport } from './routes/pending'
 import { Route as ReportRouteImport } from './routes/report'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -44,6 +46,11 @@ const LoansRoute = LoansRouteImport.update({
   path: '/loans',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -64,6 +71,12 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -71,10 +84,12 @@ export interface FileRoutesByFullPath {
   '/ecs': typeof EcsRoute
   '/executive-cities': typeof ExecutiveCitiesRoute
   '/loans': typeof LoansRoute
+  '/mcp': typeof McpRoute
   '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,10 +97,12 @@ export interface FileRoutesByTo {
   '/ecs': typeof EcsRoute
   '/executive-cities': typeof ExecutiveCitiesRoute
   '/loans': typeof LoansRoute
+  '/mcp': typeof McpRoute
   '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,10 +111,12 @@ export interface FileRoutesById {
   '/ecs': typeof EcsRoute
   '/executive-cities': typeof ExecutiveCitiesRoute
   '/loans': typeof LoansRoute
+  '/mcp': typeof McpRoute
   '/notifications': typeof NotificationsRoute
   '/pending': typeof PendingRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -107,10 +126,12 @@ export interface FileRouteTypes {
     | '/ecs'
     | '/executive-cities'
     | '/loans'
+    | '/mcp'
     | '/notifications'
     | '/pending'
     | '/report'
     | '/settings'
+    | '/.well-known/oauth-protected-resource'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -118,10 +139,12 @@ export interface FileRouteTypes {
     | '/ecs'
     | '/executive-cities'
     | '/loans'
+    | '/mcp'
     | '/notifications'
     | '/pending'
     | '/report'
     | '/settings'
+    | '/.well-known/oauth-protected-resource'
   id:
     | '__root__'
     | '/'
@@ -129,10 +152,12 @@ export interface FileRouteTypes {
     | '/ecs'
     | '/executive-cities'
     | '/loans'
+    | '/mcp'
     | '/notifications'
     | '/pending'
     | '/report'
     | '/settings'
+    | '/.well-known/oauth-protected-resource'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -141,10 +166,12 @@ export interface RootRouteChildren {
   EcsRoute: typeof EcsRoute
   ExecutiveCitiesRoute: typeof ExecutiveCitiesRoute
   LoansRoute: typeof LoansRoute
+  McpRoute: typeof McpRoute
   NotificationsRoute: typeof NotificationsRoute
   PendingRoute: typeof PendingRoute
   ReportRoute: typeof ReportRoute
   SettingsRoute: typeof SettingsRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -184,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoansRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notifications': {
       id: '/notifications'
       path: '/notifications'
@@ -212,6 +246,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -221,10 +262,13 @@ const rootRouteChildren: RootRouteChildren = {
   EcsRoute: EcsRoute,
   ExecutiveCitiesRoute: ExecutiveCitiesRoute,
   LoansRoute: LoansRoute,
+  McpRoute: McpRoute,
   NotificationsRoute: NotificationsRoute,
   PendingRoute: PendingRoute,
   ReportRoute: ReportRoute,
   SettingsRoute: SettingsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
