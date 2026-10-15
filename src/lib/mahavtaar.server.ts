@@ -101,8 +101,8 @@ function colToIdx(c: string): number {
 
 function parseRange(range: string) {
   const parts = range.split("!");
-  const sheetTitle = parts.length > 1 ? parts[0].trim().replace(/^'|'$/g, "") : "Collections";
-  const rangePart = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+  const sheetTitle = parts.length > 1 ? (parts[0] ?? "").trim().replace(/^'|'$/g, "") : "Collections";
+  const rangePart = parts.length > 1 ? (parts[1] ?? "").trim() : (parts[0] ?? "").trim();
   const match = rangePart.match(/^([A-Z]+)?(\d+)?(?::([A-Z]+)?(\d+)?)?$/i);
   let startCol = 0;
   let endCol = 26;
