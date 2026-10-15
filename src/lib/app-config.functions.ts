@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 // Centralised page/feature visibility + notifications.
@@ -36,7 +35,7 @@ const NOTIF_TAB = "Notifications";
 // AppSettings key holding the default allocation category ("" = All Categories).
 export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
 
-export const getAppConfig = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet, ensureSheet } = await import("./mahavtaar.server");
 
   let settingRows: string[][] = [];
@@ -80,7 +79,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).middleware([requir
   return { flags, notifications, defaultCategory };
 });
 
-export const verifySettingsPassword = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const verifySettingsPassword = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ password: z.string().max(200) }).parse(d))
   .handler(async ({ data }) => {
     const expected = "Mahadev@Babaji@0003";
@@ -92,7 +91,7 @@ export const verifySettingsPassword = createServerFn({ method: "POST" }).middlew
     return { ok: diff === 0 };
   });
 
-export const saveFeatureFlags = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const saveFeatureFlags = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({ flags: z.record(z.string().max(40), z.boolean()) }).parse(d),
   )
@@ -117,7 +116,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" }).middleware([r
     return { ok: true as const };
   });
 
-export const saveDefaultCategory = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const saveDefaultCategory = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ category: z.string().trim().max(80) }).parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
@@ -140,7 +139,7 @@ export const saveDefaultCategory = createServerFn({ method: "POST" }).middleware
     return { ok: true as const };
   });
 
-export const addNotification = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const addNotification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -173,7 +172,7 @@ export const addNotification = createServerFn({ method: "POST" }).middleware([re
     return { ok: true as const, id, imageUrl };
   });
 
-export const removeNotification = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const removeNotification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(60) }).parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");

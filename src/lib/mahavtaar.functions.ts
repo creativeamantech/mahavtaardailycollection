@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
@@ -52,7 +51,7 @@ const receiptSchema = z.object({
   base64: z.string().min(1).max(9_000_000),
 });
 
-export const uploadReceiptImage = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const uploadReceiptImage = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => receiptSchema.parse(d))
   .handler(async ({ data }) => {
     const { driveUpload } = await import("./mahavtaar.server");
@@ -65,7 +64,7 @@ export const uploadReceiptImage = createServerFn({ method: "POST" }).middleware(
     return { ok: true as const, link };
   });
 
-export const saveCollection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend } = await import("./mahavtaar.server");
@@ -123,7 +122,7 @@ export const saveCollection = createServerFn({ method: "POST" }).middleware([req
 
 // Marks conflicting Collections rows with a red background so the conflict is
 // visible directly in the source sheet. Cell values are never modified.
-export const markConflictRows = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const markConflictRows = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({ rows: z.array(z.number().int().min(2).max(1000000)).min(1).max(50) }).parse(d),
   )
@@ -150,7 +149,7 @@ export const markConflictRows = createServerFn({ method: "POST" }).middleware([r
 
 // Marks Already Paid Collections rows with a soft red background in Google Sheets
 // so they are visually highlighted in the source sheet.
-export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -216,14 +215,15 @@ export async function readCollections() {
     // Read K:O too — those are maintained with formulas in the sheet and come back
     // as their calculated values (never the formula text).
     // T = Allocation Category, U = Allocation Date (sheet-maintained values).
-    const rows = await sheetsGet("Collections!A2:U");
+    // V = Validation flag (VALIDATED if conflict verified as valid)
+    const rows = await sheetsGet("Collections!A2:V");
     const num = (v: string | undefined) => {
       const s = String(v ?? "")
         .replace(/[^0-9.-]/g, "")
         .trim();
       return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
     };
-    return (rows ?? [])
+    const mapped = (rows ?? [])
       .filter((r) => r[0])
       .map((r, i) => {
         const paymentDate = normalizeSheetDate(r[3] ?? "");
@@ -240,6 +240,8 @@ export async function readCollections() {
           : isSettlement
             ? "Settlement"
             : "No";
+        const validationCol = (r[21] ?? "").trim().toUpperCase();
+        const isValidated = validationCol.startsWith("VALID");
         return {
           bucket: (r[10] ?? "").trim(),
           city: (r[11] ?? "").trim(),
@@ -270,19 +272,229 @@ export async function readCollections() {
           allocationDate: validAlloc ? allocationDate : "",
           // Payment before allocation = Already Paid (reporting rule only).
           alreadyPaid: validAlloc && paymentDate !== "" && paymentDate < allocationDate,
+          isValidated,
+          isConflict: false,
+          conflictWith: [] as { row: number; executive: string; date: string; amount: number }[],
         };
       });
+
+    // Detect conflicts across entries (same loanId and same amount)
+    const groupMap = new Map<string, typeof mapped>();
+    for (const item of mapped) {
+      if (!item.loanId || item.amount <= 0) continue;
+      const key = `${item.loanId.toLowerCase()}_${item.amount}`;
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key)!.push(item);
+    }
+
+    for (const [, group] of groupMap.entries()) {
+      if (group.length > 1) {
+        for (const item of group) {
+          if (!item.isValidated) {
+            item.isConflict = true;
+            item.conflictWith = group
+              .filter((other) => other.row !== item.row)
+              .map((other) => ({
+                row: other.row,
+                executive: other.executive,
+                date: other.date,
+                amount: other.amount,
+              }));
+          }
+        }
+      }
+    }
+
+    return mapped;
   } catch (err) {
     console.error("Failed to read collections from Google Sheets:", err);
     return [];
   }
 }
 
-export const getCollections = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(() => readCollections());
+export const getCollections = createServerFn({ method: "GET" }).handler(() => readCollections());
 
-export const savePending = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+const updateCollectionRowSchema = z.object({
+  row: z.number().int().min(2),
+  executive: z.string().trim().min(1),
+  loanId: z.string().trim().min(1),
+  amount: z.number().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  time: z.string().optional().default(""),
+  entryDate: z.string().optional().default(""),
+  entryType: z.enum(["Normal", "Previous Paid File"]).optional().default("Normal"),
+  settlement: z.boolean().optional().default(false),
+  settlementType: z.enum(["No", "Settlement", "Foreclosure"]).optional().default("No"),
+  receiptLinks: z.array(z.string()).optional().default([]),
+  remark: z.string().optional().default(""),
+});
+
+export const updateCollectionRow = createServerFn({ method: "POST" })
+  .validator((d: unknown) => updateCollectionRowSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
+    const row = data.row;
+    const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
+
+    await sheetsUpdate(`Collections!A${row}:J${row}`, [
+      [
+        data.executive,
+        data.loanId,
+        data.amount,
+        data.date,
+        data.time || "",
+        new Date().toISOString(),
+        "Confirmed",
+        data.entryDate || data.date,
+        data.entryType,
+        settlementVal,
+      ],
+    ]);
+
+    await sheetsUpdate(`Collections!P${row}:Q${row}`, [
+      [data.receiptLinks.join(", "), data.remark],
+    ]);
+
+    invalidateSheetsCache();
+    return { ok: true as const };
+  });
+
+export const deleteCollectionRow = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
+  .handler(async ({ data }) => {
+    const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+      await import("./mahavtaar.server");
+    const row = data.row;
+    try {
+      const sheetId = await getSheetId("Collections");
+      await sheetsBatchUpdate([
+        {
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: "ROWS",
+              startIndex: row - 1,
+              endIndex: row,
+            },
+          },
+        },
+      ]);
+    } catch {
+      await sheetsUpdate(`Collections!A${row}:V${row}`, [Array(22).fill("")]);
+    }
+    invalidateSheetsCache();
+    return { ok: true as const };
+  });
+
+export const markConflictAsValid = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z
+      .object({
+        row: z.number().int().min(2),
+        note: z.string().optional().default(""),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+      await import("./mahavtaar.server");
+    await sheetsUpdate(`Collections!V${data.row}`, [["VALIDATED"]]);
+    try {
+      const sheetId = await getSheetId("Collections");
+      const white = { red: 1, green: 1, blue: 1 };
+      await sheetsBatchUpdate([
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: data.row - 1,
+              endRowIndex: data.row,
+              startColumnIndex: 0,
+              endColumnIndex: 22,
+            },
+            cell: { userEnteredFormat: { backgroundColor: white } },
+            fields: "userEnteredFormat.backgroundColor",
+          },
+        },
+      ]);
+    } catch (err) {
+      console.warn("Could not un-highlight valid row in sheet:", err);
+    }
+    invalidateSheetsCache();
+    return { ok: true as const };
+  });
+
+export const markConflictGroupAsValid = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z
+      .object({
+        rows: z.array(z.number().int().min(2)),
+        note: z.string().optional().default(""),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+      await import("./mahavtaar.server");
+    for (const r of data.rows) {
+      await sheetsUpdate(`Collections!V${r}`, [["VALIDATED"]]);
+    }
+    try {
+      const sheetId = await getSheetId("Collections");
+      const white = { red: 1, green: 1, blue: 1 };
+      const requests = data.rows.map((row) => ({
+        repeatCell: {
+          range: {
+            sheetId,
+            startRowIndex: row - 1,
+            endRowIndex: row,
+            startColumnIndex: 0,
+            endColumnIndex: 22,
+          },
+          cell: { userEnteredFormat: { backgroundColor: white } },
+          fields: "userEnteredFormat.backgroundColor",
+        },
+      }));
+      await sheetsBatchUpdate(requests);
+    } catch (err) {
+      console.warn("Could not un-highlight group rows in sheet:", err);
+    }
+    invalidateSheetsCache();
+    return { ok: true as const };
+  });
+
+export const revertConflictValidation = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
+  .handler(async ({ data }) => {
+    const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+      await import("./mahavtaar.server");
+    await sheetsUpdate(`Collections!V${data.row}`, [[""]]);
+    try {
+      const sheetId = await getSheetId("Collections");
+      const red = { red: 0.98, green: 0.8, blue: 0.8 };
+      await sheetsBatchUpdate([
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: data.row - 1,
+              endRowIndex: data.row,
+              startColumnIndex: 0,
+              endColumnIndex: 22,
+            },
+            cell: { userEnteredFormat: { backgroundColor: red } },
+            fields: "userEnteredFormat.backgroundColor",
+          },
+        },
+      ]);
+    } catch (err) {
+      console.warn("Could not mark row red in sheet:", err);
+    }
+    invalidateSheetsCache();
+    return { ok: true as const };
+  });
+
+export const savePending = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => pendingSchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend, driveUpload } = await import("./mahavtaar.server");
@@ -331,11 +543,9 @@ export async function readPending() {
   }
 }
 
-export const getPending = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(() => readPending());
+export const getPending = createServerFn({ method: "GET" }).handler(() => readPending());
 
-export const markPendingDone = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const markPendingDone = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");

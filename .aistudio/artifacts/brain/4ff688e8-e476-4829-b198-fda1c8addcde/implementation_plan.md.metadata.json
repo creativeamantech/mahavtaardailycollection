@@ -1,0 +1,6 @@
+{
+  "summary": "Plan to expand MCP server with comprehensive read and write tools across all Mahavtaar Daily Collection modules (Payments, ECS/Special, Conflicts, App Settings, and Notifications) appending and updating directly in Google Sheets tabs with an open authentication model.",
+  "updatedAt": "2026-10-15T21:59:13.048769616Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

@@ -1,4 +1,4 @@
-// Lazy loaders shared by MCP tools. Same rules as the app: Already Paid excluded from totals.
+// Lazy loaders & shared helpers for MCP tools.
 export async function loadCollections() {
   const { readCollections } = await import("../mahavtaar.functions");
   return await readCollections();
@@ -7,6 +7,16 @@ export async function loadCollections() {
 export async function loadPending() {
   const { readPending } = await import("../mahavtaar.functions");
   return await readPending();
+}
+
+export async function loadEcs() {
+  const { getEcsEntries } = await import("../ecs.functions");
+  return await getEcsEntries();
+}
+
+export async function loadConfig() {
+  const { getAppConfig } = await import("../app-config.functions");
+  return await getAppConfig();
 }
 
 export const normId = (s: string) => s.replace(/^['`\u2018\u2019]+/, "").trim();
