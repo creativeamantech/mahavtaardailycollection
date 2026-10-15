@@ -19,7 +19,7 @@ import {
   useCategoryFilter,
 } from "@/components/AllocationFilters";
 
-export const Route = createFileRoute("/already-paid")({
+export const Route = createFileRoute("/_authenticated/already-paid")({
   head: () => ({
     meta: [
       { title: "Already Paid Cases — Mahavtaar Daily Collection" },

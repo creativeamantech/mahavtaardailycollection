@@ -92,7 +92,7 @@ function ExportButton({
 
 const ALL_BUCKETS = "__all__";
 
-export const Route = createFileRoute("/report")({
+export const Route = createFileRoute("/_authenticated/report")({
   head: () => ({
     meta: [
       { title: "Collection Report — Mahavtaar Daily Collection" },

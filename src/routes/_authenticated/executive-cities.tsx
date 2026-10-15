@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/select";
 import { toCsv, downloadCsv } from "@/lib/export";
 
-export const Route = createFileRoute("/executive-cities")({
+export const Route = createFileRoute("/_authenticated/executive-cities")({
   head: () => ({
     meta: [
       { title: "Executive-wise City Report — Mahavtaar Daily Collection" },

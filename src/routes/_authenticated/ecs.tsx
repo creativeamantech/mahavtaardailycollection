@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const Route = createFileRoute("/ecs")({
+export const Route = createFileRoute("/_authenticated/ecs")({
   head: () => ({
     meta: [
       { title: "ECS / Special Entry — Mahavtaar Daily Collection" },

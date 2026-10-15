@@ -34,7 +34,7 @@ import {
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 
-export const Route = createFileRoute("/loans")({
+export const Route = createFileRoute("/_authenticated/loans")({
   head: () => ({
     meta: [
       { title: "Loan Search & EMI Status — Mahavtaar Daily Collection" },

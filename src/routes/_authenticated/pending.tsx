@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export const Route = createFileRoute("/pending")({
+export const Route = createFileRoute("/_authenticated/pending")({
   head: () => ({
     meta: [
       { title: "Pending Receipts — Mahavtaar Daily Collection" },
