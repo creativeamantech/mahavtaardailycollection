@@ -5,6 +5,7 @@ import { createMiddleware } from "@tanstack/react-start";
 // it server-side.
 export const captureAuthHeader = createMiddleware({ type: "request" }).server(
   async ({ next, request }) => {
+    console.log("[auth-request-debug]", request.method, request.url.slice(0, 80), request.headers.get("authorization")?.slice(0, 12));
     const authHeader = request.headers.get("authorization") ?? "";
     return next({ context: { authHeader } });
   },
