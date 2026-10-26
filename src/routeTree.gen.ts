@@ -15,6 +15,8 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAlreadyPaidRouteImport } from './routes/_authenticated/already-paid'
+import { Route as AuthenticatedBankPortalRouteImport } from './routes/_authenticated/bank-portal'
+import { Route as AuthenticatedConflictsRouteImport } from './routes/_authenticated/conflicts'
 import { Route as AuthenticatedEcsRouteImport } from './routes/_authenticated/ecs'
 import { Route as AuthenticatedExecutiveCitiesRouteImport } from './routes/_authenticated/executive-cities'
 import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
@@ -55,6 +57,16 @@ const AuthenticatedAlreadyPaidRoute =
     path: '/already-paid',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBankPortalRoute = AuthenticatedBankPortalRouteImport.update({
+  id: '/bank-portal',
+  path: '/bank-portal',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConflictsRoute = AuthenticatedConflictsRouteImport.update({
+  id: '/conflicts',
+  path: '/conflicts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedEcsRoute = AuthenticatedEcsRouteImport.update({
   id: '/ecs',
   path: '/ecs',
@@ -104,6 +116,8 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/bank-portal': typeof AuthenticatedBankPortalRoute
+  '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
@@ -118,6 +132,8 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/bank-portal': typeof AuthenticatedBankPortalRoute
+  '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
@@ -135,6 +151,8 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/_authenticated/bank-portal': typeof AuthenticatedBankPortalRoute
+  '/_authenticated/conflicts': typeof AuthenticatedConflictsRoute
   '/_authenticated/ecs': typeof AuthenticatedEcsRoute
   '/_authenticated/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
@@ -153,6 +171,8 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
     | '/already-paid'
+    | '/bank-portal'
+    | '/conflicts'
     | '/ecs'
     | '/executive-cities'
     | '/loans'
@@ -167,6 +187,8 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
     | '/already-paid'
+    | '/bank-portal'
+    | '/conflicts'
     | '/ecs'
     | '/executive-cities'
     | '/loans'
@@ -183,6 +205,8 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/already-paid'
+    | '/_authenticated/bank-portal'
+    | '/_authenticated/conflicts'
     | '/_authenticated/ecs'
     | '/_authenticated/executive-cities'
     | '/_authenticated/loans'
@@ -246,6 +270,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAlreadyPaidRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bank-portal': {
+      id: '/_authenticated/bank-portal'
+      path: '/bank-portal'
+      fullPath: '/bank-portal'
+      preLoaderRoute: typeof AuthenticatedBankPortalRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/conflicts': {
+      id: '/_authenticated/conflicts'
+      path: '/conflicts'
+      fullPath: '/conflicts'
+      preLoaderRoute: typeof AuthenticatedConflictsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/ecs': {
       id: '/_authenticated/ecs'
       path: '/ecs'
@@ -307,6 +345,8 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlreadyPaidRoute: typeof AuthenticatedAlreadyPaidRoute
+  AuthenticatedBankPortalRoute: typeof AuthenticatedBankPortalRoute
+  AuthenticatedConflictsRoute: typeof AuthenticatedConflictsRoute
   AuthenticatedEcsRoute: typeof AuthenticatedEcsRoute
   AuthenticatedExecutiveCitiesRoute: typeof AuthenticatedExecutiveCitiesRoute
   AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
@@ -319,6 +359,8 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlreadyPaidRoute: AuthenticatedAlreadyPaidRoute,
+  AuthenticatedBankPortalRoute: AuthenticatedBankPortalRoute,
+  AuthenticatedConflictsRoute: AuthenticatedConflictsRoute,
   AuthenticatedEcsRoute: AuthenticatedEcsRoute,
   AuthenticatedExecutiveCitiesRoute: AuthenticatedExecutiveCitiesRoute,
   AuthenticatedLoansRoute: AuthenticatedLoansRoute,
