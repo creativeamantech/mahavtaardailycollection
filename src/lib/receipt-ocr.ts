@@ -863,14 +863,19 @@ export async function downloadDriveImageBuffer(
   }
 
   const fileId = extractDriveId(receiptUrl);
-  const candidateUrls = fileId
-    ? [
-        `https://lh3.googleusercontent.com/d/${fileId}=s1600`,
-        `https://lh3.googleusercontent.com/d/${fileId}=w1200-rj`,
-        `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`,
-        `https://drive.google.com/uc?export=download&id=${fileId}`,
-      ]
-    : [receiptUrl];
+  if (!fileId) {
+    // Only Google Drive receipt images (or inline data URIs) may be fetched.
+    // Arbitrary URLs would let the server be pointed at any website.
+    throw new Error(
+      "Receipt images must be Google Drive links. Only Drive-hosted receipts can be scanned.",
+    );
+  }
+  const candidateUrls = [
+    `https://lh3.googleusercontent.com/d/${fileId}=s1600`,
+    `https://lh3.googleusercontent.com/d/${fileId}=w1200-rj`,
+    `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`,
+    `https://drive.google.com/uc?export=download&id=${fileId}`,
+  ];
 
   let lastError = "Could not download receipt image from Google Drive";
   for (const url of candidateUrls) {
