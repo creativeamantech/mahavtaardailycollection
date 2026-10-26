@@ -157,8 +157,10 @@ export async function ensureDedicatedBankPortalSpreadsheet(): Promise<void> {
       "1-BankPortal-Mahavtaar-Usage-Accountability-Dedicated",
       "1BankPortal_Dedicated",
     ];
+    const hasExplicitEnvironmentId = Boolean(process.env["BANK_PORTAL_SPREADSHEET_ID"]?.trim());
     const isPlaceholder =
-      !config.isCustom || placeholderIds.some((placeholder) => config.spreadsheetId.startsWith(placeholder));
+      (!config.isCustom && !hasExplicitEnvironmentId) ||
+      placeholderIds.some((placeholder) => config.spreadsheetId.startsWith(placeholder));
 
     if (isPlaceholder) {
       await createDedicatedBankPortalSpreadsheet();
