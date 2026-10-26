@@ -166,7 +166,7 @@ export interface PortalComplaint {
   resolutionNotes?: string | undefined;
   adminDecision?: string | undefined;
   adminRemarks?: string | undefined;
-  verifiedAt?: string;
+  verifiedAt?: string | undefined;
 }
 
 export interface PortalWarning {
