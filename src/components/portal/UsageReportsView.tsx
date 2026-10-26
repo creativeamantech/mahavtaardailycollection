@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPortalReports } from "@/lib/portal.functions";
+import { toCsv, downloadCsv } from "@/lib/export";
 import {
   PORTAL_EXECUTIVES,
   type PortalExecutive,
@@ -87,27 +88,18 @@ export function UsageReportsView() {
       s.endedAt ?? "",
       (s.durationSeconds / 60).toFixed(2),
       formatDuration(s.durationSeconds),
-      `"${(s.reason + (s.customReason ? ` - ${s.customReason}` : "")).replace(/"/g, '""')}"`,
+      s.reason + (s.customReason ? ` - ${s.customReason}` : ""),
       s.sessionType,
-      `"${(s.authorisedSlot ?? "").replace(/"/g, '""')}"`,
+      s.authorisedSlot ?? "",
       s.status,
       s.isOverdue || s.status === "EXPIRED" ? "YES" : "NO",
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
+    // toCsv neutralises formula-leading values and quotes safely.
+    downloadCsv(
       `portal_usage_report_${new Date().toISOString().slice(0, 10)}.csv`,
+      toCsv(headers, rows),
     );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (

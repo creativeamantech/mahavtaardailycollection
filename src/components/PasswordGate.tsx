@@ -7,12 +7,32 @@ import { Label } from "@/components/ui/label";
 
 // Same session unlock is shared by Settings and Already Paid.
 export const SETTINGS_SESSION_KEY = "mahavtaar-settings-unlocked";
+// The entered password is kept per-tab so password-protected server calls can
+// verify it server-side. It is cleared on lock/refresh of the tab session.
+export const SETTINGS_PASSWORD_KEY = "mahavtaar-settings-pw";
+
+export function getStoredSettingsPassword(): string {
+  try {
+    return sessionStorage.getItem(SETTINGS_PASSWORD_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function clearStoredSettingsPassword() {
+  try {
+    sessionStorage.removeItem(SETTINGS_PASSWORD_KEY);
+    sessionStorage.removeItem(SETTINGS_SESSION_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 export function PasswordGate({
   onUnlock,
   label = "Unlock Settings",
 }: {
-  onUnlock: () => void;
+  onUnlock: (password: string) => void;
   label?: string;
 }) {
   const verify = useServerFn(verifySettingsPassword);
@@ -29,8 +49,17 @@ export function PasswordGate({
         setError("");
         try {
           const res = await verify({ data: { password } });
-          if (res.ok) onUnlock();
-          else setError("Incorrect password");
+          if (res.ok) {
+            try {
+              sessionStorage.setItem(SETTINGS_PASSWORD_KEY, password);
+              sessionStorage.setItem(SETTINGS_SESSION_KEY, "1");
+            } catch {
+              /* storage unavailable */
+            }
+            onUnlock(password);
+          } else {
+            setError("Incorrect password");
+          }
         } catch {
           setError("Incorrect password");
         } finally {

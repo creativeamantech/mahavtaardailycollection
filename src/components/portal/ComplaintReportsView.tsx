@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPortalReports } from "@/lib/portal.functions";
+import { toCsv, downloadCsv } from "@/lib/export";
 import {
   PORTAL_EXECUTIVES,
   type PortalComplaint,
@@ -99,8 +100,8 @@ export function ComplaintReportsView() {
       c.id,
       c.complainant,
       c.concernedExecutive,
-      `"${c.subject.replace(/"/g, '""')}"`,
-      `"${c.description.replace(/"/g, '""')}"`,
+      c.subject,
+      c.description,
       c.loanRef ?? "",
       c.evidenceUrl ?? "",
       c.status,
@@ -108,23 +109,14 @@ export function ComplaintReportsView() {
       c.escalatedFromQuery ? "YES" : "NO",
       c.resolvedAt ?? "",
       c.resolver ?? "",
-      `"${(c.adminRemarks ?? "").replace(/"/g, '""')}"`,
+      c.adminRemarks ?? "",
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
+    // toCsv neutralises formula-leading values and quotes safely.
+    downloadCsv(
       `portal_complaints_report_${new Date().toISOString().slice(0, 10)}.csv`,
+      toCsv(headers, rows),
     );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
