@@ -12,7 +12,12 @@ import {
   saveFeatureFlags,
 } from "@/lib/app-config.functions";
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
-import { PasswordGate, SETTINGS_SESSION_KEY as SESSION_KEY } from "@/components/PasswordGate";
+import {
+  PasswordGate,
+  SETTINGS_SESSION_KEY as SESSION_KEY,
+  getStoredSettingsPassword,
+  clearStoredSettingsPassword,
+} from "@/components/PasswordGate";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { ALL_CATEGORIES, uniqueCategories } from "@/components/AllocationFilters";
 import { getCollections } from "@/lib/mahavtaar.functions";
@@ -121,7 +126,7 @@ function SettingsContent() {
       old ? { ...(old as object), defaultCategory: categoryToSave } : old,
     );
     try {
-      await saveDefaultCat({ data: { category: categoryToSave } });
+      await saveDefaultCat({ data: { password: getStoredSettingsPassword(), category: categoryToSave } });
       toast.success(
         categoryToSave
           ? `Default allocation category saved: "${categoryToSave}"`
@@ -130,11 +135,23 @@ function SettingsContent() {
       setIsCustomCategory(false);
       setCustomCategoryInput("");
     } catch (e) {
+      if (relockOnAuthFailure(e)) return;
       toast.error(e instanceof Error ? e.message : "Could not save default category");
       await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
     } finally {
       setSavingCategory(false);
     }
+  }
+
+  // If the server rejects the stored password, lock the page again so the
+  // user can re-enter it instead of failing on every action.
+  function relockOnAuthFailure(e: unknown): boolean {
+    const msg = e instanceof Error ? e.message : "";
+    if (!/incorrect password|unauthorized/i.test(msg)) return false;
+    clearStoredSettingsPassword();
+    setUnlocked(false);
+    toast.error("Password session expired. Please enter the password again.");
+    return true;
   }
 
   function handleSelectCategoryChange(val: string) {
@@ -153,8 +170,9 @@ function SettingsContent() {
       old ? { ...(old as object), flags: next } : old,
     );
     try {
-      await saveFlags({ data: { flags: next } });
+      await saveFlags({ data: { password: getStoredSettingsPassword(), flags: next } });
     } catch (e) {
+      if (relockOnAuthFailure(e)) return;
       toast.error(e instanceof Error ? e.message : "Could not save setting");
       await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
     } finally {
@@ -322,7 +340,11 @@ function SettingsContent() {
               setSaving(true);
               try {
                 await addNotif({
-                  data: { text: text.trim(), ...(image ? { image } : {}) },
+                  data: {
+                    password: getStoredSettingsPassword(),
+                    text: text.trim(),
+                    ...(image ? { image } : {}),
+                  },
                 });
                 setText("");
                 setImage(null);
