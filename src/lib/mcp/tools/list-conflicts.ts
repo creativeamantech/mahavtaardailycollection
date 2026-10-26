@@ -30,13 +30,15 @@ export default defineTool({
     const conflictGroups = [];
     for (const [key, entries] of groups.entries()) {
       if (entries.length < 2) continue;
+      const first = entries[0];
+      if (!first) continue;
       const hasUnresolved = entries.some((e) => !e.isValidated);
       if (unresolvedOnly && !hasUnresolved) continue;
 
       conflictGroups.push({
         groupKey: key,
-        loanId: entries[0].loanId,
-        amount: entries[0].amount,
+        loanId: first.loanId,
+        amount: first.amount,
         count: entries.length,
         isFullyValidated: !hasUnresolved,
         entries: entries.map((e) => ({

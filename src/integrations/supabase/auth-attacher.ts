@@ -7,7 +7,8 @@ import { supabase } from "./client";
 export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
   async ({ next }) => {
     const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    // Cast: the generated client typing resolves session to `never` here.
+    const token = (data.session as { access_token?: string } | null | undefined)?.access_token;
     return next({
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });

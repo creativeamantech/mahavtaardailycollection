@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireAppAuth } from "./app-auth.server";
 import { z } from "zod";
 import {
   analyzeReceiptBufferServer,
@@ -6,7 +7,7 @@ import {
   scanExistingReceiptPlain,
 } from "./receipt-ocr";
 
-export const fetchDriveReceiptBase64 = createServerFn({ method: "POST" })
+export const fetchDriveReceiptBase64 = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((d: unknown) => z.object({ receiptUrl: z.string().trim().min(1) }).parse(d))
   .handler(async ({ data }) => {
     const { buffer, mimeType } = await downloadDriveImageBuffer(data.receiptUrl);
@@ -19,7 +20,7 @@ export const fetchDriveReceiptBase64 = createServerFn({ method: "POST" })
     };
   });
 
-export const scanUploadedReceiptServer = createServerFn({ method: "POST" })
+export const scanUploadedReceiptServer = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -43,7 +44,7 @@ const scanRowSchema = z.object({
   autoFixSheetRow: z.boolean().optional().default(false),
 });
 
-export const scanExistingReceiptServer = createServerFn({ method: "POST" })
+export const scanExistingReceiptServer = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((d: unknown) => scanRowSchema.parse(d))
   .handler(async ({ data }) => {
     return await scanExistingReceiptPlain(data);

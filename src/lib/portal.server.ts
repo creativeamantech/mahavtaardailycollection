@@ -400,8 +400,8 @@ export function computeLivePortalStatus(): LivePortalStatus {
 export async function startSessionOnServer(params: {
   executive: PortalExecutive;
   reason: SessionReason;
-  customReason?: string;
-  forceOverride?: boolean;
+  customReason?: string | undefined;
+  forceOverride?: boolean | undefined;
 }): Promise<{ ok: boolean; session?: PortalSession; error?: string }> {
   await initPortalStore();
 
@@ -506,8 +506,8 @@ export async function startSessionOnServer(params: {
 
 export async function endSessionOnServer(params: {
   executive: PortalExecutive;
-  sessionId?: string;
-  note?: string;
+  sessionId?: string | undefined;
+  note?: string | undefined;
 }): Promise<{ ok: boolean; session?: PortalSession; error?: string }> {
   await initPortalStore();
 
@@ -652,8 +652,8 @@ export async function submitComplaintOrQuery(params: {
   concernedExecutive: PortalExecutive;
   subject: string;
   description: string;
-  loanRef?: string;
-  evidenceUrl?: string;
+  loanRef?: string | undefined;
+  evidenceUrl?: string | undefined;
 }): Promise<PortalComplaint> {
   await initPortalStore();
   const { timeStr, isoString, epochMs } = getNowInIST();
@@ -718,8 +718,8 @@ export async function submitComplaintOrQuery(params: {
 export async function escalateQueryToComplaint(params: {
   complaintId: string;
   complainant: PortalExecutive;
-  evidenceUrl?: string;
-  escalationNote?: string;
+  evidenceUrl?: string | undefined;
+  escalationNote?: string | undefined;
 }): Promise<{ ok: boolean; complaint?: PortalComplaint; error?: string }> {
   await initPortalStore();
   const { timeStr, isoString, epochMs } = getNowInIST();
@@ -848,7 +848,7 @@ export async function adminIssueWarning(params: {
 }
 
 export async function adminImposeBan(params: {
-  complaintId?: string;
+  complaintId?: string | undefined;
   executive: PortalExecutive;
   reason: string;
   adminActor: string;
@@ -1050,7 +1050,7 @@ export async function setBankPortalSpreadsheet(input: {
 }
 
 export async function createBankPortalDedicatedSpreadsheet(input: {
-  title?: string;
+  title?: string | undefined;
   adminActor: string;
 }) {
   const result = await createDedicatedBankPortalSpreadsheet(

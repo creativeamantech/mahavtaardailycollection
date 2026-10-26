@@ -116,7 +116,7 @@ export function ReceiptOcrAuditDialog({
         ? compareReceiptWithEntry(ocrResult, {
             amount: item.amount,
             date: item.date,
-            time: item.time,
+            time: item.time ?? null,
             loanId: item.loanId,
           })
         : null,

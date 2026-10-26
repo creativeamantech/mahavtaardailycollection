@@ -65,7 +65,7 @@ type TabKey =
 
 function BankPortalPage() {
   const [currentExecutive, setCurrentExecutive] = useState<PortalExecutive | null>(null);
-  const [adminPassword, setAdminPassword] = useState<string | undefined>(undefined);
+  const [adminPassword, setAdminPassword] = useState<string>("");
   const [activeTab, setActiveTab] = useState<TabKey>("live");
   const [isSwitchingUser, setIsSwitchingUser] = useState(false);
 
@@ -80,7 +80,7 @@ function BankPortalPage() {
     const savedExec = sessionStorage.getItem(
       PORTAL_EXECUTIVE_STORAGE_KEY,
     ) as PortalExecutive | null;
-    const savedPass = sessionStorage.getItem(PORTAL_ADMIN_PASS_STORAGE_KEY) || undefined;
+    const savedPass = sessionStorage.getItem(PORTAL_ADMIN_PASS_STORAGE_KEY) || "";
     if (savedExec) {
       setCurrentExecutive(savedExec);
       setAdminPassword(savedPass);
@@ -89,7 +89,7 @@ function BankPortalPage() {
 
   const handleSelectExecutive = (exec: PortalExecutive, pass?: string) => {
     setCurrentExecutive(exec);
-    setAdminPassword(pass);
+    setAdminPassword(pass ?? "");
     setIsSwitchingUser(false);
   };
 

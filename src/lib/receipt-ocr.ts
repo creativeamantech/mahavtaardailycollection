@@ -923,7 +923,7 @@ export async function analyzeReceiptBufferServer(
 ): Promise<ParsedReceiptResult> {
   const freeEnvKey =
     typeof process !== "undefined"
-      ? process.env?.GEMINI_API_KEY || process.env?.GOOGLE_API_KEY
+      ? process.env["GEMINI_API_KEY"] || process.env["GOOGLE_API_KEY"]
       : undefined;
 
   if (freeEnvKey) {
@@ -1075,10 +1075,10 @@ Rules:
 }
 
 export async function scanExistingReceiptPlain(input: {
-  row?: number;
-  receiptUrl?: string;
-  writeToAmansRemarks?: boolean;
-  autoFixSheetRow?: boolean;
+  row?: number | undefined;
+  receiptUrl?: string | undefined;
+  writeToAmansRemarks?: boolean | undefined;
+  autoFixSheetRow?: boolean | undefined;
 }) {
   const { readCollections } = await import("./mahavtaar.functions");
   const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");

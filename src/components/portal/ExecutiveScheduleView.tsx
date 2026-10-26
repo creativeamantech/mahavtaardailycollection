@@ -58,7 +58,7 @@ export function ExecutiveScheduleView({ currentExecutive, adminPassword }: Props
       return {
         executive: def.executive,
         isAvailable: found?.isAvailable ?? def.isAvailable ?? true,
-        notes: found?.notes ?? def.notes,
+        notes: found?.notes ?? def.notes ?? "",
         slots: validSlots,
       };
     });
