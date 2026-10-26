@@ -7,14 +7,7 @@ import { createMiddleware } from "@tanstack/react-start";
 // OAuth-verified /mcp request) carry no authHeader context at all and are
 // allowed through — they are never reachable by anonymous HTTP callers.
 export const requireAppAuth = createMiddleware({ type: "function" }).server(
-  async ({ next, context, request, ...rest }) => {
-    console.log(
-      "[auth-debug]",
-      "req:", Boolean(request),
-      "ctxKeys:", Object.keys(context ?? {}),
-      "authHeader:", (context as { authHeader?: string } | undefined)?.authHeader,
-      "restKeys:", Object.keys(rest),
-    );
+  async ({ next, context }) => {
     const authHeader = (context as { authHeader?: string } | undefined)?.authHeader;
 
     if (authHeader === undefined) {
