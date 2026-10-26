@@ -30,7 +30,14 @@ const pendingSchema = z.object({
     .array(
       z.object({
         name: z.string().trim().min(1).max(120),
-        mimeType: z.string().trim().min(1).max(80),
+        mimeType: z
+          .string()
+          .trim()
+          .min(1)
+          .max(80)
+          .refine((m) => m.toLowerCase().startsWith("image/"), {
+            message: "Only image files can be uploaded as slip photos.",
+          }),
         base64: z.string().min(1).max(9_000_000),
       }),
     )
