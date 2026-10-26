@@ -80,7 +80,7 @@ function SettingsPage() {
   );
 }
 
-function SettingsContent() {
+function SettingsContent({ onRelock }: { onRelock: () => void }) {
   const qc = useQueryClient();
   const { flags, notifications, defaultCategory, isLoading } = useAppConfig();
   const saveFlags = useServerFn(saveFeatureFlags);
@@ -153,8 +153,7 @@ function SettingsContent() {
   function relockOnAuthFailure(e: unknown): boolean {
     const msg = e instanceof Error ? e.message : "";
     if (!/incorrect password|unauthorized/i.test(msg)) return false;
-    clearStoredSettingsPassword();
-    setUnlocked(false);
+    onRelock();
     toast.error("Password session expired. Please enter the password again.");
     return true;
   }
@@ -356,6 +355,7 @@ function SettingsContent() {
                 await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
                 toast.success("Notification published");
               } catch (e) {
+                if (relockOnAuthFailure(e)) return;
                 toast.error(e instanceof Error ? e.message : "Could not save notification");
               } finally {
                 setSaving(false);
@@ -393,10 +393,11 @@ function SettingsContent() {
                 className="shrink-0"
                 onClick={async () => {
                   try {
-                    await removeNotif({ data: { id: n.id } });
+                    await removeNotif({ data: { password: getStoredSettingsPassword(), id: n.id } });
                     await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
                     toast.success("Notification removed");
                   } catch (e) {
+                    if (relockOnAuthFailure(e)) return;
                     toast.error(e instanceof Error ? e.message : "Could not remove");
                   }
                 }}
