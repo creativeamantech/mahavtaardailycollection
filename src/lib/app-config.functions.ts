@@ -168,6 +168,7 @@ export const addNotification = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
+    requireSettingsPassword(data.password);
     const { sheetsAppend, driveUpload, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
     let imageUrl = "";
@@ -186,8 +187,11 @@ export const addNotification = createServerFn({ method: "POST" })
   });
 
 export const removeNotification = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(60) }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ password: z.string().max(200), id: z.string().trim().min(1).max(60) }).parse(d),
+  )
   .handler(async ({ data }) => {
+    requireSettingsPassword(data.password);
     const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
     const rows = await sheetsGet(`${NOTIF_TAB}!A2:E`);
     const idx = rows.findIndex((r, i) => ((r[4] ?? "").trim() || `row-${i + 2}`) === data.id);
