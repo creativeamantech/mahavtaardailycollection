@@ -21,19 +21,19 @@ import {
 } from "@/components/ui/dialog";
 
 export interface AuditableCollectionRow {
-  row?: number;
+  row?: number | undefined;
   executive: string;
   loanId: string;
   amount: number;
   date: string;
-  time?: string;
-  entryDate?: string;
-  entryType?: string;
-  settlement?: boolean;
-  settlementType?: string;
-  receiptLinks?: string[];
-  remark?: string;
-  amansRemarks?: string;
+  time?: string | undefined;
+  entryDate?: string | undefined;
+  entryType?: string | undefined;
+  settlement?: boolean | undefined;
+  settlementType?: string | undefined;
+  receiptLinks?: string[] | undefined;
+  remark?: string | undefined;
+  amansRemarks?: string | undefined;
 }
 
 export function ReceiptOcrAuditDialog({
