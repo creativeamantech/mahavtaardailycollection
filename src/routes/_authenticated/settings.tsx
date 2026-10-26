@@ -580,11 +580,11 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
                 if (relockOnAuthFailure(e)) return;
                 toast.error(e instanceof Error ? e.message : "Could not save notification");
               } finally {
-                setSaving(false);
+                setSavingNotif(false);
               }
             }}
           >
-            {saving ? "Saving…" : "Save Notification"}
+            {savingNotif ? "Saving…" : "Save Notification"}
           </Button>
         </div>
 
