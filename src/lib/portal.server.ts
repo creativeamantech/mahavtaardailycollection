@@ -1018,8 +1018,8 @@ export async function saveSchedulesOnServer(newSchedules: ExecutiveSchedule[], a
       submittedSlots.every(
         (slot) =>
           slot &&
-          /^\\d{2}:\\d{2}$/.test(slot.start) &&
-          /^\\d{2}:\\d{2}$/.test(slot.end) &&
+          /^\d{2}:\d{2}$/.test(slot.start) &&
+          /^\d{2}:\d{2}$/.test(slot.end) &&
           slot.start < slot.end &&
           typeof slot.label === "string",
       );
