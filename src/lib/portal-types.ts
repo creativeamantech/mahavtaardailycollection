@@ -160,12 +160,12 @@ export interface PortalComplaint {
   isQueuedForBatch: boolean;
   escalatedFromQuery: boolean;
   canEscalateAtEpochMs?: number;
-  escalatedAt?: string;
-  resolvedAt?: string;
-  resolver?: string;
-  resolutionNotes?: string;
-  adminDecision?: string;
-  adminRemarks?: string;
+  escalatedAt?: string | undefined;
+  resolvedAt?: string | undefined;
+  resolver?: string | undefined;
+  resolutionNotes?: string | undefined;
+  adminDecision?: string | undefined;
+  adminRemarks?: string | undefined;
   verifiedAt?: string;
 }
 
