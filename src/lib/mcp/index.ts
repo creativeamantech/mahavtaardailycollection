@@ -1,4 +1,4 @@
-import { defineMcp } from "@lovable.dev/mcp-js";
+import { auth, defineMcp } from "@lovable.dev/mcp-js";
 
 import loadCollectionData from "./tools/load-collection-data";
 import readAllCollections from "./tools/read-all-collections";
