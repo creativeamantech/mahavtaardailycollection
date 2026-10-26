@@ -8,8 +8,8 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
     const { data } = await authSupabase.auth.getSession();
     if (!data.session) {
-      const next = location.pathname + location.search;
-      throw redirect({ to: "/login", search: { next } });
+      // location.href is the pathname plus query string as a plain string.
+      throw redirect({ to: "/login", search: { next: location.href } });
     }
   },
   component: () => <Outlet />,
