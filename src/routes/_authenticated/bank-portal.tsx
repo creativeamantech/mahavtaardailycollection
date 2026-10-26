@@ -13,13 +13,18 @@ import { ComplaintsAndQueriesSection } from "@/components/portal/ComplaintsAndQu
 import { UsageReportsView } from "@/components/portal/UsageReportsView";
 import { ComplaintReportsView } from "@/components/portal/ComplaintReportsView";
 import { AdminSettingsView } from "@/components/portal/AdminSettingsView";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getBankPortalSheetConfig } from "@/lib/portal.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Activity,
   BarChart3,
   Calendar,
+  ExternalLink,
   FileCheck,
+  FileSpreadsheet,
   FileText,
   Lock,
   LogIn,
@@ -63,6 +68,13 @@ function BankPortalPage() {
   const [adminPassword, setAdminPassword] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<TabKey>("live");
   const [isSwitchingUser, setIsSwitchingUser] = useState(false);
+
+  const fetchSheetConfig = useServerFn(getBankPortalSheetConfig);
+  const { data: sheetConfig } = useQuery({
+    queryKey: ["portalSheetConfig"],
+    queryFn: async () => fetchSheetConfig(),
+    staleTime: 20_000,
+  });
 
   useEffect(() => {
     const savedExec = sessionStorage.getItem(
@@ -156,6 +168,20 @@ function BankPortalPage() {
               {currentExecutive}
             </span>
           </div>
+
+          {sheetConfig?.spreadsheetUrl && (
+            <a
+              href={sheetConfig.spreadsheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-900 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-200 text-xs font-medium transition-colors"
+              title="अलग Google स्प्रेडशीट (Dedicated Bank Portal Spreadsheet)"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+              <span>पोर्टल स्प्रेडशीट</span>
+              <ExternalLink className="h-3 w-3 opacity-60" />
+            </a>
+          )}
 
           <Button
             variant="outline"

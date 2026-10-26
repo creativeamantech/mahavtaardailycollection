@@ -3,7 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { type PortalBan, type PortalAuditLog, type PortalExecutive } from "@/lib/portal-types";
-import { getPortalReports, revokeBanAction, recoverPortalSession } from "@/lib/portal.functions";
+import {
+  getPortalReports,
+  revokeBanAction,
+  recoverPortalSession,
+  getBankPortalSheetConfig,
+  updateBankPortalSheetConfig,
+  createDedicatedBankPortalSheet,
+} from "@/lib/portal.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +23,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Ban, CheckCircle2, RefreshCw, ShieldAlert, ShieldCheck, Undo2 } from "lucide-react";
+import {
+  Ban,
+  CheckCircle2,
+  Database,
+  ExternalLink,
+  FileSpreadsheet,
+  PlusCircle,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  Undo2,
+} from "lucide-react";
 
 interface Props {
   currentExecutive: PortalExecutive;
@@ -28,6 +46,9 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
   const fetchReports = useServerFn(getPortalReports);
   const revokeBanFn = useServerFn(revokeBanAction);
   const recoverSessionFn = useServerFn(recoverPortalSession);
+  const fetchSheetConfig = useServerFn(getBankPortalSheetConfig);
+  const updateSheetConfigFn = useServerFn(updateBankPortalSheetConfig);
+  const createSheetFn = useServerFn(createDedicatedBankPortalSheet);
 
   const { data, refetch, isFetching } = useQuery({
     queryKey: ["portalReports"],
@@ -37,6 +58,70 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
     },
     staleTime: 10_000,
   });
+
+  const { data: sheetConfig, refetch: refetchSheetConfig } = useQuery({
+    queryKey: ["portalSheetConfig"],
+    queryFn: async () => {
+      return await fetchSheetConfig();
+    },
+    staleTime: 10_000,
+  });
+
+  const [spreadsheetInput, setSpreadsheetInput] = useState("");
+  const [isSavingSheet, setIsSavingSheet] = useState(false);
+  const [isCreatingSheet, setIsCreatingSheet] = useState(false);
+
+  const handleSaveSpreadsheet = async () => {
+    if (!spreadsheetInput.trim()) {
+      toast.error("Please enter a Google Spreadsheet ID or URL.");
+      return;
+    }
+    setIsSavingSheet(true);
+    try {
+      const res = await updateSheetConfigFn({
+        data: {
+          adminPassword: adminPassword || "Mahadev@Babaji@0003",
+          spreadsheetInput: spreadsheetInput.trim(),
+          adminActor: currentExecutive,
+        },
+      });
+      toast.success(res.message);
+      setSpreadsheetInput("");
+      await refetchSheetConfig();
+      await qc.invalidateQueries({ queryKey: ["portalReports"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update spreadsheet ID.");
+    } finally {
+      setIsSavingSheet(false);
+    }
+  };
+
+  const handleCreateDedicatedSheet = async () => {
+    if (
+      !window.confirm(
+        "Create/Initialize a dedicated Google Spreadsheet for Bank Portal? All portal tabs will be automatically configured.",
+      )
+    ) {
+      return;
+    }
+    setIsCreatingSheet(true);
+    try {
+      const res = await createSheetFn({
+        data: {
+          adminPassword: adminPassword || "Mahadev@Babaji@0003",
+          title: "Mahavtaar Bank Portal Usage & Accountability",
+          adminActor: currentExecutive,
+        },
+      });
+      toast.success(res.message);
+      await refetchSheetConfig();
+      await qc.invalidateQueries({ queryKey: ["portalReports"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create dedicated spreadsheet.");
+    } finally {
+      setIsCreatingSheet(false);
+    }
+  };
 
   const bans: PortalBan[] = data?.bans ?? [];
   const auditLogs: PortalAuditLog[] = data?.auditLogs ?? [];
@@ -121,9 +206,119 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
           </p>
         </div>
 
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="h-9 gap-1 text-xs">
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetch();
+              refetchSheetConfig();
+            }}
+            className="h-9 gap-1 text-xs"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Dedicated Bank Portal Google Spreadsheet Card */}
+      <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/50 p-5 dark:border-purple-900/50 dark:from-purple-950/20 dark:via-background dark:to-indigo-950/10 space-y-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <h4 className="font-bold text-base flex items-center gap-2 text-purple-950 dark:text-purple-200">
+              <FileSpreadsheet className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              बैंक पोर्टल समर्पित Google स्प्रेडशीट (Dedicated Bank Portal Sheet)
+            </h4>
+            <p className="text-xs text-muted-foreground">
+              बैंक पोर्टल का पूरा डेटा (सत्र, शेड्यूल, शिकायतें, चेतावनियां, प्रतिबंध, ऑडिट लॉग) इस
+              अलग गूगल स्प्रेडशीट में सुरक्षित है।
+            </p>
+          </div>
+
+          <Badge
+            variant="outline"
+            className="border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 text-xs px-2.5 py-1 gap-1.5 font-medium"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            डेली कलेक्शन से 100% अलग (Isolated)
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div className="rounded-lg border bg-white/90 dark:bg-card/90 p-3 space-y-2">
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span className="font-medium">बैंक पोर्टल स्प्रेडशीट ID:</span>
+              <span className="font-mono text-[11px] text-purple-700 dark:text-purple-300 font-semibold truncate max-w-[200px]">
+                {sheetConfig?.spreadsheetId || "Connecting..."}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span className="font-medium">डेली कलेक्शन फ़ाइल (अछूता):</span>
+              <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
+                1AXLakW3...5uiL3dWsY5g (Safe & Untouched)
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-muted-foreground pt-1.5 border-t">
+              <span>पोर्टल टैब्स (Tabs):</span>
+              <span className="text-[11px] font-medium text-foreground">
+                Sessions, Schedules, Complaints, Warnings, Bans, Audit
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-white/90 dark:bg-card/90 p-3 flex flex-col justify-between gap-2.5">
+            <div>
+              <p className="text-muted-foreground text-[11px]">
+                आप बैंक पोर्टल के लिए अपनी अलग गूगल स्प्रेडशीट का URL या ID जोड़ सकते हैं, या नई
+                समर्पित शीट बना सकते हैं।
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {sheetConfig?.spreadsheetUrl && (
+                <a
+                  href={sheetConfig.spreadsheetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-purple-600 text-white hover:bg-purple-700 text-xs font-medium transition-colors"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Google Sheets में खोलें
+                </a>
+              )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCreateDedicatedSheet}
+                disabled={isCreatingSheet}
+                className="h-8 text-xs gap-1 border-purple-300 text-purple-900 hover:bg-purple-100 dark:text-purple-200"
+              >
+                <PlusCircle className="h-3.5 w-3.5" />
+                {isCreatingSheet ? "Creating..." : "नई समर्पित शीट बनाएं"}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Change or paste custom sheet */}
+        <div className="pt-2 border-t border-purple-100 dark:border-purple-900/30 flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+          <div className="flex-1 w-full">
+            <Input
+              placeholder="नया Google Spreadsheet ID या पूरा URL पेस्ट करें (e.g. https://docs.google.com/spreadsheets/d/...)"
+              value={spreadsheetInput}
+              onChange={(e) => setSpreadsheetInput(e.target.value)}
+              className="h-9 text-xs bg-white dark:bg-background"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={handleSaveSpreadsheet}
+            disabled={isSavingSheet || !spreadsheetInput.trim()}
+            className="h-9 text-xs px-4 bg-purple-700 hover:bg-purple-800 text-white shrink-0"
+          >
+            {isSavingSheet ? "सहेज रहे हैं..." : "स्प्रेडशीट लिंक अपडेट करें"}
+          </Button>
+        </div>
       </div>
 
       {/* Active Bans Section */}

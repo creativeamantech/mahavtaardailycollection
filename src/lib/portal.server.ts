@@ -18,14 +18,23 @@ import {
   STANDARD_WARNING_TEXT,
 } from "./portal-types";
 import { APP_TIME_ZONE } from "./executives";
-import { ensureSheet, sheetsAppend, sheetsGet, sheetsUpdate } from "./mahavtaar.server";
+import {
+  PORTAL_TABS,
+  portalEnsureSheet,
+  portalSheetsAppend,
+  portalSheetsGet,
+  portalSheetsUpdate,
+  getBankPortalSpreadsheetConfig,
+  setBankPortalSpreadsheetId,
+  createDedicatedBankPortalSpreadsheet,
+} from "./bank-portal-sheets.server";
 
-const TAB_SESSIONS = "Portal_Sessions";
-const TAB_SCHEDULES = "Portal_Schedules";
-const TAB_COMPLAINTS = "Portal_Complaints";
-const TAB_WARNINGS = "Portal_Warnings";
-const TAB_BANS = "Portal_Bans";
-const TAB_AUDIT = "Portal_Audit";
+const TAB_SESSIONS = PORTAL_TABS.SESSIONS;
+const TAB_SCHEDULES = PORTAL_TABS.SCHEDULES;
+const TAB_COMPLAINTS = PORTAL_TABS.COMPLAINTS;
+const TAB_WARNINGS = PORTAL_TABS.WARNINGS;
+const TAB_BANS = PORTAL_TABS.BANS;
+const TAB_AUDIT = PORTAL_TABS.AUDIT;
 
 // Server In-Memory State for fast live status, locking, and synchronization
 let inMemoryActiveSession: PortalSession | null = null;
@@ -80,7 +89,7 @@ export async function initPortalStore() {
 
   // Initialize sheets if needed
   try {
-    await ensureSheet(TAB_SESSIONS, [
+    await portalEnsureSheet(TAB_SESSIONS, [
       "ID",
       "Executive",
       "StartedAt",
@@ -94,9 +103,9 @@ export async function initPortalStore() {
       "IsOverdue",
     ]);
 
-    await ensureSheet(TAB_SCHEDULES, ["Executive", "SlotsJson", "IsAvailable", "Notes"]);
+    await portalEnsureSheet(TAB_SCHEDULES, ["Executive", "SlotsJson", "IsAvailable", "Notes"]);
 
-    await ensureSheet(TAB_COMPLAINTS, [
+    await portalEnsureSheet(TAB_COMPLAINTS, [
       "ComplaintID",
       "Complainant",
       "ConcernedExecutive",
@@ -117,7 +126,7 @@ export async function initPortalStore() {
       "VerifiedAt",
     ]);
 
-    await ensureSheet(TAB_WARNINGS, [
+    await portalEnsureSheet(TAB_WARNINGS, [
       "WarningID",
       "Executive",
       "ComplaintID",
@@ -128,7 +137,7 @@ export async function initPortalStore() {
       "Acknowledged",
     ]);
 
-    await ensureSheet(TAB_BANS, [
+    await portalEnsureSheet(TAB_BANS, [
       "BanID",
       "Executive",
       "ComplaintID",
@@ -142,10 +151,10 @@ export async function initPortalStore() {
       "RevokeReason",
     ]);
 
-    await ensureSheet(TAB_AUDIT, ["AuditID", "Timestamp", "Action", "Actor", "Details"]);
+    await portalEnsureSheet(TAB_AUDIT, ["AuditID", "Timestamp", "Action", "Actor", "Details"]);
 
     // Load existing bans into memory
-    const banRows = await sheetsGet(`${TAB_BANS}!A2:K`).catch(() => []);
+    const banRows = await portalSheetsGet(`${TAB_BANS}!A2:K`).catch(() => []);
     if (Array.isArray(banRows) && banRows.length > 0) {
       inMemoryBans = banRows
         .filter((r) => r[0] && r[1])
@@ -166,7 +175,7 @@ export async function initPortalStore() {
     }
 
     // Load custom schedules if any
-    const schedRows = await sheetsGet(`${TAB_SCHEDULES}!A2:D`).catch(() => []);
+    const schedRows = await portalSheetsGet(`${TAB_SCHEDULES}!A2:D`).catch(() => []);
     if (Array.isArray(schedRows) && schedRows.length > 0) {
       const loaded: ExecutiveSchedule[] = [];
       for (const r of schedRows) {
@@ -204,7 +213,7 @@ export async function initPortalStore() {
     }
 
     // Load recent complaints
-    const compRows = await sheetsGet(`${TAB_COMPLAINTS}!A2:R`).catch(() => []);
+    const compRows = await portalSheetsGet(`${TAB_COMPLAINTS}!A2:R`).catch(() => []);
     if (Array.isArray(compRows) && compRows.length > 0) {
       inMemoryComplaints = compRows
         .filter((r) => r[0] && r[1])
@@ -606,7 +615,7 @@ async function recordSessionToSheet(session: PortalSession) {
       session.isOverdue ? "TRUE" : "FALSE",
     ];
 
-    await sheetsAppend(`${TAB_SESSIONS}!A:K`, [row]);
+    await portalSheetsAppend(`${TAB_SESSIONS}!A:K`, [row]);
   } catch (err) {
     console.warn("Failed to append session to Google Sheet:", err);
   }
@@ -624,7 +633,7 @@ export async function recordAuditLog(log: { action: string; actor: string; detai
   if (inMemoryAudit.length > 200) inMemoryAudit.pop();
 
   try {
-    await sheetsAppend(`${TAB_AUDIT}!A:E`, [
+    await portalSheetsAppend(`${TAB_AUDIT}!A:E`, [
       [
         auditEntry.id,
         auditEntry.timestamp,
@@ -671,7 +680,7 @@ export async function submitComplaintOrQuery(params: {
   inMemoryComplaints.unshift(item);
 
   try {
-    await sheetsAppend(`${TAB_COMPLAINTS}!A:R`, [
+    await portalSheetsAppend(`${TAB_COMPLAINTS}!A:R`, [
       [
         item.id,
         item.complainant,
@@ -813,7 +822,7 @@ export async function adminIssueWarning(params: {
   }
 
   try {
-    await sheetsAppend(`${TAB_WARNINGS}!A:H`, [
+    await portalSheetsAppend(`${TAB_WARNINGS}!A:H`, [
       [
         warning.id,
         warning.executive,
@@ -886,7 +895,7 @@ export async function adminImposeBan(params: {
   }
 
   try {
-    await sheetsAppend(`${TAB_BANS}!A:K`, [
+    await portalSheetsAppend(`${TAB_BANS}!A:K`, [
       [
         ban.id,
         ban.executive,
@@ -947,7 +956,7 @@ export async function getPortalReportsData() {
   // Fetch all sessions from Sheet
   let sessions: PortalSession[] = [];
   try {
-    const rows = await sheetsGet(`${TAB_SESSIONS}!A2:K`);
+    const rows = await portalSheetsGet(`${TAB_SESSIONS}!A2:K`);
     if (Array.isArray(rows)) {
       sessions = rows
         .filter((r) => r[0] && r[1])
@@ -1007,7 +1016,7 @@ export async function saveSchedulesOnServer(newSchedules: ExecutiveSchedule[], a
       s.isAvailable ? "TRUE" : "FALSE",
       s.notes ?? "",
     ]);
-    await sheetsUpdate(`${TAB_SCHEDULES}!A2:D${rows.length + 1}`, rows);
+    await portalSheetsUpdate(`${TAB_SCHEDULES}!A2:D${rows.length + 1}`, rows);
   } catch (err) {
     console.warn("Failed to save schedules to Google Sheet:", err);
   }
@@ -1019,4 +1028,41 @@ export async function saveSchedulesOnServer(newSchedules: ExecutiveSchedule[], a
   });
 
   return { ok: true };
+}
+
+export async function getBankPortalSpreadsheetDetails() {
+  return getBankPortalSpreadsheetConfig();
+}
+
+export async function setBankPortalSpreadsheet(input: {
+  spreadsheetInput: string;
+  adminActor: string;
+}) {
+  const result = setBankPortalSpreadsheetId(input.spreadsheetInput, input.adminActor);
+  if (result.ok) {
+    await recordAuditLog({
+      action: "BANK_PORTAL_SPREADSHEET_UPDATED",
+      actor: input.adminActor,
+      details: `Updated Bank Portal Google Spreadsheet to: ${result.spreadsheetId} (Strictly separate from Daily Collection)`,
+    });
+  }
+  return result;
+}
+
+export async function createBankPortalDedicatedSpreadsheet(input: {
+  title?: string;
+  adminActor: string;
+}) {
+  const result = await createDedicatedBankPortalSpreadsheet(
+    input.title || "Mahavtaar Bank Portal Usage & Accountability",
+    input.adminActor,
+  );
+  if (result.ok) {
+    await recordAuditLog({
+      action: "BANK_PORTAL_SPREADSHEET_CREATED",
+      actor: input.adminActor,
+      details: `Created new dedicated Bank Portal Google Spreadsheet: ${result.spreadsheetId}`,
+    });
+  }
+  return result;
 }

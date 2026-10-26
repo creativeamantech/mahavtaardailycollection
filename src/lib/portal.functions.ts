@@ -20,6 +20,9 @@ import {
   adminRevokeBan,
   getPortalReportsData,
   saveSchedulesOnServer,
+  getBankPortalSpreadsheetDetails,
+  setBankPortalSpreadsheet,
+  createBankPortalDedicatedSpreadsheet,
 } from "./portal.server";
 import { driveUpload } from "./mahavtaar.server";
 
@@ -308,4 +311,56 @@ export const uploadPortalEvidence = createServerFn({ method: "POST" })
       : data.base64;
     const link = await driveUpload(data.name, data.mimeType, cleanBase64);
     return { ok: true, link };
+  });
+
+export const getBankPortalSheetConfig = createServerFn({ method: "GET" }).handler(async () => {
+  return await getBankPortalSpreadsheetDetails();
+});
+
+export const updateBankPortalSheetConfig = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        adminPassword: z.string().min(1),
+        spreadsheetInput: z.string().min(1),
+        adminActor: z.string().default("Aman"),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    if (!checkAdminPassword(data.adminPassword)) {
+      throw new Error("Unauthorized: Invalid administrator password.");
+    }
+    const res = await setBankPortalSpreadsheet({
+      spreadsheetInput: data.spreadsheetInput,
+      adminActor: data.adminActor,
+    });
+    if (!res.ok) {
+      throw new Error(res.message);
+    }
+    return res;
+  });
+
+export const createDedicatedBankPortalSheet = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        adminPassword: z.string().min(1),
+        title: z.string().max(100).optional(),
+        adminActor: z.string().default("Aman"),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    if (!checkAdminPassword(data.adminPassword)) {
+      throw new Error("Unauthorized: Invalid administrator password.");
+    }
+    const res = await createBankPortalDedicatedSpreadsheet({
+      title: data.title,
+      adminActor: data.adminActor,
+    });
+    if (!res.ok) {
+      throw new Error(res.message);
+    }
+    return res;
   });
