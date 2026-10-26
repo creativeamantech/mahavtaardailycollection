@@ -1362,6 +1362,11 @@
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
+            "password": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "App settings password (required to change settings)."
+            },
             "flags": {
               "description": "Feature flags to update, e.g. { entry: true, report: true, loans: true, execCities: true, pending: true, ecs: true, notifications: true, alreadyPaid: true, conflicts: true, remarks: true }",
               "type": "object",
@@ -1378,6 +1383,9 @@
               "maxLength": 80
             }
           },
+          "required": [
+            "password"
+          ],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1395,6 +1403,11 @@
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
+            "password": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "App settings password (required to publish a notification)."
+            },
             "text": {
               "type": "string",
               "minLength": 1,
@@ -1409,6 +1422,7 @@
             }
           },
           "required": [
+            "password",
             "text"
           ],
           "additionalProperties": false
@@ -1428,6 +1442,11 @@
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
+            "password": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "App settings password (required to remove a notification)."
+            },
             "id": {
               "type": "string",
               "minLength": 1,
@@ -1436,6 +1455,7 @@
             }
           },
           "required": [
+            "password",
             "id"
           ],
           "additionalProperties": false
