@@ -26,15 +26,12 @@ import {
 } from "./portal.server";
 import { driveUpload } from "./mahavtaar.server";
 
-// Helper for constant-time comparison of admin password
+// Admin password is verified against the SETTINGS_PASSWORD server secret via
+// the shared guard — the password value never lives in client code.
+import { checkSettingsPassword } from "./password-guard.server";
+
 function checkAdminPassword(password: string | undefined): boolean {
-  if (!password) return false;
-  const expected = "Mahadev@Babaji@0003";
-  let diff = password.length === expected.length ? 0 : 1;
-  for (let i = 0; i < Math.max(password.length, expected.length); i++) {
-    diff |= (password.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
-  }
-  return diff === 0;
+  return checkSettingsPassword(password);
 }
 
 export const getLivePortalStatus = createServerFn({ method: "GET" }).handler(async () => {
@@ -49,10 +46,16 @@ export const startPortalSession = createServerFn({ method: "POST" })
         reason: z.enum(SESSION_REASONS),
         customReason: z.string().max(300).optional(),
         forceOverride: z.boolean().optional(),
+        adminPassword: z.string().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data }) => {
+    // Emergency overrides skip schedule checks, so they require the admin
+    // password even though the override flag arrives from the client.
+    if (data.forceOverride && !checkAdminPassword(data.adminPassword)) {
+      throw new Error("Unauthorized: Invalid administrator password.");
+    }
     const res = await startSessionOnServer({
       executive: data.executive as PortalExecutive,
       reason: data.reason as SessionReason,
