@@ -195,8 +195,8 @@ function EcsForm() {
               <SelectValue placeholder="Select executive" />
             </SelectTrigger>
             <SelectContent>
-              {EXECUTIVES.map((e) => (
-                <SelectItem key={e} value={e} className="text-base">
+              {EXECUTIVES.map((e, idx) => (
+                <SelectItem key={`ecs-exec-${e}-${idx}`} value={e} className="text-base">
                   {e}
                 </SelectItem>
               ))}
@@ -643,8 +643,8 @@ function FilterSelect({
           <SelectItem value="all" className="text-base">
             All
           </SelectItem>
-          {options.map((o) => (
-            <SelectItem key={o} value={o} className="text-base">
+          {options.map((o, idx) => (
+            <SelectItem key={`filter-${label}-${o}-${idx}`} value={o} className="text-base">
               {o}
             </SelectItem>
           ))}

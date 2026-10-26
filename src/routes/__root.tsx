@@ -152,6 +152,7 @@ const NAV = [
   { to: "/ecs", label: "ECS / Special", key: "ecs" },
   { to: "/notifications", label: "Notifications", key: "notifications" },
   { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
+  { to: "/bank-portal", label: "Bank Portal", key: "bankPortal" },
   { to: "/settings", label: "Settings", key: "settings" },
 ] as const;
 

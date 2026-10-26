@@ -51,8 +51,11 @@ export type LoanSummary = {
 // ('123456) to force text. Normalise for matching, grouping and display.
 export function normaliseLoanId(id: string | undefined) {
   return String(id ?? "")
-    .replace(/^['`\u2018\u2019]+/, "")
-    .trim();
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/^['"`\u2018\u2019\u2032]+|['"`\u2018\u2019\u2032]+$/g, "")
+    .replace(/\s+/g, "")
+    .trim()
+    .toUpperCase();
 }
 
 // Fixed bucket-wise EMI limits: Bucket 1 -> 2 EMI ... Bucket 5 -> 6 EMI.
@@ -199,10 +202,13 @@ export type ShortEmiRow = {
 
 export function shortEmiRows(loans: LoanSummary[]): ShortEmiRow[] {
   const out: ShortEmiRow[] = [];
+  const seenLoans = new Set<string>();
   for (const l of loans) {
     // Fully paid cases never appear here.
     if (l.settlement || l.emiPaid || l.foreclosurePaid) continue;
     if (l.shortAmount === null || l.currentShortEmi === null) continue;
+    if (seenLoans.has(l.loanId)) continue;
+    seenLoans.add(l.loanId);
     out.push({
       executive: l.executive,
       loanId: l.loanId,

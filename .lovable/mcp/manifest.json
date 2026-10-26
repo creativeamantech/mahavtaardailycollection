@@ -6,9 +6,7 @@
     "type": "oauth",
     "issuer": "https://ydgexnboxazquiiqcrup.supabase.co/auth/v1",
     "require_oauth_client_claim": true,
-    "accepted_audiences": [
-      "authenticated"
-    ]
+    "accepted_audiences": ["authenticated"]
   },
   "mcp": {
     "server": {
@@ -46,10 +44,7 @@
               "maxLength": 80
             }
           },
-          "required": [
-            "from",
-            "to"
-          ],
+          "required": ["from", "to"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -74,9 +69,7 @@
               "description": "Loan ID to look up."
             }
           },
-          "required": [
-            "loanId"
-          ],
+          "required": ["loanId"],
           "additionalProperties": false
         },
         "outputSchema": null

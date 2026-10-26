@@ -24,6 +24,10 @@ import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
+import {
+  type AuditableCollectionRow,
+  ReceiptOcrAuditDialog,
+} from "@/components/ReceiptOcrAuditDialog";
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
 function ExportButton({
@@ -252,9 +256,11 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
   const best = useMemo(() => topOverall(rows), [rows]);
   const daily = useMemo(() => dailyTop(rows), [rows]);
   const latest = useMemo(() => lastFive(rows), [rows]);
+  const [ocrAuditItem, setOcrAuditItem] = useState<AuditableCollectionRow | null>(null);
 
   return (
     <section className="mt-10 space-y-5">
+      <ReceiptOcrAuditDialog item={ocrAuditItem} onClose={() => setOcrAuditItem(null)} />
       <h2 className="text-2xl font-bold">Top Performers</h2>
 
       {best ? (
@@ -291,8 +297,8 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                 </tr>
               </thead>
               <tbody>
-                {daily.map((d) => (
-                  <tr key={d.date} className="border-t">
+                {daily.map((d, idx) => (
+                  <tr key={`daily-${d.date}-${idx}`} className="border-t">
                     <td className="p-3">{d.date}</td>
                     <td className="p-3">{d.executive}</td>
                     <td className="p-3 text-right font-semibold">{formatAmount(d.total)}</td>
@@ -322,7 +328,7 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                     {r.executive} · {r.date}
                   </p>
                   {r.receiptLinks && r.receiptLinks.length > 0 ? (
-                    <p className="mt-1 flex flex-wrap gap-x-2 text-sm">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                       {r.receiptLinks.map((l, n) => (
                         <a
                           key={l}
@@ -336,7 +342,32 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                             : `Google Drive Receipt #${n + 1} ↗`}
                         </a>
                       ))}
-                    </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs whitespace-nowrap shrink-0"
+                        onClick={() =>
+                          setOcrAuditItem({
+                            row: r.row,
+                            executive: r.executive,
+                            loanId: r.loanId ?? "",
+                            amount: r.amount,
+                            date: r.date,
+                            time: r.time,
+                            entryDate: r.entryDate,
+                            entryType: r.entryType,
+                            settlement: r.settlement,
+                            settlementType: r.settlementType,
+                            receiptLinks: r.receiptLinks,
+                            remark: r.remark,
+                            amansRemarks: r.amansRemarks,
+                          })
+                        }
+                      >
+                        Scan Receipt (OCR)
+                      </Button>
+                    </div>
                   ) : null}
                   {r.remark ? (
                     <p className="mt-1 text-sm text-muted-foreground">Remark: {r.remark}</p>
@@ -696,8 +727,8 @@ function ReportBlock({ rows }: { rows: Row[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.executive} className="border-t">
+            {rows.map((r, idx) => (
+              <tr key={`report-row-${r.executive}-${idx}`} className="border-t">
                 <td className="px-2 py-2 sm:p-3">{r.executive}</td>
                 <td className="px-2 py-2 text-right font-semibold tabular-nums sm:p-3">
                   {formatAmount(r.total)}

@@ -332,6 +332,7 @@ export async function getSheetId(title: string): Promise<number> {
     ECS_Special_Info: 2,
     AppSettings: 3,
     Notifications: 4,
+    "Cashier Link Activity": 5,
   };
   return knownSheetIds[title] ?? 0;
 }

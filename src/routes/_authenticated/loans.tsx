@@ -114,7 +114,13 @@ function LoansPage() {
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return loans.filter((l) => l.loanId.toLowerCase().includes(q));
+    const filtered = loans.filter((l) => l.loanId.toLowerCase().includes(q));
+    const seen = new Set<string>();
+    return filtered.filter((l) => {
+      if (seen.has(l.loanId)) return false;
+      seen.add(l.loanId);
+      return true;
+    });
   }, [loans, query]);
 
   const [showShort, setShowShort] = useState(false);
@@ -212,7 +218,7 @@ function LoansPage() {
               No loan found for "{query}".
             </p>
           ) : (
-            results.map((l) => <LoanCard key={l.loanId} loan={l} />)
+            results.map((l, idx) => <LoanCard key={`${l.loanId}-${idx}`} loan={l} />)
           )}
         </div>
       )}
@@ -248,8 +254,8 @@ function LoansPage() {
                     </td>
                   </tr>
                 ) : (
-                  shorts.map((s) => (
-                    <tr key={s.loanId} className="border-t">
+                  shorts.map((s, idx) => (
+                    <tr key={`${s.loanId}-${s.shortEmi}-${idx}`} className="border-t">
                       <Td>{s.executive}</Td>
                       <Td>{s.loanId}</Td>
                       <Td>{s.shortEmi}</Td>
@@ -368,8 +374,8 @@ function SectionTable({ title, section }: { title: string; section: ReportSectio
             </tr>
           </thead>
           <tbody>
-            {section.rows.map((r) => (
-              <tr key={r.executive} className="border-b last:border-b-0">
+            {section.rows.map((r, idx) => (
+              <tr key={`${r.executive}-${idx}`} className="border-b last:border-b-0">
                 <td className={`${cell} max-w-[72px] truncate text-left sm:max-w-none`}>
                   {r.executive}
                 </td>

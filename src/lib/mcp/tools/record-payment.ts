@@ -1,15 +1,15 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-import { saveCollection } from "../../mahavtaar.functions";
+import { saveCollection, uploadReceiptImage } from "../../mahavtaar.functions";
 import { todayISO } from "../../executives";
 
 const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 
 export default defineTool({
   name: "record_payment",
-  title: "Record a loan collection payment",
+  title: "Record a loan collection payment with optional receipt upload",
   description:
-    "Records a payment collection entry into Google Sheets (Collections sheet) with executive, loan ID, amount, and date. Automatically classifies as Normal or Previous Paid File based on date.",
+    "Records a payment collection entry into Google Sheets (Collections sheet) with executive, loan ID, amount, date, and optional receipt image upload (uploaded to Google Drive just like in the app UI). Automatically classifies as Normal or Previous Paid File based on date.",
   inputSchema: {
     executive: z.enum(executives).describe("Executive who collected the payment."),
     loanId: z.string().trim().min(1).max(60).describe("Loan account number / ID."),
@@ -32,7 +32,44 @@ export default defineTool({
     receiptLinks: z
       .array(z.string().url())
       .default([])
-      .describe("Optional array of public receipt/photo URLs."),
+      .describe("Optional array of pre-existing public receipt/photo URLs."),
+    receiptPhotos: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1).max(120).default("receipt.jpg").describe("File name."),
+          mimeType: z
+            .string()
+            .trim()
+            .min(1)
+            .max(80)
+            .default("image/jpeg")
+            .describe("Image MIME type (e.g. image/jpeg, image/png)."),
+          base64: z
+            .string()
+            .min(1)
+            .max(9_000_000)
+            .describe("Base64 string or data URL of the image."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Optional array of receipt images to upload to Google Drive during entry (just like in the app UI).",
+      ),
+    receiptBase64: z
+      .string()
+      .min(1)
+      .max(9_000_000)
+      .optional()
+      .describe(
+        "Optional single base64 string or data URL of a receipt photo to upload to Google Drive.",
+      ),
+    receiptFileName: z
+      .string()
+      .trim()
+      .max(120)
+      .default("receipt.jpg")
+      .optional()
+      .describe("File name when using receiptBase64."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
   handler: async ({
@@ -43,12 +80,57 @@ export default defineTool({
     entryTime,
     settlementType,
     remark,
-    receiptLinks,
+    receiptLinks = [],
+    receiptPhotos,
+    receiptBase64,
+    receiptFileName = "receipt.jpg",
   }) => {
     const today = todayISO();
     const isPast = paymentDate < today;
     const entryType = isPast ? "Previous Paid File" : "Normal";
     const effectivePaymentDate = isPast ? paymentDate : today;
+
+    const allReceiptLinks: string[] = [...receiptLinks];
+
+    // 1. Process receiptPhotos array if provided
+    if (receiptPhotos && receiptPhotos.length > 0) {
+      for (const photo of receiptPhotos) {
+        const raw = photo.base64;
+        const cleanBase64 = raw.includes(",") ? raw.slice(raw.indexOf(",") + 1) : raw;
+        const mime =
+          photo.mimeType ||
+          (raw.startsWith("data:") ? raw.slice(5, raw.indexOf(";")) : "image/jpeg");
+        const uploadRes = await uploadReceiptImage({
+          data: {
+            loanNumber: loanId,
+            name: photo.name || "receipt.jpg",
+            mimeType: mime.startsWith("image/") ? mime : "image/jpeg",
+            base64: cleanBase64,
+          },
+        });
+        if (uploadRes?.link) {
+          allReceiptLinks.push(uploadRes.link);
+        }
+      }
+    }
+
+    // 2. Process single receiptBase64 if provided
+    if (receiptBase64) {
+      const raw = receiptBase64;
+      const cleanBase64 = raw.includes(",") ? raw.slice(raw.indexOf(",") + 1) : raw;
+      const mime = raw.startsWith("data:") ? raw.slice(5, raw.indexOf(";")) : "image/jpeg";
+      const uploadRes = await uploadReceiptImage({
+        data: {
+          loanNumber: loanId,
+          name: receiptFileName || "receipt.jpg",
+          mimeType: mime.startsWith("image/") ? mime : "image/jpeg",
+          base64: cleanBase64,
+        },
+      });
+      if (uploadRes?.link) {
+        allReceiptLinks.push(uploadRes.link);
+      }
+    }
 
     const result = await saveCollection({
       data: {
@@ -61,7 +143,7 @@ export default defineTool({
         entryType,
         settlement: settlementType !== "No",
         settlementType,
-        receiptLinks,
+        receiptLinks: allReceiptLinks,
         remark,
       },
     });
@@ -77,6 +159,8 @@ export default defineTool({
             amount,
             paymentDate: effectivePaymentDate,
             entryType,
+            rowNumber: result?.row,
+            receiptLinks: allReceiptLinks,
             appended: result,
           }),
         },
@@ -88,6 +172,8 @@ export default defineTool({
         amount,
         paymentDate: effectivePaymentDate,
         entryType,
+        rowNumber: result?.row,
+        receiptLinks: allReceiptLinks,
       },
     };
   },

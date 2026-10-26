@@ -18,6 +18,7 @@ const entrySchema = z.object({
   settlementType: z.enum(["No", "Settlement", "Foreclosure"]).optional(),
   receiptLinks: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
   remark: z.string().trim().max(300).default(""),
+  amansRemarks: z.string().trim().max(1000).optional(),
 });
 
 const pendingSchema = z.object({
@@ -109,12 +110,15 @@ export const saveCollection = createServerFn({ method: "POST" })
     // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
     // so they are written to the exact row the append landed on.
     const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
-    if (data.receiptLinks.length > 0 || data.remark !== "") {
-      if (rowNum > 0) {
-        const { sheetsUpdate } = await import("./mahavtaar.server");
+    if (rowNum > 0) {
+      const { sheetsUpdate } = await import("./mahavtaar.server");
+      if (data.receiptLinks.length > 0 || data.remark !== "") {
         await sheetsUpdate(`Collections!P${rowNum}:Q${rowNum}`, [
           [data.receiptLinks.join(" | "), data.remark],
         ]);
+      }
+      if (data.amansRemarks) {
+        await sheetsUpdate(`Collections!S${rowNum}`, [[data.amansRemarks]]);
       }
     }
     return { ok: true as const, row: rowNum };

@@ -1,71 +1,65 @@
-# Implementation Plan: Comprehensive Read & Write MCP Access
+# Implementation Plan: 100% Free Open-Source Receipt OCR & Verification System (Zero API / Zero Cost)
 
-Give the Model Context Protocol (MCP) server full read and write capabilities across all Mahavtaar Daily Collection modules (Payments, ECS/Special, Conflicts, App Settings, and Notifications), appending and updating directly to the respective Google Sheets tabs with open access.
-
----
-
-## Proposed Changes & New MCP Tools
-
-### 1. Payment Collections Write & Read Tools
-Add modular MCP tools under `src/lib/mcp/tools/`:
-- **`record-payment.ts` (`record_payment`)**:
-  - Allows AI assistants to record a daily collection entry (Executive, Loan ID, Amount, Payment Date, Entry Date, Time, Entry Type, Settlement, Remarks, and Receipt URLs).
-  - Appends to the month's Google Sheet tab with formatting and conflict detection check.
-- **`update-payment.ts` (`update_payment`)**:
-  - Updates an existing collection entry by Loan ID, date, or index in Google Sheets.
-- **`delete-payment.ts` (`delete_payment`)**:
-  - Removes a collection entry from Google Sheets when duplicates or erroneous records are identified.
-
-### 2. ECS & Special Collections Tools
-- **`list-ecs.ts` (`list_ecs_entries`)**:
-  - Lists ECS and Special collection entries, filtered by status, executive, or date range.
-- **`record-ecs.ts` (`record_ecs_entry`)**:
-  - Creates a new ECS or Special transaction in the `ECS_Special_Info` tab.
-- **`update-ecs.ts` (`update_ecs_entry`)**:
-  - Updates the status (`Confirmed`, `Bounced`, `Cancelled`, `Cleared`) and remark for an ECS record.
-
-### 3. Conflict Resolution Tools
-- **`list-conflicts.ts` (`list_conflicts`)**:
-  - Returns duplicate payment records grouped side-by-side with receipt links and validity status to compare potential conflicts.
-- **`resolve-conflict.ts` (`resolve_conflict`)**:
-  - Allows marking a suspected duplicate as valid (`Not Conflicted`), reverting validation, or deleting the conflicting duplicate.
-
-### 4. App Settings & Feature Flags Tools
-- **`get-settings.ts` (`get_settings`)**:
-  - Reads active feature flags, default allocation category, and system configurations.
-- **`update-settings.ts` (`update_settings`)**:
-  - Updates feature flags (Payment Entry, Report, Loans, Conflicts, ECS, Notifications, etc.) and the default allocation category in `AppSettings`.
-
-### 5. Notifications Management Tools
-- **`add-notification.ts` (`add_notification`)**:
-  - Appends an announcement notification to the `Notifications` tab in Google Sheets.
-- **`remove-notification.ts` (`remove_notification`)**:
-  - Marks an active notification as removed in the sheet.
-
-### 6. MCP Server Configuration & Data Bridge
-- **`src/lib/mcp/data.ts`**:
-  - Export reusable data bridge helpers for both reading and writing to Google Sheets tabs (`mahavtaar.server.ts` integration).
-- **`src/lib/mcp/index.ts`**:
-  - Register all newly added write tools.
-  - Set instructions reflecting full read and write capabilities across all app domains with open access (no authentication required).
-  - Annotate state-modifying tools with `readOnlyHint: false`.
+Implement a completely free, self-contained **Receipt OCR & Verification System** using open-source **`tesseract.js`** (WebAssembly + Node.js) combined with a specialized **Indian UPI & BBPS Receipt Parser**. This requires **zero paid APIs, zero API keys, and zero external billing**, running locally in the browser for live uploads and on the server for existing Google Sheet rows.
 
 ---
 
-## Verification Plan
+## 1. 100% Free OCR Engine & Rule-Based Receipt Parser
 
-### Automated Build & Lint Verification
-1. Run `lint_applet` to verify TypeScript typings and ESLint rules across all new tool files.
-2. Run `compile_applet` to ensure TanStack Start & Vite bundle the MCP handlers and tools without errors.
+### A. Open-Source OCR Package
 
-### Functional Verification
-1. **MCP Endpoint Discovery**:
-   - Query `GET /mcp` or tool schemas to ensure all 11+ tools (both read and write) are published with accurate Zod schemas.
-2. **Payment Collection Write**:
-   - Test recording a payment entry via the MCP tool interface and verify sheet append logic.
-3. **ECS Entry Write**:
-   - Test creating and updating an ECS entry in `ECS_Special_Info`.
-4. **Conflict Resolution**:
-   - Test listing conflicts and marking entries as valid via MCP.
-5. **Settings & Notification Write**:
-   - Verify toggling a feature flag and adding a notification through MCP.
+- Install **`tesseract.js`** (100% free, MIT/Apache open-source OCR engine that runs in browser WebAssembly and Node.js without any external API keys or usage limits).
+
+### B. Deterministic Indian UPI & BBPS Receipt Parser (`src/lib/receipt-ocr.ts`)
+
+- Pre-process receipt screenshots (contrast normalization & grayscale scaling) for crisp text extraction across dark-mode and light-mode screenshots.
+- Built-in rule-based parser specifically tuned for **PhonePe, Google Pay, Paytm, Navi, BBPS, and IDFC FIRST Bank** receipts:
+  - **Payment Status (`transactionStatus`)**: Detects `"SUCCESS"` (`Transaction Successful`, `Payment Successful`, `Paid`, `Completed`, `Bill Paid`), `"PENDING"` (`Processing`, `Pending`), or `"FAILED"` (`Failed`, `Declined`, `Rejected`).
+  - **Smart Bill Amount vs. Convenience Fee (`billAmount`, `totalPaidAmount`, `convenienceFee`)**:
+    - Parses itemized breakdowns on PhonePe/BBPS receipts (e.g., if Total Paid is `₹6,748` and Convenience Fee is `₹3`, extracts `billAmount = 6745` and `totalPaidAmount = 6748`).
+    - Handles OCR quirks where the `₹` symbol is read as `Rs`, `INR`, `7`, or `2` before formatted numbers.
+  - **Date & Time Extraction (`paymentDate`, `paymentTime`)**:
+    - Parses all Indian receipt date/time formats (`18 Oct 2026, 02:15 PM`, `08-10-2026 at 12:45 pm`, `18/10/2026`, `Oct 10, 2026`) into normalized `YYYY-MM-DD` and `hh:mm AM/PM`.
+  - **Loan ID & UTR Extraction (`loanId`, `utrNumber`, `paymentApp`)**:
+    - Extracts Loan Account Numbers (e.g. `183627736`), 12-digit UPI UTR / Reference IDs, and identifies the payment app (`PhonePe`, `Google Pay`, `Paytm`, `Navi`, `BBPS`, `IDFC FIRST Bank`).
+
+---
+
+## 2. Live Upload Scanning & Auto-Fill (`src/routes/_authenticated/index.tsx`)
+
+- **Instant Browser OCR on File Selection**:
+  - As soon as a receipt image is chosen or dropped on the Payment Entry form, run the free `tesseract.js` scanner directly in the browser with a progress indicator.
+- **Auto-Fill & Smart Date Classification**:
+  - Automatically fills empty form fields (`Amount`, `Loan ID`, `Time`, `Date`).
+  - If the receipt's `paymentDate` is earlier than today (`todayISO()`), automatically switches Entry Type to **"Previous Paid File"** and sets the Original Payment Date to the receipt date.
+- **Live Match Status Panel**:
+  - Shows a clean comparison table (`tabular-nums` monospace figures, 1px hairline borders) comparing **Scanned Receipt** vs **Entered Form Values**:
+    - **Payment Status**: Confirmed Paid (`SUCCESS`) vs `FAILED / PENDING` warning.
+    - **Amount Match**: Exact Match vs Mismatch (with a 1-click **"Apply ₹X from Receipt"** button, showing convenience fee details if detected).
+    - **Date & Time Match**: Exact Match vs Mismatch (with a 1-click **"Apply Receipt Date/Time"** button).
+    - **Loan ID Check**: Confirms if the Loan ID on the receipt matches the entered Loan ID.
+- **Automatic Sheet Audit Trail**:
+  - When saving the entry to Google Sheets (`saveCollection`), automatically writes the OCR verification summary into **Aman's Remarks (Column S)** so verified entries are marked immediately.
+
+---
+
+## 3. Existing Sheet Rows OCR Audit & Server Proxy (`src/lib/receipt-ocr.functions.ts`, `conflicts.tsx`, `report.tsx`)
+
+- **Google Drive Image Fetch Helper**:
+  - Create a lightweight server function (`fetchDriveReceiptImage`) that downloads the receipt image from Google Drive (`https://drive.google.com/uc?export=download&id={fileId}` or `https://lh3.googleusercontent.com/d/{fileId}=w1200`) and returns base64 data or runs `tesseract.js` server-side—avoiding browser CORS restrictions while staying 100% free.
+- **1-Click "Scan Receipt (Free OCR)" on Existing Rows**:
+  - In **Conflicts** (`src/routes/_authenticated/conflicts.tsx`) and **Reports** (`src/routes/_authenticated/report.tsx`), add a **"Scan Receipt (OCR)"** button on rows with attached receipts.
+  - Compares the scanned receipt against the Google Sheet row (`Amount`, `Payment Date`, `Time`, `Loan ID`) and provides 1-click buttons to:
+    1. **Write Verification to Aman's Remarks (Column S)**.
+    2. **Auto-Correct Sheet Amount / Date & Log in Aman's Remarks**.
+- **MCP Tool (`src/lib/mcp/tools/scan-receipt-ocr.ts`)**:
+  - Expose `scan_receipt_ocr` on `/mcp` using the same free `tesseract.js` engine so MCP clients can scan any row's receipt for free.
+
+---
+
+## 4. Verification Plan
+
+1. **Lint & TypeScript**: Run `lint_applet` to verify zero errors.
+2. **Build Verification**: Run `compile_applet` to ensure clean client and server builds.
+3. **End-to-End Test**:
+   - Test scanning a real Google Drive receipt from the existing `Collections` sheet using the free OCR engine and verify extracted Amount, Date, Time, and Loan ID.
