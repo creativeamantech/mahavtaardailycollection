@@ -27,6 +27,7 @@ import {
   getBankPortalSpreadsheetConfig,
   setBankPortalSpreadsheetId,
   createDedicatedBankPortalSpreadsheet,
+  ensureDedicatedBankPortalSpreadsheet,
 } from "./bank-portal-sheets.server";
 
 const TAB_SESSIONS = PORTAL_TABS.SESSIONS;
@@ -87,8 +88,11 @@ export function isBatchWindowActive(timeStr: string): boolean {
 export async function initPortalStore() {
   if (isInitialized) return;
 
-  // Initialize sheets if needed
+  // Ensure a real, connected Bank Portal spreadsheet exists before creating tabs.
   try {
+    await ensureDedicatedBankPortalSpreadsheet();
+
+    // Initialize sheets if needed
     await portalEnsureSheet(TAB_SESSIONS, [
       "ID",
       "Executive",
