@@ -60,7 +60,8 @@ const receiptSchema = z.object({
   base64: z.string().min(1).max(9_000_000),
 });
 
-export const uploadReceiptImage = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const uploadReceiptImage = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) => receiptSchema.parse(d))
   .handler(async ({ data }) => {
     const { driveUpload } = await import("./mahavtaar.server");
@@ -73,7 +74,8 @@ export const uploadReceiptImage = createServerFn({ method: "POST" }).middleware(
     return { ok: true as const, link };
   });
 
-export const saveCollection = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const saveCollection = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend } = await import("./mahavtaar.server");
@@ -134,7 +136,8 @@ export const saveCollection = createServerFn({ method: "POST" }).middleware([req
 
 // Marks conflicting Collections rows with a red background so the conflict is
 // visible directly in the source sheet. Cell values are never modified.
-export const markConflictRows = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const markConflictRows = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z.object({ rows: z.array(z.number().int().min(2).max(1000000)).min(1).max(50) }).parse(d),
   )
@@ -161,7 +164,8 @@ export const markConflictRows = createServerFn({ method: "POST" }).middleware([r
 
 // Marks Already Paid Collections rows with a soft red background in Google Sheets
 // so they are visually highlighted in the source sheet.
-export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -326,7 +330,9 @@ export async function readCollections() {
   }
 }
 
-export const getCollections = createServerFn({ method: "GET" }).middleware([requireAppAuth]).handler(() => readCollections());
+export const getCollections = createServerFn({ method: "GET" })
+  .middleware([requireAppAuth])
+  .handler(() => readCollections());
 
 const updateCollectionRowSchema = z.object({
   row: z.number().int().min(2),
@@ -344,7 +350,8 @@ const updateCollectionRowSchema = z.object({
   amansRemarks: z.string().optional(),
 });
 
-export const updateCollectionRow = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const updateCollectionRow = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .validator((d: unknown) => updateCollectionRowSchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
@@ -378,7 +385,8 @@ export const updateCollectionRow = createServerFn({ method: "POST" }).middleware
     return { ok: true as const };
   });
 
-export const updateAmansRemarks = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const updateAmansRemarks = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .validator((d: unknown) =>
     z.object({ row: z.number().int().min(2), remarks: z.string() }).parse(d),
   )
@@ -389,7 +397,8 @@ export const updateAmansRemarks = createServerFn({ method: "POST" }).middleware(
     return { ok: true as const, row: data.row, remarks: data.remarks };
   });
 
-export const updateCollectionAmount = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const updateCollectionAmount = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .validator((d: unknown) =>
     z.object({ row: z.number().int().min(2), amount: z.number().positive() }).parse(d),
   )
@@ -400,7 +409,8 @@ export const updateCollectionAmount = createServerFn({ method: "POST" }).middlew
     return { ok: true as const, row: data.row, amount: data.amount };
   });
 
-export const deleteCollectionRow = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const deleteCollectionRow = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
   .handler(async ({ data }) => {
     const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
@@ -427,7 +437,8 @@ export const deleteCollectionRow = createServerFn({ method: "POST" }).middleware
     return { ok: true as const };
   });
 
-export const markConflictAsValid = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const markConflictAsValid = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .validator((d: unknown) =>
     z
       .object({
@@ -465,7 +476,8 @@ export const markConflictAsValid = createServerFn({ method: "POST" }).middleware
     return { ok: true as const };
   });
 
-export const markConflictGroupAsValid = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const markConflictGroupAsValid = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .validator((d: unknown) =>
     z
       .object({
@@ -504,7 +516,8 @@ export const markConflictGroupAsValid = createServerFn({ method: "POST" }).middl
     return { ok: true as const };
   });
 
-export const revertConflictValidation = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const revertConflictValidation = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
   .handler(async ({ data }) => {
     const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
@@ -535,7 +548,8 @@ export const revertConflictValidation = createServerFn({ method: "POST" }).middl
     return { ok: true as const };
   });
 
-export const savePending = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const savePending = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) => pendingSchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend, driveUpload } = await import("./mahavtaar.server");
@@ -584,9 +598,12 @@ export async function readPending() {
   }
 }
 
-export const getPending = createServerFn({ method: "GET" }).middleware([requireAppAuth]).handler(() => readPending());
+export const getPending = createServerFn({ method: "GET" })
+  .middleware([requireAppAuth])
+  .handler(() => readPending());
 
-export const markPendingDone = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const markPendingDone = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");

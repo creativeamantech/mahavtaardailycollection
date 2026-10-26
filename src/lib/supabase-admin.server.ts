@@ -7,10 +7,8 @@ let cached: SupabaseClient | null = null;
 // bundle. Ordinary reads should not use it.
 export function createAdminClient(): SupabaseClient {
   if (cached) return cached;
-  cached = createClient(
-    process.env["SUPABASE_URL"]!,
-    process.env["SUPABASE_SERVICE_ROLE_KEY"]!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  cached = createClient(process.env["SUPABASE_URL"]!, process.env["SUPABASE_SERVICE_ROLE_KEY"]!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   return cached;
 }

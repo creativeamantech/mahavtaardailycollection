@@ -35,11 +35,14 @@ function checkAdminPassword(password: string | undefined): boolean {
   return checkSettingsPassword(password);
 }
 
-export const getLivePortalStatus = createServerFn({ method: "GET" }).middleware([requireAppAuth]).handler(async () => {
-  return computeLivePortalStatus();
-});
+export const getLivePortalStatus = createServerFn({ method: "GET" })
+  .middleware([requireAppAuth])
+  .handler(async () => {
+    return computeLivePortalStatus();
+  });
 
-export const startPortalSession = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const startPortalSession = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -69,7 +72,8 @@ export const startPortalSession = createServerFn({ method: "POST" }).middleware(
     return res;
   });
 
-export const endPortalSession = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const endPortalSession = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -91,7 +95,8 @@ export const endPortalSession = createServerFn({ method: "POST" }).middleware([r
     return res;
   });
 
-export const recoverPortalSession = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const recoverPortalSession = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -107,7 +112,8 @@ export const recoverPortalSession = createServerFn({ method: "POST" }).middlewar
     return await recoverAbandonedSession(data.adminActor);
   });
 
-export const submitPortalQuery = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const submitPortalQuery = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -131,7 +137,8 @@ export const submitPortalQuery = createServerFn({ method: "POST" }).middleware([
     });
   });
 
-export const escalateQuery = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const escalateQuery = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -155,7 +162,8 @@ export const escalateQuery = createServerFn({ method: "POST" }).middleware([requ
     return res;
   });
 
-export const verifyComplaintAction = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const verifyComplaintAction = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -183,7 +191,8 @@ export const verifyComplaintAction = createServerFn({ method: "POST" }).middlewa
     return res;
   });
 
-export const issueWarningAction = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const issueWarningAction = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -211,7 +220,8 @@ export const issueWarningAction = createServerFn({ method: "POST" }).middleware(
     return res;
   });
 
-export const imposeBanAction = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const imposeBanAction = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -239,7 +249,8 @@ export const imposeBanAction = createServerFn({ method: "POST" }).middleware([re
     return res;
   });
 
-export const revokeBanAction = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const revokeBanAction = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -265,11 +276,14 @@ export const revokeBanAction = createServerFn({ method: "POST" }).middleware([re
     return res;
   });
 
-export const getPortalReports = createServerFn({ method: "GET" }).middleware([requireAppAuth]).handler(async () => {
-  return await getPortalReportsData();
-});
+export const getPortalReports = createServerFn({ method: "GET" })
+  .middleware([requireAppAuth])
+  .handler(async () => {
+    return await getPortalReportsData();
+  });
 
-export const savePortalSchedules = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const savePortalSchedules = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -299,7 +313,8 @@ export const savePortalSchedules = createServerFn({ method: "POST" }).middleware
     return await saveSchedulesOnServer(data.schedules as ExecutiveSchedule[], data.adminActor);
   });
 
-export const uploadPortalEvidence = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const uploadPortalEvidence = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -317,11 +332,14 @@ export const uploadPortalEvidence = createServerFn({ method: "POST" }).middlewar
     return { ok: true, link };
   });
 
-export const getBankPortalSheetConfig = createServerFn({ method: "GET" }).middleware([requireAppAuth]).handler(async () => {
-  return await getBankPortalSpreadsheetDetails();
-});
+export const getBankPortalSheetConfig = createServerFn({ method: "GET" })
+  .middleware([requireAppAuth])
+  .handler(async () => {
+    return await getBankPortalSpreadsheetDetails();
+  });
 
-export const updateBankPortalSheetConfig = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const updateBankPortalSheetConfig = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -345,7 +363,8 @@ export const updateBankPortalSheetConfig = createServerFn({ method: "POST" }).mi
     return res;
   });
 
-export const createDedicatedBankPortalSheet = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+export const createDedicatedBankPortalSheet = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
   .inputValidator((d: unknown) =>
     z
       .object({

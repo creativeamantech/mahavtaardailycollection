@@ -21,11 +21,17 @@ import {
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { ALL_CATEGORIES, uniqueCategories } from "@/components/AllocationFilters";
 import { getCollections } from "@/lib/mahavtaar.functions";
+import {
+  getApprovedEmails,
+  addApprovedEmailAction,
+  removeApprovedEmailAction,
+} from "@/lib/auth-allowlist.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -33,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Mail, Plus, RefreshCw, Search, Trash2, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -120,9 +127,91 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
   const [image, setImage] = useState<{ name: string; mimeType: string; base64: string } | null>(
     null,
   );
-  const [saving, setSaving] = useState(false);
-
   const activeNotifications = notifications.filter((n) => n.status.toLowerCase() !== "removed");
+
+  const fetchApprovedEmails = useServerFn(getApprovedEmails);
+  const addApprovedEmailFn = useServerFn(addApprovedEmailAction);
+  const removeApprovedEmailFn = useServerFn(removeApprovedEmailAction);
+
+  const {
+    data: approvedEmailsList = [],
+    refetch: refetchApprovedEmails,
+    isLoading: loadingApprovedEmails,
+  } = useQuery({
+    queryKey: ["approvedEmails"],
+    queryFn: async () => {
+      const res = await fetchApprovedEmails({
+        data: { password: getStoredSettingsPassword() },
+      });
+      return res.emails ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const [newEmail, setNewEmail] = useState("");
+  const [addingEmail, setAddingEmail] = useState(false);
+  const [removingEmail, setRemovingEmail] = useState<string | null>(null);
+  const [emailSearchTerm, setEmailSearchTerm] = useState("");
+
+  const filteredApprovedEmails = useMemo(() => {
+    if (!emailSearchTerm.trim()) return approvedEmailsList;
+    const term = emailSearchTerm.toLowerCase();
+    return approvedEmailsList.filter((item) => item.email.toLowerCase().includes(term));
+  }, [approvedEmailsList, emailSearchTerm]);
+
+  async function handleAddEmail(e: React.FormEvent) {
+    e.preventDefault();
+    const mail = newEmail.trim().toLowerCase();
+    if (!mail || !mail.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setAddingEmail(true);
+    try {
+      const res = await addApprovedEmailFn({
+        data: {
+          password: getStoredSettingsPassword(),
+          email: mail,
+        },
+      });
+      toast.success(res.message);
+      setNewEmail("");
+      await refetchApprovedEmails();
+    } catch (err) {
+      if (relockOnAuthFailure(err)) return;
+      toast.error(err instanceof Error ? err.message : "Failed to add approved email");
+    } finally {
+      setAddingEmail(false);
+    }
+  }
+
+  async function handleRemoveEmail(emailToRemove: string) {
+    if (
+      !window.confirm(
+        `Are you sure you want to remove "${emailToRemove}" from the approved sign-up list? This email will no longer be eligible to create an account.`,
+      )
+    ) {
+      return;
+    }
+
+    setRemovingEmail(emailToRemove);
+    try {
+      const res = await removeApprovedEmailFn({
+        data: {
+          password: getStoredSettingsPassword(),
+          email: emailToRemove,
+        },
+      });
+      toast.success(res.message);
+      await refetchApprovedEmails();
+    } catch (err) {
+      if (relockOnAuthFailure(err)) return;
+      toast.error(err instanceof Error ? err.message : "Failed to remove approved email");
+    } finally {
+      setRemovingEmail(null);
+    }
+  }
 
   async function handleSaveCategory(category: string) {
     const categoryToSave = category === ALL_CATEGORIES ? "" : category.trim();
@@ -131,7 +220,9 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
       old ? { ...(old as object), defaultCategory: categoryToSave } : old,
     );
     try {
-      await saveDefaultCat({ data: { password: getStoredSettingsPassword(), category: categoryToSave } });
+      await saveDefaultCat({
+        data: { password: getStoredSettingsPassword(), category: categoryToSave },
+      });
       toast.success(
         categoryToSave
           ? `Default allocation category saved: "${categoryToSave}"`
@@ -310,6 +401,136 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
         </div>
       </section>
 
+      {/* Approved Sign-up Emails Section */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-primary" />
+                Approved Sign-up Emails
+              </h2>
+              <Badge variant="secondary" className="text-xs font-semibold">
+                {approvedEmailsList.length} Approved
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Only emails listed here are allowed to register for an account on the sign-up page.
+              Protected by the Settings password.
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetchApprovedEmails()}
+            className="h-9 gap-1.5 text-xs"
+            disabled={loadingApprovedEmails}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingApprovedEmails ? "animate-spin" : ""}`} />
+            Refresh List
+          </Button>
+        </div>
+
+        {/* Add Email Form */}
+        <form
+          onSubmit={handleAddEmail}
+          className="space-y-3 rounded-xl border bg-card p-4 shadow-sm"
+        >
+          <Label className="text-sm font-semibold" htmlFor="new-approved-email">
+            Add New Approved Email
+          </Label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="new-approved-email"
+                type="email"
+                placeholder="colleague@example.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="h-11 pl-9 text-sm"
+                disabled={addingEmail}
+                required
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={addingEmail || !newEmail.trim()}
+              className="h-11 px-5 gap-1.5 shrink-0 text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              {addingEmail ? "Adding…" : "Add Email"}
+            </Button>
+          </div>
+        </form>
+
+        {/* Search & List of Approved Emails */}
+        <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3">
+            <div className="text-sm font-semibold">Approved Email Allowlist</div>
+            {approvedEmailsList.length > 3 && (
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Filter emails…"
+                  value={emailSearchTerm}
+                  onChange={(e) => setEmailSearchTerm(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
+            )}
+          </div>
+
+          {loadingApprovedEmails ? (
+            <p className="py-6 text-center text-sm text-muted-foreground animate-pulse">
+              Loading approved emails…
+            </p>
+          ) : filteredApprovedEmails.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              {emailSearchTerm
+                ? `No approved emails match "${emailSearchTerm}".`
+                : "No approved emails found. Add an email above to authorize account creation."}
+            </div>
+          ) : (
+            <div className="divide-y rounded-lg border">
+              {filteredApprovedEmails.map((item) => (
+                <div
+                  key={item.email}
+                  className="flex items-center justify-between gap-3 p-3 text-sm hover:bg-muted/30 transition-colors"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="font-mono text-sm font-medium truncate text-foreground">
+                      {item.email}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Added:{" "}
+                      {new Date(item.createdAt).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={removingEmail === item.email}
+                    onClick={() => void handleRemoveEmail(item.email)}
+                    className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0 gap-1"
+                    title={`Remove ${item.email}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>{removingEmail === item.email ? "Removing…" : "Remove"}</span>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Notification Management</h2>
         <div className="space-y-3 rounded-lg border p-3">
@@ -393,7 +614,9 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
                 className="shrink-0"
                 onClick={async () => {
                   try {
-                    await removeNotif({ data: { password: getStoredSettingsPassword(), id: n.id } });
+                    await removeNotif({
+                      data: { password: getStoredSettingsPassword(), id: n.id },
+                    });
                     await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
                     toast.success("Notification removed");
                   } catch (e) {

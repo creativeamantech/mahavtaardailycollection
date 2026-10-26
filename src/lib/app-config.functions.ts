@@ -118,9 +118,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
 
 export const saveDefaultCategory = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z
-      .object({ password: z.string().max(200), category: z.string().trim().max(80) })
-      .parse(d),
+    z.object({ password: z.string().max(200), category: z.string().trim().max(80) }).parse(d),
   )
   .handler(async ({ data }) => {
     requireSettingsPassword(data.password);

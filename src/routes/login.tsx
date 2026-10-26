@@ -56,7 +56,11 @@ function Login() {
           password: pass,
         });
         if (err) {
-          setError(err.message === "Invalid login credentials" ? "Incorrect email or password." : err.message);
+          setError(
+            err.message === "Invalid login credentials"
+              ? "Incorrect email or password."
+              : err.message,
+          );
           setBusy(false);
           return;
         }

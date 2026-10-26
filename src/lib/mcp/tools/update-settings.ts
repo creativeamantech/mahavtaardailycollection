@@ -8,10 +8,7 @@ export default defineTool({
   description:
     "Updates application feature visibility toggles (flags) or the default allocation category in the AppSettings sheet tab.",
   inputSchema: {
-    password: z
-      .string()
-      .max(200)
-      .describe("App settings password (required to change settings)."),
+    password: z.string().max(200).describe("App settings password (required to change settings)."),
     flags: z
       .record(z.string(), z.boolean())
       .optional()

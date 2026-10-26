@@ -1,9 +1,41 @@
 // Server-only helpers for Google Sheets + Drive via the Lovable connector gateway
 // with graceful fallback to public Google Sheets export and local overlay when API credentials are not set.
+// Section-aware data fetching utility: routes requests to Daily Collection vs. Bank Portal Google Sheet IDs
+// and scopes all caches and local overlays by spreadsheet ID to strictly prevent data overlap.
 
-export const SPREADSHEET_ID = "1AXLakW3subO9H-O9iWIpXJyjT4JLXRTG5uiL3dWsY5g";
+import {
+  DAILY_COLLECTION_SPREADSHEET_ID,
+  getBankPortalSpreadsheetId,
+  extractSpreadsheetId,
+} from "./bank-portal-config.server";
+
+export type AppSection = "daily_collection" | "bank_portal";
+
+export { DAILY_COLLECTION_SPREADSHEET_ID };
+export const SPREADSHEET_ID = DAILY_COLLECTION_SPREADSHEET_ID;
 export const DRIVE_FOLDER_ID = "1iBlXqe09aG5kA_hHf3WtFILnA1RibCf7";
 const GATEWAY = "https://connector-gateway.lovable.dev";
+
+// Resolves target Google Spreadsheet ID based on the app section or custom ID/URL
+export function resolveSpreadsheetId(sectionOrId?: AppSection | string, range?: string): string {
+  if (sectionOrId === "daily_collection") {
+    return DAILY_COLLECTION_SPREADSHEET_ID;
+  }
+  if (sectionOrId === "bank_portal") {
+    return getBankPortalSpreadsheetId();
+  }
+  if (sectionOrId && sectionOrId !== "daily_collection" && sectionOrId !== "bank_portal") {
+    return extractSpreadsheetId(sectionOrId);
+  }
+  // Auto-detect section based on range / sheet title if section was omitted:
+  if (
+    range &&
+    (range.startsWith("Portal_") || range.includes("!Portal_") || range.startsWith("'Portal_"))
+  ) {
+    return getBankPortalSpreadsheetId();
+  }
+  return DAILY_COLLECTION_SPREADSHEET_ID;
+}
 
 function hasCredentials(connectorKey: string): boolean {
   return Boolean(process.env["LOVABLE_API_KEY"] && process.env[connectorKey]);
@@ -30,17 +62,27 @@ async function ok(res: Response, label: string) {
   return res.json();
 }
 
-// --- read cache + retry to stay under the Sheets read-requests-per-minute quota ---
+// --- read cache + retry scoped by spreadsheet ID to prevent cross-module overlap ---
 const CACHE_TTL_MS = 20_000;
+// Key: `${spreadsheetId}::${range}`
 const readCache = new Map<string, { at: number; rows: string[][] }>();
 const inFlight = new Map<string, Promise<string[][]>>();
 
-// In-memory fallback overlay when direct gateway writes/credentials are unavailable
-const localAppended = new Map<string, string[][]>();
-const localUpdated = new Map<string, Map<string, string>>();
+// In-memory fallback overlay scoped by spreadsheetId -> sheetTitle -> rows
+const localAppended = new Map<string, Map<string, string[][]>>();
+const localUpdated = new Map<string, Map<string, Map<string, string>>>();
 
-export function invalidateSheetsCache() {
-  readCache.clear();
+export function invalidateSheetsCache(sectionOrId?: AppSection | string) {
+  if (!sectionOrId) {
+    readCache.clear();
+    return;
+  }
+  const targetId = resolveSpreadsheetId(sectionOrId);
+  for (const key of Array.from(readCache.keys())) {
+    if (key.startsWith(`${targetId}::`)) {
+      readCache.delete(key);
+    }
+  }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -119,9 +161,12 @@ function parseRange(range: string) {
   return { sheetTitle, startCol, endCol, startRow, endRow };
 }
 
-async function fetchFromPublicSheet(range: string): Promise<string[][]> {
+async function fetchFromPublicSheet(
+  range: string,
+  spreadsheetId: string = DAILY_COLLECTION_SPREADSHEET_ID,
+): Promise<string[][]> {
   const { sheetTitle, startCol, endCol, startRow, endRow } = parseRange(range);
-  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetTitle)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetTitle)}`;
 
   let baseRows: string[][] = [];
   try {
@@ -131,16 +176,16 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
       baseRows = parseCsv(text);
     }
   } catch (err) {
-    console.warn(`Public Google Sheets fetch failed for ${sheetTitle}:`, err);
+    console.warn(`Public Google Sheets fetch failed for ${sheetTitle} on ${spreadsheetId}:`, err);
   }
 
   // Deep clone to apply local overlays
   const allRows: string[][] = baseRows.map((r) => [...r]);
 
-  // Apply any locally updated cells
-  const updates = localUpdated.get(sheetTitle);
-  if (updates) {
-    for (const [key, val] of updates.entries()) {
+  // Apply any locally updated cells for this specific spreadsheet
+  const sheetUpdates = localUpdated.get(spreadsheetId)?.get(sheetTitle);
+  if (sheetUpdates) {
+    for (const [key, val] of sheetUpdates.entries()) {
       const [rStr, cStr] = key.split(",");
       const rIdx = parseInt(rStr ?? "0", 10);
       const cIdx = parseInt(cStr ?? "0", 10);
@@ -151,10 +196,10 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
     }
   }
 
-  // Append any locally added rows
-  const appended = localAppended.get(sheetTitle);
-  if (appended) {
-    for (const r of appended) {
+  // Append any locally added rows for this specific spreadsheet
+  const sheetAppended = localAppended.get(spreadsheetId)?.get(sheetTitle);
+  if (sheetAppended) {
+    for (const r of sheetAppended) {
       allRows.push([...r]);
     }
   }
@@ -174,13 +219,13 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
   });
 }
 
-async function fetchRange(range: string): Promise<string[][]> {
+async function fetchRange(range: string, spreadsheetId: string): Promise<string[][]> {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     let lastBody = "";
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const res = await fetch(
-          `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`,
+          `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}`,
           { headers: headers("GOOGLE_SHEETS_API_KEY") },
         );
         if (res.ok) {
@@ -199,92 +244,118 @@ async function fetchRange(range: string): Promise<string[][]> {
       }
     }
     console.warn(
-      `Gateway fetch failed for ${range} (${lastBody}). Falling back to public sheet reader.`,
+      `Gateway fetch failed for ${range} on ${spreadsheetId} (${lastBody}). Falling back to public sheet reader.`,
     );
   }
 
-  return fetchFromPublicSheet(range);
+  return fetchFromPublicSheet(range, spreadsheetId);
 }
 
-export async function sheetsGet(range: string): Promise<string[][]> {
-  const cached = readCache.get(range);
+export async function sheetsGet(
+  range: string,
+  sectionOrId?: AppSection | string,
+): Promise<string[][]> {
+  const spreadsheetId = resolveSpreadsheetId(sectionOrId, range);
+  const cacheKey = `${spreadsheetId}::${range}`;
+
+  const cached = readCache.get(cacheKey);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.rows;
 
-  const pending = inFlight.get(range);
+  const pending = inFlight.get(cacheKey);
   if (pending) return pending;
 
-  const p = fetchRange(range)
+  const p = fetchRange(range, spreadsheetId)
     .then((rows) => {
-      readCache.set(range, { at: Date.now(), rows });
+      readCache.set(cacheKey, { at: Date.now(), rows });
       return rows;
     })
-    .finally(() => inFlight.delete(range));
-  inFlight.set(range, p);
+    .finally(() => inFlight.delete(cacheKey));
+  inFlight.set(cacheKey, p);
   return p;
 }
 
-export async function sheetsAppend(range: string, values: (string | number)[][]) {
+export async function sheetsAppend(
+  range: string,
+  values: (string | number)[][],
+  sectionOrId?: AppSection | string,
+) {
+  const spreadsheetId = resolveSpreadsheetId(sectionOrId, range);
+
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
       const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
         {
           method: "POST",
           headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
           body: JSON.stringify({ values }),
         },
       );
-      invalidateSheetsCache();
+      invalidateSheetsCache(spreadsheetId);
       return ok(res, "Sheets append");
     } catch (err) {
-      console.warn("Gateway append failed, using local overlay:", err);
+      console.warn(`Gateway append failed for ${spreadsheetId}, using local overlay:`, err);
     }
   }
 
   const { sheetTitle } = parseRange(range);
-  if (!localAppended.has(sheetTitle)) {
-    localAppended.set(sheetTitle, []);
+  if (!localAppended.has(spreadsheetId)) {
+    localAppended.set(spreadsheetId, new Map());
+  }
+  const appMap = localAppended.get(spreadsheetId)!;
+  if (!appMap.has(sheetTitle)) {
+    appMap.set(sheetTitle, []);
   }
   const strRows = values.map((r) => r.map((c) => (c === null || c === undefined ? "" : String(c))));
-  localAppended.get(sheetTitle)!.push(...strRows);
+  appMap.get(sheetTitle)!.push(...strRows);
 
   // Compute calculated row number
-  let baseCount = 37;
+  let baseCount = 1;
   try {
-    const publicData = await fetchFromPublicSheet(`${sheetTitle}!A1:A`);
+    const publicData = await fetchFromPublicSheet(`${sheetTitle}!A1:A`, spreadsheetId);
     baseCount = publicData.length;
   } catch {
     // fallback base count
   }
-  const rowNum = baseCount + (localAppended.get(sheetTitle)?.length ?? 1);
-  invalidateSheetsCache();
+  const rowNum = baseCount + (appMap.get(sheetTitle)?.length ?? 1);
+  invalidateSheetsCache(spreadsheetId);
 
-  return { updates: { updatedRange: `${sheetTitle}!A${rowNum}:J${rowNum}` } };
+  return { updates: { updatedRange: `${sheetTitle}!A${rowNum}:K${rowNum}` } };
 }
 
-export async function sheetsUpdate(range: string, values: (string | number)[][]) {
+export async function sheetsUpdate(
+  range: string,
+  values: (string | number)[][],
+  sectionOrId?: AppSection | string,
+) {
+  const spreadsheetId = resolveSpreadsheetId(sectionOrId, range);
+
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
       const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
+        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`,
         {
           method: "PUT",
           headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
           body: JSON.stringify({ values }),
         },
       );
-      invalidateSheetsCache();
+      invalidateSheetsCache(spreadsheetId);
       return ok(res, "Sheets update");
     } catch (err) {
-      console.warn("Gateway update failed, using local overlay:", err);
+      console.warn(`Gateway update failed for ${spreadsheetId}, using local overlay:`, err);
     }
   }
 
   const { sheetTitle, startRow, startCol } = parseRange(range);
-  if (!localUpdated.has(sheetTitle)) {
-    localUpdated.set(sheetTitle, new Map());
+  if (!localUpdated.has(spreadsheetId)) {
+    localUpdated.set(spreadsheetId, new Map());
   }
-  const updates = localUpdated.get(sheetTitle)!;
+  const updMap = localUpdated.get(spreadsheetId)!;
+  if (!updMap.has(sheetTitle)) {
+    updMap.set(sheetTitle, new Map());
+  }
+  const updates = updMap.get(sheetTitle)!;
   for (let r = 0; r < values.length; r++) {
     const rowValues = values[r] ?? [];
     for (let c = 0; c < rowValues.length; c++) {
@@ -294,39 +365,47 @@ export async function sheetsUpdate(range: string, values: (string | number)[][])
       updates.set(`${targetRowIdx},${targetColIdx}`, val);
     }
   }
-  invalidateSheetsCache();
+  invalidateSheetsCache(spreadsheetId);
   return { ok: true };
 }
 
-let sheetIdCache: Record<string, number> = {};
+const sheetIdCache = new Map<string, Record<string, number>>();
 
-export async function getSheetId(title: string): Promise<number> {
-  const cached = sheetIdCache[title];
-  if (typeof cached === "number") return cached;
+export async function getSheetId(
+  title: string,
+  sectionOrId?: AppSection | string,
+): Promise<number> {
+  const spreadsheetId = resolveSpreadsheetId(sectionOrId, title);
+
+  const cachedForSheet = sheetIdCache.get(spreadsheetId);
+  if (cachedForSheet && typeof cachedForSheet[title] === "number") {
+    return cachedForSheet[title]!;
+  }
 
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
       const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
+        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
         { headers: headers("GOOGLE_SHEETS_API_KEY") },
       );
       const json = (await ok(res, "Sheets metadata")) as {
         sheets?: { properties?: { sheetId?: number; title?: string } }[];
       };
-      sheetIdCache = {};
+      const newCache: Record<string, number> = {};
       for (const s of json.sheets ?? []) {
         const p = s.properties;
-        if (p && typeof p.sheetId === "number" && p.title) sheetIdCache[p.title] = p.sheetId;
+        if (p && typeof p.sheetId === "number" && p.title) newCache[p.title] = p.sheetId;
       }
-      const id = sheetIdCache[title];
+      sheetIdCache.set(spreadsheetId, newCache);
+      const id = newCache[title];
       if (typeof id === "number") return id;
     } catch (err) {
-      console.warn(`Failed to fetch sheet ID for ${title} via gateway:`, err);
+      console.warn(`Failed to fetch sheet ID for ${title} on ${spreadsheetId} via gateway:`, err);
     }
   }
 
   // Fallback fixed sheet IDs
-  const knownSheetIds: Record<string, number> = {
+  const knownDailySheetIds: Record<string, number> = {
     Collections: 0,
     Pending: 1,
     ECS_Special_Info: 2,
@@ -334,23 +413,38 @@ export async function getSheetId(title: string): Promise<number> {
     Notifications: 4,
     "Cashier Link Activity": 5,
   };
-  return knownSheetIds[title] ?? 0;
+  const knownPortalSheetIds: Record<string, number> = {
+    Portal_Sessions: 101,
+    Portal_Schedules: 102,
+    Portal_Complaints: 103,
+    Portal_Warnings: 104,
+    Portal_Bans: 105,
+    Portal_Audit: 106,
+  };
+
+  if (spreadsheetId === DAILY_COLLECTION_SPREADSHEET_ID) {
+    return knownDailySheetIds[title] ?? 0;
+  }
+  return knownPortalSheetIds[title] ?? 100;
 }
 
-export async function sheetsBatchUpdate(requests: unknown[]) {
+export async function sheetsBatchUpdate(requests: unknown[], sectionOrId?: AppSection | string) {
+  const spreadsheetId = resolveSpreadsheetId(sectionOrId);
+
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
       const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
+        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
         {
           method: "POST",
           headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
           body: JSON.stringify({ requests }),
         },
       );
+      invalidateSheetsCache(spreadsheetId);
       return ok(res, "Sheets batchUpdate");
     } catch (err) {
-      console.warn("Gateway batchUpdate failed:", err);
+      console.warn(`Gateway batchUpdate failed for ${spreadsheetId}:`, err);
     }
   }
 
@@ -397,17 +491,26 @@ export async function driveUpload(name: string, mimeType: string, base64: string
 }
 
 // Creates a tab (with optional header row) when it does not exist yet.
-export async function ensureSheet(title: string, header?: string[]) {
+export async function ensureSheet(
+  title: string,
+  header?: string[],
+  sectionOrId?: AppSection | string,
+) {
+  const spreadsheetId = resolveSpreadsheetId(sectionOrId, title);
   try {
-    return await getSheetId(title);
+    return await getSheetId(title, spreadsheetId);
   } catch {
     if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-      await sheetsBatchUpdate([{ addSheet: { properties: { title } } }]);
-      sheetIdCache = {};
+      await sheetsBatchUpdate([{ addSheet: { properties: { title } } }], spreadsheetId);
+      sheetIdCache.delete(spreadsheetId);
       if (header && header.length > 0) {
-        await sheetsUpdate(`${title}!A1:${String.fromCharCode(64 + header.length)}1`, [header]);
+        await sheetsUpdate(
+          `${title}!A1:${String.fromCharCode(64 + header.length)}1`,
+          [header],
+          spreadsheetId,
+        );
       }
-      return getSheetId(title);
+      return getSheetId(title, spreadsheetId);
     }
     return 0;
   }

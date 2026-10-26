@@ -14,9 +14,7 @@ export const requireAppAuth = createMiddleware({ type: "function" }).server(
       return next();
     }
 
-    const token = authHeader.toLowerCase().startsWith("bearer ")
-      ? authHeader.slice(7).trim()
-      : "";
+    const token = authHeader.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
     if (!token) {
       throw new Response("Unauthorized", { status: 401 });
     }
