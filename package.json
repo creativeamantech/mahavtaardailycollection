@@ -71,7 +71,9 @@
     "zod": "^4.6.7"
   },
   "overrides": {
-    "dompurify": "3.4.17"
+    "dompurify": "3.4.17",
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@modelcontextprotocol/server": "^2.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
