@@ -8,7 +8,7 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { FEATURES } from "@/lib/app-config.functions";
 import { useRouterState } from "@tanstack/react-router";
+import { authSupabase } from "@/lib/mcp/auth-client";
 
 function NotFoundComponent() {
   return (
@@ -167,6 +168,35 @@ function RootComponent() {
   );
 }
 
+function SignOutButton() {
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    let active = true;
+    authSupabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (active) setSignedIn(Boolean(data.session));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (!signedIn) return null;
+  return (
+    <button
+      type="button"
+      className="rounded-md border px-3 py-1 text-sm font-medium text-muted-foreground hover:bg-accent"
+      onClick={async () => {
+        await authSupabase.auth.signOut();
+        window.location.href = "/login";
+      }}
+    >
+      Sign out
+    </button>
+  );
+}
+
 function AppShell() {
   const { flags } = useAppConfig();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -177,7 +207,10 @@ function AppShell() {
       <div className="min-h-screen bg-background">
         <header className="border-b print:hidden">
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
-            <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
+              <SignOutButton />
+            </div>
             <nav className="mt-2 flex flex-wrap gap-2">
               {NAV.filter((n) => flags[n.key] !== false).map((n) => (
                 <Link
