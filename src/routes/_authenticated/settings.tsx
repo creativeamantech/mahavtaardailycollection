@@ -124,6 +124,7 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
 
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [text, setText] = useState("");
+  const [savingNotif, setSavingNotif] = useState(false);
   const [image, setImage] = useState<{ name: string; mimeType: string; base64: string } | null>(
     null,
   );
@@ -560,9 +561,9 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
           </div>
           <Button
             className="h-12 w-full text-base"
-            disabled={saving || text.trim() === ""}
+            disabled={savingNotif || text.trim() === ""}
             onClick={async () => {
-              setSaving(true);
+              setSavingNotif(true);
               try {
                 await addNotif({
                   data: {
@@ -579,11 +580,11 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
                 if (relockOnAuthFailure(e)) return;
                 toast.error(e instanceof Error ? e.message : "Could not save notification");
               } finally {
-                setSaving(false);
+                setSavingNotif(false);
               }
             }}
           >
-            {saving ? "Saving…" : "Save Notification"}
+            {savingNotif ? "Saving…" : "Save Notification"}
           </Button>
         </div>
 
