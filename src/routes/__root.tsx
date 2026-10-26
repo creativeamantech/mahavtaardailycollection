@@ -8,7 +8,7 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -16,7 +16,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { FEATURES } from "@/lib/app-config.functions";
 import { useRouterState } from "@tanstack/react-router";
-import { authSupabase } from "@/lib/mcp/auth-client";
 
 function NotFoundComponent() {
   return (
@@ -92,16 +91,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Mahavtaar Daily Collection" },
       {
         property: "og:description",
-        content:
-          "Record daily loan collections by executive with instant confirmation and printable receipts.",
+        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Mahavtaar Daily Collection" },
       {
         name: "twitter:description",
-        content:
-          "Record daily loan collections by executive with instant confirmation and printable receipts.",
+        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
       {
         property: "og:image",
@@ -114,12 +111,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a",
       },
     ],
-
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
@@ -168,35 +161,6 @@ function RootComponent() {
   );
 }
 
-function SignOutButton() {
-  const [signedIn, setSignedIn] = useState(false);
-  useEffect(() => {
-    let active = true;
-    authSupabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (active) setSignedIn(Boolean(data.session));
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
-  if (!signedIn) return null;
-  return (
-    <button
-      type="button"
-      className="rounded-md border px-3 py-1 text-sm font-medium text-muted-foreground hover:bg-accent"
-      onClick={async () => {
-        await authSupabase.auth.signOut();
-        window.location.href = "/login";
-      }}
-    >
-      Sign out
-    </button>
-  );
-}
-
 function AppShell() {
   const { flags } = useAppConfig();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -209,7 +173,6 @@ function AppShell() {
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
-              <SignOutButton />
             </div>
             <nav className="mt-2 flex flex-wrap gap-2">
               {NAV.filter((n) => flags[n.key] !== false).map((n) => (
