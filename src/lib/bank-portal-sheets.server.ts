@@ -68,7 +68,7 @@ export const portalEnsureSheet = (title: string, header?: string[]) =>
 
 export const invalidatePortalSheetsCache = () => invalidateSheetsCache("bank_portal");
 
-// Programmatically create a new Google Spreadsheet dedicated to Bank Portal if API credentials exist
+// Create and connect a real Google Spreadsheet. Never persist a fabricated ID.
 export async function createDedicatedBankPortalSpreadsheet(
   title: string = "Mahavtaar Bank Portal Usage & Accountability",
   adminActor: string = "Aman",
@@ -133,28 +133,63 @@ export async function createDedicatedBankPortalSpreadsheet(
     }
   }
 
-  // Fallback: Generate dedicated unique ID for this installation
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[-:T.Z]/g, "")
-    .slice(0, 14);
-  const dedicatedId = `1BankPortal_Dedicated_${timestamp}`;
+  throw new Error(
+    "Could not create the Bank Portal spreadsheet. Verify Lovable and Google Sheets API credentials, then retry.",
+  );
+}
 
-  persistBankPortalConfig({
-    spreadsheetId: dedicatedId,
-    spreadsheetTitle: title,
-    updatedAt: new Date().toISOString(),
-    updatedBy: adminActor,
-    isCustom: true,
-  });
+// Ensure the Bank Portal is connected to a real spreadsheet before any portal
+// reads/writes. A missing configured spreadsheet is recreated and reconnected.
+let ensureSpreadsheetPromise: Promise<void> | null = null;
 
-  invalidateSheetsCache("bank_portal");
+export async function ensureDedicatedBankPortalSpreadsheet(): Promise<void> {
+  if (ensureSpreadsheetPromise) return ensureSpreadsheetPromise;
 
-  return {
-    ok: true,
-    spreadsheetId: dedicatedId,
-    spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${dedicatedId}/edit`,
-    message:
-      "Dedicated Bank Portal Spreadsheet configuration initialized. You can also paste an existing Google Sheet URL anytime.",
-  };
+  ensureSpreadsheetPromise = (async () => {
+    if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+      throw new Error(
+        "Cannot verify or create the Bank Portal spreadsheet: Google Sheets API credentials are missing.",
+      );
+    }
+
+    const config = getBankPortalSpreadsheetConfig();
+    const placeholderIds = [
+      "1-BankPortal-Mahavtaar-Usage-Accountability-Dedicated",
+      "1BankPortal_Dedicated",
+    ];
+    const isPlaceholder =
+      !config.isCustom || placeholderIds.some((placeholder) => config.spreadsheetId.startsWith(placeholder));
+
+    if (isPlaceholder) {
+      await createDedicatedBankPortalSpreadsheet();
+      return;
+    }
+
+    const response = await fetch(
+      `${GATEWAY}/google_sheets/v4/spreadsheets/${config.spreadsheetId}`,
+      { headers: headers("GOOGLE_SHEETS_API_KEY") },
+    );
+
+    if (response.ok) return;
+
+    if (response.status === 404) {
+      await createDedicatedBankPortalSpreadsheet(
+        "Mahavtaar Bank Portal Usage & Accountability",
+        "System Auto-Recovery",
+      );
+      return;
+    }
+
+    const details = await response.text().catch(() => "");
+    throw new Error(
+      `Could not verify the configured Bank Portal spreadsheet (${response.status}). ${details}`,
+    );
+  })();
+
+  try {
+    await ensureSpreadsheetPromise;
+  } catch (error) {
+    ensureSpreadsheetPromise = null;
+    throw error;
+  }
 }
