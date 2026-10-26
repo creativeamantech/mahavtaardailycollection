@@ -1007,24 +1007,53 @@ export async function getPortalReportsData() {
 
 export async function saveSchedulesOnServer(newSchedules: ExecutiveSchedule[], adminActor: string) {
   await initPortalStore();
-  inMemorySchedules = newSchedules;
+
+  // Always persist a complete, validated schedule set. Code defaults remain the
+  // fallback if a schedule is missing or malformed in the admin submission.
+  const normalizedSchedules: ExecutiveSchedule[] = DEFAULT_SCHEDULES.map((fallback) => {
+    const submitted = newSchedules.find((schedule) => schedule?.executive === fallback.executive);
+    const submittedSlots = Array.isArray(submitted?.slots) ? submitted.slots : [];
+    const slotsAreValid =
+      submittedSlots.length > 0 &&
+      submittedSlots.every(
+        (slot) =>
+          slot &&
+          /^\\d{2}:\\d{2}$/.test(slot.start) &&
+          /^\\d{2}:\\d{2}$/.test(slot.end) &&
+          slot.start < slot.end &&
+          typeof slot.label === "string",
+      );
+
+    return {
+      executive: fallback.executive,
+      isAvailable: typeof submitted?.isAvailable === "boolean" ? submitted.isAvailable : fallback.isAvailable,
+      notes: typeof submitted?.notes === "string" ? submitted.notes : fallback.notes ?? "",
+      slots: slotsAreValid ? submittedSlots : fallback.slots.map((slot) => ({ ...slot })),
+    };
+  });
+
+  // Do not report success or replace the active in-memory schedule until the
+  // Google Sheets write succeeds; otherwise a restart could silently lose edits.
+  const rows = normalizedSchedules.map((schedule) => [
+    schedule.executive,
+    JSON.stringify(schedule.slots),
+    schedule.isAvailable ? "TRUE" : "FALSE",
+    schedule.notes ?? "",
+  ]);
 
   try {
-    const rows = newSchedules.map((s) => [
-      s.executive,
-      JSON.stringify(s.slots),
-      s.isAvailable ? "TRUE" : "FALSE",
-      s.notes ?? "",
-    ]);
     await portalSheetsUpdate(`${TAB_SCHEDULES}!A2:D${rows.length + 1}`, rows);
   } catch (err) {
-    console.warn("Failed to save schedules to Google Sheet:", err);
+    console.error("Failed to persist executive schedules to Google Sheet:", err);
+    throw new Error("Schedules could not be saved to Google Sheets. Your previous schedule is still active; please try again.");
   }
+
+  inMemorySchedules = normalizedSchedules;
 
   await recordAuditLog({
     action: "SCHEDULES_UPDATED",
     actor: adminActor,
-    details: `Updated portal schedules for ${newSchedules.length} executives.`,
+    details: `Updated portal schedules for ${normalizedSchedules.length} executives.`,
   });
 
   return { ok: true };
