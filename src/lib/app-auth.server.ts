@@ -26,6 +26,6 @@ export const requireAppAuth = createMiddleware({ type: "function" }).server(
     if (error || !data.user) {
       throw new Response("Unauthorized", { status: 401 });
     }
-    return next({ context: { userId: data.user.id } });
+    return next();
   },
 );
