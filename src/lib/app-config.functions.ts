@@ -84,7 +84,7 @@ export const verifySettingsPassword = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ password: z.string().max(200) }).parse(d))
   .handler(async ({ data }) => {
     // Stored as a server-side secret — never in source code.
-    const expected = (process.env.SETTINGS_PASSWORD ?? "").trim();
+    const expected = (process.env["SETTINGS_PASSWORD"] ?? "").trim();
     if (expected === "") {
       console.error("SETTINGS_PASSWORD secret is not configured.");
       return { ok: false };
