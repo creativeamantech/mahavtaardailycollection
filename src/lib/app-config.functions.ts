@@ -83,7 +83,12 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
 export const verifySettingsPassword = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ password: z.string().max(200) }).parse(d))
   .handler(async ({ data }) => {
-    const expected = "Mahadev@Babaji@0003";
+    // Stored as a server-side secret — never in source code.
+    const expected = (process.env.SETTINGS_PASSWORD ?? "").trim();
+    if (expected === "") {
+      console.error("SETTINGS_PASSWORD secret is not configured.");
+      return { ok: false };
+    }
     const input = data.password;
     let diff = input.length === expected.length ? 0 : 1;
     for (let i = 0; i < Math.max(input.length, expected.length); i++) {
@@ -148,7 +153,14 @@ export const addNotification = createServerFn({ method: "POST" })
         image: z
           .object({
             name: z.string().trim().min(1).max(120),
-            mimeType: z.string().trim().min(1).max(80),
+            mimeType: z
+              .string()
+              .trim()
+              .min(1)
+              .max(80)
+              .refine((m) => m.toLowerCase().startsWith("image/"), {
+                message: "Only image files can be attached to notifications.",
+              }),
             base64: z.string().min(1).max(9_000_000),
           })
           .optional(),
