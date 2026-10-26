@@ -107,13 +107,15 @@ export default defineTool({
           }),
         },
       ],
-      structuredContent: {
-        success: true,
-        link,
-        loanNumber,
-        attachedToRow,
-        ocr,
-      },
+      structuredContent: JSON.parse(
+        JSON.stringify({
+          success: true,
+          link,
+          loanNumber,
+          attachedToRow,
+          ocr,
+        }),
+      ),
     };
   },
 });

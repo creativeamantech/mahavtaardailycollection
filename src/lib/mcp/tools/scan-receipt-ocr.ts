@@ -46,7 +46,7 @@ export default defineTool({
             text: JSON.stringify(result, null, 2),
           },
         ],
-        structuredContent: result as Record<string, unknown>,
+        structuredContent: JSON.parse(JSON.stringify(result)),
       };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.stack || err.message : String(err);

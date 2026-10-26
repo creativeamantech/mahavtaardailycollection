@@ -65,7 +65,7 @@ type TabKey =
 
 function BankPortalPage() {
   const [currentExecutive, setCurrentExecutive] = useState<PortalExecutive | null>(null);
-  const [adminPassword, setAdminPassword] = useState<string | undefined>(undefined);
+  const [adminPassword, setAdminPassword] = useState<string>("");
   const [activeTab, setActiveTab] = useState<TabKey>("live");
   const [isSwitchingUser, setIsSwitchingUser] = useState(false);
 
