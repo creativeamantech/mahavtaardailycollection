@@ -7,7 +7,7 @@ export const Route = createFileRoute("/.lovable/oauth/consent")({
   // SSR has no localStorage session and would redirect signed-in users.
   ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
-    authorization_id: typeof s.authorization_id === "string" ? s.authorization_id : "",
+    authorization_id: typeof s["authorization_id"] === "string" ? s["authorization_id"] : "",
   }),
   beforeLoad: async ({ search, location }) => {
     if (!search.authorization_id) throw new Error("Missing authorization_id");
@@ -19,8 +19,10 @@ export const Route = createFileRoute("/.lovable/oauth/consent")({
     const authorizationId = new URLSearchParams(location.search).get("authorization_id")!;
     const { data, error } = await authSupabase.auth.oauth.getAuthorizationDetails(authorizationId);
     if (error) throw error;
-    const immediate = data?.redirect_url ?? data?.redirect_to;
-    if (immediate && !data?.client) throw redirect({ href: oauthReturnPath(immediate) });
+    // Already consented: the provider returns only a redirect URL.
+    if (data && !("authorization_id" in data)) {
+      throw redirect({ href: oauthReturnPath(data.redirect_url) });
+    }
     return data;
   },
   head: () => ({
@@ -40,12 +42,8 @@ export const Route = createFileRoute("/.lovable/oauth/consent")({
   ),
 });
 
-type ConsentDetails = {
-  client?: { name?: string } | null;
-} & Record<string, unknown>;
-
 function Consent() {
-  const details = Route.useLoaderData() as ConsentDetails | null;
+  const details = Route.useLoaderData();
   const { authorization_id } = Route.useSearch();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,13 +60,12 @@ function Consent() {
       setError(err.message);
       return;
     }
-    const target = data?.redirect_url ?? data?.redirect_to;
-    if (!target) {
+    if (!data?.redirect_url) {
       setBusy(false);
       setError("No redirect was returned for this request. Close this page and reconnect.");
       return;
     }
-    window.location.href = target;
+    window.location.href = data.redirect_url;
   }
 
   return (
