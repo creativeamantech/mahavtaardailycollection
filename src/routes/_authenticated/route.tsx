@@ -8,8 +8,13 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
     const { data } = await authSupabase.auth.getSession();
     if (!data.session) {
-      // location.href is the pathname plus query string as a plain string.
-      throw redirect({ to: "/login", search: { next: location.href } });
+      // Build the return target from plain string fields only, so the redirect
+      // search can never receive a non-string value.
+      const next =
+        typeof location.href === "string"
+          ? location.href
+          : `${location.pathname ?? "/"}${location.searchStr ?? ""}`;
+      throw redirect({ to: "/login", search: { next } });
     }
   },
   component: () => <Outlet />,
