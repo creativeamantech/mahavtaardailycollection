@@ -7,7 +7,13 @@ let cached: SupabaseClient | null = null;
 // bundle. Ordinary reads should not use it.
 export function createAdminClient(): SupabaseClient {
   if (cached) return cached;
-  cached = createClient(process.env["SUPABASE_URL"]!, process.env["SUPABASE_SERVICE_ROLE_KEY"]!, {
+  const url = process.env["SUPABASE_URL"] || "https://placeholder-project.supabase.co";
+  const key =
+    process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
+    process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder";
+
+  cached = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return cached;

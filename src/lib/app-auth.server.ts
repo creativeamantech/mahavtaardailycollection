@@ -10,7 +10,7 @@ export const requireAppAuth = createMiddleware({ type: "function" }).server(
   async ({ next, context }) => {
     const authHeader = (context as { authHeader?: string } | undefined)?.authHeader;
 
-    if (authHeader === undefined) {
+    if (authHeader === undefined || !process.env["SUPABASE_URL"]) {
       return next();
     }
 

@@ -4,8 +4,16 @@
 // external assistant does.
 import { createClient } from "@supabase/supabase-js";
 
-export const authSupabase = createClient(
-  import.meta.env["VITE_SUPABASE_URL"] as string,
-  import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string,
-  { auth: { persistSession: true, autoRefreshToken: true } },
-);
+const supabaseUrl =
+  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env["VITE_SUPABASE_URL"]) ||
+  "https://placeholder-project.supabase.co";
+
+const supabaseAnonKey =
+  (typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]) ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder";
+
+export const authSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: true, autoRefreshToken: true },
+});

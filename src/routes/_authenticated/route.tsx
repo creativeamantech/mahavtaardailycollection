@@ -6,6 +6,10 @@ export const Route = createFileRoute("/_authenticated")({
   // Every app page requires sign-in. Unauthenticated visitors are sent to the
   // sign-in page with the originally requested path preserved.
   beforeLoad: async ({ location }) => {
+    // When Supabase authentication is not configured in the environment, bypass redirect
+    if (!import.meta.env["VITE_SUPABASE_URL"]) {
+      return;
+    }
     const { data } = await authSupabase.auth.getSession();
     if (!data.session) {
       // Build the return target from plain string fields only, so the redirect
