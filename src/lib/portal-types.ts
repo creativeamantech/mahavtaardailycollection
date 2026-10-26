@@ -130,9 +130,9 @@ export interface PortalSession {
   endedAtEpochMs?: number | null;
   durationSeconds: number;
   reason: SessionReason;
-  customReason?: string;
+  customReason?: string | undefined;
   sessionType: SessionType;
-  authorisedSlot?: string;
+  authorisedSlot?: string | undefined;
   status: SessionStatus;
   isOverdue?: boolean;
 }
@@ -152,8 +152,8 @@ export interface PortalComplaint {
   concernedExecutive: PortalExecutive;
   subject: string;
   description: string;
-  loanRef?: string;
-  evidenceUrl?: string;
+  loanRef?: string | undefined;
+  evidenceUrl?: string | undefined;
   status: ComplaintStatus;
   createdAt: string; // ISO
   createdAtEpochMs: number;
@@ -190,9 +190,9 @@ export interface PortalBan {
   expiresAtEpochMs: number;
   issuedBy: string;
   isActive: boolean;
-  revokedAt?: string;
-  revokedBy?: string;
-  revokeReason?: string;
+  revokedAt?: string | undefined;
+  revokedBy?: string | undefined;
+  revokeReason?: string | undefined;
 }
 
 export interface PortalAuditLog {
@@ -212,7 +212,7 @@ export interface LivePortalStatus {
     startedAtEpochMs: number;
     reason: string;
     sessionType: SessionType;
-    authorisedSlot?: string;
+    authorisedSlot?: string | undefined;
     maxAllowedSeconds: number | null;
   } | null;
   currentScheduled: {
