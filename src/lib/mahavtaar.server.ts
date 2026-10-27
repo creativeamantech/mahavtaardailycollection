@@ -176,30 +176,7 @@ async function fetchFromPublicSheet(
     console.warn(`Public Google Sheets fetch failed for ${sheetTitle} on ${spreadsheetId}:`, err);
   }
 
-  // Deep clone to apply local overlays
   const allRows: string[][] = baseRows.map((r) => [...r]);
-
-  // Apply any locally updated cells for this specific spreadsheet
-  const sheetUpdates = localUpdated.get(spreadsheetId)?.get(sheetTitle);
-  if (sheetUpdates) {
-    for (const [key, val] of sheetUpdates.entries()) {
-      const [rStr, cStr] = key.split(",");
-      const rIdx = parseInt(rStr ?? "0", 10);
-      const cIdx = parseInt(cStr ?? "0", 10);
-      while (allRows.length <= rIdx) allRows.push([]);
-      const rowArr = allRows[rIdx]!;
-      while (rowArr.length <= cIdx) rowArr.push("");
-      rowArr[cIdx] = val;
-    }
-  }
-
-  // Append any locally added rows for this specific spreadsheet
-  const sheetAppended = localAppended.get(spreadsheetId)?.get(sheetTitle);
-  if (sheetAppended) {
-    for (const r of sheetAppended) {
-      allRows.push([...r]);
-    }
-  }
 
   // Row 1 in sheet is index 0 in allRows. Range startRow 2 means index 1.
   const rowStartIdx = Math.max(0, startRow - 1);
