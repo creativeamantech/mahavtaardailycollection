@@ -32,9 +32,5 @@ function UsersPage() {
     return content;
   }
 
-  return (
-    <PasswordGate label="Unlock Users Management" onUnlock={() => setUnlocked(true)}>
-      {content}
-    </PasswordGate>
-  );
+  return <PasswordGate label="Unlock Users Management" onUnlock={() => setUnlocked(true)} />;
 }
