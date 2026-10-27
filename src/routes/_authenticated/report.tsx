@@ -434,7 +434,7 @@ function ReportPage() {
     refetchOnWindowFocus: true,
   });
 
-  const [from, setFrom] = useState(todayISO());
+  const [from, setFrom] = useState(`${currentMonthKey()}-01`);
   const [to, setTo] = useState(todayISO());
 
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
@@ -495,23 +495,34 @@ function ReportPage() {
     }
   };
 
-  // Every report below works off this month-scoped dataset only.
-  const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
   const catOk = (c: string | undefined, f: string) => f === ALL_CATEGORIES || c === f;
+  // Date-wise summary filters across all available dates in allRows based on selected range (from/to)
   const dateRows = useMemo(
     () =>
-      rows.filter(
+      allRows.filter(
         (r) => bucketMatches(r.bucket, dateBucket) && catOk(r.allocationCategory, dateCategory),
       ),
-    [rows, dateBucket, dateCategory],
+    [allRows, dateBucket, dateCategory],
   );
+  // Month-wise summary filters by selected month
+  const monthScopedRows = useMemo(
+    () =>
+      allRows.filter(
+        (r) =>
+          monthKey(r.date) === month &&
+          bucketMatches(r.bucket, dateBucket) &&
+          catOk(r.allocationCategory, dateCategory),
+      ),
+    [allRows, month, dateBucket, dateCategory],
+  );
+  // Overall summary covers all time across all rows
   const overallRows = useMemo(
     () =>
-      rows.filter(
+      allRows.filter(
         (r) =>
           bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
       ),
-    [rows, overallBucket, overallCategory],
+    [allRows, overallBucket, overallCategory],
   );
   const dateScoped = useMemo(
     () => dateRows.filter((r) => inRange(r, from, to)),
@@ -527,12 +538,11 @@ function ReportPage() {
     () =>
       rawRows.filter(
         (r) =>
-          monthKey(r.date) === month &&
           bucketMatches(r.bucket, dateBucket) &&
           catOk(r.allocationCategory, dateCategory) &&
           inRange(r, from, to),
       ),
-    [rawRows, month, dateBucket, dateCategory, from, to],
+    [rawRows, dateBucket, dateCategory, from, to],
   );
 
   const overallExportRows = useMemo(
@@ -665,7 +675,7 @@ function ReportPage() {
         </TabsContent>
       </Tabs>
 
-      <TopPerformers rows={rows.filter((r) => catOk(r.allocationCategory, category))} />
+      <TopPerformers rows={allRows.filter((r) => catOk(r.allocationCategory, category))} />
     </main>
   );
 }

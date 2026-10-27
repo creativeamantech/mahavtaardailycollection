@@ -56,8 +56,8 @@ const SheetAuthContext = createContext<SheetAuthContextValue>({
 });
 
 export function SheetAuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(getStoredSheetToken);
-  const [user, setUser] = useState<SheetUserSafe | null>(getStoredSheetUser);
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<SheetUserSafe | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const getCurrentUserFn = useServerFn(sheetGetCurrentUser);
@@ -90,7 +90,9 @@ export function SheetAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const storedTok = getStoredSheetToken();
-    setToken(storedTok);
+    const storedUser = getStoredSheetUser();
+    if (storedTok) setToken(storedTok);
+    if (storedUser) setUser(storedUser);
     verifyCurrentSession(storedTok);
   }, []);
 
