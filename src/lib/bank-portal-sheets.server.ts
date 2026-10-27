@@ -156,7 +156,7 @@ export async function ensureDedicatedBankPortalSpreadsheet(): Promise<void> {
     // Prefer the encrypted deployment secret. AppSettings is a durable backup and
     // supports recovery if the secret has not yet been configured in a new deployment.
     const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");
-    const { BANK_PORTAL_SPREADSHEET_ID_KEY } = await import("./app-config.functions");
+    const BANK_PORTAL_SPREADSHEET_ID_KEY = "bankPortalSpreadsheetId";
     const envId = process.env["BANK_PORTAL_SPREADSHEET_ID"]?.trim();
     let settingRows: string[][] = [];
     try {
