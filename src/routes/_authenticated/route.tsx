@@ -15,10 +15,11 @@ export const Route = createFileRoute("/_authenticated")({
     if (typeof window !== "undefined") {
       const token = getStoredSheetToken();
       if (!token) {
+        const nextPath = location.pathname.startsWith("/login") ? "/" : location.pathname;
         throw redirect({
           to: "/login",
           search: {
-            next: location.href,
+            next: nextPath,
           },
         });
       }
@@ -30,14 +31,15 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   const { user, token, isLoading } = useSheetAuth();
   const navigate = useNavigate();
-  const currentPath = useRouterState({ select: (s) => s.location.href });
+  const currentPath = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
     if (!isLoading && (!token || !user)) {
+      const nextPath = currentPath.startsWith("/login") ? "/" : currentPath;
       navigate({
         to: "/login",
         search: {
-          next: currentPath,
+          next: nextPath,
         },
       });
     }

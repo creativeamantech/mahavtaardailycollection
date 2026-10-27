@@ -62,10 +62,12 @@ function LoginPage() {
   useEffect(() => {
     const token = getStoredSheetToken();
     if (token && user) {
-      const destination = next ? oauthReturnPath(next) : "/";
-      navigate({ to: destination });
+      const destination = oauthReturnPath(next);
+      if (window.location.pathname === "/login") {
+        window.location.href = destination;
+      }
     }
-  }, [user, next, navigate]);
+  }, [user, next]);
 
   function handleSelectExecutive(name: string) {
     setIdentifier(name);
@@ -100,7 +102,7 @@ function LoginPage() {
       saveSheetSession(res.token, res.user);
       await refreshUser();
 
-      const destination = next ? oauthReturnPath(next) : "/";
+      const destination = oauthReturnPath(next);
       window.location.href = destination;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Authentication error occurred.";

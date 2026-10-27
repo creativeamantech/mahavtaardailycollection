@@ -11,6 +11,7 @@ export function oauthReturnPath(value: unknown): string {
   try {
     const target = new URL(value, origin);
     if (target.origin !== origin || target.pathname.startsWith("//")) return "/";
+    if (target.pathname === "/login" || target.pathname.startsWith("/login/")) return "/";
     return target.pathname + target.search + target.hash;
   } catch {
     return "/";

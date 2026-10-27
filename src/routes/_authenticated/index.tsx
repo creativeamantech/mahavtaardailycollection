@@ -175,6 +175,19 @@ function EntryPage() {
     addPendingFiles(e.dataTransfer.files);
   }
 
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.includes(",") ? result.split(",")[1] : result;
+        resolve(base64 || "");
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  }
+
   async function uploadPendingFiles() {
     setUploadError("");
     if (pendingFiles.length === 0) return;
