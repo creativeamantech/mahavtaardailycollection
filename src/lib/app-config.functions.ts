@@ -85,7 +85,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }))
     .filter((n) => n.text !== "" || n.imageUrl !== "");
 
-  return { flags, notifications, defaultCategory, bankPortalSpreadsheetId };
+  return { flags, notifications, defaultCategory, bankPortalSpreadsheetId: process.env["BANK_PORTAL_SPREADSHEET_ID"]?.trim() || bankPortalSpreadsheetId };
 });
 
 export const verifySettingsPassword = createServerFn({ method: "POST" })
