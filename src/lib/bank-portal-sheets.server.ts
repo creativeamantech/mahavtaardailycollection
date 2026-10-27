@@ -73,6 +73,9 @@ export async function createDedicatedBankPortalSpreadsheet(
   title: string = "Mahavtaar Bank Portal Usage & Accountability",
   adminActor: string = "Aman",
 ): Promise<{ ok: boolean; spreadsheetId: string; spreadsheetUrl: string; message: string }> {
+  if (process.env["BANK_PORTAL_SPREADSHEET_ID"]?.trim()) {
+    throw new Error("BANK_PORTAL_SPREADSHEET_ID is already configured. Reuse the existing spreadsheet; do not create a duplicate.");
+  }
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
       const res = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets`, {
@@ -196,6 +199,9 @@ export async function ensureDedicatedBankPortalSpreadsheet(): Promise<void> {
       placeholderIds.some((placeholder) => config.spreadsheetId.startsWith(placeholder));
 
     if (isPlaceholder) {
+      if (hasExplicitEnvironmentId) {
+        throw new Error("BANK_PORTAL_SPREADSHEET_ID contains a placeholder value. Replace it with the ID of the existing Bank Portal spreadsheet.");
+      }
       await createDedicatedBankPortalSpreadsheet();
       return;
     }
