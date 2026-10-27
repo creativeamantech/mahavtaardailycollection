@@ -15,12 +15,7 @@ import {
   saveCollection,
   uploadReceiptImage,
 } from "@/lib/mahavtaar.functions";
-import {
-  compareReceiptWithEntry,
-  type ParsedReceiptResult,
-  scanReceiptOcr,
-} from "@/lib/receipt-ocr";
-import { scanUploadedReceiptServer } from "@/lib/receipt-ocr.functions";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Lock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -90,18 +86,9 @@ function normaliseLoanId(v: string) {
     .toUpperCase();
 }
 
-async function fileToBase64(file: File) {
-  const buf = await file.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(binary);
-}
-
 function EntryPage() {
   const { user } = useSheetAuth();
+  const isAdmin = user?.role === "Admin";
   const today = todayISO();
   const yesterday = todayISO(new Date(Date.now() - 86400000));
   const [executive, setExecutive] = useState("");
@@ -114,10 +101,12 @@ function EntryPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.executiveName && !executive) {
-      setExecutive(user.executiveName);
+    if (user?.executiveName) {
+      if (!isAdmin || !executive) {
+        setExecutive(user.executiveName);
+      }
     }
-  }, [user, executive]);
+  }, [user?.executiveName, isAdmin]);
   const [confirmed, setConfirmed] = useState(false);
   const [isPrevious, setIsPrevious] = useState(false);
   const [settlementType, setSettlementType] = useState<"No" | "Settlement" | "Foreclosure">("No");
@@ -134,7 +123,6 @@ function EntryPage() {
 
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
-  const scanReceiptServer = useServerFn(scanUploadedReceiptServer);
   const fetchCollections = useServerFn(getCollections);
   const flagConflicts = useServerFn(markConflictRows);
   const { data: rawExisting = [], refetch: refetchCollections } = useQuery({
@@ -153,63 +141,7 @@ function EntryPage() {
   const [fileKey, setFileKey] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [remark, setRemark] = useState("");
-  const [ocrScanning, setOcrScanning] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [ocrResult, setOcrResult] = useState<ParsedReceiptResult | null>(null);
-  const [showRawOcr, setShowRawOcr] = useState(false);
   const receiptLink = receipts.length > 0 ? receipts[0]!.link : "";
-
-  async function runLiveOcrOnFile(file: File) {
-    setOcrScanning(true);
-    setOcrProgress(25);
-    try {
-      let parsed: ParsedReceiptResult;
-      try {
-        const base64 = await fileToBase64(file);
-        setOcrProgress(60);
-        parsed = (await scanReceiptServer({
-          data: { base64, mimeType: file.type || "image/jpeg" },
-        })) as ParsedReceiptResult;
-      } catch {
-        parsed = await scanReceiptOcr(file, (pct) => setOcrProgress(pct));
-      }
-      setOcrResult(parsed);
-
-      // Auto-fill form fields if empty or apply smart date switching
-      if (parsed.loanId && loanId.trim() === "") {
-        setLoanId(parsed.loanId);
-      }
-      if (parsed.effectiveAmount !== null && amount.trim() === "") {
-        setAmount(String(parsed.effectiveAmount));
-      }
-      if (parsed.paymentTime) {
-        setTime(parsed.paymentTime);
-      }
-      if (parsed.paymentDate) {
-        if (parsed.paymentDate < today) {
-          setIsPrevious(true);
-          setPrevDate(parsed.paymentDate);
-          setPrevConfirmed(true);
-        } else if (parsed.paymentDate === today) {
-          setIsPrevious(false);
-          setPrevDate("");
-        }
-      }
-
-      if (parsed.transactionStatus === "FAILED") {
-        toast.error("OCR Alert: This receipt shows a FAILED transaction!");
-      } else if (parsed.transactionStatus === "PENDING") {
-        toast.warning("OCR Warning: This receipt shows a PENDING transaction.");
-      } else if (parsed.effectiveAmount || parsed.paymentDate) {
-        toast.success("Receipt scanned! Extracted payment details automatically.");
-      }
-    } catch (err) {
-      console.warn("Browser OCR scan error:", err);
-    } finally {
-      setOcrScanning(false);
-      setOcrProgress(0);
-    }
-  }
 
   function addPendingFiles(fileList: Iterable<File> | null) {
     setUploadError("");
@@ -225,30 +157,15 @@ function EntryPage() {
       ),
     );
     setFileKey((k) => k + 1);
-    if (files[0]) {
-      void runLiveOcrOnFile(files[0]);
-    }
   }
 
   function removePendingFile(preview: string) {
     URL.revokeObjectURL(preview);
-    setPendingFiles((prev) => {
-      const next = prev.filter((p) => p.preview !== preview);
-      if (next.length === 0 && receipts.length === 0) {
-        setOcrResult(null);
-      }
-      return next;
-    });
+    setPendingFiles((prev) => prev.filter((p) => p.preview !== preview));
   }
 
   function removeUploadedReceipt(link: string) {
-    setReceipts((prev) => {
-      const next = prev.filter((r) => r.link !== link);
-      if (next.length === 0 && pendingFiles.length === 0) {
-        setOcrResult(null);
-      }
-      return next;
-    });
+    setReceipts((prev) => prev.filter((r) => r.link !== link));
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -297,18 +214,7 @@ function EntryPage() {
   const amountNum = useMemo(() => Number(amount), [amount]);
   const prevDateValid = prevDate !== "" && prevDate < today;
   const paymentDate = isPrevious ? prevDate : today;
-  const ocrComparison = useMemo(
-    () =>
-      ocrResult
-        ? compareReceiptWithEntry(ocrResult, {
-            amount: amountNum > 0 ? amountNum : null,
-            date: paymentDate,
-            time,
-            loanId,
-          })
-        : null,
-    [ocrResult, amountNum, paymentDate, time, loanId],
-  );
+
   const remarkWords = remark.trim().split(/\s+/).filter(Boolean).length;
   const remarksOn = useFeatureEnabled("remarks");
   const remarkValid = remarksOn && remarkWords > 3;
@@ -380,7 +286,7 @@ function EntryPage() {
           ...entry,
           receiptLinks: receipts.map((r) => r.link),
           remark: receiptLink === "" ? remark.trim() : "",
-          amansRemarks: ocrComparison?.amansRemarkText,
+          amansRemarks: undefined,
         } as never,
       })) as { row?: number };
 
@@ -402,7 +308,7 @@ function EntryPage() {
       qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
 
-      setExecutive("");
+      setExecutive(isAdmin ? "" : user?.executiveName || "");
       setLoanId("");
       setAmount("");
       setConfirmed(false);
@@ -414,8 +320,7 @@ function EntryPage() {
       pendingFiles.forEach((p) => URL.revokeObjectURL(p.preview));
       setPendingFiles([]);
       setReceipts([]);
-      setOcrResult(null);
-      setShowRawOcr(false);
+
       setRemark("");
       setUploadError("");
       setFileKey((k) => k + 1);
@@ -483,8 +388,21 @@ function EntryPage() {
         }`}
       >
         <div className="space-y-2">
-          <Label className="text-base">Executive Name</Label>
-          <Select value={executive} onValueChange={setExecutive}>
+          <div className="flex items-center justify-between">
+            <Label className="text-base flex items-center gap-1.5">
+              <span>Executive Name</span>
+              {!isAdmin && user?.executiveName && (
+                <span className="inline-flex items-center gap-1 rounded border bg-muted/80 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                  <Lock className="h-3 w-3" /> Locked
+                </span>
+              )}
+            </Label>
+          </div>
+          <Select
+            value={executive}
+            onValueChange={setExecutive}
+            disabled={!isAdmin && Boolean(user?.executiveName)}
+          >
             <SelectTrigger className="h-12 text-base">
               <SelectValue placeholder="Select executive" />
             </SelectTrigger>
@@ -695,215 +613,6 @@ function EntryPage() {
           )}
           {uploadError !== "" && (
             <p className="text-sm font-medium text-destructive">{uploadError}</p>
-          )}
-
-          {/* 100% Free Local OCR Verification Panel */}
-          {ocrScanning && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-              <div className="flex items-center justify-between font-medium text-slate-800">
-                <span>Scanning receipt (Free Local OCR)...</span>
-                <span className="font-mono tabular-nums">{ocrProgress}%</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                <div
-                  className="h-full bg-slate-900 transition-all duration-150"
-                  style={{ width: `${Math.max(8, ocrProgress)}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {!ocrScanning && ocrResult && ocrComparison && (
-            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3.5 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
-                <div>
-                  <p className="font-semibold text-slate-900">
-                    Receipt OCR Verification{" "}
-                    {ocrResult.paymentApp ? `· ${ocrResult.paymentApp}` : ""}
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    {ocrComparison.overallMatch
-                      ? "All scanned receipt details match your entry."
-                      : "Review the scanned receipt details below."}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {pendingFiles[0] && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2.5 text-xs whitespace-nowrap shrink-0"
-                      onClick={() => void runLiveOcrOnFile(pendingFiles[0]!.file)}
-                    >
-                      Re-scan
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs whitespace-nowrap shrink-0"
-                    onClick={() => setShowRawOcr((v) => !v)}
-                  >
-                    {showRawOcr ? "Hide Text" : "Raw Text"}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="divide-y divide-slate-200/80 font-mono text-xs tabular-nums">
-                {/* 1. Payment Status */}
-                <div className="flex items-center justify-between py-2">
-                  <span className="font-sans text-slate-600">Payment Status</span>
-                  <span
-                    className={`font-semibold ${
-                      ocrResult.transactionStatus === "SUCCESS"
-                        ? "text-emerald-700"
-                        : ocrResult.transactionStatus === "FAILED"
-                          ? "text-red-700"
-                          : "text-amber-700"
-                    }`}
-                  >
-                    {ocrResult.transactionStatus === "SUCCESS"
-                      ? "Confirmed Paid (SUCCESS)"
-                      : ocrResult.transactionStatus === "FAILED"
-                        ? "Payment Failed (FAILED)"
-                        : ocrResult.transactionStatus === "PENDING"
-                          ? "Pending Processing"
-                          : "Unverified Screenshot"}
-                  </span>
-                </div>
-
-                {/* 2. Amount Comparison */}
-                <div className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <div className="font-sans">
-                    <span className="text-slate-600">Receipt Bill Amount</span>
-                    {ocrResult.convenienceFee && ocrResult.totalPaidAmount ? (
-                      <p className="text-[11px] text-slate-500">
-                        Total ₹{ocrResult.totalPaidAmount} − ₹{ocrResult.convenienceFee} fee = ₹
-                        {ocrResult.effectiveAmount}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`font-semibold ${
-                        ocrComparison.amountMatches
-                          ? "text-emerald-700"
-                          : ocrResult.effectiveAmount
-                            ? "text-amber-700"
-                            : "text-slate-500"
-                      }`}
-                    >
-                      {ocrResult.effectiveAmount !== null
-                        ? `${formatAmount(ocrResult.effectiveAmount)} ${
-                            ocrComparison.amountMatches ? "(Matched)" : "(Mismatch)"
-                          }`
-                        : "Not detected"}
-                    </span>
-                    {ocrResult.effectiveAmount !== null && !ocrComparison.amountMatches && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-2 font-sans text-[11px] whitespace-nowrap shrink-0"
-                        onClick={() => setAmount(String(ocrResult.effectiveAmount))}
-                      >
-                        Use {formatAmount(ocrResult.effectiveAmount)}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* 3. Date & Time Comparison */}
-                <div className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <span className="font-sans text-slate-600">Receipt Date &amp; Time</span>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`font-semibold ${
-                        ocrComparison.dateMatches
-                          ? "text-emerald-700"
-                          : ocrResult.paymentDate
-                            ? "text-amber-700"
-                            : "text-slate-500"
-                      }`}
-                    >
-                      {ocrResult.paymentDate ?? "Date not found"}
-                      {ocrResult.paymentTime ? ` · ${ocrResult.paymentTime}` : ""}{" "}
-                      {ocrResult.paymentDate
-                        ? ocrComparison.dateMatches
-                          ? "(Matched)"
-                          : "(Date Mismatch)"
-                        : ""}
-                    </span>
-                    {ocrResult.paymentDate && !ocrComparison.dateMatches && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-2 font-sans text-[11px] whitespace-nowrap shrink-0"
-                        onClick={() => {
-                          if (ocrResult.paymentDate! < today) {
-                            setIsPrevious(true);
-                            setPrevDate(ocrResult.paymentDate!);
-                            setPrevConfirmed(true);
-                          } else {
-                            setIsPrevious(false);
-                            setPrevDate("");
-                          }
-                          if (ocrResult.paymentTime) {
-                            setTime(ocrResult.paymentTime);
-                          }
-                        }}
-                      >
-                        Sync Date &amp; Time
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* 4. Loan ID & UTR */}
-                {(ocrResult.loanId || ocrResult.utrNumber) && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 py-2">
-                    <span className="font-sans text-slate-600">Receipt Loan ID / UTR</span>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`font-semibold ${
-                          ocrComparison.loanIdMatches === false ? "text-red-700" : "text-slate-800"
-                        }`}
-                      >
-                        {ocrResult.loanId ? `Loan: ${ocrResult.loanId}` : ""}
-                        {ocrResult.loanId && ocrResult.utrNumber ? " · " : ""}
-                        {ocrResult.utrNumber ? `UTR: ${ocrResult.utrNumber}` : ""}
-                      </span>
-                      {ocrResult.loanId && ocrComparison.loanIdMatches === false && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-2 font-sans text-[11px] whitespace-nowrap shrink-0"
-                          onClick={() => setLoanId(ocrResult.loanId!)}
-                        >
-                          Use {ocrResult.loanId}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {ocrComparison.hindiDiscrepancyNote && !ocrComparison.overallMatch && (
-                <p className="rounded border border-amber-200 bg-amber-50/80 px-2.5 py-1.5 text-xs text-amber-900">
-                  {ocrComparison.hindiDiscrepancyNote}
-                </p>
-              )}
-
-              {showRawOcr && (
-                <pre className="max-h-36 overflow-auto rounded border border-slate-200 bg-white p-2 font-mono text-[11px] whitespace-pre-wrap text-slate-700">
-                  {ocrResult.rawText || "No text extracted."}
-                </pre>
-              )}
-            </div>
           )}
         </div>
 

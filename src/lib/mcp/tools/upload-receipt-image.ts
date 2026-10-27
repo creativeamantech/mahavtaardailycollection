@@ -83,17 +83,6 @@ export default defineTool({
       attachedToRow = rowNumber;
     }
 
-    let ocr = null;
-    if (runOcr) {
-      try {
-        const { analyzeReceiptBufferServer } = await import("../../receipt-ocr");
-        const buffer = Buffer.from(cleanBase64, "base64");
-        ocr = await analyzeReceiptBufferServer(buffer, effectiveMime);
-      } catch (err) {
-        console.warn("OCR analysis failed:", err);
-      }
-    }
-
     return {
       content: [
         {
@@ -103,7 +92,6 @@ export default defineTool({
             link,
             loanNumber,
             attachedToRow,
-            ocr,
           }),
         },
       ],
@@ -113,7 +101,6 @@ export default defineTool({
           link,
           loanNumber,
           attachedToRow,
-          ocr,
         }),
       ),
     };

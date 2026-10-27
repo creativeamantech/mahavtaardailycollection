@@ -39,10 +39,7 @@ import {
   revertConflictValidation,
   updateCollectionRow,
 } from "@/lib/mahavtaar.functions";
-import {
-  type AuditableCollectionRow,
-  ReceiptOcrAuditDialog,
-} from "@/components/ReceiptOcrAuditDialog";
+
 import { EXECUTIVES, formatAmount, todayISO } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -232,7 +229,6 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
   // Validating Action State
   const [validatingRow, setValidatingRow] = useState<number | null>(null);
   const [validatingGroupKey, setValidatingGroupKey] = useState<string | null>(null);
-  const [ocrAuditItem, setOcrAuditItem] = useState<AuditableCollectionRow | null>(null);
 
   // Receipt Modal State (Single Receipt Lightbox)
   const [previewReceipt, setPreviewReceipt] = useState<{
@@ -1061,18 +1057,6 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
                                   : "Conflict नहीं है, सही है"}
                               </Button>
 
-                              {item.receiptLinks && item.receiptLinks.length > 0 && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 px-2.5 text-xs font-medium whitespace-nowrap shrink-0"
-                                  onClick={() => setOcrAuditItem(item)}
-                                >
-                                  Scan OCR
-                                </Button>
-                              )}
-
                               <Button
                                 type="button"
                                 variant="outline"
@@ -1699,12 +1683,6 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <ReceiptOcrAuditDialog
-        item={ocrAuditItem}
-        onClose={() => setOcrAuditItem(null)}
-        onSuccess={() => void refetch()}
-      />
     </main>
   );
 }

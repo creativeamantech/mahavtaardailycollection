@@ -7,6 +7,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { verifySettingsPassword } from "@/lib/app-config.functions";
 import { Lock, ShieldCheck, User, UserCheck } from "lucide-react";
 
+import { useSheetAuth } from "@/hooks/useSheetAuth";
+
 export const PORTAL_EXECUTIVE_STORAGE_KEY = "portal_selected_executive";
 export const PORTAL_ADMIN_PASS_STORAGE_KEY = "portal_admin_password";
 
@@ -17,7 +19,12 @@ interface Props {
 }
 
 export function ExecutiveAuthModal({ currentExecutive, onSelect, onClose }: Props) {
-  const [selected, setSelected] = useState<PortalExecutive | null>(currentExecutive);
+  const { user } = useSheetAuth();
+  const isSheetAdmin = user?.role === "Admin";
+
+  const [selected, setSelected] = useState<PortalExecutive | null>(
+    currentExecutive || (user?.executiveName as PortalExecutive) || null,
+  );
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,6 +32,11 @@ export function ExecutiveAuthModal({ currentExecutive, onSelect, onClose }: Prop
   const verify = useServerFn(verifySettingsPassword);
 
   const handleSelect = async (exec: PortalExecutive) => {
+    if (!isSheetAdmin && user?.executiveName && exec !== user.executiveName) {
+      setError(`Your account is locked to ${user.executiveName}. Only Admin can switch names.`);
+      return;
+    }
+
     setSelected(exec);
     setError("");
 
@@ -81,16 +93,21 @@ export function ExecutiveAuthModal({ currentExecutive, onSelect, onClose }: Prop
         {PORTAL_EXECUTIVES.map((exec, idx) => {
           const isAman = exec === "Aman";
           const isCurrent = selected === exec;
+          const isLockedOut =
+            !isSheetAdmin && Boolean(user?.executiveName) && exec !== user?.executiveName;
 
           return (
             <button
               key={`portal-auth-${exec}-${idx}`}
               type="button"
+              disabled={isLockedOut}
               onClick={() => handleSelect(exec)}
               className={`flex flex-col items-center justify-center rounded-xl border p-4 text-center transition-all ${
-                isCurrent
-                  ? "border-primary bg-primary/5 ring-2 ring-primary"
-                  : "border-border bg-background hover:border-primary/50 hover:bg-accent/40"
+                isLockedOut
+                  ? "opacity-40 cursor-not-allowed border-border bg-muted/20"
+                  : isCurrent
+                    ? "border-primary bg-primary/5 ring-2 ring-primary"
+                    : "border-border bg-background hover:border-primary/50 hover:bg-accent/40"
               }`}
             >
               <div
@@ -100,11 +117,17 @@ export function ExecutiveAuthModal({ currentExecutive, onSelect, onClose }: Prop
                     : "bg-primary/10 text-primary"
                 }`}
               >
-                {isAman ? <ShieldCheck className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                {isAman ? (
+                  <ShieldCheck className="h-5 w-5" />
+                ) : isLockedOut ? (
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <User className="h-5 w-5" />
+                )}
               </div>
               <span className="mt-2 font-semibold text-sm">{isAman ? "Aman" : exec}</span>
               <span className="text-[11px] text-muted-foreground">
-                {isAman ? "Administrator" : "Executive"}
+                {isAman ? "Administrator" : isLockedOut ? "Locked" : "Executive"}
               </span>
             </button>
           );

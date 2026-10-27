@@ -34,6 +34,8 @@ import {
   Users,
 } from "lucide-react";
 
+import { useSheetAuth } from "@/hooks/useSheetAuth";
+
 export const Route = createFileRoute("/_authenticated/bank-portal")({
   head: () => ({
     meta: [
@@ -64,6 +66,8 @@ type TabKey =
   | "adminSettings";
 
 function BankPortalPage() {
+  const { user } = useSheetAuth();
+  const isSheetAdmin = user?.role === "Admin";
   const [currentExecutive, setCurrentExecutive] = useState<PortalExecutive | null>(null);
   const [adminPassword, setAdminPassword] = useState<string>("");
   const [activeTab, setActiveTab] = useState<TabKey>("live");
@@ -77,15 +81,22 @@ function BankPortalPage() {
   });
 
   useEffect(() => {
-    const savedExec = sessionStorage.getItem(
-      PORTAL_EXECUTIVE_STORAGE_KEY,
-    ) as PortalExecutive | null;
-    const savedPass = sessionStorage.getItem(PORTAL_ADMIN_PASS_STORAGE_KEY) || "";
-    if (savedExec) {
-      setCurrentExecutive(savedExec);
-      setAdminPassword(savedPass);
+    if (user?.executiveName) {
+      if (!isSheetAdmin || !currentExecutive) {
+        setCurrentExecutive(user.executiveName as PortalExecutive);
+        sessionStorage.setItem(PORTAL_EXECUTIVE_STORAGE_KEY, user.executiveName);
+      }
+    } else {
+      const savedExec = sessionStorage.getItem(
+        PORTAL_EXECUTIVE_STORAGE_KEY,
+      ) as PortalExecutive | null;
+      const savedPass = sessionStorage.getItem(PORTAL_ADMIN_PASS_STORAGE_KEY) || "";
+      if (savedExec) {
+        setCurrentExecutive(savedExec);
+        setAdminPassword(savedPass);
+      }
     }
-  }, []);
+  }, [user?.executiveName, isSheetAdmin]);
 
   const handleSelectExecutive = (exec: PortalExecutive, pass?: string) => {
     setCurrentExecutive(exec);
@@ -97,12 +108,12 @@ function BankPortalPage() {
     setIsSwitchingUser(true);
   };
 
-  // 1. Executive Selection is REQUIRED before entering
-  if (!currentExecutive || isSwitchingUser) {
+  // 1. Executive Selection: Non-admins automatically use logged-in name, only admins can switch
+  if ((!currentExecutive && !user?.executiveName) || (isSwitchingUser && isSheetAdmin)) {
     return (
       <main className="mx-auto w-full max-w-2xl px-4 py-8">
         <ExecutiveAuthModal
-          currentExecutive={currentExecutive}
+          currentExecutive={currentExecutive || (user?.executiveName as PortalExecutive) || null}
           onSelect={handleSelectExecutive}
           onClose={() => setIsSwitchingUser(false)}
         />
@@ -110,7 +121,8 @@ function BankPortalPage() {
     );
   }
 
-  const isAdmin = currentExecutive === "Aman";
+  const activeExec = currentExecutive || (user?.executiveName as PortalExecutive) || "Aman";
+  const isAdmin = activeExec === "Aman" || isSheetAdmin;
 
   const navigationItems: Array<{
     key: TabKey;
@@ -165,7 +177,7 @@ function BankPortalPage() {
             <span className="text-muted-foreground">Logged In As:</span>
             <span className="font-bold text-foreground flex items-center gap-1">
               {isAdmin && <ShieldCheck className="h-3.5 w-3.5 text-purple-600" />}
-              {currentExecutive}
+              {activeExec}
             </span>
           </div>
 
@@ -183,15 +195,17 @@ function BankPortalPage() {
             </a>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSwitchUser}
-            className="h-8 text-xs gap-1 font-medium"
-          >
-            <UserCheck className="h-3.5 w-3.5" />
-            Switch Name
-          </Button>
+          {isSheetAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSwitchUser}
+              className="h-8 text-xs gap-1 font-medium"
+            >
+              <UserCheck className="h-3.5 w-3.5" />
+              Switch Name
+            </Button>
+          )}
         </div>
       </div>
 
@@ -223,34 +237,28 @@ function BankPortalPage() {
       {activeTab === "live" && (
         <div className="space-y-6">
           <LivePortalStatusBanner />
-          <StartEndSessionCard currentExecutive={currentExecutive} adminPassword={adminPassword} />
-          <ExecutiveScheduleView
-            currentExecutive={currentExecutive}
-            adminPassword={adminPassword}
-          />
+          <StartEndSessionCard currentExecutive={activeExec} adminPassword={adminPassword} />
+          <ExecutiveScheduleView currentExecutive={activeExec} adminPassword={adminPassword} />
         </div>
       )}
 
       {activeTab === "schedule" && (
         <div className="space-y-6">
-          <ExecutiveScheduleView
-            currentExecutive={currentExecutive}
-            adminPassword={adminPassword}
-          />
+          <ExecutiveScheduleView currentExecutive={activeExec} adminPassword={adminPassword} />
         </div>
       )}
 
       {activeTab === "session" && (
         <div className="space-y-6">
           <LivePortalStatusBanner />
-          <StartEndSessionCard currentExecutive={currentExecutive} adminPassword={adminPassword} />
+          <StartEndSessionCard currentExecutive={activeExec} adminPassword={adminPassword} />
         </div>
       )}
 
       {activeTab === "complaints" && (
         <div className="space-y-6">
           <ComplaintsAndQueriesSection
-            currentExecutive={currentExecutive}
+            currentExecutive={activeExec}
             adminPassword={adminPassword}
           />
         </div>
@@ -270,7 +278,7 @@ function BankPortalPage() {
 
       {activeTab === "adminSettings" && isAdmin && (
         <div className="space-y-6">
-          <AdminSettingsView currentExecutive={currentExecutive} adminPassword={adminPassword} />
+          <AdminSettingsView currentExecutive={activeExec} adminPassword={adminPassword} />
         </div>
       )}
 
@@ -280,7 +288,7 @@ function BankPortalPage() {
         activeTab !== "complaintReports" && (
           <div className="border-t pt-8">
             <ComplaintsAndQueriesSection
-              currentExecutive={currentExecutive}
+              currentExecutive={activeExec}
               adminPassword={adminPassword}
             />
           </div>

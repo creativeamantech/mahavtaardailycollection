@@ -24,10 +24,6 @@ import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
-import {
-  type AuditableCollectionRow,
-  ReceiptOcrAuditDialog,
-} from "@/components/ReceiptOcrAuditDialog";
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
 function ExportButton({
@@ -256,11 +252,9 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
   const best = useMemo(() => topOverall(rows), [rows]);
   const daily = useMemo(() => dailyTop(rows), [rows]);
   const latest = useMemo(() => lastFive(rows), [rows]);
-  const [ocrAuditItem, setOcrAuditItem] = useState<AuditableCollectionRow | null>(null);
 
   return (
     <section className="mt-10 space-y-5">
-      <ReceiptOcrAuditDialog item={ocrAuditItem} onClose={() => setOcrAuditItem(null)} />
       <h2 className="text-2xl font-bold">Top Performers</h2>
 
       {best ? (
@@ -342,31 +336,6 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                             : `Google Drive Receipt #${n + 1} ↗`}
                         </a>
                       ))}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2.5 text-xs whitespace-nowrap shrink-0"
-                        onClick={() =>
-                          setOcrAuditItem({
-                            row: r.row,
-                            executive: r.executive,
-                            loanId: r.loanId ?? "",
-                            amount: r.amount,
-                            date: r.date,
-                            time: r.time,
-                            entryDate: r.entryDate,
-                            entryType: r.entryType,
-                            settlement: r.settlement,
-                            settlementType: r.settlementType,
-                            receiptLinks: r.receiptLinks,
-                            remark: r.remark,
-                            amansRemarks: r.amansRemarks,
-                          })
-                        }
-                      >
-                        Scan Receipt (OCR)
-                      </Button>
                     </div>
                   ) : null}
                   {r.remark ? (
