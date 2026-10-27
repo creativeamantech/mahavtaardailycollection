@@ -14,10 +14,11 @@ interface Props {
   currentExecutive: PortalExecutive | null;
   onSelect: (executive: PortalExecutive, adminPassword?: string) => void;
   onClose?: () => void;
+  lockedExecutive?: PortalExecutive;
 }
 
-export function ExecutiveAuthModal({ currentExecutive, onSelect, onClose }: Props) {
-  const [selected, setSelected] = useState<PortalExecutive | null>(currentExecutive);
+export function ExecutiveAuthModal({ currentExecutive, onSelect, onClose, lockedExecutive }: Props) {
+  const [selected, setSelected] = useState<PortalExecutive | null>(lockedExecutive ?? currentExecutive);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -70,14 +71,13 @@ export function ExecutiveAuthModal({ currentExecutive, onSelect, onClose }: Prop
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <UserCheck className="h-6 w-6" />
         </div>
-        <h2 className="mt-3 text-2xl font-bold tracking-tight">Choose Your Name</h2>
+        <h2 className="mt-3 text-2xl font-bold tracking-tight">{lockedExecutive ? `Verify ${lockedExecutive}` : "Choose Your Name"}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Select your name before entering the Bank Portal Usage module to record activity and
-          access your schedule.
+          {lockedExecutive ? "Your name is taken from your signed-in account. Administrator verification is required to continue." : "Select your name before entering the Bank Portal Usage module to record activity and access your schedule."}
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {!lockedExecutive && <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {PORTAL_EXECUTIVES.map((exec, idx) => {
           const isAman = exec === "Aman";
           const isCurrent = selected === exec;
@@ -109,7 +109,7 @@ export function ExecutiveAuthModal({ currentExecutive, onSelect, onClose }: Prop
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {selected === "Aman" && (
         <form

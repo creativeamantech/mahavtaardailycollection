@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { type PortalExecutive } from "@/lib/portal-types";
+import { PORTAL_EXECUTIVES, type PortalExecutive } from "@/lib/portal-types";
+import { useSheetAuth } from "@/hooks/useSheetAuth";
 import {
   ExecutiveAuthModal,
   PORTAL_EXECUTIVE_STORAGE_KEY,
@@ -30,8 +31,6 @@ import {
   LogIn,
   MessageSquare,
   ShieldCheck,
-  UserCheck,
-  Users,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/bank-portal")({
@@ -66,8 +65,9 @@ type TabKey =
 function BankPortalPage() {
   const [currentExecutive, setCurrentExecutive] = useState<PortalExecutive | null>(null);
   const [adminPassword, setAdminPassword] = useState<string>("");
+  const [identityResolved, setIdentityResolved] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("live");
-  const [isSwitchingUser, setIsSwitchingUser] = useState(false);
+  const { user, isLoading: isAuthLoading } = useSheetAuth();
 
   const fetchSheetConfig = useServerFn(getBankPortalSheetConfig);
   const { data: sheetConfig } = useQuery({
@@ -77,34 +77,62 @@ function BankPortalPage() {
   });
 
   useEffect(() => {
-    const savedExec = sessionStorage.getItem(
-      PORTAL_EXECUTIVE_STORAGE_KEY,
-    ) as PortalExecutive | null;
-    const savedPass = sessionStorage.getItem(PORTAL_ADMIN_PASS_STORAGE_KEY) || "";
-    if (savedExec) {
-      setCurrentExecutive(savedExec);
-      setAdminPassword(savedPass);
+    if (isAuthLoading || !user) return;
+
+    const normalized = user.executiveName.trim().toLowerCase();
+    const mappedName = normalized === "julee" || normalized === "julie"
+      ? "Julie"
+      : PORTAL_EXECUTIVES.find((name) => name.toLowerCase() === normalized);
+
+    if (!mappedName) {
+      setCurrentExecutive(null);
+      setAdminPassword("");
+      setIdentityResolved(true);
+      return;
     }
-  }, []);
+
+    const savedExec = sessionStorage.getItem(PORTAL_EXECUTIVE_STORAGE_KEY);
+    const savedPass = sessionStorage.getItem(PORTAL_ADMIN_PASS_STORAGE_KEY) || "";
+    setCurrentExecutive(mappedName);
+    if (mappedName === "Aman" && savedExec === "Aman" && savedPass) {
+      setAdminPassword(savedPass);
+    } else {
+      setAdminPassword("");
+      sessionStorage.removeItem(PORTAL_ADMIN_PASS_STORAGE_KEY);
+    }
+    sessionStorage.setItem(PORTAL_EXECUTIVE_STORAGE_KEY, mappedName);
+    setIdentityResolved(true);
+  }, [user, isAuthLoading]);
 
   const handleSelectExecutive = (exec: PortalExecutive, pass?: string) => {
     setCurrentExecutive(exec);
     setAdminPassword(pass ?? "");
-    setIsSwitchingUser(false);
   };
 
-  const handleSwitchUser = () => {
-    setIsSwitchingUser(true);
-  };
+  if (isAuthLoading) {
+    return <main className="mx-auto w-full max-w-2xl px-4 py-8 text-sm text-muted-foreground">Verifying signed-in user…</main>;
+  }
 
-  // 1. Executive Selection is REQUIRED before entering
-  if (!currentExecutive || isSwitchingUser) {
+  if (!user) {
+    return <main className="mx-auto w-full max-w-2xl px-4 py-8 text-sm text-muted-foreground">Please sign in to access the Bank Portal.</main>;
+  }
+
+  if (!identityResolved) {
+    return <main className="mx-auto w-full max-w-2xl px-4 py-8 text-sm text-muted-foreground">Loading your Bank Portal identity…</main>;
+  }
+
+  if (!currentExecutive) {
+    return <main className="mx-auto w-full max-w-2xl px-4 py-8 text-sm text-destructive">Your signed-in account is not configured for Bank Portal access. Contact the administrator.</main>;
+  }
+
+  // Aman retains the existing administrator-password verification; other users enter as their login identity.
+  if (currentExecutive === "Aman" && !adminPassword) {
     return (
       <main className="mx-auto w-full max-w-2xl px-4 py-8">
         <ExecutiveAuthModal
-          currentExecutive={currentExecutive}
+          currentExecutive="Aman"
+          lockedExecutive="Aman"
           onSelect={handleSelectExecutive}
-          onClose={() => setIsSwitchingUser(false)}
         />
       </main>
     );
@@ -183,15 +211,7 @@ function BankPortalPage() {
             </a>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSwitchUser}
-            className="h-8 text-xs gap-1 font-medium"
-          >
-            <UserCheck className="h-3.5 w-3.5" />
-            Switch Name
-          </Button>
+
         </div>
       </div>
 
