@@ -65,6 +65,7 @@ type TabKey =
 function BankPortalPage() {
   const [currentExecutive, setCurrentExecutive] = useState<PortalExecutive | null>(null);
   const [adminPassword, setAdminPassword] = useState<string>("");
+  const [identityResolved, setIdentityResolved] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("live");
   const { user, isLoading: isAuthLoading } = useSheetAuth();
 
@@ -86,6 +87,7 @@ function BankPortalPage() {
     if (!mappedName) {
       setCurrentExecutive(null);
       setAdminPassword("");
+      setIdentityResolved(true);
       return;
     }
 
@@ -99,6 +101,7 @@ function BankPortalPage() {
       sessionStorage.removeItem(PORTAL_ADMIN_PASS_STORAGE_KEY);
     }
     sessionStorage.setItem(PORTAL_EXECUTIVE_STORAGE_KEY, mappedName);
+    setIdentityResolved(true);
   }, [user, isAuthLoading]);
 
   const handleSelectExecutive = (exec: PortalExecutive, pass?: string) => {
@@ -112,6 +115,10 @@ function BankPortalPage() {
 
   if (!user) {
     return <main className="mx-auto w-full max-w-2xl px-4 py-8 text-sm text-muted-foreground">Please sign in to access the Bank Portal.</main>;
+  }
+
+  if (!identityResolved) {
+    return <main className="mx-auto w-full max-w-2xl px-4 py-8 text-sm text-muted-foreground">Loading your Bank Portal identity…</main>;
   }
 
   if (!currentExecutive) {
