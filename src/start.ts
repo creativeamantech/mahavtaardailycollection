@@ -1,7 +1,6 @@
 import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
-import { captureAuthHeader } from "./lib/app-auth-request.server";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -23,5 +22,6 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [errorMiddleware, csrfMiddleware, captureAuthHeader],
+  functionMiddleware: [],
+  requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));

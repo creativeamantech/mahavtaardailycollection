@@ -11,13 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAlreadyPaidRouteImport } from './routes/_authenticated/already-paid'
-import { Route as AuthenticatedBankPortalRouteImport } from './routes/_authenticated/bank-portal'
-import { Route as AuthenticatedConflictsRouteImport } from './routes/_authenticated/conflicts'
 import { Route as AuthenticatedEcsRouteImport } from './routes/_authenticated/ecs'
 import { Route as AuthenticatedExecutiveCitiesRouteImport } from './routes/_authenticated/executive-cities'
 import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
@@ -25,7 +22,6 @@ import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authen
 import { Route as AuthenticatedPendingRouteImport } from './routes/_authenticated/pending'
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -35,11 +31,6 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -64,16 +55,6 @@ const AuthenticatedAlreadyPaidRoute =
     path: '/already-paid',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedBankPortalRoute = AuthenticatedBankPortalRouteImport.update({
-  id: '/bank-portal',
-  path: '/bank-portal',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedConflictsRoute = AuthenticatedConflictsRouteImport.update({
-  id: '/conflicts',
-  path: '/conflicts',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedEcsRoute = AuthenticatedEcsRouteImport.update({
   id: '/ecs',
   path: '/ecs',
@@ -111,11 +92,6 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   id: '/.lovable/oauth/consent',
   path: '/.lovable/oauth/consent',
@@ -125,12 +101,9 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
-  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
-  '/bank-portal': typeof AuthenticatedBankPortalRoute
-  '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
@@ -138,17 +111,13 @@ export interface FileRoutesByFullPath {
   '/pending': typeof AuthenticatedPendingRoute
   '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/users': typeof AuthenticatedUsersRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
-  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
-  '/bank-portal': typeof AuthenticatedBankPortalRoute
-  '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
@@ -156,7 +125,6 @@ export interface FileRoutesByTo {
   '/pending': typeof AuthenticatedPendingRoute
   '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
 }
@@ -164,12 +132,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/already-paid': typeof AuthenticatedAlreadyPaidRoute
-  '/_authenticated/bank-portal': typeof AuthenticatedBankPortalRoute
-  '/_authenticated/conflicts': typeof AuthenticatedConflictsRoute
   '/_authenticated/ecs': typeof AuthenticatedEcsRoute
   '/_authenticated/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
@@ -177,7 +142,6 @@ export interface FileRoutesById {
   '/_authenticated/pending': typeof AuthenticatedPendingRoute
   '/_authenticated/report': typeof AuthenticatedReportRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
 }
@@ -186,12 +150,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/login'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
     | '/already-paid'
-    | '/bank-portal'
-    | '/conflicts'
     | '/ecs'
     | '/executive-cities'
     | '/loans'
@@ -199,17 +160,13 @@ export interface FileRouteTypes {
     | '/pending'
     | '/report'
     | '/settings'
-    | '/users'
     | '/.lovable/oauth/consent'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
-    | '/login'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
     | '/already-paid'
-    | '/bank-portal'
-    | '/conflicts'
     | '/ecs'
     | '/executive-cities'
     | '/loans'
@@ -217,19 +174,15 @@ export interface FileRouteTypes {
     | '/pending'
     | '/report'
     | '/settings'
-    | '/users'
     | '/'
     | '/.lovable/oauth/consent'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
-    | '/login'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/already-paid'
-    | '/_authenticated/bank-portal'
-    | '/_authenticated/conflicts'
     | '/_authenticated/ecs'
     | '/_authenticated/executive-cities'
     | '/_authenticated/loans'
@@ -237,7 +190,6 @@ export interface FileRouteTypes {
     | '/_authenticated/pending'
     | '/_authenticated/report'
     | '/_authenticated/settings'
-    | '/_authenticated/users'
     | '/_authenticated/'
     | '/.lovable/oauth/consent'
   fileRoutesById: FileRoutesById
@@ -245,7 +197,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
@@ -265,13 +216,6 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -300,20 +244,6 @@ declare module '@tanstack/react-router' {
       path: '/already-paid'
       fullPath: '/already-paid'
       preLoaderRoute: typeof AuthenticatedAlreadyPaidRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/bank-portal': {
-      id: '/_authenticated/bank-portal'
-      path: '/bank-portal'
-      fullPath: '/bank-portal'
-      preLoaderRoute: typeof AuthenticatedBankPortalRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/conflicts': {
-      id: '/_authenticated/conflicts'
-      path: '/conflicts'
-      fullPath: '/conflicts'
-      preLoaderRoute: typeof AuthenticatedConflictsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/ecs': {
@@ -365,13 +295,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/users': {
-      id: '/_authenticated/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof AuthenticatedUsersRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/.lovable/oauth/consent': {
       id: '/.lovable/oauth/consent'
       path: '/.lovable/oauth/consent'
@@ -384,8 +307,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlreadyPaidRoute: typeof AuthenticatedAlreadyPaidRoute
-  AuthenticatedBankPortalRoute: typeof AuthenticatedBankPortalRoute
-  AuthenticatedConflictsRoute: typeof AuthenticatedConflictsRoute
   AuthenticatedEcsRoute: typeof AuthenticatedEcsRoute
   AuthenticatedExecutiveCitiesRoute: typeof AuthenticatedExecutiveCitiesRoute
   AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
@@ -393,14 +314,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPendingRoute: typeof AuthenticatedPendingRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlreadyPaidRoute: AuthenticatedAlreadyPaidRoute,
-  AuthenticatedBankPortalRoute: AuthenticatedBankPortalRoute,
-  AuthenticatedConflictsRoute: AuthenticatedConflictsRoute,
   AuthenticatedEcsRoute: AuthenticatedEcsRoute,
   AuthenticatedExecutiveCitiesRoute: AuthenticatedExecutiveCitiesRoute,
   AuthenticatedLoansRoute: AuthenticatedLoansRoute,
@@ -408,7 +326,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPendingRoute: AuthenticatedPendingRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
-  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
@@ -418,7 +335,6 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,

@@ -39,7 +39,10 @@ import {
   revertConflictValidation,
   updateCollectionRow,
 } from "@/lib/mahavtaar.functions";
-
+import {
+  type AuditableCollectionRow,
+  ReceiptOcrAuditDialog,
+} from "@/components/ReceiptOcrAuditDialog";
 import { EXECUTIVES, formatAmount, todayISO } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,7 +120,7 @@ type ConflictGroup = {
 function extractDriveFileId(url: string): string | null {
   if (!url) return null;
   const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
-  return match ? (match[1] ?? null) : null;
+  return match ? match[1] : null;
 }
 
 function getReceiptImageUrl(url: string): string | null {
@@ -229,6 +232,7 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
   // Validating Action State
   const [validatingRow, setValidatingRow] = useState<number | null>(null);
   const [validatingGroupKey, setValidatingGroupKey] = useState<string | null>(null);
+  const [ocrAuditItem, setOcrAuditItem] = useState<AuditableCollectionRow | null>(null);
 
   // Receipt Modal State (Single Receipt Lightbox)
   const [previewReceipt, setPreviewReceipt] = useState<{
@@ -665,8 +669,8 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All Executives</SelectItem>
-                {EXECUTIVES.map((exec, idx) => (
-                  <SelectItem key={`conflict-filter-exec-${exec}-${idx}`} value={exec}>
+                {EXECUTIVES.map((exec) => (
+                  <SelectItem key={exec} value={exec}>
                     {exec}
                   </SelectItem>
                 ))}
@@ -1056,6 +1060,18 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
                                   ? "Saving..."
                                   : "Conflict नहीं है, सही है"}
                               </Button>
+
+                              {item.receiptLinks && item.receiptLinks.length > 0 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-2.5 text-xs font-medium whitespace-nowrap shrink-0"
+                                  onClick={() => setOcrAuditItem(item)}
+                                >
+                                  Scan OCR
+                                </Button>
+                              )}
 
                               <Button
                                 type="button"
@@ -1533,8 +1549,8 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXECUTIVES.map((e, idx) => (
-                    <SelectItem key={`conflict-edit-exec-${e}-${idx}`} value={e}>
+                  {EXECUTIVES.map((e) => (
+                    <SelectItem key={e} value={e}>
                       {e}
                     </SelectItem>
                   ))}
@@ -1683,6 +1699,12 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ReceiptOcrAuditDialog
+        item={ocrAuditItem}
+        onClose={() => setOcrAuditItem(null)}
+        onSuccess={() => void refetch()}
+      />
     </main>
   );
 }

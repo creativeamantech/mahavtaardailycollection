@@ -1,7 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { sheetsAppend, ensureSheet } from "../../mahavtaar.server";
-import { requireSettingsPassword } from "../../password-guard.server";
 
 export default defineTool({
   name: "add_notification",
@@ -9,10 +8,6 @@ export default defineTool({
   description:
     "Publishes a new announcement notification banner into Google Sheets (Notifications tab).",
   inputSchema: {
-    password: z
-      .string()
-      .max(200)
-      .describe("App settings password (required to publish a notification)."),
     text: z.string().trim().min(1).max(500).describe("Notification message text."),
     imageUrl: z
       .string()
@@ -22,8 +17,7 @@ export default defineTool({
       .describe("Optional public image URL to display."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
-  handler: async ({ password, text, imageUrl }) => {
-    requireSettingsPassword(password);
+  handler: async ({ text, imageUrl }) => {
     const NOTIF_TAB = "Notifications";
     await ensureSheet(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
 

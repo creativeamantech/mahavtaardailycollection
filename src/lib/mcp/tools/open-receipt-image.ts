@@ -6,11 +6,11 @@ function extractDriveId(url: string): string | null {
   if (!url) return null;
   // Match /file/d/{id}
   const matchFileD = /\/file\/d\/([a-zA-Z0-9_-]+)/i.exec(url);
-  if (matchFileD) return matchFileD[1] ?? null;
+  if (matchFileD) return matchFileD[1];
 
   // Match id={id}
   const matchIdParam = /[?&]id=([a-zA-Z0-9_-]+)/i.exec(url);
-  if (matchIdParam) return matchIdParam[1] ?? null;
+  if (matchIdParam) return matchIdParam[1];
 
   // Match bare drive ID (alphanumeric with underscores/hyphens, length 25-45)
   if (/^[a-zA-Z0-9_-]{25,45}$/.test(url.trim())) {

@@ -3,14 +3,8 @@
 
 import { shortEmiRows, summariseLoans, type CollectionRow, type LoanSummary } from "@/lib/loans";
 
-// Neutralise spreadsheet formula injection: a cell whose text starts with
-// =, +, -, @, tab or CR could execute as a formula when opened in Excel or
-// Google Sheets. Prefixing a single quote marks it as plain text.
-const FORMULA_START = /^[=+\-@\t\r]/;
-
 function cell(v: unknown) {
-  let s = v === null || v === undefined ? "" : String(v);
-  if (FORMULA_START.test(s)) s = `'${s}`;
+  const s = v === null || v === undefined ? "" : String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

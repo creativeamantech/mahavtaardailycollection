@@ -7,10 +7,6 @@ export default defineTool({
   title: "Remove announcement notification",
   description: "Deactivates an active announcement notification banner by ID.",
   inputSchema: {
-    password: z
-      .string()
-      .max(200)
-      .describe("App settings password (required to remove a notification)."),
     id: z
       .string()
       .trim()
@@ -19,9 +15,9 @@ export default defineTool({
       .describe("Notification ID to remove (e.g. 'NTF-1729000000000')."),
   },
   annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
-  handler: async ({ password, id }) => {
+  handler: async ({ id }) => {
     await removeNotification({
-      data: { password, id },
+      data: { id },
     });
 
     return {

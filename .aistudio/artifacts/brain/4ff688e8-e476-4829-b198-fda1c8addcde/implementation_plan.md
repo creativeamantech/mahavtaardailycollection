@@ -57,23 +57,7 @@ Implement a completely free, self-contained **Receipt OCR & Verification System*
 
 ---
 
----
-
-## 5. Bank Portal Dedicated Google Spreadsheet Architecture (Decoupled & Isolated)
-
-- **Independent Spreadsheet Integration (`src/lib/bank-portal-sheets.server.ts`)**:
-  - The Daily Collection Google Spreadsheet (`1AXLakW3subO9H-O9iWIpXJyjT4JLXRTG5uiL3dWsY5g`) is strictly preserved and never modified by Bank Portal operations.
-  - Bank Portal has its own dedicated spreadsheet configuration (`BANK_PORTAL_SPREADSHEET_ID`), isolated read caches, and dedicated in-memory overlays.
-  - 6 dedicated portal tabs are maintained in the Bank Portal Google Spreadsheet:
-    - `Portal_Sessions`: Complete session history, durations, overdue flags, and reason codes.
-    - `Portal_Schedules`: Executive slots, availability toggles, and notes.
-    - `Portal_Complaints`: Queries, escalated complaints, batch windows, evidence links, resolutions.
-    - `Portal_Warnings`: Formal disciplinary warnings.
-    - `Portal_Bans`: 24-hour temporary access bans and revocations.
-    - `Portal_Audit`: Immutable administrative audit logs.
-- **Admin Management & Live Linking (`src/components/portal/AdminSettingsView.tsx` & `src/routes/_authenticated/bank-portal.tsx`)**:
-  - Admin Aman can view the active Bank Portal Spreadsheet ID, open it directly in Google Sheets via 1-click external link, create a new dedicated spreadsheet, or link any custom Google Sheet URL/ID at any time.
-  - Validation strictly prevents setting the Bank Portal spreadsheet ID to the Daily Collection spreadsheet, ensuring zero data pollution.
+## 4. Verification Plan
 
 1. **Lint & TypeScript**: Run `lint_applet` to verify zero errors.
 2. **Build Verification**: Run `compile_applet` to ensure clean client and server builds.
