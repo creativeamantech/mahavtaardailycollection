@@ -63,19 +63,15 @@ export function hashPin(pin: string, customSalt?: string): string {
   return `${salt}:${hash}`;
 }
 
-// Validates PIN against stored salt:hash or raw PIN
+// Validates PIN against stored salt:hash or raw PIN (including Google Sheets leading-zero stripped numbers like 3 for 0003)
 export function verifyPin(pin: string, storedHash: string): boolean {
   if (!storedHash || !pin) return false;
   const trimmedPin = pin.trim();
+  const cleanStored = storedHash.trim().replace(/^'+/, ""); // strip leading apostrophe if pasted as text
 
-  // 1. Direct match with standard default PINs
-  if (trimmedPin === "0003" || trimmedPin === "1234") {
-    if (storedHash === trimmedPin) return true;
-  }
-
-  // 2. Salt:hash verification
-  if (storedHash.includes(":")) {
-    const [salt, expected] = storedHash.split(":");
+  // 1. Salt:hash verification
+  if (cleanStored.includes(":")) {
+    const [salt, expected] = cleanStored.split(":");
     if (!salt || !expected) return false;
     try {
       const computed = crypto.scryptSync(trimmedPin, salt, 32).toString("hex");
@@ -86,8 +82,13 @@ export function verifyPin(pin: string, storedHash: string): boolean {
     }
   }
 
-  // 3. Plain text fallback if sheet was manually edited with raw PIN
-  return storedHash.trim() === trimmedPin;
+  // 2. Direct plain text or leading-zero padded match (Google Sheets often formats 0003 as 3)
+  if (cleanStored === trimmedPin) return true;
+  if (/^\d+$/.test(cleanStored) && cleanStored.padStart(4, "0") === trimmedPin) {
+    return true;
+  }
+
+  return false;
 }
 
 // Creates an HMAC-signed stateless session token
@@ -496,7 +497,7 @@ export async function resetSheetUserPin(
   return { success: true };
 }
 
-// Provides template information and CSV data for creating the Users tab in Google Sheet
+// Provides template information and CSV/TSV data for creating the Users tab in Google Sheet
 export function getUsersSheetTemplate() {
   const users = getMemoryUsers();
   const rows = [
@@ -508,6 +509,18 @@ export function getUsersSheetTemplate() {
   ];
 
   const tsvRows = [
+    USERS_HEADERS.join("\t"),
+    ...users.map((u) => {
+      const displayPin = u.pinHash.includes(":")
+        ? u.executiveName.toLowerCase() === "aman"
+          ? "0003"
+          : "1234"
+        : u.pinHash;
+      return `${u.userId}\t${u.executiveName}\t${u.email}\t${displayPin}\t${u.role}\t${u.status}`;
+    }),
+  ];
+
+  const hashedTsvRows = [
     USERS_HEADERS.join("\t"),
     ...users.map(
       (u) => `${u.userId}\t${u.executiveName}\t${u.email}\t${u.pinHash}\t${u.role}\t${u.status}`,
@@ -521,5 +534,6 @@ export function getUsersSheetTemplate() {
     headers: USERS_HEADERS,
     csv: rows.join("\n"),
     tsv: tsvRows.join("\n"),
+    hashedTsv: hashedTsvRows.join("\n"),
   };
 }

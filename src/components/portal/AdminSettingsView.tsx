@@ -26,6 +26,8 @@ import {
 import {
   Ban,
   CheckCircle2,
+  Code2,
+  Copy,
   Database,
   ExternalLink,
   FileSpreadsheet,
@@ -35,6 +37,33 @@ import {
   ShieldCheck,
   Undo2,
 } from "lucide-react";
+
+const BANK_PORTAL_APPS_SCRIPT = `function createMahavtaarBankPortalSheet() {
+  const ss = SpreadsheetApp.create("Mahavtaar Bank Portal Usage & Accountability");
+  
+  const tabs = {
+    "Portal_Sessions": ["ID", "Executive", "StartedAt", "EndedAt", "DurationSeconds", "Reason", "CustomReason", "SessionType", "AuthorisedSlot", "Status", "IsOverdue"],
+    "Portal_Schedules": ["Executive", "SlotsJson", "IsAvailable", "Notes"],
+    "Portal_Complaints": ["ComplaintID", "Complainant", "ConcernedExecutive", "Subject", "Description", "LoanRef", "EvidenceUrl", "Status", "CreatedAt", "IsQueuedForBatch", "EscalatedFromQuery", "EscalatedAt", "ResolvedAt", "Resolver", "ResolutionNotes", "AdminDecision", "AdminRemarks", "VerifiedAt"],
+    "Portal_Warnings": ["WarningID", "Executive", "ComplaintID", "Reason", "WarningText", "IssuedBy", "IssuedAt", "Acknowledged"],
+    "Portal_Bans": ["BanID", "Executive", "ComplaintID", "Reason", "StartedAt", "ExpiresAt", "IssuedBy", "IsActive", "RevokedAt", "RevokedBy", "RevokeReason"],
+    "Portal_Audit": ["AuditID", "Timestamp", "Action", "Actor", "Details"]
+  };
+
+  let first = true;
+  for (const [tabName, headers] of Object.entries(tabs)) {
+    let sheet = first ? ss.getActiveSheet() : ss.insertSheet(tabName);
+    if (first) {
+      sheet.setName(tabName);
+      first = false;
+    }
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f4f6");
+    sheet.setFrozenRows(1);
+  }
+
+  Logger.log("Created Bank Portal Sheet URL: " + ss.getUrl());
+}`;
 
 interface Props {
   currentExecutive: PortalExecutive;
@@ -70,6 +99,18 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
   const [spreadsheetInput, setSpreadsheetInput] = useState("");
   const [isSavingSheet, setIsSavingSheet] = useState(false);
   const [isCreatingSheet, setIsCreatingSheet] = useState(false);
+  const [showAppsScriptGuide, setShowAppsScriptGuide] = useState(false);
+
+  const handleCopyAppsScript = async () => {
+    try {
+      await navigator.clipboard.writeText(BANK_PORTAL_APPS_SCRIPT);
+      toast.success(
+        "Copied Google Apps Script! Open script.google.com, paste, and click Run to create your Bank Portal sheet.",
+      );
+    } catch {
+      toast.error("Failed to copy script.");
+    }
+  };
 
   const handleSaveSpreadsheet = async () => {
     if (!spreadsheetInput.trim()) {
@@ -227,11 +268,12 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
           <div className="space-y-0.5">
             <h4 className="font-bold text-base flex items-center gap-2 text-purple-950 dark:text-purple-200">
               <FileSpreadsheet className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              बैंक पोर्टल समर्पित Google स्प्रेडशीट (Dedicated Bank Portal Sheet)
+              Dedicated Bank Portal Google Spreadsheet (बैंक पोर्टल समर्पित स्प्रेडशीट)
             </h4>
             <p className="text-xs text-muted-foreground">
-              बैंक पोर्टल का पूरा डेटा (सत्र, शेड्यूल, शिकायतें, चेतावनियां, प्रतिबंध, ऑडिट लॉग) इस
-              अलग गूगल स्प्रेडशीट में सुरक्षित है।
+              All Bank Portal tabs (<code>Portal_Sessions</code>, <code>Portal_Schedules</code>,{" "}
+              <code>Portal_Complaints</code>, <code>Portal_Warnings</code>, <code>Portal_Bans</code>
+              , <code>Portal_Audit</code>) are isolated in this separate spreadsheet.
             </p>
           </div>
 
@@ -240,28 +282,28 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
             className="border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 text-xs px-2.5 py-1 gap-1.5 font-medium"
           >
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-            डेली कलेक्शन से 100% अलग (Isolated)
+            100% Isolated from Daily Collection
           </Badge>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
           <div className="rounded-lg border bg-white/90 dark:bg-card/90 p-3 space-y-2">
             <div className="flex items-center justify-between text-muted-foreground">
-              <span className="font-medium">बैंक पोर्टल स्प्रेडशीट ID:</span>
+              <span className="font-medium">Bank Portal Spreadsheet ID:</span>
               <span className="font-mono text-[11px] text-purple-700 dark:text-purple-300 font-semibold truncate max-w-[200px]">
                 {sheetConfig?.spreadsheetId || "Connecting..."}
               </span>
             </div>
             <div className="flex items-center justify-between text-muted-foreground">
-              <span className="font-medium">डेली कलेक्शन फ़ाइल (अछूता):</span>
+              <span className="font-medium">Daily Collection Sheet (Untouched):</span>
               <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
                 1AXLakW3...5uiL3dWsY5g (Safe & Untouched)
               </span>
             </div>
             <div className="flex items-center justify-between text-muted-foreground pt-1.5 border-t">
-              <span>पोर्टल टैब्स (Tabs):</span>
+              <span>6 Required Tabs:</span>
               <span className="text-[11px] font-medium text-foreground">
-                Sessions, Schedules, Complaints, Warnings, Bans, Audit
+                Portal_Sessions, Schedules, Complaints, Warnings, Bans, Audit
               </span>
             </div>
           </div>
@@ -269,8 +311,9 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
           <div className="rounded-lg border bg-white/90 dark:bg-card/90 p-3 flex flex-col justify-between gap-2.5">
             <div>
               <p className="text-muted-foreground text-[11px]">
-                आप बैंक पोर्टल के लिए अपनी अलग गूगल स्प्रेडशीट का URL या ID जोड़ सकते हैं, या नई
-                समर्पित शीट बना सकते हैं।
+                Create the <strong>Mahavtaar Bank Portal Usage &amp; Accountability</strong>{" "}
+                spreadsheet in seconds using the 1-Click Google Apps Script or connect your existing
+                spreadsheet URL below.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -282,9 +325,19 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-purple-600 text-white hover:bg-purple-700 text-xs font-medium transition-colors"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  Google Sheets में खोलें
+                  Open in Google Sheets
                 </a>
               )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAppsScriptGuide((v) => !v)}
+                className="h-8 text-xs gap-1 border-purple-300 text-purple-900 hover:bg-purple-100 dark:text-purple-200"
+              >
+                <Code2 className="h-3.5 w-3.5" />
+                {showAppsScriptGuide ? "Hide 1-Click Setup Script" : "1-Click Apps Script Setup"}
+              </Button>
 
               <Button
                 size="sm"
@@ -294,30 +347,85 @@ export function AdminSettingsView({ currentExecutive, adminPassword }: Props) {
                 className="h-8 text-xs gap-1 border-purple-300 text-purple-900 hover:bg-purple-100 dark:text-purple-200"
               >
                 <PlusCircle className="h-3.5 w-3.5" />
-                {isCreatingSheet ? "Creating..." : "नई समर्पित शीट बनाएं"}
+                {isCreatingSheet ? "Creating..." : "Auto-Initialize Tabs"}
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Change or paste custom sheet */}
-        <div className="pt-2 border-t border-purple-100 dark:border-purple-900/30 flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <div className="flex-1 w-full">
-            <Input
-              placeholder="नया Google Spreadsheet ID या पूरा URL पेस्ट करें (e.g. https://docs.google.com/spreadsheets/d/...)"
-              value={spreadsheetInput}
-              onChange={(e) => setSpreadsheetInput(e.target.value)}
-              className="h-9 text-xs bg-white dark:bg-background"
-            />
+        {/* 1-Click Automated Setup (Google Apps Script) */}
+        {showAppsScriptGuide && (
+          <div className="rounded-lg border border-purple-200 bg-white dark:bg-card p-3.5 space-y-2.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold text-purple-950 dark:text-purple-200">
+                  1-Click Automated Setup (Google Apps Script)
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  1. Copy this script &rarr; 2. Open{" "}
+                  <a
+                    href="https://script.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline font-medium text-purple-700 dark:text-purple-300"
+                  >
+                    script.google.com
+                  </a>{" "}
+                  and click <strong>Run</strong> &rarr; 3. Paste the generated Sheet URL below and
+                  click <strong>Save Spreadsheet ID</strong>.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleCopyAppsScript}
+                  className="h-8 text-xs gap-1.5 bg-purple-700 hover:bg-purple-800 text-white"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy Apps Script
+                </Button>
+                <a
+                  href="https://script.google.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium hover:bg-accent"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  script.google.com
+                </a>
+              </div>
+            </div>
+            <pre className="max-h-56 overflow-auto rounded bg-muted/70 p-2.5 font-mono text-[11px] leading-relaxed select-all">
+              {BANK_PORTAL_APPS_SCRIPT}
+            </pre>
           </div>
-          <Button
-            size="sm"
-            onClick={handleSaveSpreadsheet}
-            disabled={isSavingSheet || !spreadsheetInput.trim()}
-            className="h-9 text-xs px-4 bg-purple-700 hover:bg-purple-800 text-white shrink-0"
-          >
-            {isSavingSheet ? "सहेज रहे हैं..." : "स्प्रेडशीट लिंक अपडेट करें"}
-          </Button>
+        )}
+
+        {/* Change or paste custom sheet */}
+        <div className="pt-2 border-t border-purple-100 dark:border-purple-900/30 space-y-1.5">
+          <Label htmlFor="bank-portal-sheet-input" className="text-xs font-semibold">
+            Google Spreadsheet ID or URL
+          </Label>
+          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+            <div className="flex-1 w-full">
+              <Input
+                id="bank-portal-sheet-input"
+                placeholder="Paste Google Spreadsheet ID or full URL (e.g. https://docs.google.com/spreadsheets/d/...)"
+                value={spreadsheetInput}
+                onChange={(e) => setSpreadsheetInput(e.target.value)}
+                className="h-9 text-xs bg-white dark:bg-background"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={handleSaveSpreadsheet}
+              disabled={isSavingSheet || !spreadsheetInput.trim()}
+              className="h-9 text-xs px-4 bg-purple-700 hover:bg-purple-800 text-white shrink-0"
+            >
+              {isSavingSheet ? "Saving..." : "Save Spreadsheet ID"}
+            </Button>
+          </div>
         </div>
       </div>
 

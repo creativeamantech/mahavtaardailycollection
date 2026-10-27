@@ -87,6 +87,8 @@ export function SheetUserManager() {
     staleTime: 15_000,
   });
 
+  const [showPasteGuide, setShowPasteGuide] = useState(false);
+
   const filteredUsers = useMemo(() => {
     if (!searchTerm.trim()) return users;
     const term = searchTerm.toLowerCase();
@@ -103,12 +105,13 @@ export function SheetUserManager() {
     toast.success("Synchronized with Google Sheet.");
   }
 
-  async function handleCopyTsv() {
-    if (!tabStatus?.tsv) return;
+  async function handleCopyTsv(useHashed = false) {
+    const content = useHashed ? tabStatus?.hashedTsv || tabStatus?.tsv : tabStatus?.tsv;
+    if (!content) return;
     try {
-      await navigator.clipboard.writeText(tabStatus.tsv);
+      await navigator.clipboard.writeText(content);
       toast.success(
-        "Copied Users table! Create a 'Users' tab in Google Sheets and press Ctrl+V in cell A1.",
+        "Copied Users table! Open your Daily Collection Sheet, create a 'Users' tab, and paste into cell A1.",
       );
     } catch {
       toast.error("Could not copy to clipboard.");
@@ -276,7 +279,7 @@ export function SheetUserManager() {
       {/* Google Sheet 'Users' Tab Status & 1-Click Sync Helper */}
       {tabStatus && (
         <div
-          className={`rounded-lg border p-3.5 text-xs ${
+          className={`rounded-lg border p-3.5 text-xs space-y-3 ${
             tabStatus.isPresentInGoogleSheet
               ? "border-emerald-500/30 bg-emerald-500/5"
               : "border-amber-500/40 bg-amber-500/10"
@@ -294,28 +297,26 @@ export function SheetUserManager() {
                   <>
                     <FileSpreadsheet className="h-4 w-4 text-amber-600 shrink-0" />
                     <span>
-                      &ldquo;Users&rdquo; Tab Setup for Google Spreadsheet (Active Server Store
-                      Ready)
+                      &ldquo;Users&rdquo; Tab Setup for Daily Collection Sheet (Active Store Ready)
                     </span>
                   </>
                 )}
               </div>
               {tabStatus.isPresentInGoogleSheet ? (
                 <p className="text-muted-foreground">
-                  The <strong>Users</strong> tab is live in your Daily Collection Google Sheet. Any
-                  changes below can also be copied or exported directly to your sheet.
+                  The <strong>Users</strong> tab is live in your Daily Collection Google Sheet. Both
+                  plain 4-digit PINs (e.g. <code>0003</code>, <code>1234</code>) and hashed PINs
+                  work automatically.
                 </p>
               ) : (
                 <p className="text-muted-foreground">
-                  Your Google Sheet currently does not have a tab named <strong>Users</strong> (or
-                  write API keys are not set). Logins and edits below work immediately via the
-                  server store. To add the <strong>Users</strong> tab to your Google Sheet: click{" "}
-                  <strong>1. Copy Rows</strong>, open your Google Sheet, create a new tab named{" "}
+                  Open your Daily Collection Google Sheet, add a new tab named{" "}
                   <code className="rounded bg-background px-1 py-0.5 font-mono font-semibold">
                     Users
                   </code>
-                  , and paste (<kbd className="rounded border bg-background px-1">Ctrl+V</kbd>) in
-                  cell <strong>A1</strong>.
+                  , click <strong>Copy Table</strong> below, and paste (
+                  <kbd className="rounded border bg-background px-1">Ctrl+V</kbd>) directly into
+                  Cell <strong>A1</strong>.
                 </p>
               )}
             </div>
@@ -325,11 +326,11 @@ export function SheetUserManager() {
                 type="button"
                 variant="default"
                 size="sm"
-                onClick={handleCopyTsv}
+                onClick={() => handleCopyTsv(false)}
                 className="h-8 text-xs gap-1.5"
               >
                 <Copy className="h-3.5 w-3.5" />
-                1. Copy Rows (with Hashed PINs)
+                Copy Table
               </Button>
               <Button
                 type="button"
@@ -341,6 +342,15 @@ export function SheetUserManager() {
                 <Download className="h-3.5 w-3.5" />
                 Download Users.csv
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPasteGuide((v) => !v)}
+                className="h-8 text-xs"
+              >
+                {showPasteGuide ? "Hide TSV Data" : "View Ready-to-Paste TSV"}
+              </Button>
               <a
                 href={tabStatus.spreadsheetUrl}
                 target="_blank"
@@ -348,10 +358,46 @@ export function SheetUserManager() {
                 className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent transition-colors"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                2. Open Google Sheet
+                Open Google Sheet
               </a>
             </div>
           </div>
+
+          {showPasteGuide && (
+            <div className="rounded-md border bg-background p-3 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-xs">
+                  Ready-to-Paste Data (Copy and paste directly into Cell A1 of{" "}
+                  <code className="font-mono">Users</code> tab):
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyTsv(false)}
+                    className="h-7 text-[11px] gap-1"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Copy Plain PIN Table
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyTsv(true)}
+                    className="h-7 text-[11px] gap-1"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Copy Scrypt-Hashed Table
+                  </Button>
+                </div>
+              </div>
+              <pre className="overflow-x-auto rounded bg-muted/60 p-2.5 font-mono text-[11px] leading-relaxed select-all">
+                {tabStatus.tsv}
+              </pre>
+            </div>
+          )}
         </div>
       )}
 
