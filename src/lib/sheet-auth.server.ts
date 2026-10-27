@@ -333,7 +333,9 @@ export function verifyAdminSession(token?: string | null, password?: string | nu
   throw new Error("Unauthorized: Administrator session or settings password required.");
 }
 
-export type AdminAuthInput = string | { token?: string | null; password?: string | null };
+export type AdminAuthInput =
+  | string
+  | { token?: string | null | undefined; password?: string | null | undefined };
 
 function resolveAdminAuth(auth: AdminAuthInput) {
   if (typeof auth === "string") {

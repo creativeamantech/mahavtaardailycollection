@@ -213,6 +213,7 @@ function AppShell() {
                   ) : (
                     <Link
                       to="/login"
+                      search={{ next: "" }}
                       className="rounded-md border border-primary bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                     >
                       Sign In
