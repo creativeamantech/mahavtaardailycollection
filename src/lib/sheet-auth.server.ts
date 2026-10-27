@@ -176,22 +176,14 @@ export async function ensureUsersSheet(): Promise<void> {
 // Detects whether the Users tab actually exists in the Google Spreadsheet
 export async function isUsersTabAvailableInGoogleSheet(): Promise<boolean> {
   try {
-    const res = await fetch(
-      `https://docs.google.com/spreadsheets/d/${DAILY_COLLECTION_SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(USERS_SHEET_TITLE)}`,
+    const rows = await sheetsGet(`${USERS_SHEET_TITLE}!A1:F1`, "daily_collection");
+    return (
+      rows.length > 0 &&
+      (rows[0]?.[0] ?? "").trim().toLowerCase() === "user_id" &&
+      (rows[0]?.[1] ?? "").trim().toLowerCase() === "executive_name"
     );
-    if (!res.ok) return false;
-    const text = await res.text();
-    // If the tab doesn't exist, Google Sheets gviz returns the first sheet (Collections)
-    // whose first header is "Executive Name" or "Loan ID"
-    const firstLine = text.split("\n")[0] || "";
-    if (firstLine.includes("Executive Name") && firstLine.includes("Loan ID")) {
-      return false; // Redirected to Collections tab because Users tab is missing!
-    }
-    if (firstLine.toLowerCase().includes("user_id")) {
-      return true;
-    }
-    return false;
-  } catch {
+  } catch (error) {
+    console.error("Could not verify Users tab through the Lovable Google Sheets connector:", error);
     return false;
   }
 }
