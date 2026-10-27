@@ -113,13 +113,22 @@ function LoginPage() {
     <main className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex flex-col items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md bg-card border rounded-2xl shadow-xl overflow-hidden">
         {/* Header Banner */}
-        <div className="bg-primary px-6 py-8 text-primary-foreground text-center relative overflow-hidden">
+        <div className="bg-gradient-to-b from-amber-500/10 via-amber-500/5 to-card px-6 py-8 text-center relative overflow-hidden border-b">
           <div className="relative z-10 flex flex-col items-center">
-            <div className="h-14 w-14 rounded-2xl bg-primary-foreground/15 flex items-center justify-center mb-3 shadow-inner">
-              <ShieldCheck className="h-8 w-8 text-primary-foreground" />
+            <div className="h-20 w-20 sm:h-24 sm:w-24 mb-3 shrink-0">
+              <img
+                src="/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png"
+                alt="Mahavtaar Daily Collection Logo"
+                className="h-full w-full object-contain"
+              />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Mahavtaar Daily Collection</h1>
-            <p className="text-sm text-primary-foreground/80 mt-1">
+            <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-amber-700 via-amber-600 to-amber-800 dark:from-amber-400 dark:via-yellow-300 dark:to-amber-500 bg-clip-text text-transparent">
+              MAHAVTAAR
+            </h1>
+            <p className="text-xs uppercase font-bold tracking-widest text-muted-foreground mt-0.5">
+              Daily Collection
+            </p>
+            <p className="text-xs text-muted-foreground mt-2 font-medium">
               Google Sheet Secure Authentication
             </p>
           </div>

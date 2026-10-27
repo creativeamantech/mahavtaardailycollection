@@ -106,18 +106,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         property: "og:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a",
+        content: "/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png",
       },
       {
         name: "twitter:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a",
+        content: "/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png",
       },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      {
+        rel: "icon",
+        href: "/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png",
+        type: "image/png",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -183,7 +185,21 @@ function AppShell() {
         <header className="border-b print:hidden">
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
+              <Link to="/" className="flex items-center gap-2.5 group">
+                <img
+                  src="/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png"
+                  alt="Mahavtaar Daily Collection Logo"
+                  className="h-9 w-9 sm:h-10 sm:w-10 object-contain group-hover:scale-105 transition-transform shrink-0"
+                />
+                <div className="flex flex-col">
+                  <span className="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-700 dark:from-amber-400 dark:via-yellow-300 dark:to-amber-500 bg-clip-text text-transparent leading-none">
+                    MAHAVTAAR
+                  </span>
+                  <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+                    Daily Collection
+                  </span>
+                </div>
+              </Link>
               {!isLoginPage && (
                 <div className="flex items-center gap-2">
                   {user ? (

@@ -360,8 +360,19 @@ function EcsForm() {
       {slip && (
         <div className="mt-8">
           <div id="receipt-print" className="rounded-xl border p-5">
-            <h2 className="text-xl font-bold">Mahavtaar Daily Collection</h2>
-            <p className="text-base text-muted-foreground">ECS / Special Information Slip</p>
+            <div className="flex items-center gap-3 border-b pb-3 mb-4">
+              <img
+                src="/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png"
+                alt="Mahavtaar Daily Collection Logo"
+                className="h-12 w-12 object-contain shrink-0"
+              />
+              <div>
+                <h2 className="text-xl font-bold">Mahavtaar Daily Collection</h2>
+                <p className="text-sm text-muted-foreground font-medium">
+                  ECS / Special Information Slip
+                </p>
+              </div>
+            </div>
             <dl className="mt-4 space-y-2 text-base">
               <Row k="Executive Name" v={slip.executive} />
               <Row k="Loan ID" v={slip.loanId} />
