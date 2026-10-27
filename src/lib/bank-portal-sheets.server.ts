@@ -208,11 +208,9 @@ export async function ensureDedicatedBankPortalSpreadsheet(): Promise<void> {
     if (response.ok) return;
 
     if (response.status === 404) {
-      await createDedicatedBankPortalSpreadsheet(
-        "Mahavtaar Bank Portal Usage & Accountability",
-        "System Auto-Recovery",
+      throw new Error(
+        "The configured Bank Portal spreadsheet ID returned 404. Check that BANK_PORTAL_SPREADSHEET_ID is correct and that the connected Google account can access the existing spreadsheet. No replacement spreadsheet was created.",
       );
-      return;
     }
 
     const details = await response.text().catch(() => "");
