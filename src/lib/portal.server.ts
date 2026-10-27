@@ -8,6 +8,8 @@ import {
   type PortalBan,
   type PortalAuditLog,
   type LivePortalStatus,
+  type PortalAccessRequest,
+  type AccessRequestStatus,
   type SessionReason,
   type SessionType,
   type SessionStatus,
@@ -44,6 +46,7 @@ let inMemoryComplaints: PortalComplaint[] = [];
 const inMemoryWarnings: PortalWarning[] = [];
 let inMemoryBans: PortalBan[] = [];
 const inMemoryAudit: PortalAuditLog[] = [];
+const inMemoryAccessRequests: PortalAccessRequest[] = [];
 let isInitialized = false;
 
 // Concurrency mutex lock to prevent concurrent session start races
@@ -352,9 +355,19 @@ export function getNextScheduledSlot(timeStr: string): {
   };
 }
 
+export function cleanExpiredAccessRequests() {
+  const now = Date.now();
+  for (const req of inMemoryAccessRequests) {
+    if (req.status === "PENDING" && now >= req.expiresAtEpochMs) {
+      req.status = "EXPIRED";
+    }
+  }
+}
+
 export function computeLivePortalStatus(): LivePortalStatus {
   const { timeStr, isoString, epochMs } = getNowInIST();
   cleanExpiredBans();
+  cleanExpiredAccessRequests();
 
   // Check if active session is expired automatically
   if (inMemoryActiveSession) {
@@ -377,6 +390,11 @@ export function computeLivePortalStatus(): LivePortalStatus {
   const nextScheduled = getNextScheduledSlot(timeStr);
   const isAnkitaBatchWindow = isBatchWindowActive(timeStr);
 
+  // Return non-expired pending or recent requests (within last 30 minutes)
+  const recentRequests = inMemoryAccessRequests.filter(
+    (r) => r.status === "PENDING" || epochMs - r.requestedAtEpochMs < 30 * 60 * 1000,
+  );
+
   return {
     isPortalActive,
     activeSession:
@@ -398,6 +416,7 @@ export function computeLivePortalStatus(): LivePortalStatus {
     serverTimeEpochMs: epochMs,
     serverTimeIso: isoString,
     isAnkitaBatchWindow,
+    accessRequests: recentRequests,
   };
 }
 
@@ -458,6 +477,24 @@ export async function startSessionOnServer(params: {
     const scheduled = getCurrentScheduledSlot(timeStr);
     let sessionType: SessionType = "TEMPORARY";
     let authorisedSlot = "Temporary Access (7m 15s)";
+
+    // If starting during someone else's scheduled slot, check for approval unless Admin or force override
+    if (scheduled && scheduled.executive !== executive && executive !== "Aman" && !forceOverride) {
+      const approvedReq = inMemoryAccessRequests.find(
+        (r) =>
+          r.requestor === executive &&
+          r.scheduledExecutive === scheduled.executive &&
+          r.status === "APPROVED" &&
+          epochMs - r.requestedAtEpochMs < 30 * 60 * 1000,
+      );
+
+      if (!approvedReq) {
+        return {
+          ok: false,
+          error: `This is ${scheduled.executive}'s scheduled slot (${scheduled.formattedSlot}). You must send an access request to ${scheduled.executive} and get confirmation before accessing the portal.`,
+        };
+      }
+    }
 
     if (scheduled && scheduled.executive === executive) {
       if (scheduled.isBatchWindow) {
@@ -1101,4 +1138,155 @@ export async function createBankPortalDedicatedSpreadsheet(input: {
     });
   }
   return result;
+}
+
+export async function requestPortalAccessOnServer(params: {
+  requestor: PortalExecutive;
+  reason: SessionReason;
+  customReason?: string | undefined;
+}): Promise<{ ok: boolean; request?: PortalAccessRequest; error?: string }> {
+  await initPortalStore();
+  cleanExpiredAccessRequests();
+
+  const { timeStr, isoString, epochMs } = getNowInIST();
+  const currentScheduled = getCurrentScheduledSlot(timeStr);
+
+  if (!currentScheduled) {
+    return {
+      ok: false,
+      error: "No executive is currently scheduled. You can start a session directly.",
+    };
+  }
+
+  if (currentScheduled.executive === params.requestor) {
+    return {
+      ok: false,
+      error: "This is your own scheduled time slot! You do not need to request access.",
+    };
+  }
+
+  // Check if executive has active ban
+  const activeBan = checkActiveBan(params.requestor);
+  if (activeBan) {
+    return {
+      ok: false,
+      error: `You have an active temporary ban (Reason: ${activeBan.reason}).`,
+    };
+  }
+
+  // Reuse existing pending request if any
+  const existing = inMemoryAccessRequests.find(
+    (r) =>
+      r.requestor === params.requestor &&
+      r.scheduledExecutive === currentScheduled.executive &&
+      r.status === "PENDING",
+  );
+
+  if (existing) {
+    return { ok: true, request: existing };
+  }
+
+  const requestId = `REQ-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+  const accessReq: PortalAccessRequest = {
+    id: requestId,
+    requestor: params.requestor,
+    scheduledExecutive: currentScheduled.executive,
+    reason: params.reason,
+    customReason: params.customReason,
+    status: "PENDING",
+    requestedAt: isoString,
+    requestedAtEpochMs: epochMs,
+    expiresAtEpochMs: epochMs + 5 * 60 * 1000, // 5 minutes validity
+  };
+
+  inMemoryAccessRequests.unshift(accessReq);
+  if (inMemoryAccessRequests.length > 100) inMemoryAccessRequests.pop();
+
+  await recordAuditLog({
+    action: "ACCESS_REQUEST_SENT",
+    actor: params.requestor,
+    details: `Sent access request to ${currentScheduled.executive} for '${params.reason}' during their slot (${currentScheduled.formattedSlot})`,
+  });
+
+  return { ok: true, request: accessReq };
+}
+
+export async function respondToPortalAccessRequestOnServer(params: {
+  requestId: string;
+  responder: PortalExecutive;
+  action: "APPROVE" | "REJECT";
+  responseNote?: string | undefined;
+}): Promise<{ ok: boolean; request?: PortalAccessRequest; error?: string }> {
+  await initPortalStore();
+  cleanExpiredAccessRequests();
+
+  const req = inMemoryAccessRequests.find((r) => r.id === params.requestId);
+  if (!req) {
+    return { ok: false, error: "Access request not found or expired." };
+  }
+
+  if (req.status !== "PENDING") {
+    return { ok: false, error: `Request is already ${req.status.toLowerCase()}.` };
+  }
+
+  // Only the scheduled executive or Admin Aman can approve/reject
+  if (req.scheduledExecutive !== params.responder && params.responder !== "Aman") {
+    return {
+      ok: false,
+      error: `Only ${req.scheduledExecutive} or Administrator Aman can respond to this request.`,
+    };
+  }
+
+  const { isoString } = getNowInIST();
+  req.respondedAt = isoString;
+  req.responseNote = params.responseNote?.trim() || undefined;
+
+  if (params.action === "APPROVE") {
+    req.status = "APPROVED";
+
+    // Auto-start a temporary portal session for the requestor!
+    const sessionRes = await startSessionOnServer({
+      executive: req.requestor,
+      reason: req.reason,
+      customReason: req.customReason,
+      forceOverride: true,
+    });
+
+    if (sessionRes.ok && sessionRes.session) {
+      req.grantedSessionId = sessionRes.session.id;
+    }
+
+    await recordAuditLog({
+      action: "ACCESS_REQUEST_APPROVED",
+      actor: params.responder,
+      details: `Approved portal access request for ${req.requestor}${params.responseNote ? ` (${params.responseNote})` : ""}`,
+    });
+  } else {
+    req.status = "REJECTED";
+
+    await recordAuditLog({
+      action: "ACCESS_REQUEST_REJECTED",
+      actor: params.responder,
+      details: `Rejected portal access request for ${req.requestor}${params.responseNote ? ` (${params.responseNote})` : ""}`,
+    });
+  }
+
+  return { ok: true, request: req };
+}
+
+export async function cancelPortalAccessRequestOnServer(params: {
+  requestId: string;
+  requestor: PortalExecutive;
+}): Promise<{ ok: boolean; error?: string }> {
+  await initPortalStore();
+  const req = inMemoryAccessRequests.find((r) => r.id === params.requestId);
+  if (!req) return { ok: true };
+
+  if (req.requestor !== params.requestor && params.requestor !== "Aman") {
+    return { ok: false, error: "Only the requestor can cancel this request." };
+  }
+
+  req.status = "CANCELLED";
+  return { ok: true };
 }

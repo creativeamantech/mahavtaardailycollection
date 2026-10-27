@@ -24,6 +24,9 @@ import {
   getBankPortalSpreadsheetDetails,
   setBankPortalSpreadsheet,
   createBankPortalDedicatedSpreadsheet,
+  requestPortalAccessOnServer,
+  respondToPortalAccessRequestOnServer,
+  cancelPortalAccessRequestOnServer,
 } from "./portal.server";
 import { driveUpload } from "./mahavtaar.server";
 
@@ -386,4 +389,69 @@ export const createDedicatedBankPortalSheet = createServerFn({ method: "POST" })
       throw new Error(res.message);
     }
     return res;
+  });
+
+export const requestPortalAccess = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        requestor: z.enum(PORTAL_EXECUTIVES),
+        reason: z.enum(SESSION_REASONS),
+        customReason: z.string().max(300).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const res = await requestPortalAccessOnServer({
+      requestor: data.requestor as PortalExecutive,
+      reason: data.reason as SessionReason,
+      customReason: data.customReason,
+    });
+    if (!res.ok) {
+      throw new Error(res.error ?? "Failed to send access request.");
+    }
+    return res;
+  });
+
+export const respondToPortalAccessRequest = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        requestId: z.string().min(1),
+        responder: z.enum(PORTAL_EXECUTIVES),
+        action: z.enum(["APPROVE", "REJECT"]),
+        responseNote: z.string().max(300).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const res = await respondToPortalAccessRequestOnServer({
+      requestId: data.requestId,
+      responder: data.responder as PortalExecutive,
+      action: data.action,
+      responseNote: data.responseNote,
+    });
+    if (!res.ok) {
+      throw new Error(res.error ?? "Failed to respond to access request.");
+    }
+    return res;
+  });
+
+export const cancelPortalAccessRequest = createServerFn({ method: "POST" })
+  .middleware([requireAppAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        requestId: z.string().min(1),
+        requestor: z.enum(PORTAL_EXECUTIVES),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    return await cancelPortalAccessRequestOnServer({
+      requestId: data.requestId,
+      requestor: data.requestor as PortalExecutive,
+    });
   });

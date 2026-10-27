@@ -3,7 +3,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { SESSION_REASONS, type PortalExecutive, type SessionReason } from "@/lib/portal-types";
-import { startPortalSession, endPortalSession, recoverPortalSession } from "@/lib/portal.functions";
+import {
+  startPortalSession,
+  endPortalSession,
+  recoverPortalSession,
+  requestPortalAccess,
+} from "@/lib/portal.functions";
+import { AccessRequestBanner } from "@/components/portal/AccessRequestBanner";
 import { formatDuration, useLivePortalStatus } from "@/hooks/useLivePortalStatus";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,6 +27,7 @@ import {
   LogIn,
   LogOut,
   RefreshCw,
+  Send,
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
@@ -48,17 +55,49 @@ export function StartEndSessionCard({ currentExecutive, adminPassword }: Props) 
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   const startSessionFn = useServerFn(startPortalSession);
   const endSessionFn = useServerFn(endPortalSession);
   const recoverSessionFn = useServerFn(recoverPortalSession);
+  const requestAccessFn = useServerFn(requestPortalAccess);
 
   const isCurrentUserActive = isPortalActive && activeSession?.executive === currentExecutive;
   const isSomeoneElseActive = isPortalActive && activeSession?.executive !== currentExecutive;
 
   const isMyScheduledSlot = currentScheduled?.executive === currentExecutive;
+  const isAnotherExecutiveSlot =
+    Boolean(currentScheduled) &&
+    currentScheduled?.executive !== currentExecutive &&
+    currentExecutive !== "Aman";
+
+  const handleSendAccessRequest = async () => {
+    if (!currentScheduled) return;
+    setIsRequesting(true);
+    try {
+      await requestAccessFn({
+        data: {
+          requestor: currentExecutive,
+          reason,
+          customReason: reason === "Other" ? customReason : undefined,
+        },
+      });
+
+      toast.success(`Access request sent to ${currentScheduled.executive}! Waiting for approval.`);
+      await qc.invalidateQueries({ queryKey: ["portalLiveStatus"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send access request.");
+    } finally {
+      setIsRequesting(false);
+    }
+  };
 
   const handleStartSession = async () => {
+    if (isAnotherExecutiveSlot) {
+      await handleSendAccessRequest();
+      return;
+    }
+
     setIsStarting(true);
     try {
       await startSessionFn({
@@ -166,6 +205,9 @@ export function StartEndSessionCard({ currentExecutive, adminPassword }: Props) 
           )}
         </div>
       </div>
+
+      {/* Access Request Banner for Incoming & Outgoing Requests */}
+      <AccessRequestBanner currentExecutive={currentExecutive} />
 
       {/* Case 1: Current User is using the portal -> Show Live Timer & End Session */}
       {isCurrentUserActive && (
@@ -285,6 +327,11 @@ export function StartEndSessionCard({ currentExecutive, adminPassword }: Props) 
                     ✓ You are currently within your scheduled slot (
                     {currentScheduled?.formattedSlot})!
                   </span>
+                ) : isAnotherExecutiveSlot ? (
+                  <span className="text-amber-700 dark:text-amber-400 font-bold">
+                    ⚠️ Scheduled Slot: {currentScheduled?.executive} (
+                    {currentScheduled?.formattedSlot})
+                  </span>
                 ) : (
                   <span>
                     Temporary Access Window: <strong>7 minutes and 15 seconds</strong>
@@ -292,12 +339,18 @@ export function StartEndSessionCard({ currentExecutive, adminPassword }: Props) 
                 )}
               </span>
             </div>
-            {!isMyScheduledSlot && (
+            {isAnotherExecutiveSlot ? (
+              <p className="text-amber-800 dark:text-amber-200 font-medium">
+                यह समय <strong>{currentScheduled?.executive}</strong> का है। बैंक पोर्टल उपयोग करने
+                के लिए नीचे से <strong>{currentScheduled?.executive}</strong> को रिक्वेस्ट भेजें।
+                उनके अप्रूव करने पर आपका सेशन शुरू होगा।
+              </p>
+            ) : !isMyScheduledSlot ? (
               <p className="text-muted-foreground">
                 You are starting outside your scheduled slot. The 7m 15s timer starts when you tap
                 Start Session and is enforced server-side.
               </p>
-            )}
+            ) : null}
             {isAnkitaBatchWindow && (
               <p className="text-purple-700 font-medium">
                 🟣 6:30 PM–7:30 PM IST is reserved for Ankita's Batch Handling.
@@ -338,14 +391,27 @@ export function StartEndSessionCard({ currentExecutive, adminPassword }: Props) 
             </div>
           )}
 
-          <Button
-            onClick={handleStartSession}
-            disabled={isStarting}
-            className="w-full h-12 text-base font-semibold gap-2"
-          >
-            <LogIn className="h-5 w-5" />
-            {isStarting ? "Starting Session..." : `Start Session as ${currentExecutive}`}
-          </Button>
+          {isAnotherExecutiveSlot ? (
+            <Button
+              onClick={handleSendAccessRequest}
+              disabled={isRequesting}
+              className="w-full h-12 text-base font-semibold gap-2 bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Send className="h-5 w-5" />
+              {isRequesting
+                ? "Sending Request..."
+                : `${currentScheduled?.executive} से एक्सेस रिक्वेस्ट करें (Request Access)`}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleStartSession}
+              disabled={isStarting}
+              className="w-full h-12 text-base font-semibold gap-2"
+            >
+              <LogIn className="h-5 w-5" />
+              {isStarting ? "Starting Session..." : `Start Session as ${currentExecutive}`}
+            </Button>
+          )}
         </div>
       )}
     </div>

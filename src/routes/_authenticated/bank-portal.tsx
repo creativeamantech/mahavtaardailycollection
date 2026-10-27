@@ -8,6 +8,7 @@ import {
 } from "@/components/portal/ExecutiveAuthModal";
 import { LivePortalStatusBanner } from "@/components/portal/LivePortalStatusBanner";
 import { StartEndSessionCard } from "@/components/portal/StartEndSessionCard";
+import { AccessRequestBanner } from "@/components/portal/AccessRequestBanner";
 import { ExecutiveScheduleView } from "@/components/portal/ExecutiveScheduleView";
 import { ComplaintsAndQueriesSection } from "@/components/portal/ComplaintsAndQueriesSection";
 import { UsageReportsView } from "@/components/portal/UsageReportsView";
@@ -232,6 +233,9 @@ function BankPortalPage() {
           );
         })}
       </nav>
+
+      {/* Access Request Banner for all tabs */}
+      <AccessRequestBanner currentExecutive={activeExec} />
 
       {/* Tab Views */}
       {activeTab === "live" && (

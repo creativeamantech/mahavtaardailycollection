@@ -203,6 +203,23 @@ export interface PortalAuditLog {
   details: string;
 }
 
+export type AccessRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED";
+
+export interface PortalAccessRequest {
+  id: string;
+  requestor: PortalExecutive;
+  scheduledExecutive: PortalExecutive;
+  reason: SessionReason;
+  customReason?: string | undefined;
+  status: AccessRequestStatus;
+  requestedAt: string; // ISO
+  requestedAtEpochMs: number;
+  expiresAtEpochMs: number;
+  respondedAt?: string | undefined;
+  responseNote?: string | undefined;
+  grantedSessionId?: string | undefined;
+}
+
 export interface LivePortalStatus {
   isPortalActive: boolean;
   activeSession: {
@@ -231,4 +248,5 @@ export interface LivePortalStatus {
   serverTimeEpochMs: number;
   serverTimeIso: string;
   isAnkitaBatchWindow: boolean;
+  accessRequests?: PortalAccessRequest[];
 }
