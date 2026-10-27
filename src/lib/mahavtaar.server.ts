@@ -1,5 +1,5 @@
-// Server-only helpers for Google Sheets + Drive via the Lovable connector gateway
-// with graceful fallback to public Google Sheets export and local overlay when API credentials are not set.
+// Server-only helpers for Google Sheets + Drive via the Lovable connector gateway.
+// Reads may use the public CSV endpoint, but every write requires a successful API operation.
 // Section-aware data fetching utility: routes requests to Daily Collection vs. Bank Portal Google Sheet IDs
 // and scopes all caches and local overlays by spreadsheet ID to strictly prevent data overlap.
 
@@ -68,9 +68,6 @@ const CACHE_TTL_MS = 20_000;
 const readCache = new Map<string, { at: number; rows: string[][] }>();
 const inFlight = new Map<string, Promise<string[][]>>();
 
-// In-memory fallback overlay scoped by spreadsheetId -> sheetTitle -> rows
-const localAppended = new Map<string, Map<string, string[][]>>();
-const localUpdated = new Map<string, Map<string, Map<string, string>>>();
 
 export function invalidateSheetsCache(sectionOrId?: AppSection | string) {
   if (!sectionOrId) {
@@ -279,48 +276,21 @@ export async function sheetsAppend(
   values: (string | number)[][],
   sectionOrId?: AppSection | string,
 ) {
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+    throw new Error("Google Sheets write unavailable: configure LOVABLE_API_KEY and GOOGLE_SHEETS_API_KEY in server secrets.");
+  }
   const spreadsheetId = resolveSpreadsheetId(sectionOrId, range);
-
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    try {
-      const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-        {
-          method: "POST",
-          headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-          body: JSON.stringify({ values }),
-        },
-      );
-      invalidateSheetsCache(spreadsheetId);
-      return ok(res, "Sheets append");
-    } catch (err) {
-      console.warn(`Gateway append failed for ${spreadsheetId}, using local overlay:`, err);
-    }
-  }
-
-  const { sheetTitle } = parseRange(range);
-  if (!localAppended.has(spreadsheetId)) {
-    localAppended.set(spreadsheetId, new Map());
-  }
-  const appMap = localAppended.get(spreadsheetId)!;
-  if (!appMap.has(sheetTitle)) {
-    appMap.set(sheetTitle, []);
-  }
-  const strRows = values.map((r) => r.map((c) => (c === null || c === undefined ? "" : String(c))));
-  appMap.get(sheetTitle)!.push(...strRows);
-
-  // Compute calculated row number
-  let baseCount = 1;
-  try {
-    const publicData = await fetchFromPublicSheet(`${sheetTitle}!A1:A`, spreadsheetId);
-    baseCount = publicData.length;
-  } catch {
-    // fallback base count
-  }
-  const rowNum = baseCount + (appMap.get(sheetTitle)?.length ?? 1);
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    },
+  );
+  const result = await ok(res, "Google Sheets append");
   invalidateSheetsCache(spreadsheetId);
-
-  return { updates: { updatedRange: `${sheetTitle}!A${rowNum}:K${rowNum}` } };
+  return result;
 }
 
 export async function sheetsUpdate(
@@ -328,132 +298,69 @@ export async function sheetsUpdate(
   values: (string | number)[][],
   sectionOrId?: AppSection | string,
 ) {
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+    throw new Error("Google Sheets write unavailable: configure LOVABLE_API_KEY and GOOGLE_SHEETS_API_KEY in server secrets.");
+  }
   const spreadsheetId = resolveSpreadsheetId(sectionOrId, range);
-
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    try {
-      const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`,
-        {
-          method: "PUT",
-          headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-          body: JSON.stringify({ values }),
-        },
-      );
-      invalidateSheetsCache(spreadsheetId);
-      return ok(res, "Sheets update");
-    } catch (err) {
-      console.warn(`Gateway update failed for ${spreadsheetId}, using local overlay:`, err);
-    }
-  }
-
-  const { sheetTitle, startRow, startCol } = parseRange(range);
-  if (!localUpdated.has(spreadsheetId)) {
-    localUpdated.set(spreadsheetId, new Map());
-  }
-  const updMap = localUpdated.get(spreadsheetId)!;
-  if (!updMap.has(sheetTitle)) {
-    updMap.set(sheetTitle, new Map());
-  }
-  const updates = updMap.get(sheetTitle)!;
-  for (let r = 0; r < values.length; r++) {
-    const rowValues = values[r] ?? [];
-    for (let c = 0; c < rowValues.length; c++) {
-      const targetRowIdx = startRow - 1 + r;
-      const targetColIdx = startCol + c;
-      const val = rowValues[c] === null || rowValues[c] === undefined ? "" : String(rowValues[c]);
-      updates.set(`${targetRowIdx},${targetColIdx}`, val);
-    }
-  }
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`,
+    {
+      method: "PUT",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    },
+  );
+  const result = await ok(res, "Google Sheets update");
   invalidateSheetsCache(spreadsheetId);
-  return { ok: true };
+  return result;
 }
-
-const sheetIdCache = new Map<string, Record<string, number>>();
 
 export async function getSheetId(
   title: string,
   sectionOrId?: AppSection | string,
 ): Promise<number> {
   const spreadsheetId = resolveSpreadsheetId(sectionOrId, title);
-
   const cachedForSheet = sheetIdCache.get(spreadsheetId);
-  if (cachedForSheet && typeof cachedForSheet[title] === "number") {
-    return cachedForSheet[title]!;
-  }
+  if (cachedForSheet && typeof cachedForSheet[title] === "number") return cachedForSheet[title]!;
 
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    try {
-      const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
-        { headers: headers("GOOGLE_SHEETS_API_KEY") },
-      );
-      const json = (await ok(res, "Sheets metadata")) as {
-        sheets?: { properties?: { sheetId?: number; title?: string } }[];
-      };
-      const newCache: Record<string, number> = {};
-      for (const s of json.sheets ?? []) {
-        const p = s.properties;
-        if (p && typeof p.sheetId === "number" && p.title) newCache[p.title] = p.sheetId;
-      }
-      sheetIdCache.set(spreadsheetId, newCache);
-      const id = newCache[title];
-      if (typeof id === "number") return id;
-      throw new Error(`Sheet tab "${title}" not found in spreadsheet ${spreadsheetId}`);
-    } catch (err) {
-      if (err instanceof Error && err.message.includes("not found in spreadsheet")) {
-        throw err;
-      }
-      console.warn(`Failed to fetch sheet ID for ${title} on ${spreadsheetId} via gateway:`, err);
-    }
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+    throw new Error("Google Sheets metadata unavailable: configure server credentials.");
   }
-
-  // Fallback fixed sheet IDs
-  const knownDailySheetIds: Record<string, number> = {
-    Collections: 0,
-    Pending: 1,
-    ECS_Special_Info: 2,
-    AppSettings: 3,
-    Notifications: 4,
-    "Cashier Link Activity": 5,
-    Users: 6,
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+    { headers: headers("GOOGLE_SHEETS_API_KEY") },
+  );
+  const json = (await ok(res, "Google Sheets metadata")) as {
+    sheets?: { properties?: { sheetId?: number; title?: string } }[];
   };
-  const knownPortalSheetIds: Record<string, number> = {
-    Portal_Sessions: 101,
-    Portal_Schedules: 102,
-    Portal_Complaints: 103,
-    Portal_Warnings: 104,
-    Portal_Bans: 105,
-    Portal_Audit: 106,
-  };
-
-  if (spreadsheetId === DAILY_COLLECTION_SPREADSHEET_ID) {
-    return knownDailySheetIds[title] ?? 0;
+  const newCache: Record<string, number> = {};
+  for (const sheet of json.sheets ?? []) {
+    const props = sheet.properties;
+    if (props && typeof props.sheetId === "number" && props.title) newCache[props.title] = props.sheetId;
   }
-  return knownPortalSheetIds[title] ?? 100;
+  sheetIdCache.set(spreadsheetId, newCache);
+  const id = newCache[title];
+  if (typeof id !== "number") throw new Error(`Sheet tab "${title}" not found in spreadsheet ${spreadsheetId}.`);
+  return id;
 }
 
 export async function sheetsBatchUpdate(requests: unknown[], sectionOrId?: AppSection | string) {
-  const spreadsheetId = resolveSpreadsheetId(sectionOrId);
-
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    try {
-      const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-        {
-          method: "POST",
-          headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-          body: JSON.stringify({ requests }),
-        },
-      );
-      invalidateSheetsCache(spreadsheetId);
-      return ok(res, "Sheets batchUpdate");
-    } catch (err) {
-      console.warn(`Gateway batchUpdate failed for ${spreadsheetId}:`, err);
-    }
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+    throw new Error("Google Sheets write unavailable: configure LOVABLE_API_KEY and GOOGLE_SHEETS_API_KEY in server secrets.");
   }
-
-  return { ok: true };
+  const spreadsheetId = resolveSpreadsheetId(sectionOrId);
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ requests }),
+    },
+  );
+  const result = await ok(res, "Google Sheets batch update");
+  invalidateSheetsCache(spreadsheetId);
+  sheetIdCache.delete(spreadsheetId);
+  return result;
 }
 
 export async function driveUpload(name: string, mimeType: string, base64: string) {
@@ -517,6 +424,6 @@ export async function ensureSheet(
       }
       return getSheetId(title, spreadsheetId);
     }
-    return 0;
+    throw new Error("Cannot create a Google Sheets tab without server credentials.");
   }
 }
