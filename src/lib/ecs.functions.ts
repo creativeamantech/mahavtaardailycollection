@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAppAuth } from "./app-auth.server";
 import { z } from "zod";
 
 const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
@@ -22,7 +21,6 @@ const updateSchema = z.object({
 });
 
 export const saveEcsEntry = createServerFn({ method: "POST" })
-  .middleware([requireAppAuth])
   .inputValidator((d: unknown) => ecsSchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsAppend } = await import("./mahavtaar.server");
@@ -50,35 +48,32 @@ export const saveEcsEntry = createServerFn({ method: "POST" })
     return { ok: true as const, id };
   });
 
-export const getEcsEntries = createServerFn({ method: "GET" })
-  .middleware([requireAppAuth])
-  .handler(async () => {
-    try {
-      const { sheetsGet } = await import("./mahavtaar.server");
-      const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
-      const rows = await sheetsGet("ECS_Special_Info!A2:L");
-      return (rows ?? [])
-        .filter((r) => (r[0] ?? "").trim() !== "")
-        .map((r) => ({
-          id: r[0] ?? "",
-          executive: r[1] ?? "",
-          loanId: r[2] ?? "",
-          amount: Number(String(r[3] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-          paymentType: (r[4] ?? "ECS") as "ECS" | "Special",
-          paymentDate: normalizeSheetDate(r[5] ?? ""),
-          entryDate: normalizeSheetDate(r[6] ?? ""),
-          entryTime: normalizeSheetTime(r[7] ?? ""),
-          status: r[8] ?? "Confirmed",
-          remark: r[9] ?? "",
-        }));
-    } catch (err) {
-      console.error("Failed to read ECS entries from Google Sheets:", err);
-      return [];
-    }
-  });
+export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    const { sheetsGet } = await import("./mahavtaar.server");
+    const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
+    const rows = await sheetsGet("ECS_Special_Info!A2:L");
+    return (rows ?? [])
+      .filter((r) => (r[0] ?? "").trim() !== "")
+      .map((r) => ({
+        id: r[0] ?? "",
+        executive: r[1] ?? "",
+        loanId: r[2] ?? "",
+        amount: Number(String(r[3] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
+        paymentType: (r[4] ?? "ECS") as "ECS" | "Special",
+        paymentDate: normalizeSheetDate(r[5] ?? ""),
+        entryDate: normalizeSheetDate(r[6] ?? ""),
+        entryTime: normalizeSheetTime(r[7] ?? ""),
+        status: r[8] ?? "Confirmed",
+        remark: r[9] ?? "",
+      }));
+  } catch (err) {
+    console.error("Failed to read ECS entries from Google Sheets:", err);
+    return [];
+  }
+});
 
 export const updateEcsEntry = createServerFn({ method: "POST" })
-  .middleware([requireAppAuth])
   .inputValidator((d: unknown) => updateSchema.parse(d))
   .handler(async ({ data }) => {
     const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");

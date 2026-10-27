@@ -8,7 +8,6 @@ export default defineTool({
   description:
     "Updates application feature visibility toggles (flags) or the default allocation category in the AppSettings sheet tab.",
   inputSchema: {
-    password: z.string().max(200).describe("App settings password (required to change settings)."),
     flags: z
       .record(z.string(), z.boolean())
       .optional()
@@ -25,20 +24,20 @@ export default defineTool({
       ),
   },
   annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
-  handler: async ({ password, flags, defaultCategory }) => {
+  handler: async ({ flags, defaultCategory }) => {
     let updatedFlags = false;
     let updatedCategory = false;
 
     if (flags && Object.keys(flags).length > 0) {
       await saveFeatureFlags({
-        data: { password, flags },
+        data: { flags },
       });
       updatedFlags = true;
     }
 
     if (defaultCategory !== undefined) {
       await saveDefaultCategory({
-        data: { password, category: defaultCategory },
+        data: { category: defaultCategory },
       });
       updatedCategory = true;
     }

@@ -4,9 +4,9 @@ import { scanExistingReceiptPlain } from "../../receipt-ocr";
 
 export default defineTool({
   name: "scan_receipt_ocr",
-  title: "Scan and verify receipt image with Vision AI",
+  title: "Scan and verify receipt image with Free OCR",
   description:
-    "Scans a payment receipt image using Vision AI and compares the extracted payment status, bill amount (minus convenience fees), payment date, time, Loan ID, and UTR against the Google Sheet row. Can optionally write the verification result to Aman's Remarks (Column S) or auto-fix the row's amount/date.",
+    "Scans a payment receipt image using free hybrid Vision + local Tesseract.js OCR and compares the extracted payment status, bill amount (minus convenience fees), payment date, time, Loan ID, and UTR against the Google Sheet row. Can optionally write the verification result to Aman's Remarks (Column S) or auto-fix the row's amount/date.",
   inputSchema: {
     rowNumber: z
       .number()

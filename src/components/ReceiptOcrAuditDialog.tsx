@@ -191,17 +191,19 @@ export function ReceiptOcrAuditDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Receipt AI Scanner · Loan {item?.loanId ?? "—"} {item?.row ? `(Row ${item.row})` : ""}
+            Free Receipt OCR Scanner · Loan {item?.loanId ?? "—"}{" "}
+            {item?.row ? `(Row ${item.row})` : ""}
           </DialogTitle>
           <DialogDescription>
-            AI verification comparing the Google Drive receipt image against the Google Sheet entry.
+            100% Free Local OCR verification comparing the Google Drive receipt image against the
+            Google Sheet entry.
           </DialogDescription>
         </DialogHeader>
 
         {scanning && (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
             <div className="flex items-center justify-between font-medium text-slate-800">
-              <span>Downloading &amp; analyzing receipt image with AI...</span>
+              <span>Downloading &amp; scanning receipt image with Tesseract OCR...</span>
               <span className="font-mono tabular-nums">{progress}%</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">

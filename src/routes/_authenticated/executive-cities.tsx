@@ -585,7 +585,7 @@ export function ExecutiveCitiesPage() {
           >
             All Executives
           </button>
-          {EXECUTIVES.map((exec, idx) => {
+          {EXECUTIVES.map((exec) => {
             const sec = sections.find((s) => s.executive === exec);
             const count = sec?.rows.length ?? 0;
             const amount = sec?.total.collection ?? 0;
@@ -593,7 +593,7 @@ export function ExecutiveCitiesPage() {
 
             return (
               <button
-                key={`exec-tab-${exec}-${idx}`}
+                key={exec}
                 type="button"
                 className={`rounded-lg border px-3 py-1.5 text-left transition-all ${
                   isSelected
@@ -652,11 +652,8 @@ export function ExecutiveCitiesPage() {
                 </tr>
               </thead>
               <tbody>
-                {sections.map((sec, idx) => (
-                  <tr
-                    key={`sec-row-${sec.executive}-${idx}`}
-                    className="border-b last:border-b-0 hover:bg-muted/30"
-                  >
+                {sections.map((sec) => (
+                  <tr key={sec.executive} className="border-b last:border-b-0 hover:bg-muted/30">
                     <td className="px-3 py-2 font-medium text-foreground text-left">
                       <div className="flex items-center gap-1.5">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold">
@@ -764,8 +761,8 @@ export function ExecutiveCitiesPage() {
         )}
 
         {!isLoading &&
-          displayedSections.map((sec, idx) => (
-            <ExecutiveCityTableCard key={`sec-card-${sec.executive}-${idx}`} section={sec} />
+          displayedSections.map((sec) => (
+            <ExecutiveCityTableCard key={sec.executive} section={sec} />
           ))}
       </section>
     </main>

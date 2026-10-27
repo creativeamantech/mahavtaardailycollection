@@ -193,11 +193,11 @@ export function CashierLinkPanel({
               <SelectValue placeholder="Select executive" />
             </SelectTrigger>
             <SelectContent>
-              {EXECUTIVES.map((e, idx) => {
+              {EXECUTIVES.map((e) => {
                 const s = statuses?.[e];
                 const on = Boolean(s?.isOnline);
                 return (
-                  <SelectItem key={`cashier-sel-${e}-${idx}`} value={e} className="text-sm">
+                  <SelectItem key={e} value={e} className="text-sm">
                     <div className="flex items-center justify-between gap-4 w-full">
                       <span>{e}</span>
                       <span
@@ -296,12 +296,12 @@ export function CashierLinkPanel({
           </div>
 
           <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-            {EXECUTIVES.map((e, idx) => {
+            {EXECUTIVES.map((e) => {
               const on = Boolean(statuses?.[e]?.isOnline);
               const isSelected = exec === e;
               return (
                 <button
-                  key={`cashier-btn-${e}-${idx}`}
+                  key={e}
                   type="button"
                   onClick={() => handleSelectExec(e)}
                   className={`flex flex-col items-center justify-center rounded-lg border p-1.5 text-center transition-all ${
@@ -346,8 +346,8 @@ export function CashierLinkPanel({
                 <SelectItem value="ALL" className="text-xs">
                   All Staff
                 </SelectItem>
-                {EXECUTIVES.map((e, idx) => (
-                  <SelectItem key={`cashier-filter-${e}-${idx}`} value={e} className="text-xs">
+                {EXECUTIVES.map((e) => (
+                  <SelectItem key={e} value={e} className="text-xs">
                     {e}
                   </SelectItem>
                 ))}
