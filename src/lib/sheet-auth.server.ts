@@ -56,20 +56,28 @@ function getSecretKey(): string {
   );
 }
 
-// Generates salt:hash string using Node crypto scrypt
-export function hashPin(pin: string, customSalt?: string): string {
-  const salt = customSalt || crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(pin.trim(), salt, 32).toString("hex");
-  return `${salt}:${hash}`;
+// Returns 4 to 6 digit plain PIN (or trimmed input) for direct storage in Google Sheet
+export function hashPin(pin: string): string {
+  return pin.trim();
 }
 
-// Validates PIN against stored salt:hash or raw PIN (including Google Sheets leading-zero stripped numbers like 3 for 0003)
+// Validates 4 to 6 digit PIN against stored PIN or legacy salt:hash (including leading-zero padded numeric matches)
 export function verifyPin(pin: string, storedHash: string): boolean {
   if (!storedHash || !pin) return false;
   const trimmedPin = pin.trim();
   const cleanStored = storedHash.trim().replace(/^'+/, ""); // strip leading apostrophe if pasted as text
 
-  // 1. Salt:hash verification
+  // 1. Direct plain text match
+  if (cleanStored === trimmedPin) return true;
+
+  // 2. Leading-zero padded match (e.g., Google Sheets auto-formatting 0003 as 3)
+  if (/^\d+$/.test(cleanStored) && /^\d+$/.test(trimmedPin)) {
+    if (parseInt(cleanStored, 10) === parseInt(trimmedPin, 10)) {
+      return true;
+    }
+  }
+
+  // 3. Fallback for legacy salt:hash verification (backwards compatibility for existing accounts)
   if (cleanStored.includes(":")) {
     const [salt, expected] = cleanStored.split(":");
     if (!salt || !expected) return false;
@@ -77,15 +85,9 @@ export function verifyPin(pin: string, storedHash: string): boolean {
       const computed = crypto.scryptSync(trimmedPin, salt, 32).toString("hex");
       return crypto.timingSafeEqual(Buffer.from(computed, "hex"), Buffer.from(expected, "hex"));
     } catch (e) {
-      console.error("Error verifying pin hash:", e);
+      console.error("Error verifying legacy pin hash:", e);
       return false;
     }
-  }
-
-  // 2. Direct plain text or leading-zero padded match (Google Sheets often formats 0003 as 3)
-  if (cleanStored === trimmedPin) return true;
-  if (/^\d+$/.test(cleanStored) && cleanStored.padStart(4, "0") === trimmedPin) {
-    return true;
   }
 
   return false;
@@ -358,6 +360,11 @@ export async function addSheetUser(
 ): Promise<SheetUserSafe> {
   resolveAdminAuth(adminAuth);
 
+  const normPin = userData.pin.trim();
+  if (!normPin || !/^\d{4,6}$/.test(normPin)) {
+    throw new Error("PIN must be a 4 to 6 digit number (e.g., 1234 or 0003).");
+  }
+
   const users = await getAllSheetUsers();
   const normName = userData.executiveName.trim();
   const normEmail = userData.email.trim().toLowerCase();
@@ -373,7 +380,7 @@ export async function addSheetUser(
 
   const nextNumber = users.length + 1;
   const userId = `USR-${String(nextNumber).padStart(3, "0")}`;
-  const pinHash = hashPin(userData.pin);
+  const pinHash = hashPin(normPin);
 
   const newRecord: SheetUserRecord = {
     userId,
@@ -474,15 +481,16 @@ export async function resetSheetUserPin(
 ): Promise<{ success: boolean }> {
   resolveAdminAuth(adminAuth);
 
-  if (!newPin || newPin.trim().length < 4) {
-    throw new Error("PIN must be at least 4 digits.");
+  const normPin = newPin.trim();
+  if (!normPin || !/^\d{4,6}$/.test(normPin)) {
+    throw new Error("PIN must be a 4 to 6 digit number (e.g., 1234 or 0003).");
   }
 
   const users = await getAllSheetUsers();
   const user = users.find((u) => u.userId === userId);
   if (!user) throw new Error(`User ${userId} not found.`);
 
-  const newPinHash = hashPin(newPin);
+  const newPinHash = hashPin(normPin);
   user.pinHash = newPinHash;
 
   try {
@@ -523,13 +531,6 @@ export function getUsersSheetTemplate() {
     }),
   ];
 
-  const hashedTsvRows = [
-    USERS_HEADERS.join("\t"),
-    ...users.map(
-      (u) => `${u.userId}\t${u.executiveName}\t${u.email}\t${u.pinHash}\t${u.role}\t${u.status}`,
-    ),
-  ];
-
   return {
     sheetTitle: USERS_SHEET_TITLE,
     spreadsheetId: DAILY_COLLECTION_SPREADSHEET_ID,
@@ -537,6 +538,6 @@ export function getUsersSheetTemplate() {
     headers: USERS_HEADERS,
     csv: rows.join("\n"),
     tsv: tsvRows.join("\n"),
-    hashedTsv: hashedTsvRows.join("\n"),
+    hashedTsv: tsvRows.join("\n"),
   };
 }

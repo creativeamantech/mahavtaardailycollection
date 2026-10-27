@@ -138,8 +138,8 @@ export function SheetUserManager() {
       toast.error("Please fill in executive name, email, and PIN.");
       return;
     }
-    if (newPin.trim().length < 4) {
-      toast.error("PIN must be at least 4 digits.");
+    if (!/^\d{4,6}$/.test(newPin.trim())) {
+      toast.error("PIN must be a 4 to 6 digit number (e.g., 1234 or 0003).");
       return;
     }
 
@@ -209,8 +209,8 @@ export function SheetUserManager() {
   }
 
   async function handleResetPin(userId: string) {
-    if (!resetPinValue.trim() || resetPinValue.trim().length < 4) {
-      toast.error("PIN must be at least 4 digits.");
+    if (!/^\d{4,6}$/.test(resetPinValue.trim())) {
+      toast.error("PIN must be a 4 to 6 digit number (e.g., 1234 or 0003).");
       return;
     }
 
@@ -223,7 +223,7 @@ export function SheetUserManager() {
           newPin: resetPinValue.trim(),
         },
       });
-      toast.success("Security PIN updated and hashed.");
+      toast.success("Security PIN updated successfully.");
       setResettingUserId(null);
       setResetPinValue("");
       await qc.invalidateQueries({ queryKey: ["sheet-users-tab-status"] });
@@ -442,16 +442,16 @@ export function SheetUserManager() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="new-pin" className="text-xs font-medium">
-                Initial Security PIN (min 4 digits)
+                Initial Security PIN (4–6 digits)
               </Label>
               <Input
                 id="new-pin"
                 type="password"
-                placeholder="e.g. 1234"
+                placeholder="e.g. 1234 or 0003"
                 value={newPin}
                 onChange={(e) => setNewPin(e.target.value)}
                 required
-                maxLength={8}
+                maxLength={6}
                 className="h-9 text-sm font-mono tracking-widest"
               />
             </div>
@@ -602,20 +602,20 @@ export function SheetUserManager() {
                     <span className="text-xs font-medium shrink-0">New PIN:</span>
                     <Input
                       type="password"
-                      maxLength={8}
-                      placeholder="e.g. 5678"
+                      maxLength={6}
+                      placeholder="e.g. 5678 or 0003"
                       value={resetPinValue}
                       onChange={(e) => setResetPinValue(e.target.value)}
-                      className="h-8 max-w-[130px] text-xs font-mono tracking-widest"
+                      className="h-8 max-w-[140px] text-xs font-mono tracking-widest"
                     />
                     <Button
                       type="button"
                       size="sm"
-                      disabled={savingPin || resetPinValue.trim().length < 4}
+                      disabled={savingPin || !/^\d{4,6}$/.test(resetPinValue.trim())}
                       onClick={() => handleResetPin(user.userId)}
                       className="h-8 text-xs"
                     >
-                      {savingPin ? "Hashing..." : "Save PIN"}
+                      {savingPin ? "Saving..." : "Save PIN"}
                     </Button>
                     <Button
                       type="button"
@@ -635,8 +635,8 @@ export function SheetUserManager() {
       </div>
 
       <div className="pt-1 text-[11px] text-muted-foreground">
-        Note: PINs are hashed using salt + scrypt and never stored or returned in plaintext.
-        Administrators can also directly edit the <strong>Users</strong> sheet in Google Drive.
+        Note: PINs are stored as 4 to 6 digit security PINs. Administrators can also directly edit
+        the <strong>Users</strong> sheet in Google Drive.
       </div>
     </section>
   );

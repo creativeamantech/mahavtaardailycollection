@@ -204,10 +204,10 @@ function LoginPage() {
                 <Input
                   id="pin"
                   type={showPin ? "text" : "password"}
-                  placeholder="Enter your PIN"
+                  placeholder="e.g. 1234 or 0003"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  maxLength={10}
+                  maxLength={6}
                   className="h-11 pl-10 pr-10 text-base tracking-widest font-mono"
                   required
                   autoComplete="current-password"
@@ -247,7 +247,7 @@ function LoginPage() {
               Google Sheet.
             </p>
             <p className="text-[11px] text-muted-foreground/80">
-              Only active accounts with verified hashed PINs are granted access.
+              Only active accounts with verified 4–6 digit security PINs are granted access.
             </p>
           </div>
         </div>

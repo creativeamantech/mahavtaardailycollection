@@ -111,7 +111,10 @@ export const sheetAddUserAction = createServerFn({ method: "POST" })
         password: z.string().optional(),
         executiveName: z.string().trim().min(2, "Executive name must be at least 2 characters."),
         email: z.string().trim().toLowerCase().email("Valid email required."),
-        pin: z.string().trim().min(4, "PIN must be at least 4 digits."),
+        pin: z
+          .string()
+          .trim()
+          .regex(/^\d{4,6}$/, "PIN must be a 4 to 6 digit number."),
         role: z.enum(["Admin", "Executive"]),
         status: z.enum(["Active", "Inactive"]),
       })
@@ -179,7 +182,10 @@ export const sheetResetPinAction = createServerFn({ method: "POST" })
         token: z.string().optional(),
         password: z.string().optional(),
         userId: z.string().min(1),
-        newPin: z.string().trim().min(4, "PIN must be at least 4 digits."),
+        newPin: z
+          .string()
+          .trim()
+          .regex(/^\d{4,6}$/, "PIN must be a 4 to 6 digit number."),
       })
       .parse(d),
   )
