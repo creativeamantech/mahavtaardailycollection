@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { PasswordGate } from "@/components/PasswordGate";
 import { SheetUserManager } from "@/components/SheetUserManager";
 import { useSheetAuth } from "@/hooks/useSheetAuth";
