@@ -114,7 +114,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
         rows.find((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY)?.[1]?.trim() ?? "";
       bankPortalSpreadsheetId =
         rows.find((r) => (r[0] ?? "").trim() === BANK_PORTAL_SPREADSHEET_ID_KEY)?.[1]?.trim() ?? "";
-    } catch (error) {
+    } catch {
       throw new Error(
         "Could not read AppSettings. Feature flags were not saved so the Bank Portal spreadsheet ID cannot be accidentally overwritten.",
       );
