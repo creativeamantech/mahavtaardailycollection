@@ -16,6 +16,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { FEATURES } from "@/lib/app-config.functions";
 import { useRouterState } from "@tanstack/react-router";
+import { SheetAuthProvider, useSheetAuth } from "@/hooks/useSheetAuth";
+import { LogOut, UserCheck } from "lucide-react";
 
 function NotFoundComponent() {
   return (
@@ -104,22 +106,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         property: "og:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a",
+        content: "/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png",
       },
       {
         name: "twitter:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/73fef374-77d5-45a2-854c-ca14f657137a",
+        content: "/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png",
       },
     ],
-
     links: [
+      { rel: "stylesheet", href: appCss },
       {
-        rel: "stylesheet",
-        href: appCss,
+        rel: "icon",
+        href: "/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png",
+        type: "image/png",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
   shellComponent: RootShell,
@@ -152,6 +152,8 @@ const NAV = [
   { to: "/ecs", label: "ECS / Special", key: "ecs" },
   { to: "/notifications", label: "Notifications", key: "notifications" },
   { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
+  { to: "/bank-portal", label: "Bank Portal", key: "bankPortal" },
+  { to: "/users", label: "Users", key: "users" },
   { to: "/settings", label: "Settings", key: "settings" },
 ] as const;
 
@@ -160,39 +162,100 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell />
-      <Toaster position="top-center" />
+      <SheetAuthProvider>
+        <AppShell />
+        <Toaster position="top-center" />
+      </SheetAuthProvider>
     </QueryClientProvider>
   );
 }
 
 function AppShell() {
   const { flags } = useAppConfig();
+  const { user, logout } = useSheetAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const current = FEATURES.find((f) => f.path === pathname);
   const disabled = current ? flags[current.key] === false : false;
+
+  const isLoginPage = pathname === "/login";
+
   return (
     <>
       <div className="min-h-screen bg-background">
         <header className="border-b print:hidden">
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
-            <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
-            <nav className="mt-2 flex flex-wrap gap-2">
-              {NAV.filter((n) => flags[n.key] !== false).map((n) => (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  className="rounded-lg border px-4 py-2 text-base font-medium"
-                  activeOptions={{ exact: n.to === "/" }}
-                  activeProps={{
-                    className:
-                      "rounded-lg border border-primary bg-primary px-4 py-2 text-base font-medium text-primary-foreground",
-                  }}
-                >
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="flex items-center justify-between gap-3">
+              <Link to="/" className="flex items-center gap-2.5 group">
+                <img
+                  src="/assets/aistudio/a_clean_high_resolution_vector_graphic_logo_on_a_b1529b1e.png"
+                  alt="Mahavtaar Daily Collection Logo"
+                  className="h-9 w-9 sm:h-10 sm:w-10 object-contain group-hover:scale-105 transition-transform shrink-0"
+                />
+                <div className="flex flex-col">
+                  <span className="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-700 dark:from-amber-400 dark:via-yellow-300 dark:to-amber-500 bg-clip-text text-transparent leading-none">
+                    MAHAVTAAR
+                  </span>
+                  <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+                    Daily Collection
+                  </span>
+                </div>
+              </Link>
+              {!isLoginPage && (
+                <div className="flex items-center gap-2">
+                  {user ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 rounded-full border bg-muted/60 px-2.5 py-1 text-xs font-medium">
+                        <UserCheck className="h-3.5 w-3.5 text-primary" />
+                        <span>{user.executiveName}</span>
+                        {user.role === "Admin" && (
+                          <span className="rounded bg-amber-500/15 px-1 py-0.2 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                            Admin
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logout();
+                          window.location.href = "/login";
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        title="Sign Out"
+                      >
+                        <LogOut className="h-3 w-3" />
+                        <span className="hidden sm:inline">Sign Out</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      to="/login"
+                      search={{ next: "" }}
+                      className="rounded-md border border-primary bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                    >
+                      Sign In
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+            {!isLoginPage && (
+              <nav className="mt-2 flex flex-wrap gap-2">
+                {NAV.filter((n) => flags[n.key] !== false).map((n) => (
+                  <Link
+                    key={n.to}
+                    to={n.to}
+                    className="rounded-lg border px-4 py-2 text-base font-medium"
+                    activeOptions={{ exact: n.to === "/" }}
+                    activeProps={{
+                      className:
+                        "rounded-lg border border-primary bg-primary px-4 py-2 text-base font-medium text-primary-foreground",
+                    }}
+                  >
+                    {n.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
           </div>
         </header>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

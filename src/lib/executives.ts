@@ -44,24 +44,40 @@ const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "
 
 export function normalizeSheetDate(value: string): string {
   const v = (value ?? "").trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  if (!v) return "";
+
+  // 1. Direct YYYY-MM-DD match (including trailing timestamps like YYYY-MM-DD 0:00:00 or ISO)
+  const ymdMatch = v.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (ymdMatch && ymdMatch[1]) {
+    return ymdMatch[1];
+  }
+
+  // 2. Google Sheets serial number
   if (/^\d+(\.\d+)?$/.test(v)) {
     const d = new Date(SHEET_EPOCH + Math.floor(Number(v)) * 86400000);
     return d.toISOString().slice(0, 10);
   }
-  const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // d/m/yyyy
-  if (m) return `${m[3]}-${m[2]!.padStart(2, "0")}-${m[1]!.padStart(2, "0")}`;
-  // d-Mon-yy / d-Mon-yyyy / d Mon yyyy (e.g. 1-Oct-26)
-  const mm = v.match(/^(\d{1,2})[-\s/]([A-Za-z]{3})[A-Za-z]*[-\s/,]+(\d{2}|\d{4})$/);
-  if (mm) {
-    const mon = MONTHS.indexOf(mm[2]!.toLowerCase());
+
+  // 3. d/m/yyyy or dd/mm/yyyy
+  const m = v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (m && m[1] && m[2] && m[3]) {
+    return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  }
+
+  // 4. d-Mon-yy / d-Mon-yyyy / d Mon yyyy (e.g. 1-Oct-26)
+  const mm = v.match(/^(\d{1,2})[-\s/]([A-Za-z]{3})[A-Za-z]*[-\s/,]+(\d{2}|\d{4})/);
+  if (mm && mm[1] && mm[2] && mm[3]) {
+    const mon = MONTHS.indexOf(mm[2].toLowerCase());
     if (mon >= 0) {
-      const y = mm[3]!.length === 2 ? `20${mm[3]}` : mm[3]!;
-      return `${y}-${String(mon + 1).padStart(2, "0")}-${mm[1]!.padStart(2, "0")}`;
+      const y = mm[3].length === 2 ? `20${mm[3]}` : mm[3];
+      return `${y}-${String(mon + 1).padStart(2, "0")}-${mm[1].padStart(2, "0")}`;
     }
   }
-  const parsed = new Date(v);
-  return Number.isNaN(parsed.getTime()) ? v : todayISO(parsed);
+
+  // 5. Fallback Date parsing
+  const cleanStr = v.replace(" ", "T");
+  const parsed = new Date(cleanStr);
+  return Number.isNaN(parsed.getTime()) ? v.slice(0, 10) : todayISO(parsed);
 }
 
 export function normalizeSheetTime(value: string): string {

@@ -143,8 +143,8 @@ function PendingPage() {
               <SelectValue placeholder="Select executive" />
             </SelectTrigger>
             <SelectContent>
-              {EXECUTIVES.map((e) => (
-                <SelectItem key={e} value={e} className="text-base">
+              {EXECUTIVES.map((e, idx) => (
+                <SelectItem key={`pending-exec-${e}-${idx}`} value={e} className="text-base">
                   {e}
                 </SelectItem>
               ))}

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { checkSettingsPassword, requireSettingsPassword } from "./password-guard.server";
 
 // Centralised page/feature visibility + notifications.
 // Both live in dedicated sheet tabs so they are shared across devices.
@@ -14,6 +15,8 @@ export const FEATURES = [
   { key: "notifications", label: "Notifications", path: "/notifications" },
   { key: "alreadyPaid", label: "Already Paid", path: "/already-paid" },
   { key: "conflicts", label: "Conflicts", path: "/conflicts" },
+  { key: "bankPortal", label: "Bank Portal", path: "/bank-portal" },
+  { key: "users", label: "Users", path: "/users" },
   { key: "remarks", label: "Remarks", path: null },
 ] as const;
 
@@ -82,20 +85,18 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
 export const verifySettingsPassword = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ password: z.string().max(200) }).parse(d))
   .handler(async ({ data }) => {
-    const expected = "Mahadev@Babaji@0003";
-    const input = data.password;
-    let diff = input.length === expected.length ? 0 : 1;
-    for (let i = 0; i < Math.max(input.length, expected.length); i++) {
-      diff |= (input.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
-    }
-    return { ok: diff === 0 };
+    // Stored as a server-side secret — never in source code.
+    return { ok: checkSettingsPassword(data.password) };
   });
 
 export const saveFeatureFlags = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({ flags: z.record(z.string().max(40), z.boolean()) }).parse(d),
+    z
+      .object({ password: z.string().max(200), flags: z.record(z.string().max(40), z.boolean()) })
+      .parse(d),
   )
   .handler(async ({ data }) => {
+    requireSettingsPassword(data.password);
     const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     // Preserve the default-category row so flag saves never wipe it.
@@ -117,8 +118,11 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
   });
 
 export const saveDefaultCategory = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ category: z.string().trim().max(80) }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ password: z.string().max(200), category: z.string().trim().max(80) }).parse(d),
+  )
   .handler(async ({ data }) => {
+    requireSettingsPassword(data.password);
     const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     let rows: string[][] = [];
@@ -143,11 +147,19 @@ export const addNotification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
+        password: z.string().max(200),
         text: z.string().trim().min(1).max(500),
         image: z
           .object({
             name: z.string().trim().min(1).max(120),
-            mimeType: z.string().trim().min(1).max(80),
+            mimeType: z
+              .string()
+              .trim()
+              .min(1)
+              .max(80)
+              .refine((m) => m.toLowerCase().startsWith("image/"), {
+                message: "Only image files can be attached to notifications.",
+              }),
             base64: z.string().min(1).max(9_000_000),
           })
           .optional(),
@@ -155,6 +167,7 @@ export const addNotification = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
+    requireSettingsPassword(data.password);
     const { sheetsAppend, driveUpload, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
     let imageUrl = "";
@@ -173,8 +186,11 @@ export const addNotification = createServerFn({ method: "POST" })
   });
 
 export const removeNotification = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(60) }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ password: z.string().max(200), id: z.string().trim().min(1).max(60) }).parse(d),
+  )
   .handler(async ({ data }) => {
+    requireSettingsPassword(data.password);
     const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
     const rows = await sheetsGet(`${NOTIF_TAB}!A2:E`);
     const idx = rows.findIndex((r, i) => ((r[4] ?? "").trim() || `row-${i + 2}`) === data.id);

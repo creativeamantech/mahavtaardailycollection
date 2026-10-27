@@ -24,10 +24,6 @@ import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
-import {
-  type AuditableCollectionRow,
-  ReceiptOcrAuditDialog,
-} from "@/components/ReceiptOcrAuditDialog";
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
 function ExportButton({
@@ -256,11 +252,9 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
   const best = useMemo(() => topOverall(rows), [rows]);
   const daily = useMemo(() => dailyTop(rows), [rows]);
   const latest = useMemo(() => lastFive(rows), [rows]);
-  const [ocrAuditItem, setOcrAuditItem] = useState<AuditableCollectionRow | null>(null);
 
   return (
     <section className="mt-10 space-y-5">
-      <ReceiptOcrAuditDialog item={ocrAuditItem} onClose={() => setOcrAuditItem(null)} />
       <h2 className="text-2xl font-bold">Top Performers</h2>
 
       {best ? (
@@ -297,8 +291,8 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                 </tr>
               </thead>
               <tbody>
-                {daily.map((d) => (
-                  <tr key={d.date} className="border-t">
+                {daily.map((d, idx) => (
+                  <tr key={`daily-${d.date}-${idx}`} className="border-t">
                     <td className="p-3">{d.date}</td>
                     <td className="p-3">{d.executive}</td>
                     <td className="p-3 text-right font-semibold">{formatAmount(d.total)}</td>
@@ -342,31 +336,6 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                             : `Google Drive Receipt #${n + 1} ↗`}
                         </a>
                       ))}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2.5 text-xs whitespace-nowrap shrink-0"
-                        onClick={() =>
-                          setOcrAuditItem({
-                            row: r.row,
-                            executive: r.executive,
-                            loanId: r.loanId ?? "",
-                            amount: r.amount,
-                            date: r.date,
-                            time: r.time,
-                            entryDate: r.entryDate,
-                            entryType: r.entryType,
-                            settlement: r.settlement,
-                            settlementType: r.settlementType,
-                            receiptLinks: r.receiptLinks,
-                            remark: r.remark,
-                            amansRemarks: r.amansRemarks,
-                          })
-                        }
-                      >
-                        Scan Receipt (OCR)
-                      </Button>
                     </div>
                   ) : null}
                   {r.remark ? (
@@ -465,7 +434,7 @@ function ReportPage() {
     refetchOnWindowFocus: true,
   });
 
-  const [from, setFrom] = useState(todayISO());
+  const [from, setFrom] = useState(`${currentMonthKey()}-01`);
   const [to, setTo] = useState(todayISO());
 
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
@@ -526,23 +495,34 @@ function ReportPage() {
     }
   };
 
-  // Every report below works off this month-scoped dataset only.
-  const rows = useMemo(() => allRows.filter((r) => monthKey(r.date) === month), [allRows, month]);
   const catOk = (c: string | undefined, f: string) => f === ALL_CATEGORIES || c === f;
+  // Date-wise summary filters across all available dates in allRows based on selected range (from/to)
   const dateRows = useMemo(
     () =>
-      rows.filter(
+      allRows.filter(
         (r) => bucketMatches(r.bucket, dateBucket) && catOk(r.allocationCategory, dateCategory),
       ),
-    [rows, dateBucket, dateCategory],
+    [allRows, dateBucket, dateCategory],
   );
+  // Month-wise summary filters by selected month
+  const monthScopedRows = useMemo(
+    () =>
+      allRows.filter(
+        (r) =>
+          monthKey(r.date) === month &&
+          bucketMatches(r.bucket, dateBucket) &&
+          catOk(r.allocationCategory, dateCategory),
+      ),
+    [allRows, month, dateBucket, dateCategory],
+  );
+  // Overall summary covers all time across all rows
   const overallRows = useMemo(
     () =>
-      rows.filter(
+      allRows.filter(
         (r) =>
           bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
       ),
-    [rows, overallBucket, overallCategory],
+    [allRows, overallBucket, overallCategory],
   );
   const dateScoped = useMemo(
     () => dateRows.filter((r) => inRange(r, from, to)),
@@ -558,12 +538,11 @@ function ReportPage() {
     () =>
       rawRows.filter(
         (r) =>
-          monthKey(r.date) === month &&
           bucketMatches(r.bucket, dateBucket) &&
           catOk(r.allocationCategory, dateCategory) &&
           inRange(r, from, to),
       ),
-    [rawRows, month, dateBucket, dateCategory, from, to],
+    [rawRows, dateBucket, dateCategory, from, to],
   );
 
   const overallExportRows = useMemo(
@@ -696,7 +675,7 @@ function ReportPage() {
         </TabsContent>
       </Tabs>
 
-      <TopPerformers rows={rows.filter((r) => catOk(r.allocationCategory, category))} />
+      <TopPerformers rows={allRows.filter((r) => catOk(r.allocationCategory, category))} />
     </main>
   );
 }
@@ -727,8 +706,8 @@ function ReportBlock({ rows }: { rows: Row[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.executive} className="border-t">
+            {rows.map((r, idx) => (
+              <tr key={`report-row-${r.executive}-${idx}`} className="border-t">
                 <td className="px-2 py-2 sm:p-3">{r.executive}</td>
                 <td className="px-2 py-2 text-right font-semibold tabular-nums sm:p-3">
                   {formatAmount(r.total)}

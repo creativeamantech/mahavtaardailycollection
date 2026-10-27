@@ -820,27 +820,39 @@ async function normalizeImageInBrowser(
 }
 
 /**
- * Runs 100% free open-source Tesseract.js OCR in the browser (or Node) on a File, Blob, or Data URL.
+ * Scans a payment receipt image using Gemini Vision server API.
  */
 export async function scanReceiptOcr(
   source: File | Blob | string,
   onProgress?: (pct: number) => void,
 ): Promise<ParsedReceiptResult> {
-  const Tesseract = await import("tesseract.js");
-  const preparedSource = await normalizeImageInBrowser(source);
+  let base64 = "";
+  let mimeType = "image/jpeg";
 
-  const result = await Tesseract.recognize(preparedSource, "eng", {
-    logger: (m) => {
-      if (m.status === "recognizing text" && typeof m.progress === "number" && onProgress) {
-        onProgress(Math.round(m.progress * 100));
-      }
-    },
-  });
+  if (typeof source === "string") {
+    if (source.startsWith("data:")) {
+      const commaIdx = source.indexOf(",");
+      mimeType = source.slice(5, commaIdx).split(";")[0] || "image/jpeg";
+      base64 = source.slice(commaIdx + 1);
+    } else {
+      base64 = source;
+    }
+  } else if (source instanceof Blob || source instanceof File) {
+    mimeType = source.type || "image/jpeg";
+    const buf = await source.arrayBuffer();
+    let binary = "";
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    base64 = btoa(binary);
+  }
 
-  const rawText = result.data?.text ?? "";
-  const confidence = Math.round(result.data?.confidence ?? 85);
-
-  return parseReceiptText(rawText, confidence);
+  onProgress?.(50);
+  const { scanUploadedReceiptServer } = await import("./receipt-ocr.functions");
+  const result = await scanUploadedReceiptServer({ data: { base64, mimeType } });
+  onProgress?.(100);
+  return result;
 }
 
 function extractDriveId(url: string): string | null {
@@ -909,8 +921,7 @@ export async function downloadDriveImageBuffer(
 }
 
 /**
- * Attempts zero-cost built-in Vision extraction if GEMINI_API_KEY is provided by the runtime environment,
- * and falls back to local open-source Tesseract.js + deterministic Indian UPI/BBPS parser.
+ * Analyzes receipt image buffer using Gemini Vision API.
  */
 export async function analyzeReceiptBufferServer(
   buffer: Buffer,
@@ -921,10 +932,14 @@ export async function analyzeReceiptBufferServer(
       ? process.env?.GEMINI_API_KEY || process.env?.GOOGLE_API_KEY
       : undefined;
 
-  if (freeEnvKey) {
-    try {
-      const base64 = buffer.toString("base64");
-      const prompt = `Analyze this Indian loan collection payment receipt screenshot (PhonePe, Google Pay, Paytm, Navi, BBPS, Cash Drop, or IDFC FIRST Bank) in English, Hindi, or regional script.
+  if (!freeEnvKey) {
+    throw new Error(
+      "Receipt AI analysis requires GEMINI_API_KEY or GOOGLE_API_KEY to be configured.",
+    );
+  }
+
+  const base64 = buffer.toString("base64");
+  const prompt = `Analyze this Indian loan collection payment receipt screenshot (PhonePe, Google Pay, Paytm, Navi, BBPS, Cash Drop, or IDFC FIRST Bank) in English, Hindi, or regional script.
 Return ONLY a valid JSON object with these exact keys:
 {
   "isReceipt": boolean,
@@ -946,127 +961,110 @@ Rules:
 4. Extract the actual payment date (in YYYY-MM-DD) and time (in 12-hour hh:mm am/pm format). If the header date is in Hindi or cut off, check the PhonePe/BBPS Transaction ID (e.g. NB2610021131... means 2026-10-02 at 11:31 am).
 5. Extract the Loan Account Number / Loan ID (typically 8-10 digits like 184773074, often before .retail@idfcbank or next to Loan No).`;
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${freeEnvKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${freeEnvKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt },
               {
-                parts: [
-                  { text: prompt },
-                  {
-                    inlineData: {
-                      mimeType: mimeType || "image/jpeg",
-                      data: base64,
-                    },
-                  },
-                ],
+                inlineData: {
+                  mimeType: mimeType || "image/jpeg",
+                  data: base64,
+                },
               },
             ],
-            generationConfig: {
-              temperature: 0.1,
-              responseMimeType: "application/json",
-            },
-          }),
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: "application/json",
         },
-      );
+      }),
+    },
+  );
 
-      if (res.ok) {
-        const json = (await res.json()) as {
-          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-        };
-        const textPart = json.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
-        if (textPart) {
-          const parsedJson = JSON.parse(textPart) as {
-            isReceipt?: boolean;
-            transactionStatus?: TransactionStatus;
-            billAmount?: number | null;
-            totalPaidAmount?: number | null;
-            convenienceFee?: number | null;
-            paymentDate?: string | null;
-            paymentTime?: string | null;
-            loanId?: string | null;
-            utrNumber?: string | null;
-            paymentApp?: string | null;
-            extractedText?: string;
-          };
-
-          const billAmt =
-            typeof parsedJson.billAmount === "number" && parsedJson.billAmount > 0
-              ? parsedJson.billAmount
-              : null;
-          const totalAmt =
-            typeof parsedJson.totalPaidAmount === "number" && parsedJson.totalPaidAmount > 0
-              ? parsedJson.totalPaidAmount
-              : null;
-          const feeAmt =
-            typeof parsedJson.convenienceFee === "number" && parsedJson.convenienceFee > 0
-              ? parsedJson.convenienceFee
-              : null;
-
-          const effectiveAmount =
-            billAmt ?? (totalAmt && feeAmt && totalAmt > feeAmt ? totalAmt - feeAmt : totalAmt);
-
-          const normDate = parsedJson.paymentDate
-            ? normalizeSheetDate(parsedJson.paymentDate)
-            : null;
-          const normTime = parsedJson.paymentTime
-            ? normalizeSheetTime(parsedJson.paymentTime)
-            : null;
-          const status: TransactionStatus = parsedJson.transactionStatus || "SUCCESS";
-
-          const parts: string[] = [];
-          if (parsedJson.paymentApp) parts.push(parsedJson.paymentApp);
-          parts.push(`Status: ${status}`);
-          if (effectiveAmount !== null) {
-            if (feeAmt && totalAmt && totalAmt !== effectiveAmount) {
-              parts.push(`Bill ₹${effectiveAmount} (Total ₹${totalAmt} - ₹${feeAmt} fee)`);
-            } else {
-              parts.push(`Amount: ₹${effectiveAmount}`);
-            }
-          }
-          if (normDate) parts.push(`Date: ${normDate}${normTime ? ` ${normTime}` : ""}`);
-          if (parsedJson.loanId) parts.push(`Loan ID: ${parsedJson.loanId}`);
-          if (parsedJson.utrNumber) parts.push(`UTR: ${parsedJson.utrNumber}`);
-
-          return {
-            isReceipt: parsedJson.isReceipt ?? true,
-            transactionStatus: status,
-            billAmount: effectiveAmount,
-            totalPaidAmount: totalAmt ?? effectiveAmount,
-            convenienceFee: feeAmt,
-            effectiveAmount,
-            paymentDate: normDate,
-            paymentTime: normTime,
-            loanId: parsedJson.loanId ? String(parsedJson.loanId).trim() : null,
-            utrNumber: parsedJson.utrNumber ? String(parsedJson.utrNumber).trim() : null,
-            paymentApp: parsedJson.paymentApp ?? null,
-            rawText: parsedJson.extractedText || parts.join("\n"),
-            confidence: 98,
-            verificationSummary: parts.join(" | "),
-          };
-        }
-      } else {
-        const errBody = await res.text().catch(() => "");
-        console.warn(`Vision API error (${res.status} ${res.statusText}):`, errBody);
-      }
-    } catch (err) {
-      console.warn("Vision fallback to local Tesseract OCR:", err);
-    }
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`Receipt Vision API error (${res.status} ${res.statusText}): ${errBody}`);
   }
 
-  const tesseractMod = await import("tesseract.js");
-  const tesseractObj =
-    (tesseractMod as { default?: { recognize?: typeof tesseractMod.recognize } }).default ||
-    tesseractMod;
-  const recognize = tesseractObj.recognize || tesseractMod.recognize;
-  const result = await recognize(buffer, "eng");
-  const rawText = result.data?.text ?? "";
-  const confidence = Math.round(result.data?.confidence ?? 85);
+  const json = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const textPart = json.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
+  if (!textPart) {
+    throw new Error("Receipt Vision API returned empty response");
+  }
 
-  return parseReceiptText(rawText, confidence);
+  const parsedJson = JSON.parse(textPart) as {
+    isReceipt?: boolean;
+    transactionStatus?: TransactionStatus;
+    billAmount?: number | null;
+    totalPaidAmount?: number | null;
+    convenienceFee?: number | null;
+    paymentDate?: string | null;
+    paymentTime?: string | null;
+    loanId?: string | null;
+    utrNumber?: string | null;
+    paymentApp?: string | null;
+    extractedText?: string;
+  };
+
+  const billAmt =
+    typeof parsedJson.billAmount === "number" && parsedJson.billAmount > 0
+      ? parsedJson.billAmount
+      : null;
+  const totalAmt =
+    typeof parsedJson.totalPaidAmount === "number" && parsedJson.totalPaidAmount > 0
+      ? parsedJson.totalPaidAmount
+      : null;
+  const feeAmt =
+    typeof parsedJson.convenienceFee === "number" && parsedJson.convenienceFee > 0
+      ? parsedJson.convenienceFee
+      : null;
+
+  const effectiveAmount =
+    billAmt ?? (totalAmt && feeAmt && totalAmt > feeAmt ? totalAmt - feeAmt : totalAmt);
+
+  const normDate = parsedJson.paymentDate ? normalizeSheetDate(parsedJson.paymentDate) : null;
+  const normTime = parsedJson.paymentTime ? normalizeSheetTime(parsedJson.paymentTime) : null;
+  const status: TransactionStatus = parsedJson.transactionStatus || "SUCCESS";
+
+  const parts: string[] = [];
+  if (parsedJson.paymentApp) parts.push(parsedJson.paymentApp);
+  parts.push(`Status: ${status}`);
+  if (effectiveAmount !== null) {
+    if (feeAmt && totalAmt && totalAmt !== effectiveAmount) {
+      parts.push(`Bill ₹${effectiveAmount} (Total ₹${totalAmt} - ₹${feeAmt} fee)`);
+    } else {
+      parts.push(`Amount: ₹${effectiveAmount}`);
+    }
+  }
+  if (normDate) parts.push(`Date: ${normDate}${normTime ? ` ${normTime}` : ""}`);
+  if (parsedJson.loanId) parts.push(`Loan ID: ${parsedJson.loanId}`);
+  if (parsedJson.utrNumber) parts.push(`UTR: ${parsedJson.utrNumber}`);
+
+  return {
+    isReceipt: parsedJson.isReceipt ?? true,
+    transactionStatus: status,
+    billAmount: effectiveAmount,
+    totalPaidAmount: totalAmt ?? effectiveAmount,
+    convenienceFee: feeAmt,
+    effectiveAmount,
+    paymentDate: normDate,
+    paymentTime: normTime,
+    loanId: parsedJson.loanId ? String(parsedJson.loanId).trim() : null,
+    utrNumber: parsedJson.utrNumber ? String(parsedJson.utrNumber).trim() : null,
+    paymentApp: parsedJson.paymentApp ?? null,
+    rawText: parsedJson.extractedText || parts.join("\n"),
+    confidence: 98,
+    verificationSummary: parts.join(" | "),
+  };
 }
 
 export async function scanExistingReceiptPlain(input: {
