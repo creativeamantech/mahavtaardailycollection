@@ -83,7 +83,30 @@ export async function getAllowedEmailsList(): Promise<AllowedEmailEntry[]> {
 
 export async function isEmailAllowed(email: string): Promise<boolean> {
   const normalized = email.trim().toLowerCase();
-  const list = await getAllowedEmailsList();
+
+  // Membership check only: query the single submitted email directly so the
+  // full allowlist is never read by unauthenticated eligibility checks.
+  if (hasSupabaseAdmin()) {
+    try {
+      const { createAdminClient } = await import("./supabase-admin.server");
+      const admin = createAdminClient();
+      const { data, error } = await admin
+        .from("allowed_emails")
+        .select("email")
+        .eq("email", normalized)
+        .limit(1)
+        .maybeSingle();
+
+      if (!error) {
+        return Boolean(data && data.email === normalized);
+      }
+      console.warn("Supabase allowed_emails membership notice:", error.message);
+    } catch (err) {
+      console.warn("Failed to check Supabase allowed_emails, using local store:", err);
+    }
+  }
+
+  const list = loadLocalAllowedEmails();
   return list.some((item) => item.email === normalized);
 }
 
