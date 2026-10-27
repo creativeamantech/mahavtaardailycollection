@@ -145,6 +145,15 @@ export function setBankPortalSpreadsheetId(
     return { ok: false, spreadsheetId: "", message: "Invalid Google Spreadsheet ID or URL." };
   }
 
+  const environmentId = process.env["BANK_PORTAL_SPREADSHEET_ID"]?.trim();
+  if (environmentId && id !== environmentId) {
+    return {
+      ok: false,
+      spreadsheetId: id,
+      message: "The encrypted BANK_PORTAL_SPREADSHEET_ID secret is authoritative. Update that server secret to change the Bank Portal spreadsheet.",
+    };
+  }
+
   // Strict check: Bank Portal must NEVER use the Daily Collection spreadsheet
   if (id === DAILY_COLLECTION_SPREADSHEET_ID) {
     return {
