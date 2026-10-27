@@ -11,6 +11,7 @@ export const Route = createFileRoute("/_authenticated/users")({
 function UsersPage() {
   const { user } = useSheetAuth();
   const isAdmin = user?.role === "Admin";
+  const [unlocked, setUnlocked] = useState(false);
 
   const content = (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 space-y-6">
@@ -27,9 +28,13 @@ function UsersPage() {
   );
 
   // If logged in as an Admin via Google Sheet Auth, allow direct management; otherwise require Settings password
-  if (isAdmin) {
+  if (isAdmin || unlocked) {
     return content;
   }
 
-  return <PasswordGate title="Users Management (Admin Only)">{content}</PasswordGate>;
+  return (
+    <PasswordGate label="Unlock Users Management" onUnlock={() => setUnlocked(true)}>
+      {content}
+    </PasswordGate>
+  );
 }
