@@ -82,7 +82,7 @@ export function SheetUserManager() {
   } = useQuery({
     queryKey: ["sheet-users-tab-status"],
     queryFn: async () => {
-      return await tabStatusFn({ data: getAuthPayload() });
+      return await tabStatusFn();
     },
     staleTime: 15_000,
   });
