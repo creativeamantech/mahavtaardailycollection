@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { sheetLoginAction, sheetGetLoginOptions } from "@/lib/sheet-auth.functions";
-import { useSheetAuth, saveSheetSession, getStoredSheetToken } from "@/hooks/useSheetAuth";
+import { sheetGetLoginOptions } from "@/lib/sheet-auth.functions";
+import { useSheetAuth, getStoredSheetToken } from "@/hooks/useSheetAuth";
 import { oauthReturnPath } from "@/lib/oauth-return-path";
 import { Eye, EyeOff, KeyRound, Lock, ShieldCheck, UserCheck, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { next } = Route.useSearch();
   const navigate = useNavigate();
-  const { user, refreshUser } = useSheetAuth();
+  const { user, login } = useSheetAuth();
 
   const [identifier, setIdentifier] = useState("");
   const [pin, setPin] = useState("");
@@ -39,7 +39,6 @@ function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const getLoginOptionsFn = useServerFn(sheetGetLoginOptions);
-  const loginFn = useServerFn(sheetLoginAction);
 
   const { data: optionsData } = useQuery({
     queryKey: ["sheet-login-options"],
@@ -63,11 +62,9 @@ function LoginPage() {
     const token = getStoredSheetToken();
     if (token && user) {
       const destination = oauthReturnPath(next);
-      if (window.location.pathname === "/login") {
-        window.location.href = destination;
-      }
+      navigate({ to: destination, replace: true });
     }
-  }, [user, next]);
+  }, [user, next, navigate]);
 
   function handleSelectExecutive(name: string) {
     setIdentifier(name);
@@ -92,18 +89,15 @@ function LoginPage() {
 
     setBusy(true);
     try {
-      const res = await loginFn({ data: { identifier: id, pin: p } });
-      if (!res.success || !res.token || !res.user) {
+      const res = await login(id, p);
+      if (!res.success) {
         setErrorMessage(res.error || "Authentication failed. Please check credentials.");
         setBusy(false);
         return;
       }
 
-      saveSheetSession(res.token, res.user);
-      await refreshUser();
-
       const destination = oauthReturnPath(next);
-      window.location.href = destination;
+      navigate({ to: destination, replace: true });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Authentication error occurred.";
       setErrorMessage(msg);
