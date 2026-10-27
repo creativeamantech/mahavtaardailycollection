@@ -244,7 +244,9 @@ export async function initPortalStore() {
         }));
     }
   } catch (err) {
-    console.warn("Portal sheets initialization notice:", err);
+    isInitialized = false;
+    const message = err instanceof Error ? err.message : "Unknown Google Sheets error";
+    throw new Error(`Bank Portal initialization failed: ${message}`);
   }
 
   isInitialized = true;
@@ -621,7 +623,7 @@ async function recordSessionToSheet(session: PortalSession) {
 
     await portalSheetsAppend(`${TAB_SESSIONS}!A:K`, [row]);
   } catch (err) {
-    console.warn("Failed to append session to Google Sheet:", err);
+    throw new Error("Could not save the session to the Bank Portal spreadsheet. Please check the connection and try again.");
   }
 }
 
@@ -647,7 +649,7 @@ export async function recordAuditLog(log: { action: string; actor: string; detai
       ],
     ]);
   } catch (err) {
-    console.warn("Failed to append audit log to Google Sheet:", err);
+    throw new Error("Could not save the audit log to the Bank Portal spreadsheet.");
   }
 }
 
@@ -707,7 +709,7 @@ export async function submitComplaintOrQuery(params: {
       ],
     ]);
   } catch (err) {
-    console.warn("Failed to append complaint to Google Sheet:", err);
+    throw new Error("Could not save the complaint to the Bank Portal spreadsheet. Please try again.");
   }
 
   await recordAuditLog({
@@ -839,7 +841,7 @@ export async function adminIssueWarning(params: {
       ],
     ]);
   } catch (err) {
-    console.warn("Failed to append warning to Google Sheet:", err);
+    throw new Error("Could not save the warning to the Bank Portal spreadsheet. No success was reported.");
   }
 
   await recordAuditLog({
@@ -915,7 +917,7 @@ export async function adminImposeBan(params: {
       ],
     ]);
   } catch (err) {
-    console.warn("Failed to append ban to Google Sheet:", err);
+    throw new Error("Could not save the access restriction to the Bank Portal spreadsheet. No success was reported.");
   }
 
   await recordAuditLog({

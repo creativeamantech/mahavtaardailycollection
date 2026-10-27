@@ -37,6 +37,7 @@ const SETTINGS_TAB = "AppSettings";
 const NOTIF_TAB = "Notifications";
 // AppSettings key holding the default allocation category ("" = All Categories).
 export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
+export const BANK_PORTAL_SPREADSHEET_ID_KEY = "bankPortalSpreadsheetId";
 
 export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet, ensureSheet } = await import("./mahavtaar.server");
@@ -59,11 +60,16 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS };
   let defaultCategory = "";
+  let bankPortalSpreadsheetId = "";
   for (const r of settingRows) {
     const key = (r[0] ?? "").trim();
     if (key === "") continue;
     if (key === DEFAULT_CATEGORY_KEY) {
       defaultCategory = (r[1] ?? "").trim();
+      continue;
+    }
+    if (key === BANK_PORTAL_SPREADSHEET_ID_KEY) {
+      bankPortalSpreadsheetId = (r[1] ?? "").trim();
       continue;
     }
     flags[key] = (r[1] ?? "").trim().toUpperCase() !== "OFF";
@@ -79,7 +85,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }))
     .filter((n) => n.text !== "" || n.imageUrl !== "");
 
-  return { flags, notifications, defaultCategory };
+  return { flags, notifications, defaultCategory, bankPortalSpreadsheetId: process.env["BANK_PORTAL_SPREADSHEET_ID"]?.trim() || bankPortalSpreadsheetId };
 });
 
 export const verifySettingsPassword = createServerFn({ method: "POST" })
@@ -101,16 +107,23 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     // Preserve the default-category row so flag saves never wipe it.
     let defaultCategory = "";
+    let bankPortalSpreadsheetId = "";
     try {
       const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
       defaultCategory =
         rows.find((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY)?.[1]?.trim() ?? "";
-    } catch {
-      /* keep "" */
+      bankPortalSpreadsheetId =
+        rows.find((r) => (r[0] ?? "").trim() === BANK_PORTAL_SPREADSHEET_ID_KEY)?.[1]?.trim() ?? "";
+    } catch (error) {
+      throw new Error(
+        "Could not read AppSettings. Feature flags were not saved so the Bank Portal spreadsheet ID cannot be accidentally overwritten.",
+      );
     }
     const entries = Object.entries(data.flags);
     const values = entries.map(([k, v]) => [k, v ? "ON" : "OFF"]);
     values.push([DEFAULT_CATEGORY_KEY, defaultCategory]);
+    // Preserve the Bank Portal ID when feature flags are saved; never overwrite it.
+    values.push([BANK_PORTAL_SPREADSHEET_ID_KEY, bankPortalSpreadsheetId]);
     // Pad so removed keys never leave stale rows behind.
     while (values.length < 40) values.push(["", ""]);
     await sheetsUpdate(`${SETTINGS_TAB}!A2:B41`, values);
