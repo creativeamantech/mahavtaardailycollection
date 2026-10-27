@@ -44,9 +44,6 @@ export interface SheetUserSession {
 export const USERS_SHEET_TITLE = "Users";
 export const USERS_HEADERS = ["User_ID", "Executive_Name", "Email", "PIN_Hash", "Role", "Status"];
 
-// Fallback in-memory users store to ensure instant login availability
-// even if the tab hasn't yet been added to the physical Google Sheet.
-let memoryUsersStore: SheetUserRecord[] | null = null;
 
 function getSecretKey(): string {
   return (
@@ -139,7 +136,7 @@ export function verifySessionToken(token: string | null | undefined): SheetUserS
   }
 }
 
-function initDefaultMemoryUsers(): SheetUserRecord[] {
+function buildDefaultUsers(): SheetUserRecord[] {
   const users: SheetUserRecord[] = [
     {
       userId: "USR-001",
@@ -171,20 +168,9 @@ function initDefaultMemoryUsers(): SheetUserRecord[] {
   return users;
 }
 
-function getMemoryUsers(): SheetUserRecord[] {
-  if (!memoryUsersStore) {
-    memoryUsersStore = initDefaultMemoryUsers();
-  }
-  return memoryUsersStore;
-}
-
 // Ensures the Users tab exists and populates initial default accounts if empty
 export async function ensureUsersSheet(): Promise<void> {
-  try {
-    await ensureSheet(USERS_SHEET_TITLE, USERS_HEADERS, "daily_collection");
-  } catch (err) {
-    console.warn("ensureSheet attempt:", err);
-  }
+  await ensureSheet(USERS_SHEET_TITLE, USERS_HEADERS, "daily_collection");
 }
 
 // Detects whether the Users tab actually exists in the Google Spreadsheet
@@ -213,64 +199,38 @@ export async function isUsersTabAvailableInGoogleSheet(): Promise<boolean> {
 // Retrieves all user records from Google Sheet Users tab or fallback memory store
 export async function getAllSheetUsers(): Promise<SheetUserRecord[]> {
   await ensureUsersSheet();
-
-  let rows: string[][] = [];
-  try {
-    rows = await sheetsGet(`${USERS_SHEET_TITLE}!A1:F`, "daily_collection");
-  } catch (err) {
-    console.error("Failed to read Users sheet:", err);
+  const rows = await sheetsGet(`${USERS_SHEET_TITLE}!A1:F`, "daily_collection");
+  const validHeader = rows.length > 0 &&
+    rows[0]?.[0]?.trim().toLowerCase() === "user_id" &&
+    rows[0]?.[1]?.trim().toLowerCase() === "executive_name";
+  if (!validHeader) {
+    throw new Error("The Users tab could not be verified in the Daily Collection Google Sheet. No fallback accounts were used.");
   }
 
-  // Verify that returned rows are actually from the Users tab and not Collections fallback
-  const isRealUsersTab =
-    rows &&
-    rows.length > 0 &&
-    (rows[0]?.[0]?.trim().toLowerCase() === "user_id" ||
-      (rows[0]?.[0]?.trim().toLowerCase() !== "executive name" &&
-        rows[0]?.[1]?.trim().toLowerCase() === "executive_name"));
-
-  if (!isRealUsersTab) {
-    // Users tab not yet created in the Google Spreadsheet, return active memory store
-    return getMemoryUsers();
-  }
-
-  if (rows.length <= 1) {
-    // Header only: seed defaults
-    return getMemoryUsers();
+  if (rows.length <= 1 || !rows.slice(1).some((row) => row[0]?.trim() && row[1]?.trim())) {
+    const defaults = buildDefaultUsers();
+    await sheetsAppend(`${USERS_SHEET_TITLE}!A:F`, defaults.map((user) => [
+      user.userId, user.executiveName, user.email, user.pinHash, user.role, user.status,
+    ]), "daily_collection");
+    invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
+    return getAllSheetUsers();
   }
 
   const users: SheetUserRecord[] = [];
   for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r || !r[0] || !r[1]) continue;
-
-    const userId = (r[0] || "").trim();
-    const executiveName = (r[1] || "").trim();
-    const email = (r[2] || "").trim().toLowerCase();
-    const pinHash = (r[3] || "").trim();
-    const roleRaw = (r[4] || "Executive").trim();
-    const role: "Admin" | "Executive" = roleRaw.toLowerCase() === "admin" ? "Admin" : "Executive";
-    const statusRaw = (r[5] || "Active").trim();
-    const status: "Active" | "Inactive" =
-      statusRaw.toLowerCase() === "inactive" ? "Inactive" : "Active";
-
+    const row = rows[i];
+    if (!row || !row[0]?.trim() || !row[1]?.trim()) continue;
     users.push({
-      userId,
-      executiveName,
-      email,
-      pinHash,
-      role,
-      status,
+      userId: row[0].trim(),
+      executiveName: row[1].trim(),
+      email: (row[2] ?? "").trim().toLowerCase(),
+      pinHash: (row[3] ?? "").trim(),
+      role: (row[4] ?? "Executive").trim().toLowerCase() === "admin" ? "Admin" : "Executive",
+      status: (row[5] ?? "Active").trim().toLowerCase() === "inactive" ? "Inactive" : "Active",
       rowNumber: i + 1,
     });
   }
-
-  if (users.length > 0) {
-    memoryUsersStore = users;
-    return users;
-  }
-
-  return getMemoryUsers();
+  return users;
 }
 
 // Authenticates credentials against Google Sheet
@@ -386,18 +346,10 @@ export async function addSheetUser(
     rowNumber: nextNumber + 1,
   };
 
-  if (memoryUsersStore) {
-    memoryUsersStore.push(newRecord);
-  }
-
   const row = [userId, normName, normEmail, pinHash, userData.role, userData.status];
 
-  try {
-    await sheetsAppend(`${USERS_SHEET_TITLE}!A:F`, [row], "daily_collection");
-    invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
-  } catch (e) {
-    console.warn("sheetsAppend Users warning:", e);
-  }
+  await sheetsAppend(`${USERS_SHEET_TITLE}!A:F`, [row], "daily_collection");
+  invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
 
   return {
     userId,
@@ -422,16 +374,8 @@ export async function updateSheetUserStatus(
 
   user.status = newStatus;
 
-  try {
-    await sheetsUpdate(
-      `${USERS_SHEET_TITLE}!F${user.rowNumber}:F${user.rowNumber}`,
-      [[newStatus]],
-      "daily_collection",
-    );
-    invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
-  } catch (e) {
-    console.warn("sheetsUpdate Users warning:", e);
-  }
+  await sheetsUpdate(`${USERS_SHEET_TITLE}!F${user.rowNumber}:F${user.rowNumber}`, [[newStatus]], "daily_collection");
+  invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
 
   return { success: true };
 }
@@ -450,16 +394,8 @@ export async function updateSheetUserRole(
 
   user.role = newRole;
 
-  try {
-    await sheetsUpdate(
-      `${USERS_SHEET_TITLE}!E${user.rowNumber}:E${user.rowNumber}`,
-      [[newRole]],
-      "daily_collection",
-    );
-    invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
-  } catch (e) {
-    console.warn("sheetsUpdate Users warning:", e);
-  }
+  await sheetsUpdate(`${USERS_SHEET_TITLE}!E${user.rowNumber}:E${user.rowNumber}`, [[newRole]], "daily_collection");
+  invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
 
   return { success: true };
 }
@@ -483,23 +419,15 @@ export async function resetSheetUserPin(
   const newPinHash = hashPin(newPin);
   user.pinHash = newPinHash;
 
-  try {
-    await sheetsUpdate(
-      `${USERS_SHEET_TITLE}!D${user.rowNumber}:D${user.rowNumber}`,
-      [[newPinHash]],
-      "daily_collection",
-    );
-    invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
-  } catch (e) {
-    console.warn("sheetsUpdate Users warning:", e);
-  }
+  await sheetsUpdate(`${USERS_SHEET_TITLE}!D${user.rowNumber}:D${user.rowNumber}`, [[newPinHash]], "daily_collection");
+  invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
 
   return { success: true };
 }
 
 // Provides template information and CSV/TSV data for creating the Users tab in Google Sheet
 export function getUsersSheetTemplate() {
-  const users = getMemoryUsers();
+  const users = buildDefaultUsers();
   const rows = [
     USERS_HEADERS.join(","),
     ...users.map(
