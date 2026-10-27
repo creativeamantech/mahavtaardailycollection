@@ -16,6 +16,7 @@
 - App server functions retain input validation and server-side password checks for privileged Settings and portal actions. Headerless in-process calls from OAuth-verified MCP handlers are supported; never expose an internal MCP handler directly over HTTP.
 
 ## Authentication architecture
+
 - `src/integrations/supabase/client.ts` and `client.server.ts` are intentional stubs.
 - `src/lib/mcp/auth-client.ts` is reserved for MCP sign-in and OAuth consent routes, and `src/lib/supabase-admin.server.ts` is used only by the MCP authentication flow.
 - MCP tools are OAuth-protected via `auth.oauth.issuer` in `src/lib/mcp/index.ts`; consent lives at `src/routes/[.]lovable.oauth.consent.tsx` and sign-in at `src/routes/login.tsx` (signup restricted to the `allowed_emails` table).

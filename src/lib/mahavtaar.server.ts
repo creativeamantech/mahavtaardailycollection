@@ -399,7 +399,11 @@ export async function getSheetId(
       sheetIdCache.set(spreadsheetId, newCache);
       const id = newCache[title];
       if (typeof id === "number") return id;
+      throw new Error(`Sheet tab "${title}" not found in spreadsheet ${spreadsheetId}`);
     } catch (err) {
+      if (err instanceof Error && err.message.includes("not found in spreadsheet")) {
+        throw err;
+      }
       console.warn(`Failed to fetch sheet ID for ${title} on ${spreadsheetId} via gateway:`, err);
     }
   }
@@ -412,6 +416,7 @@ export async function getSheetId(
     AppSettings: 3,
     Notifications: 4,
     "Cashier Link Activity": 5,
+    Users: 6,
   };
   const knownPortalSheetIds: Record<string, number> = {
     Portal_Sessions: 101,

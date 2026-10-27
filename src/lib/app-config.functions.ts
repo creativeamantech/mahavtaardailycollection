@@ -16,6 +16,7 @@ export const FEATURES = [
   { key: "alreadyPaid", label: "Already Paid", path: "/already-paid" },
   { key: "conflicts", label: "Conflicts", path: "/conflicts" },
   { key: "bankPortal", label: "Bank Portal", path: "/bank-portal" },
+  { key: "users", label: "Users", path: "/users" },
   { key: "remarks", label: "Remarks", path: null },
 ] as const;
 

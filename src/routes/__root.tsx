@@ -16,6 +16,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { FEATURES } from "@/lib/app-config.functions";
 import { useRouterState } from "@tanstack/react-router";
+import { SheetAuthProvider, useSheetAuth } from "@/hooks/useSheetAuth";
+import { LogOut, UserCheck } from "lucide-react";
 
 function NotFoundComponent() {
   return (
@@ -91,14 +93,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Mahavtaar Daily Collection" },
       {
         property: "og:description",
-        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
+        content:
+          "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Mahavtaar Daily Collection" },
       {
         name: "twitter:description",
-        content: "Record daily loan collections by executive with instant confirmation and printable receipts.",
+        content:
+          "Record daily loan collections by executive with instant confirmation and printable receipts.",
       },
       {
         property: "og:image",
@@ -147,6 +151,7 @@ const NAV = [
   { to: "/notifications", label: "Notifications", key: "notifications" },
   { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
   { to: "/bank-portal", label: "Bank Portal", key: "bankPortal" },
+  { to: "/users", label: "Users", key: "users" },
   { to: "/settings", label: "Settings", key: "settings" },
 ] as const;
 
@@ -155,17 +160,23 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell />
-      <Toaster position="top-center" />
+      <SheetAuthProvider>
+        <AppShell />
+        <Toaster position="top-center" />
+      </SheetAuthProvider>
     </QueryClientProvider>
   );
 }
 
 function AppShell() {
   const { flags } = useAppConfig();
+  const { user, logout } = useSheetAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const current = FEATURES.find((f) => f.path === pathname);
   const disabled = current ? flags[current.key] === false : false;
+
+  const isLoginPage = pathname === "/login";
+
   return (
     <>
       <div className="min-h-screen bg-background">
@@ -173,23 +184,61 @@ function AppShell() {
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
+              {!isLoginPage && (
+                <div className="flex items-center gap-2">
+                  {user ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 rounded-full border bg-muted/60 px-2.5 py-1 text-xs font-medium">
+                        <UserCheck className="h-3.5 w-3.5 text-primary" />
+                        <span>{user.executiveName}</span>
+                        {user.role === "Admin" && (
+                          <span className="rounded bg-amber-500/15 px-1 py-0.2 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                            Admin
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logout();
+                          window.location.href = "/login";
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        title="Sign Out"
+                      >
+                        <LogOut className="h-3 w-3" />
+                        <span className="hidden sm:inline">Sign Out</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      to="/login"
+                      className="rounded-md border border-primary bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                    >
+                      Sign In
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
-            <nav className="mt-2 flex flex-wrap gap-2">
-              {NAV.filter((n) => flags[n.key] !== false).map((n) => (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  className="rounded-lg border px-4 py-2 text-base font-medium"
-                  activeOptions={{ exact: n.to === "/" }}
-                  activeProps={{
-                    className:
-                      "rounded-lg border border-primary bg-primary px-4 py-2 text-base font-medium text-primary-foreground",
-                  }}
-                >
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
+            {!isLoginPage && (
+              <nav className="mt-2 flex flex-wrap gap-2">
+                {NAV.filter((n) => flags[n.key] !== false).map((n) => (
+                  <Link
+                    key={n.to}
+                    to={n.to}
+                    className="rounded-lg border px-4 py-2 text-base font-medium"
+                    activeOptions={{ exact: n.to === "/" }}
+                    activeProps={{
+                      className:
+                        "rounded-lg border border-primary bg-primary px-4 py-2 text-base font-medium text-primary-foreground",
+                    }}
+                  >
+                    {n.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
           </div>
         </header>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

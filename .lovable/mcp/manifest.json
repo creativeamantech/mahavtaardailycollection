@@ -5,9 +5,7 @@
   "auth": {
     "type": "oauth",
     "issuer": "https://ydgexnboxazquiiqcrup.supabase.co/auth/v1",
-    "accepted_audiences": [
-      "authenticated"
-    ]
+    "accepted_audiences": ["authenticated"]
   },
   "mcp": {
     "server": {
@@ -227,9 +225,7 @@
               "description": "Loan ID to look up."
             }
           },
-          "required": [
-            "loanId"
-          ],
+          "required": ["loanId"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -358,10 +354,7 @@
               "maxLength": 80
             }
           },
-          "required": [
-            "from",
-            "to"
-          ],
+          "required": ["from", "to"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -517,10 +510,7 @@
               "type": "boolean"
             }
           },
-          "required": [
-            "loanNumber",
-            "base64"
-          ],
+          "required": ["loanNumber", "base64"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -566,9 +556,7 @@
               "format": "uri"
             }
           },
-          "required": [
-            "rowNumber"
-          ],
+          "required": ["rowNumber"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -614,15 +602,7 @@
           "properties": {
             "executive": {
               "type": "string",
-              "enum": [
-                "Aarti",
-                "Ankita",
-                "Bharti",
-                "Julee",
-                "Pooja",
-                "Sunanda",
-                "Vinita"
-              ],
+              "enum": ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"],
               "description": "Executive submitting the pending receipt."
             },
             "loanNumber": {
@@ -668,21 +648,12 @@
                     "description": "Base64-encoded image data."
                   }
                 },
-                "required": [
-                  "name",
-                  "mimeType",
-                  "base64"
-                ]
+                "required": ["name", "mimeType", "base64"]
               },
               "description": "Receipt photos to upload to Google Drive."
             }
           },
-          "required": [
-            "executive",
-            "loanNumber",
-            "amount",
-            "photos"
-          ],
+          "required": ["executive", "loanNumber", "amount", "photos"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -707,9 +678,7 @@
               "description": "Pending entry ID (e.g. 'PND-1718000000000') to mark as completed."
             }
           },
-          "required": [
-            "pendingId"
-          ],
+          "required": ["pendingId"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -729,15 +698,7 @@
           "properties": {
             "executive": {
               "type": "string",
-              "enum": [
-                "Aarti",
-                "Ankita",
-                "Bharti",
-                "Julee",
-                "Pooja",
-                "Sunanda",
-                "Vinita"
-              ],
+              "enum": ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"],
               "description": "Executive who collected the payment."
             },
             "loanId": {
@@ -767,11 +728,7 @@
               "default": "No",
               "description": "Settlement type: 'No', 'Settlement', or 'Foreclosure'.",
               "type": "string",
-              "enum": [
-                "No",
-                "Settlement",
-                "Foreclosure"
-              ]
+              "enum": ["No", "Settlement", "Foreclosure"]
             },
             "remark": {
               "default": "",
@@ -815,9 +772,7 @@
                     "description": "Base64 string or data URL of the image."
                   }
                 },
-                "required": [
-                  "base64"
-                ]
+                "required": ["base64"]
               }
             },
             "receiptBase64": {
@@ -833,12 +788,7 @@
               "maxLength": 120
             }
           },
-          "required": [
-            "executive",
-            "loanId",
-            "amount",
-            "paymentDate"
-          ],
+          "required": ["executive", "loanId", "amount", "paymentDate"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -864,15 +814,7 @@
             },
             "executive": {
               "type": "string",
-              "enum": [
-                "Aarti",
-                "Ankita",
-                "Bharti",
-                "Julee",
-                "Pooja",
-                "Sunanda",
-                "Vinita"
-              ],
+              "enum": ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"],
               "description": "Executive name."
             },
             "loanId": {
@@ -904,19 +846,12 @@
             "entryType": {
               "default": "Normal",
               "type": "string",
-              "enum": [
-                "Normal",
-                "Previous Paid File"
-              ]
+              "enum": ["Normal", "Previous Paid File"]
             },
             "settlementType": {
               "default": "No",
               "type": "string",
-              "enum": [
-                "No",
-                "Settlement",
-                "Foreclosure"
-              ]
+              "enum": ["No", "Settlement", "Foreclosure"]
             },
             "remark": {
               "default": "",
@@ -936,13 +871,7 @@
               }
             }
           },
-          "required": [
-            "rowNumber",
-            "executive",
-            "loanId",
-            "amount",
-            "paymentDate"
-          ],
+          "required": ["rowNumber", "executive", "loanId", "amount", "paymentDate"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -967,9 +896,7 @@
               "description": "Row number in Collections sheet to delete (2 or greater)."
             }
           },
-          "required": [
-            "rowNumber"
-          ],
+          "required": ["rowNumber"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1004,9 +931,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "amount"
-          ],
+          "required": ["amount"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1045,9 +970,7 @@
               "type": "boolean"
             }
           },
-          "required": [
-            "remarks"
-          ],
+          "required": ["remarks"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1069,13 +992,7 @@
               "default": "All",
               "description": "Status filter: All, Confirmed, Bounced, Cancelled, or Cleared.",
               "type": "string",
-              "enum": [
-                "All",
-                "Confirmed",
-                "Bounced",
-                "Cancelled",
-                "Cleared"
-              ]
+              "enum": ["All", "Confirmed", "Bounced", "Cancelled", "Cleared"]
             },
             "executive": {
               "description": "Optional executive name filter.",
@@ -1101,15 +1018,7 @@
           "properties": {
             "executive": {
               "type": "string",
-              "enum": [
-                "Aarti",
-                "Ankita",
-                "Bharti",
-                "Julee",
-                "Pooja",
-                "Sunanda",
-                "Vinita"
-              ],
+              "enum": ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"],
               "description": "Executive name."
             },
             "loanId": {
@@ -1126,10 +1035,7 @@
             },
             "paymentType": {
               "type": "string",
-              "enum": [
-                "ECS",
-                "Special"
-              ],
+              "enum": ["ECS", "Special"],
               "description": "Payment type: 'ECS' or 'Special'."
             },
             "paymentDate": {
@@ -1149,13 +1055,7 @@
               "maxLength": 300
             }
           },
-          "required": [
-            "executive",
-            "loanId",
-            "amount",
-            "paymentType",
-            "paymentDate"
-          ],
+          "required": ["executive", "loanId", "amount", "paymentType", "paymentDate"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1181,12 +1081,7 @@
             },
             "status": {
               "type": "string",
-              "enum": [
-                "Confirmed",
-                "Bounced",
-                "Cancelled",
-                "Cleared"
-              ],
+              "enum": ["Confirmed", "Bounced", "Cancelled", "Cleared"],
               "description": "New status: Confirmed, Bounced, Cancelled, or Cleared."
             },
             "remark": {
@@ -1196,10 +1091,7 @@
               "maxLength": 300
             }
           },
-          "required": [
-            "id",
-            "status"
-          ],
+          "required": ["id", "status"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1242,11 +1134,7 @@
           "properties": {
             "action": {
               "type": "string",
-              "enum": [
-                "mark_valid",
-                "revert_validation",
-                "delete_entry"
-              ],
+              "enum": ["mark_valid", "revert_validation", "delete_entry"],
               "description": "Action to take on the conflicting row: 'mark_valid', 'revert_validation', or 'delete_entry'."
             },
             "rowNumber": {
@@ -1261,10 +1149,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "action",
-            "rowNumber"
-          ],
+          "required": ["action", "rowNumber"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1298,9 +1183,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "rows"
-          ],
+          "required": ["rows"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1383,9 +1266,7 @@
               "maxLength": 80
             }
           },
-          "required": [
-            "password"
-          ],
+          "required": ["password"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1421,10 +1302,7 @@
               "maxLength": 1000
             }
           },
-          "required": [
-            "password",
-            "text"
-          ],
+          "required": ["password", "text"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1454,10 +1332,7 @@
               "description": "Notification ID to remove (e.g. 'NTF-1729000000000')."
             }
           },
-          "required": [
-            "password",
-            "id"
-          ],
+          "required": ["password", "id"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -1477,11 +1352,7 @@
           "properties": {
             "action": {
               "type": "string",
-              "enum": [
-                "get",
-                "append",
-                "update"
-              ],
+              "enum": ["get", "append", "update"],
               "description": "Operation to perform: 'get' to read rows, 'append' to add rows, 'update' to overwrite a range."
             },
             "range": {
@@ -1497,18 +1368,12 @@
               "items": {
                 "type": "array",
                 "items": {
-                  "type": [
-                    "string",
-                    "number"
-                  ]
+                  "type": ["string", "number"]
                 }
               }
             }
           },
-          "required": [
-            "action",
-            "range"
-          ],
+          "required": ["action", "range"],
           "additionalProperties": false
         },
         "outputSchema": null

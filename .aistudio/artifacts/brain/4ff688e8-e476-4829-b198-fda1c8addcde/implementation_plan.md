@@ -75,7 +75,6 @@ Implement a completely free, self-contained **Receipt OCR & Verification System*
   - Admin Aman can view the active Bank Portal Spreadsheet ID, open it directly in Google Sheets via 1-click external link, create a new dedicated spreadsheet, or link any custom Google Sheet URL/ID at any time.
   - Validation strictly prevents setting the Bank Portal spreadsheet ID to the Daily Collection spreadsheet, ensuring zero data pollution.
 
-
 1. **Lint & TypeScript**: Run `lint_applet` to verify zero errors.
 2. **Build Verification**: Run `compile_applet` to ensure clean client and server builds.
 3. **End-to-End Test**:

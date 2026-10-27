@@ -1,4 +1,5 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
+import { useSheetAuth } from "@/hooks/useSheetAuth";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { LivePortalStatusBanner } from "@/components/portal/LivePortalStatusBanner";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -100,6 +101,7 @@ async function fileToBase64(file: File) {
 }
 
 function EntryPage() {
+  const { user } = useSheetAuth();
   const today = todayISO();
   const yesterday = todayISO(new Date(Date.now() - 86400000));
   const [executive, setExecutive] = useState("");
@@ -110,6 +112,12 @@ function EntryPage() {
   useEffect(() => {
     setTime(nowTime());
   }, []);
+
+  useEffect(() => {
+    if (user?.executiveName && !executive) {
+      setExecutive(user.executiveName);
+    }
+  }, [user, executive]);
   const [confirmed, setConfirmed] = useState(false);
   const [isPrevious, setIsPrevious] = useState(false);
   const [settlementType, setSettlementType] = useState<"No" | "Settlement" | "Foreclosure">("No");

@@ -1030,8 +1030,9 @@ export async function saveSchedulesOnServer(newSchedules: ExecutiveSchedule[], a
 
     return {
       executive: fallback.executive,
-      isAvailable: typeof submitted?.isAvailable === "boolean" ? submitted.isAvailable : fallback.isAvailable,
-      notes: typeof submitted?.notes === "string" ? submitted.notes : fallback.notes ?? "",
+      isAvailable:
+        typeof submitted?.isAvailable === "boolean" ? submitted.isAvailable : fallback.isAvailable,
+      notes: typeof submitted?.notes === "string" ? submitted.notes : (fallback.notes ?? ""),
       slots: slotsAreValid ? submittedSlots : fallback.slots.map((slot) => ({ ...slot })),
     };
   });
@@ -1049,7 +1050,9 @@ export async function saveSchedulesOnServer(newSchedules: ExecutiveSchedule[], a
     await portalSheetsUpdate(`${TAB_SCHEDULES}!A2:D${rows.length + 1}`, rows);
   } catch (err) {
     console.error("Failed to persist executive schedules to Google Sheet:", err);
-    throw new Error("Schedules could not be saved to Google Sheets. Your previous schedule is still active; please try again.");
+    throw new Error(
+      "Schedules could not be saved to Google Sheets. Your previous schedule is still active; please try again.",
+    );
   }
 
   inMemorySchedules = normalizedSchedules;

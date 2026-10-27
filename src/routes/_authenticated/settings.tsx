@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Mail, Plus, RefreshCw, Search, Trash2, UserCheck } from "lucide-react";
+import { SheetUserManager } from "@/components/SheetUserManager";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -293,6 +294,8 @@ function SettingsContent({ onRelock }: { onRelock: () => void }) {
   return (
     <div className="space-y-8">
       <NotificationPanel />
+
+      <SheetUserManager />
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Page &amp; Feature Visibility</h2>
