@@ -116,9 +116,7 @@ export async function createDedicatedBankPortalSpreadsheet(
 
         // Initialize header rows on newly created sheets
         for (const [tabName, header] of Object.entries(PORTAL_TAB_HEADERS)) {
-          await portalSheetsUpdate(`${tabName}!A1:${String.fromCharCode(64 + header.length)}1`, [
-            header,
-          ]).catch(() => {});
+          await portalSheetsUpdate(`${tabName}!A1:${String.fromCharCode(64 + header.length)}1`, [header]);
         }
 
         return {
@@ -148,9 +146,44 @@ export async function ensureDedicatedBankPortalSpreadsheet(): Promise<void> {
   ensureSpreadsheetPromise = (async () => {
     if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
       throw new Error(
-        "Cannot verify or create the Bank Portal spreadsheet: Google Sheets API credentials are missing.",
+        "Cannot verify or create the Bank Portal spreadsheet: configure LOVABLE_API_KEY and GOOGLE_SHEETS_API_KEY in server secrets.",
       );
     }
+
+    // Prefer the encrypted deployment secret. AppSettings is a durable backup and
+    // supports recovery if the secret has not yet been configured in a new deployment.
+    const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");
+    const { BANK_PORTAL_SPREADSHEET_ID_KEY } = await import("./app-config.functions");
+    const envId = process.env["BANK_PORTAL_SPREADSHEET_ID"]?.trim();
+    let settingRows: string[][] = [];
+    try {
+      await ensureSheet("AppSettings", ["Key", "Value"], "daily_collection");
+      settingRows = await sheetsGet("AppSettings!A2:B", "daily_collection");
+    } catch (error) {
+      if (!envId) throw new Error("Could not read AppSettings backup for the Bank Portal spreadsheet ID.");
+      console.warn("Could not read AppSettings backup; using configured server secret.", error);
+    }
+
+    const backupIndex = settingRows.findIndex((row) => (row[0] ?? "").trim() === BANK_PORTAL_SPREADSHEET_ID_KEY);
+    const backupId = backupIndex >= 0 ? (settingRows[backupIndex]?.[1] ?? "").trim() : "";
+    if (!envId && backupId) {
+      const configured = setBankPortalSpreadsheetId(backupId, "AppSettings Recovery");
+      if (!configured.ok) throw new Error(configured.message);
+    }
+
+    const authoritativeId = envId || backupId || getBankPortalSpreadsheetId();
+    if (!authoritativeId || authoritativeId === DAILY_COLLECTION_SPREADSHEET_ID) {
+      throw new Error("BANK_PORTAL_SPREADSHEET_ID is missing or invalid and no valid AppSettings backup exists.");
+    }
+    if (envId && envId !== backupId) {
+      if (backupIndex >= 0) {
+        await sheetsUpdate(`AppSettings!B${backupIndex + 2}`, [[envId]], "daily_collection");
+      } else {
+        await sheetsAppend("AppSettings!A:B", [[BANK_PORTAL_SPREADSHEET_ID_KEY, envId]], "daily_collection");
+      }
+    }
+    const configured = setBankPortalSpreadsheetId(authoritativeId, envId ? "Server Secret" : "AppSettings");
+    if (!configured.ok) throw new Error(configured.message);
 
     const config = getBankPortalSpreadsheetConfig();
     const placeholderIds = [
