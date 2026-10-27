@@ -1,13 +1,7 @@
-import fs from "fs";
-import path from "path";
-
 export const DAILY_COLLECTION_SPREADSHEET_ID = "1AXLakW3subO9H-O9iWIpXJyjT4JLXRTG5uiL3dWsY5g";
 
 export const FALLBACK_BANK_PORTAL_SPREADSHEET_ID =
-  process.env["BANK_PORTAL_SPREADSHEET_ID"] ||
-  "1-BankPortal-Mahavtaar-Usage-Accountability-Dedicated";
-
-const CONFIG_FILE_PATH = path.resolve(process.cwd(), "bank-portal-config.json");
+  process.env["BANK_PORTAL_SPREADSHEET_ID"] || "1C1u_4nTIN-_KbhJ2RrXeIDIg0cWSNpIxN8N_hDIn-yo";
 
 export const PORTAL_TABS = {
   SESSIONS: "Portal_Sessions",
@@ -91,48 +85,23 @@ export interface BankPortalConfig {
 let currentBankPortalConfig: BankPortalConfig = loadBankPortalConfig();
 
 function loadBankPortalConfig(): BankPortalConfig {
-  try {
-    if (fs.existsSync(CONFIG_FILE_PATH)) {
-      const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.spreadsheetId === "string" && parsed.spreadsheetId.trim()) {
-        const id = parsed.spreadsheetId.trim();
-        // Prevent accidental re-linking of daily collection spreadsheet
-        if (id === DAILY_COLLECTION_SPREADSHEET_ID) {
-          console.warn(
-            "Found Daily Collection spreadsheet in bank portal config. Resetting to dedicated Bank Portal ID.",
-          );
-        } else {
-          return {
-            spreadsheetId: id,
-            spreadsheetTitle: parsed.spreadsheetTitle || "Mahavtaar Bank Portal Accountability",
-            updatedAt: parsed.updatedAt || new Date().toISOString(),
-            updatedBy: parsed.updatedBy || "System",
-            isCustom: true,
-          };
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Could not read bank-portal-config.json:", err);
-  }
+  const envId = process.env["BANK_PORTAL_SPREADSHEET_ID"]?.trim();
+  const spreadsheetId =
+    envId && envId !== DAILY_COLLECTION_SPREADSHEET_ID
+      ? envId
+      : "1C1u_4nTIN-_KbhJ2RrXeIDIg0cWSNpIxN8N_hDIn-yo";
 
   return {
-    spreadsheetId: FALLBACK_BANK_PORTAL_SPREADSHEET_ID,
+    spreadsheetId,
     spreadsheetTitle: "Mahavtaar Bank Portal Accountability",
     updatedAt: new Date().toISOString(),
     updatedBy: "System",
-    isCustom: false,
+    isCustom: Boolean(envId),
   };
 }
 
 export function persistBankPortalConfig(config: BankPortalConfig) {
   currentBankPortalConfig = config;
-  try {
-    fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(config, null, 2), "utf-8");
-  } catch (err) {
-    console.warn("Could not persist bank-portal-config.json:", err);
-  }
 }
 
 // Extract spreadsheet ID from either a raw ID or full Google Sheets URL

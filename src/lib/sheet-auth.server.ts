@@ -335,8 +335,7 @@ export function verifyAdminSession(token?: string | null, password?: string | nu
 }
 
 export type AdminAuthInput =
-  | string
-  | { token?: string | null | undefined; password?: string | null | undefined };
+  string | { token?: string | null | undefined; password?: string | null | undefined };
 
 function resolveAdminAuth(auth: AdminAuthInput) {
   if (typeof auth === "string") {
@@ -396,7 +395,8 @@ export async function addSheetUser(
     await sheetsAppend(`${USERS_SHEET_TITLE}!A:F`, [row], "daily_collection");
     invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
   } catch (e) {
-    console.warn("sheetsAppend Users warning:", e);
+    console.error("sheetsAppend Users failed:", e);
+    throw new Error(`Failed to save new user to Google Sheets: ${(e as Error).message || e}`);
   }
 
   return {
@@ -430,7 +430,8 @@ export async function updateSheetUserStatus(
     );
     invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
   } catch (e) {
-    console.warn("sheetsUpdate Users warning:", e);
+    console.error("sheetsUpdate Users status failed:", e);
+    throw new Error(`Failed to update user status in Google Sheets: ${(e as Error).message || e}`);
   }
 
   return { success: true };
@@ -458,7 +459,8 @@ export async function updateSheetUserRole(
     );
     invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
   } catch (e) {
-    console.warn("sheetsUpdate Users warning:", e);
+    console.error("sheetsUpdate Users role failed:", e);
+    throw new Error(`Failed to update user role in Google Sheets: ${(e as Error).message || e}`);
   }
 
   return { success: true };
@@ -491,7 +493,8 @@ export async function resetSheetUserPin(
     );
     invalidateSheetsCache(DAILY_COLLECTION_SPREADSHEET_ID);
   } catch (e) {
-    console.warn("sheetsUpdate Users warning:", e);
+    console.error("sheetsUpdate Users PIN failed:", e);
+    throw new Error(`Failed to reset user PIN in Google Sheets: ${(e as Error).message || e}`);
   }
 
   return { success: true };
