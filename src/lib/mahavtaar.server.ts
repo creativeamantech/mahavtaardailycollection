@@ -158,71 +158,39 @@ function parseRange(range: string) {
   return { sheetTitle, startCol, endCol, startRow, endRow };
 }
 
-async function fetchFromPublicSheet(
-  range: string,
-  spreadsheetId: string = DAILY_COLLECTION_SPREADSHEET_ID,
-): Promise<string[][]> {
-  const { sheetTitle, startCol, endCol, startRow, endRow } = parseRange(range);
-  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetTitle)}`;
-
-  let baseRows: string[][] = [];
-  try {
-    const res = await fetch(url);
-    if (res.ok) {
-      const text = await res.text();
-      baseRows = parseCsv(text);
-    }
-  } catch (err) {
-    console.warn(`Public Google Sheets fetch failed for ${sheetTitle} on ${spreadsheetId}:`, err);
-  }
-
-  const allRows: string[][] = baseRows.map((r) => [...r]);
-
-  // Row 1 in sheet is index 0 in allRows. Range startRow 2 means index 1.
-  const rowStartIdx = Math.max(0, startRow - 1);
-  const rowEndIdx = endRow === Infinity ? undefined : endRow;
-
-  return allRows.slice(rowStartIdx, rowEndIdx).map((r) => {
-    const rowSlice = r.slice(startCol, endCol);
-    // Pad to endCol - startCol if row was shorter
-    const targetLen = Math.max(0, endCol - startCol);
-    while (rowSlice.length < targetLen) {
-      rowSlice.push("");
-    }
-    return rowSlice;
-  });
-}
-
 async function fetchRange(range: string, spreadsheetId: string): Promise<string[][]> {
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    let lastBody = "";
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await fetch(
-          `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}`,
-          { headers: headers("GOOGLE_SHEETS_API_KEY") },
-        );
-        if (res.ok) {
-          const json = (await res.json()) as { values?: string[][] };
-          return json.values ?? [];
-        }
-        lastBody = await res.text();
-        const retryable = res.status === 429 || res.status >= 500;
-        if (!retryable || attempt === 2) {
-          break;
-        }
-        await sleep(600 * 2 ** attempt + Math.random() * 300);
-      } catch (err) {
-        lastBody = String(err);
-        break;
-      }
-    }
-    console.warn(
-      `Gateway fetch failed for ${range} on ${spreadsheetId} (${lastBody}). Falling back to public sheet reader.`,
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+    throw new Error(
+      "Google Sheets read unavailable: configure LOVABLE_API_KEY and GOOGLE_SHEETS_API_KEY in server secrets.",
     );
   }
 
-  return fetchFromPublicSheet(range, spreadsheetId);
+  let lastError = "Unknown connector error";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(
+        `${GATEWAY}/google_sheets/v4/spreadsheets/${spreadsheetId}/values/${range}`,
+        { headers: headers("GOOGLE_SHEETS_API_KEY") },
+      );
+      if (res.ok) {
+        const json = (await res.json()) as { values?: string[][] };
+        return json.values ?? [];
+      }
+
+      const body = await res.text().catch(() => "");
+      lastError = `Connector read failed [${res.status}]: ${body}`;
+      const retryable = res.status === 429 || res.status >= 500;
+      if (!retryable || attempt === 2) break;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      if (attempt === 2) break;
+    }
+
+    await sleep(600 * 2 ** attempt + Math.random() * 300);
+  }
+
+  console.error(`Google Sheets connector read failed for ${range} on ${spreadsheetId}: ${lastError}`);
+  throw new Error(`Google Sheets connector read failed. ${lastError}`);
 }
 
 export async function sheetsGet(
