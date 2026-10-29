@@ -6,7 +6,7 @@ export default defineTool({
   name: "upload_receipt_image",
   title: "Upload receipt image to Google Drive",
   description:
-    "Uploads a receipt image (base64 string or data URL) to Google Drive, returning the public Google Drive link. Optionally attaches it to an existing Collections row in Google Sheets and/or runs OCR extraction.",
+    "Uploads a receipt image (base64 string or data URL) to Google Drive, returning the public Google Drive link. Optionally attaches it to an existing Collections row in Google Sheets .",
   inputSchema: {
     loanNumber: z.string().trim().min(1).max(60).describe("Loan account number / ID."),
     name: z
@@ -36,15 +36,9 @@ export default defineTool({
       .describe(
         "Optional row number in Collections sheet. If provided, the uploaded receipt link will be immediately attached to this entry in Google Sheets (Column P).",
       ),
-    runOcr: z
-      .boolean()
-      .default(false)
-      .describe(
-        "If true, runs OCR extraction on the receipt to extract amount, loan ID, date, and UTR.",
-      ),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
-  handler: async ({ loanNumber, name, mimeType, base64, rowNumber, runOcr }) => {
+  handler: async ({ loanNumber, name, mimeType, base64, rowNumber }) => {
     const cleanBase64 = base64.includes(",") ? base64.slice(base64.indexOf(",") + 1) : base64;
     const effectiveMime =
       mimeType ||
@@ -83,17 +77,6 @@ export default defineTool({
       attachedToRow = rowNumber;
     }
 
-    let ocr = null;
-    if (runOcr) {
-      try {
-        const { analyzeReceiptBufferServer } = await import("../../receipt-ocr");
-        const buffer = Buffer.from(cleanBase64, "base64");
-        ocr = await analyzeReceiptBufferServer(buffer, effectiveMime);
-      } catch (err) {
-        console.warn("OCR analysis failed:", err);
-      }
-    }
-
     return {
       content: [
         {
@@ -103,7 +86,6 @@ export default defineTool({
             link,
             loanNumber,
             attachedToRow,
-            ocr,
           }),
         },
       ],
@@ -112,7 +94,6 @@ export default defineTool({
         link,
         loanNumber,
         attachedToRow,
-        ocr,
       },
     };
   },
