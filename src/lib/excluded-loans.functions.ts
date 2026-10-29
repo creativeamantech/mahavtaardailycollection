@@ -87,7 +87,7 @@ export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
     const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const pasted = data.loanNumbersText
-      .split(/[\\s,;]+/)
+      .split(/[\s,;]+/)
       .map(normaliseLoanId)
       .filter(Boolean);
     const unique = [...new Set(pasted)];
