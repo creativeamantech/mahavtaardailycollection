@@ -470,17 +470,26 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
 
 // Creates a tab (with optional header row) when it does not exist yet.
 export async function ensureSheet(title: string, header?: string[]) {
-  try {
-    return await getSheetId(title);
-  } catch {
-    if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+    const res = await fetch(
+      `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
+      { headers: headers("GOOGLE_SHEETS_API_KEY") },
+    );
+    const json = (await ok(res, "Sheets metadata")) as {
+      sheets?: { properties?: { sheetId?: number; title?: string } }[];
+    };
+    const found = (json.sheets ?? []).some((sheet) => sheet.properties?.title === title);
+    if (!found) {
       await sheetsBatchUpdate([{ addSheet: { properties: { title } } }]);
       sheetIdCache = {};
       if (header && header.length > 0) {
-        await sheetsUpdate(`${title}!A1:${String.fromCharCode(64 + header.length)}1`, [header]);
+        const lastColumn = header.length <= 26
+          ? String.fromCharCode(64 + header.length)
+          : "A" + String.fromCharCode(64 + header.length - 26);
+        await sheetsUpdate(`${title}!A1:${lastColumn}1`, [header]);
       }
-      return getSheetId(title);
     }
-    return 0;
+    return getSheetId(title);
   }
+  return getSheetId(title);
 }
