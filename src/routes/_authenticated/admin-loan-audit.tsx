@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square } from "lucide-react";
+import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordGate } from "@/components/PasswordGate";
-import { getCollections, updateCollectionRow } from "@/lib/mahavtaar.functions";
+import { getCollections, updateCollectionRow, deleteCollectionRow } from "@/lib/mahavtaar.functions";
 import { formatAmount } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ function AdminLoanAuditPage() {
   const [drafts, setDrafts] = useState<Record<number, Partial<Entry>>>({});
   const fetchCollections = useServerFn(getCollections);
   const saveRow = useServerFn(updateCollectionRow);
+  const deleteRow = useServerFn(deleteCollectionRow);
   const qc = useQueryClient();
 
   useEffect(() => setUnlocked(sessionStorage.getItem(SESSION_KEY) === "1"), []);
@@ -101,6 +102,19 @@ function AdminLoanAuditPage() {
     }
   }
 
+  async function removeEntry(entry: Entry) {
+    const ok = window.confirm(`क्या आप Loan ${entry.loanId} की Row ${entry.row} वाली पूरी collection entry delete करना चाहते हैं? यह Google Sheet से हटेगी और वापस लाना आसान नहीं होगा।`);
+    if (!ok) return;
+    try {
+      await deleteRow({ data: { row: entry.row } });
+      setDrafts((old) => { const next = { ...old }; delete next[entry.row]; return next; });
+      await qc.invalidateQueries({ queryKey: ["collections"] });
+      toast.success(`Loan ${entry.loanId} की entry delete हो गई।`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Entry delete नहीं हो पाई।");
+    }
+  }
+
   if (!unlocked) return <main className="mx-auto w-full max-w-md px-4 py-12">
     <div className="mb-5 flex items-center gap-3"><LockKeyhole className="h-7 w-7"/><div><h1 className="text-2xl font-bold">Admin Loan Audit</h1><p className="text-sm text-muted-foreground">Admin password required</p></div></div>
     <PasswordGate label="Unlock Admin Audit" onUnlock={() => { sessionStorage.setItem(SESSION_KEY, "1"); setUnlocked(true); }} />
@@ -152,7 +166,7 @@ function AdminLoanAuditPage() {
             const d = { ...entry, ...drafts[entry.row] };
             const dirty = Boolean(drafts[entry.row]);
             return <section key={entry.row} className="overflow-hidden rounded-xl border bg-card shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3"><div><p className="font-semibold">Row {entry.row} · {entry.loanId}</p><p className="text-xs text-muted-foreground">{entry.executive} · {entry.date} {entry.time || ""} · {entry.entryType || "Normal"}</p></div><Button onClick={() => save(entry)} disabled={!dirty} size="sm"><Save className="mr-2 h-4 w-4"/>Save changes</Button></div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3"><div><p className="font-semibold">Row {entry.row} · {entry.loanId}</p><p className="text-xs text-muted-foreground">{entry.executive} · {entry.date} {entry.time || ""} · {entry.entryType || "Normal"}</p></div><div className="flex gap-2"><Button onClick={() => save(entry)} disabled={!dirty} size="sm"><Save className="mr-2 h-4 w-4"/>Save changes</Button><Button onClick={() => removeEntry(entry)} variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4"/>Delete entry</Button></div></div>
               <div className="grid gap-4 p-4 md:grid-cols-2">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1"><Label>Loan number</Label><Input value={d.loanId} onChange={e => setField(entry.row,"loanId",e.target.value)}/></div>
