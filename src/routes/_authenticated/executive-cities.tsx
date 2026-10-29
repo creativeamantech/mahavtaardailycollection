@@ -15,6 +15,7 @@ import {
   Filter,
 } from "lucide-react";
 import { getCollections } from "@/lib/mahavtaar.functions";
+import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 import {
   summariseLoans,
   executiveCitySections,
@@ -69,6 +70,17 @@ type DateFilterMode = "month" | "date" | "all";
 
 export function ExecutiveCitiesPage() {
   const fetchCollections = useServerFn(getCollections);
+  const fetchExcludedLoans = useServerFn(getExcludedLoanNumbers);
+  const { data: excludedLoanRecords = [] } = useQuery({
+    queryKey: ["excluded-loan-numbers"],
+    queryFn: () => fetchExcludedLoans(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const excludedLoanIds = useMemo(
+    () => new Set(excludedLoanRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase())),
+    [excludedLoanRecords],
+  );
   const {
     data: rawData = [],
     isLoading,
@@ -141,6 +153,8 @@ export function ExecutiveCitiesPage() {
   // Filter raw collection rows based on selected filters
   const filteredRows = useMemo(() => {
     return data.filter((r) => {
+      // Exclude active excluded-loan entries from all performance calculations.
+      if (excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase())) return false;
       // Exclude Already Paid (matching loans.tsx city table by default)
       if (excludeAlreadyPaid && r.alreadyPaid) return false;
 
@@ -159,7 +173,7 @@ export function ExecutiveCitiesPage() {
 
       return true;
     });
-  }, [data, excludeAlreadyPaid, dateMode, month, selectedDate, bucket, category]);
+  }, [data, excludedLoanIds, excludeAlreadyPaid, dateMode, month, selectedDate, bucket, category]);
 
   // Summarise loans for the filtered scope
   const loanSummaries = useMemo(() => {

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { getCollections } from "@/lib/mahavtaar.functions";
+import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 import { formatAmount, todayISO } from "@/lib/executives";
 import {
   summariseLoans,
@@ -70,6 +71,17 @@ function money(v: number | null) {
 
 function LoansPage() {
   const fetchCollections = useServerFn(getCollections);
+  const fetchExcludedLoans = useServerFn(getExcludedLoanNumbers);
+  const { data: excludedLoanRecords = [] } = useQuery({
+    queryKey: ["excluded-loan-numbers"],
+    queryFn: () => fetchExcludedLoans(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const excludedLoanIds = useMemo(
+    () => new Set(excludedLoanRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase())),
+    [excludedLoanRecords],
+  );
   // One batch read of the whole dataset — search, EMI maths and every report
   // below reuse this single result. No per-loan or per-filter API calls.
   const { data, isLoading, isFetching, error, refetch } = useQuery({
@@ -98,9 +110,8 @@ function LoansPage() {
   const [category, setCategory] = useCategoryFilter();
   const categories = useMemo(() => uniqueCategories(collections), [collections]);
   const allRows = useMemo(
-    () =>
-      collections.filter((r) => !r.alreadyPaid && categoryMatches(r.allocationCategory, category)),
-    [collections, category],
+    () => collections.filter((r) => !r.alreadyPaid && !excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase()) && categoryMatches(r.allocationCategory, category)),
+    [collections, category, excludedLoanIds],
   );
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(collections.map((r) => r.date)), [collections]);

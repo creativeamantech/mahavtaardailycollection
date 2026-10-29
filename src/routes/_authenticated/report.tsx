@@ -24,6 +24,8 @@ import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
+import { ExcludedLoanManager } from "@/components/ExcludedLoanManager";
+import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
@@ -410,6 +412,17 @@ function PreviousCard({ count, total }: { count: number; total: number }) {
 
 function ReportPage() {
   const fetchCollections = useServerFn(getCollections);
+  const fetchExcludedLoans = useServerFn(getExcludedLoanNumbers);
+  const { data: excludedLoanRecords = [] } = useQuery({
+    queryKey: ["excluded-loan-numbers"],
+    queryFn: () => fetchExcludedLoans(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const excludedLoanIds = useMemo(
+    () => new Set(excludedLoanRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase())),
+    [excludedLoanRecords],
+  );
   const highlightAlreadyPaid = useServerFn(highlightAlreadyPaidInSheet);
   const [highlighting, setHighlighting] = useState(false);
 
@@ -453,8 +466,11 @@ function ReportPage() {
     [rawRows],
   );
 
-  // Already Paid payments are excluded from collection performance figures.
-  const allRows = useMemo(() => rawRows.filter((r) => !r.alreadyPaid), [rawRows]);
+  // Already Paid and explicitly excluded loan numbers are omitted from performance reports.
+  const allRows = useMemo(
+    () => rawRows.filter((r) => !r.alreadyPaid && !excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase())),
+    [rawRows, excludedLoanIds],
+  );
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(rawRows.map((r) => r.date)), [rawRows]);
 
@@ -528,23 +544,25 @@ function ReportPage() {
     () =>
       rawRows.filter(
         (r) =>
+          !excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase()) &&
           monthKey(r.date) === month &&
           bucketMatches(r.bucket, dateBucket) &&
           catOk(r.allocationCategory, dateCategory) &&
           inRange(r, from, to),
       ),
-    [rawRows, month, dateBucket, dateCategory, from, to],
+    [rawRows, excludedLoanIds, month, dateBucket, dateCategory, from, to],
   );
 
   const overallExportRows = useMemo(
     () =>
       rawRows.filter(
         (r) =>
+          !excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase()) &&
           monthKey(r.date) === month &&
           bucketMatches(r.bucket, overallBucket) &&
           catOk(r.allocationCategory, overallCategory),
       ),
-    [rawRows, month, overallBucket, overallCategory],
+    [rawRows, excludedLoanIds, month, overallBucket, overallCategory],
   );
 
   return (
@@ -573,6 +591,7 @@ function ReportPage() {
       <div className="mt-3">
         <CategoryFilter value={category} onChange={setCategory} options={categories} />
       </div>
+      <ExcludedLoanManager />
 
       {alreadyPaidCount > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">

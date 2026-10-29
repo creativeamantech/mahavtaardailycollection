@@ -1,6 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { loadCollections, normId } from "../data";
+import { getExcludedLoanNumbers } from "../../excluded-loans.functions";
 import { summariseLoans, type CollectionRow } from "../../loans";
 import { monthKey } from "../../months";
 import { categoryMatches } from "../../../components/AllocationFilters";
@@ -47,7 +48,9 @@ export default defineTool({
     limit,
   }) => {
     const raw = await loadCollections();
-    let filtered = raw.filter((r) => !r.alreadyPaid);
+    const excludedRecords = await getExcludedLoanNumbers();
+    const excludedIds = new Set(excludedRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase()));
+    let filtered = raw.filter((r) => !r.alreadyPaid && !excludedIds.has(r.loanId.trim().toUpperCase()));
 
     if (month) {
       filtered = filtered.filter((r) => monthKey(r.date) === month);
