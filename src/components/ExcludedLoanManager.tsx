@@ -115,6 +115,8 @@ export function ExcludedLoanManager() {
         </form>
       )}
 
+      <ExcludedLoanBulkManager />
+
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">Current Exclusion List ({active.length})</h3>
         <Button type="button" size="sm" variant="outline" onClick={() => void refetch()} disabled={isLoading}>Refresh</Button>
