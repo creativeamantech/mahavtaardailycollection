@@ -4,6 +4,12 @@ import { z } from "zod";
 const TAB = "Excluded Loan Numbers";
 const header = ["Loan Number", "Date Added", "Reason", "Status"];
 
+async function assertAdminPassword(password: string) {
+  const { verifySettingsPassword } = await import("./app-config.functions");
+  const result = await verifySettingsPassword({ data: { password } });
+  if (!result.ok) throw new Error("Admin authorization failed.");
+}
+
 function normaliseLoanId(value: string) {
   return String(value ?? "").replace(/^['`\u2018\u2019]+/, "").trim().toUpperCase();
 }
@@ -34,9 +40,11 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
     z.object({
       loanNumber: z.string().trim().min(1).max(60),
       reason: z.string().trim().max(300).optional().default(""),
+      adminPassword: z.string().max(200),
     }).parse(d),
   )
   .handler(async ({ data }) => {
+    await assertAdminPassword(data.adminPassword);
     const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const loanNumber = normaliseLoanId(data.loanNumber);
@@ -50,8 +58,9 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
   });
 
 export const removeExcludedLoanNumber = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ loanNumber: z.string().trim().min(1).max(60) }).parse(d))
+  .inputValidator((d: unknown) => z.object({ loanNumber: z.string().trim().min(1).max(60), adminPassword: z.string().max(200) }).parse(d))
   .handler(async ({ data }) => {
+    await assertAdminPassword(data.adminPassword);
     const { ensureSheet, sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const rows = await sheetsGet(`${TAB}!A2:D`);
