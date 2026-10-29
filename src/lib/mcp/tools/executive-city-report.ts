@@ -1,6 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { loadCollections } from "../data";
+import { getExcludedLoanNumbers } from "../../excluded-loans.functions";
 import {
   summariseLoans,
   executiveCitySections,
@@ -49,7 +50,9 @@ export default defineTool({
     excludeAlreadyPaid,
   }) => {
     const raw = await loadCollections();
-    let filtered = raw;
+    const excludedRecords = await getExcludedLoanNumbers();
+    const excludedIds = new Set(excludedRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase()));
+    let filtered = raw.filter((r) => !excludedIds.has(r.loanId.trim().toUpperCase()));
 
     if (excludeAlreadyPaid) {
       filtered = filtered.filter((r) => !r.alreadyPaid);
