@@ -283,13 +283,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLoanAuditRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin-loan-audit': {
-      id: '/_authenticated/admin-loan-audit'
-      path: '/admin-loan-audit'
-      fullPath: '/admin-loan-audit'
-      preLoaderRoute: typeof AuthenticatedAdminLoanAuditRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/notifications': {
       id: '/_authenticated/notifications'
       path: '/notifications'
