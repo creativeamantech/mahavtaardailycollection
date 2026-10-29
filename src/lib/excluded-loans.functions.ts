@@ -73,3 +73,38 @@ export const removeExcludedLoanNumber = createServerFn({ method: "POST" })
     await sheetsUpdate(`${TAB}!D${idx + 2}`, [["Removed"]]);
     return { ok: true as const, loanNumber: target };
   });
+
+export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({
+      loanNumbersText: z.string().trim().min(1).max(100_000),
+      reason: z.string().trim().max(300).optional().default(""),
+      adminPassword: z.string().max(200),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    await assertAdminPassword(data.adminPassword);
+    const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
+    await ensureSheet(TAB, header);
+    const pasted = data.loanNumbersText
+      .split(/[\\s,;]+/)
+      .map(normaliseLoanId)
+      .filter(Boolean);
+    const unique = [...new Set(pasted)];
+    if (unique.length === 0) throw new Error("Paste at least one valid loan number.");
+    if (unique.length > 5000) throw new Error("Bulk import is limited to 5,000 unique loan numbers per batch.");
+    const rows = await sheetsGet(`${TAB}!A2:D`);
+    const active = new Set(
+      rows
+        .filter((r) => ((r[3] ?? "Active").trim() || "Active").toLowerCase() === "active")
+        .map((r) => normaliseLoanId(r[0] ?? ""))
+        .filter(Boolean),
+    );
+    const existing = unique.filter((loan) => active.has(loan));
+    const toAdd = unique.filter((loan) => !active.has(loan));
+    if (toAdd.length) {
+      const today = new Date().toISOString().slice(0, 10);
+      await sheetsAppend(`${TAB}!A:D`, toAdd.map((loan) => [loan, today, data.reason ?? "", "Active"]));
+    }
+    return { ok: true as const, pasted: pasted.length, unique: unique.length, added: toAdd.length, skippedExisting: existing.length, existingLoanNumbers: existing };
+  });
