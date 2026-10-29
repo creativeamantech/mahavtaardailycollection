@@ -3,6 +3,7 @@ import { defineMcp } from "@lovable.dev/mcp-js";
 import loadCollectionData from "./tools/load-collection-data";
 import readAllCollections from "./tools/read-all-collections";
 import openReceiptImage from "./tools/open-receipt-image";
+import scanReceiptOcr from "./tools/scan-receipt-ocr";
 import editCollectionAmount from "./tools/edit-amount";
 import writeAmansRemarks from "./tools/write-amans-remarks";
 import collectionSummary from "./tools/collection-summary";
@@ -52,6 +53,7 @@ export default defineMcp({
     listAlreadyPaid,
     highlightAlreadyPaid,
     openReceiptImage,
+    scanReceiptOcr,
     uploadReceiptImage,
     attachReceipt,
     pendingReceipts,
