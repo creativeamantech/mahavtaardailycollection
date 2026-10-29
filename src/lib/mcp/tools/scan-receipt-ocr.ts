@@ -29,7 +29,7 @@ export default defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ rowNumber, loanId, receiptUrl, language }) => {
     const collections = await loadCollections();
-    let entry = undefined;
+    let entry: (typeof collections)[number] | undefined;
     let selectedUrl = receiptUrl;
 
     if (rowNumber !== undefined || loanId) {
@@ -58,11 +58,11 @@ export default defineTool({
 
     const expectedLoanDigits = entry ? entry.loanId.replace(/\D/g, "") : "";
     const ocrDigits = text.replace(/\D/g, "");
-    const loanIdFound = expectedLoanDigits ? ocrDigits.includes(expectedLoanDigits) : null;
+    const loanIdFound = expectedLoanDigits && ocrDigits.includes(expectedLoanDigits) ? true : null;
 
     let status = "MANUAL_REVIEW";
     if (amountFound === true && (loanIdFound === true || loanIdFound === null)) status = "AMOUNT_MATCH";
-    if (amountFound === false || loanIdFound === false) status = "CHECK_MISMATCH";
+    if (amountFound === false) status = "CHECK_MISMATCH";
 
     const result = {
       success: true,
