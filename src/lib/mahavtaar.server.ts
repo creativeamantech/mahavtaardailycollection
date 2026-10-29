@@ -396,6 +396,78 @@ export async function driveUpload(name: string, mimeType: string, base64: string
   return `data:${mimeType};base64,${base64}`;
 }
 
+// Downloads a Drive receipt and uses Drive's server-side image-to-Google-Docs OCR conversion.
+// The temporary Google Doc is exported as plain text and deleted in a finally block.
+export async function ocrDriveReceipt(fileId: string, language = "hi") {
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(fileId)) throw new Error("Invalid Google Drive file ID.");
+  if (!hasCredentials("GOOGLE_DRIVE_API_KEY")) {
+    throw new Error("Google Drive connector credentials are not configured (GOOGLE_DRIVE_API_KEY).");
+  }
+  const auth = headers("GOOGLE_DRIVE_API_KEY");
+  const base = ${GATEWAY} + "/google_drive/drive/v3/files/" + encodeURIComponent(fileId);
+  const metaRes = await fetch(base + "?fields=id,name,mimeType,size,trashed", { headers: auth });
+  const meta = (await ok(metaRes, "Drive receipt metadata")) as {
+    id: string; name?: string; mimeType?: string; size?: string; trashed?: boolean;
+  };
+  if (meta.trashed) throw new Error("Receipt file is in the Drive trash.");
+  if (!meta.mimeType?.startsWith("image/")) throw new Error("Receipt must be an image.");
+  if (Number(meta.size ?? 0) > 12 * 1024 * 1024) throw new Error("Receipt image exceeds the 12 MB OCR limit.");
+
+  const imageRes = await fetch(base + "?alt=media", { headers: auth });
+  if (!imageRes.ok) throw new Error("Could not download receipt image (" + imageRes.status + ").");
+  const imageBytes = new Uint8Array(await imageRes.arrayBuffer());
+  if (!imageBytes.length) throw new Error("Google Drive returned an empty receipt image.");
+  if (imageBytes.length > 12 * 1024 * 1024) throw new Error("Receipt image exceeds the 12 MB OCR limit.");
+
+  const boundary = "mahaOcr" + Math.random().toString(36).slice(2);
+  const metadata = JSON.stringify({
+    name: "TEMP-OCR-" + fileId + "-" + Date.now(),
+    mimeType: "application/vnd.google-apps.document",
+  });
+  const encoder = new TextEncoder();
+  const prefix = encoder.encode(
+    "--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + metadata + "\r\n" +
+    "--" + boundary + "\r\nContent-Type: " + meta.mimeType + "\r\n\r\n",
+  );
+  const suffix = encoder.encode("\r\n--" + boundary + "--\r\n");
+  const multipart = new Uint8Array(prefix.length + imageBytes.length + suffix.length);
+  multipart.set(prefix, 0);
+  multipart.set(imageBytes, prefix.length);
+  multipart.set(suffix, prefix.length + imageBytes.length);
+
+  let temporaryDocId: string | undefined;
+  try {
+    const convertRes = await fetch(
+      ${GATEWAY} + "/google_drive/upload/drive/v3/files?uploadType=multipart&ocrLanguage=" +
+        encodeURIComponent(language) + "&fields=id,name,mimeType",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "multipart/related; boundary=" + boundary },
+        body: multipart,
+      },
+    );
+    const converted = (await ok(convertRes, "Receipt OCR conversion")) as { id?: string };
+    temporaryDocId = converted.id;
+    if (!temporaryDocId) throw new Error("Drive OCR conversion did not return a temporary document ID.");
+
+    const exportRes = await fetch(
+      ${GATEWAY} + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId) +
+        "/export?mimeType=text%2Fplain",
+      { headers: auth },
+    );
+    if (!exportRes.ok) throw new Error("Could not export OCR text (" + exportRes.status + ").");
+    const text = (await exportRes.text()).trim();
+    return { fileId, fileName: meta.name ?? "", mimeType: meta.mimeType, text, characterCount: text.length };
+  } finally {
+    if (temporaryDocId) {
+      await fetch(${GATEWAY} + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId), {
+        method: "DELETE",
+        headers: auth,
+      }).catch((err) => console.warn("Temporary OCR document cleanup failed:", err));
+    }
+  }
+}
+
 // Creates a tab (with optional header row) when it does not exist yet.
 export async function ensureSheet(title: string, header?: string[]) {
   try {
