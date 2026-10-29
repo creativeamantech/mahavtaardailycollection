@@ -4,6 +4,7 @@ import { loadCollections } from "../data";
 import { summariseLoans, executiveSections, type CollectionRow } from "../../loans";
 import { monthKey } from "../../months";
 import { categoryMatches } from "../../../components/AllocationFilters";
+import { getExcludedLoanNumbers } from "../../excluded-loans.functions";
 
 export default defineTool({
   name: "detailed_report",
@@ -33,7 +34,9 @@ export default defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ month, dateFrom, dateTo, category, bucket, executive }) => {
     const raw = await loadCollections();
-    let rows = raw.filter((r) => !r.alreadyPaid);
+    const excludedRecords = await getExcludedLoanNumbers();
+    const excludedLoanIds = new Set(excludedRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase()));
+    let rows = raw.filter((r) => !r.alreadyPaid && !excludedLoanIds.has(r.loanId.trim().toUpperCase()));
 
     if (month) {
       rows = rows.filter((r) => monthKey(r.date) === month);
