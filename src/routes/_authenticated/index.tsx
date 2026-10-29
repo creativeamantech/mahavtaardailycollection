@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 import {
   Select,
   SelectContent,
@@ -120,6 +121,13 @@ function EntryPage() {
   const save = useServerFn(saveCollection);
   const uploadReceipt = useServerFn(uploadReceiptImage);
   const fetchCollections = useServerFn(getCollections);
+  const fetchExcludedLoans = useServerFn(getExcludedLoanNumbers);
+  const { data: excludedLoanRecords = [] } = useQuery({
+    queryKey: ["excluded-loan-numbers"],
+    queryFn: () => fetchExcludedLoans(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
   const flagConflicts = useServerFn(markConflictRows);
   const { data: rawExisting = [], refetch: refetchCollections } = useQuery({
     queryKey: ["collections"],
@@ -231,6 +239,11 @@ function EntryPage() {
     (!isPrevious || (prevDateValid && prevConfirmed));
 
   const normLoanId = normaliseLoanId(loanId);
+  const excludedLoanIds = useMemo(
+    () => new Set(excludedLoanRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => normaliseLoanId(r.loanNumber))),
+    [excludedLoanRecords],
+  );
+  const isExcludedLoan = normLoanId !== "" && excludedLoanIds.has(normLoanId);
   const matches = useMemo(() => {
     if (normLoanId === "" || !(amountNum > 0)) return [] as ExistingEntry[];
     return (existing as ExistingEntry[]).filter(
@@ -323,7 +336,11 @@ function EntryPage() {
       setRemark("");
       setUploadError("");
       setFileKey((k) => k + 1);
-      toast.success("Entry saved");
+      if (isExcludedLoan) {
+        toast.warning("Entry saved, but this loan number is excluded from all collection reports.");
+      } else {
+        toast.success("Entry saved");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save entry");
     } finally {
@@ -409,6 +426,11 @@ function EntryPage() {
             onChange={(e) => setLoanId(e.target.value)}
             placeholder="Enter loan number"
           />
+          {isExcludedLoan && (
+            <div className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-medium text-amber-900" role="alert">
+              This loan number is on the Excluded Loan Numbers list. You may record the entry, but it will not count toward collection totals, executive performance, payment counts, averages, or reports.
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
