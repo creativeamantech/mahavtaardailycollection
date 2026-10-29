@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addExcludedLoanNumber, getExcludedLoanNumbers, removeExcludedLoanNumber } from "@/lib/excluded-loans.functions";
 import { verifySettingsPassword } from "@/lib/app-config.functions";
+import { ExcludedLoanBulkManager } from "@/components/ExcludedLoanBulkManager";
 
 export function ExcludedLoanManager() {
   const qc = useQueryClient();
@@ -113,6 +114,8 @@ export function ExcludedLoanManager() {
           </div>
         </form>
       )}
+
+      <ExcludedLoanBulkManager />
 
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">Current Exclusion List ({active.length})</h3>

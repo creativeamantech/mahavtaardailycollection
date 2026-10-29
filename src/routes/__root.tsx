@@ -145,16 +145,19 @@ function RootShell({ children }: { children: ReactNode }) {
 const NAV = [
   { to: "/", label: "Entry", key: "entry" },
   { to: "/report", label: "Report", key: "report" },
-  { to: "/report", hash: "excluded-loans", label: "Excluded Loans", key: "report" },
   { to: "/loans", label: "Loan Details", key: "loans" },
-  { to: "/admin-loan-audit", label: "Admin Loan Audit", key: "adminLoanAudit" },
   { to: "/executive-cities", label: "Exec Cities", key: "execCities" },
   { to: "/pending", label: "Pending", key: "pending" },
-  { to: "/conflicts", label: "Conflicts", key: "conflicts" },
   { to: "/ecs", label: "ECS / Special", key: "ecs" },
   { to: "/notifications", label: "Notifications", key: "notifications" },
-  { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
+] as const;
+
+const ADMIN_NAV = [
   { to: "/settings", label: "Settings", key: "settings" },
+  { to: "/admin-loan-audit", label: "Admin Loan Audit", key: "adminLoanAudit" },
+  { to: "/conflicts", label: "Conflicts", key: "conflicts" },
+  { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
+  { to: "/report", hash: "excluded-loans", label: "Excluded Loans", key: "report" },
 ] as const;
 
 function RootComponent() {
@@ -179,7 +182,7 @@ function AppShell() {
         <header className="border-b print:hidden">
           <div className="mx-auto w-full max-w-3xl px-4 py-3">
             <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
-            <nav className="mt-2 flex flex-wrap gap-2">
+            <nav className="mt-2 flex flex-wrap items-start gap-2">
               {NAV.filter((n) => flags[n.key] !== false).map((n) => (
                 <Link
                   key={n.to}
@@ -195,6 +198,23 @@ function AppShell() {
                   {n.label}
                 </Link>
               ))}
+              {ADMIN_NAV.some((n) => flags[n.key] !== false) && (
+                <details className="relative">
+                  <summary className="cursor-pointer list-none rounded-lg border px-4 py-2 text-base font-semibold">Admin ▾</summary>
+                  <div className="absolute right-0 z-50 mt-2 flex min-w-52 flex-col gap-1 rounded-lg border bg-background p-2 shadow-lg">
+                    {ADMIN_NAV.filter((n) => flags[n.key] !== false).map((n) => (
+                      <Link
+                        key={n.label}
+                        to={n.to}
+                        hash={"hash" in n ? n.hash : undefined}
+                        className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                      >
+                        {n.label}
+                      </Link>
+                    ))}
+                  </div>
+                </details>
+              )}
             </nav>
           </div>
         </header>
