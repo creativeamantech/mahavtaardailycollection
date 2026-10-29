@@ -6,7 +6,9 @@
     "type": "oauth",
     "issuer": "https://ydgexnboxazquiiqcrup.supabase.co/auth/v1",
     "require_oauth_client_claim": true,
-    "accepted_audiences": ["authenticated"]
+    "accepted_audiences": [
+      "authenticated"
+    ]
   },
   "mcp": {
     "server": {
@@ -44,7 +46,10 @@
               "maxLength": 80
             }
           },
-          "required": ["from", "to"],
+          "required": [
+            "from",
+            "to"
+          ],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -69,7 +74,9 @@
               "description": "Loan ID to look up."
             }
           },
-          "required": ["loanId"],
+          "required": [
+            "loanId"
+          ],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -87,6 +94,52 @@
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {},
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "scan_receipt_ocr",
+        "title": "Scan receipt with server-side OCR",
+        "description": "Reads an attached Google Drive receipt image using Google Drive OCR and compares extracted text with the selected Collections entry. It never changes the sheet.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "rowNumber": {
+              "type": "integer",
+              "minimum": 2,
+              "description": "Collections sheet row number."
+            },
+            "loanId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60,
+              "description": "Loan ID to find a receipt for."
+            },
+            "receiptUrl": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000,
+              "description": "Direct Google Drive receipt URL or file ID."
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "hi",
+                "en",
+                "mr",
+                "gu"
+              ],
+              "default": "hi",
+              "description": "OCR language hint: Hindi, English, Marathi, or Gujarati."
+            }
+          },
           "additionalProperties": false
         },
         "outputSchema": null
