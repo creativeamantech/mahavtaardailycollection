@@ -1,6 +1,0 @@
-{
-  "summary": "Updated implementation plan using 100% free, open-source Tesseract.js OCR and a dedicated rule-based Indian UPI/BBPS receipt parser—requiring zero paid APIs, zero API keys, and zero external dependencies.",
-  "updatedAt": "2026-10-19T02:02:32.379679541Z",
-  "requestFeedback": true,
-  "userFacing": true
-}
