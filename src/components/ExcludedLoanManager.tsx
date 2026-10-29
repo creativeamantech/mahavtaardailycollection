@@ -17,6 +17,7 @@ export function ExcludedLoanManager() {
   const [loanNumber, setLoanNumber] = useState("");
   const [reason, setReason] = useState("");
   const [password, setPassword] = useState("");
+  const [adminCredential, setAdminCredential] = useState("");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const { data = [], isLoading, refetch } = useQuery({
@@ -33,6 +34,7 @@ export function ExcludedLoanManager() {
       const result = await verifyPassword({ data: { password } });
       if (result.ok) {
         setAdminUnlocked(true);
+        setAdminCredential(password);
         setPassword("");
         toast.success("Admin controls unlocked.");
       } else {
@@ -50,7 +52,7 @@ export function ExcludedLoanManager() {
     if (!loanNumber.trim()) return;
     setBusy(true);
     try {
-      await addLoan({ data: { loanNumber: loanNumber.trim(), reason: reason.trim() } });
+      await addLoan({ data: { loanNumber: loanNumber.trim(), reason: reason.trim(), adminPassword: adminCredential } });
       setLoanNumber("");
       setReason("");
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
@@ -67,7 +69,7 @@ export function ExcludedLoanManager() {
     if (!window.confirm(`Remove ${loan} from the exclusion list? Its eligible payments will count in reports again.`)) return;
     setBusy(true);
     try {
-      await removeLoan({ data: { loanNumber: loan } });
+      await removeLoan({ data: { loanNumber: loan, adminPassword: adminCredential } });
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       toast.success("Loan number removed from the active exclusion list.");
@@ -107,7 +109,7 @@ export function ExcludedLoanManager() {
           </div>
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             <Button type="submit" disabled={busy || !loanNumber.trim()}>{busy ? "Saving..." : "Add to Exclusion List"}</Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setAdminUnlocked(false)}>Lock Admin Controls</Button>
+            <Button type="button" variant="outline" disabled={busy} onClick={() => { setAdminUnlocked(false); setAdminCredential(""); }}>Lock Admin Controls</Button>
           </div>
         </form>
       )}
