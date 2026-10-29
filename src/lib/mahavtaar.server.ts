@@ -404,7 +404,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
     throw new Error("Google Drive connector credentials are not configured (GOOGLE_DRIVE_API_KEY).");
   }
   const auth = headers("GOOGLE_DRIVE_API_KEY");
-  const base = ${GATEWAY} + "/google_drive/drive/v3/files/" + encodeURIComponent(fileId);
+  const base = GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(fileId);
   const metaRes = await fetch(base + "?fields=id,name,mimeType,size,trashed", { headers: auth });
   const meta = (await ok(metaRes, "Drive receipt metadata")) as {
     id: string; name?: string; mimeType?: string; size?: string; trashed?: boolean;
@@ -438,7 +438,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
   let temporaryDocId: string | undefined;
   try {
     const convertRes = await fetch(
-      ${GATEWAY} + "/google_drive/upload/drive/v3/files?uploadType=multipart&ocrLanguage=" +
+      GATEWAY + "/google_drive/upload/drive/v3/files?uploadType=multipart&ocrLanguage=" +
         encodeURIComponent(language) + "&fields=id,name,mimeType",
       {
         method: "POST",
@@ -451,7 +451,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
     if (!temporaryDocId) throw new Error("Drive OCR conversion did not return a temporary document ID.");
 
     const exportRes = await fetch(
-      ${GATEWAY} + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId) +
+      GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId) +
         "/export?mimeType=text%2Fplain",
       { headers: auth },
     );
@@ -460,7 +460,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
     return { fileId, fileName: meta.name ?? "", mimeType: meta.mimeType, text, characterCount: text.length };
   } finally {
     if (temporaryDocId) {
-      await fetch(${GATEWAY} + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId), {
+      await fetch(GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId), {
         method: "DELETE",
         headers: auth,
       }).catch((err) => console.warn("Temporary OCR document cleanup failed:", err));
