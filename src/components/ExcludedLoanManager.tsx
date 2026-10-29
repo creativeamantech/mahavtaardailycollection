@@ -81,7 +81,7 @@ export function ExcludedLoanManager() {
   }
 
   return (
-    <section className="mt-6 space-y-4 rounded-xl border p-4">
+    <section id="excluded-loans" className="mt-6 scroll-mt-6 space-y-4 rounded-xl border p-4">
       <div>
         <h2 className="text-xl font-bold">Excluded Loan Numbers</h2>
         <p className="mt-1 text-sm text-muted-foreground">
