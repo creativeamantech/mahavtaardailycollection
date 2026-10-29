@@ -542,25 +542,27 @@ function ReportPage() {
   // Export rows INCLUDE both normal and Already Paid cases, with "Already Paid" column at the end.
   const dateScopedExportRows = useMemo(
     () =>
-      allRows.filter(
+      rawRows.filter(
         (r) =>
+          !excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase()) &&
           monthKey(r.date) === month &&
           bucketMatches(r.bucket, dateBucket) &&
           catOk(r.allocationCategory, dateCategory) &&
           inRange(r, from, to),
       ),
-    [allRows, month, dateBucket, dateCategory, from, to],
+    [rawRows, excludedLoanIds, month, dateBucket, dateCategory, from, to],
   );
 
   const overallExportRows = useMemo(
     () =>
-      allRows.filter(
+      rawRows.filter(
         (r) =>
+          !excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase()) &&
           monthKey(r.date) === month &&
           bucketMatches(r.bucket, overallBucket) &&
           catOk(r.allocationCategory, overallCategory),
       ),
-    [allRows, month, overallBucket, overallCategory],
+    [rawRows, excludedLoanIds, month, overallBucket, overallCategory],
   );
 
   return (
