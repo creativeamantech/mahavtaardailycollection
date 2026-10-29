@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addExcludedLoanNumber, getExcludedLoanNumbers, removeExcludedLoanNumber } from "@/lib/excluded-loans.functions";
 import { verifySettingsPassword } from "@/lib/app-config.functions";
+import { ExcludedLoanBulkManager } from "@/components/ExcludedLoanBulkManager";
 
 export function ExcludedLoanManager() {
   const qc = useQueryClient();
