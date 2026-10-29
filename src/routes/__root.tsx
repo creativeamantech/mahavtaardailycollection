@@ -145,6 +145,7 @@ function RootShell({ children }: { children: ReactNode }) {
 const NAV = [
   { to: "/", label: "Entry", key: "entry" },
   { to: "/report", label: "Report", key: "report" },
+  { to: "/report", hash: "excluded-loans", label: "Excluded Loans", key: "report" },
   { to: "/loans", label: "Loan Details", key: "loans" },
   { to: "/admin-loan-audit", label: "Admin Loan Audit", key: "adminLoanAudit" },
   { to: "/executive-cities", label: "Exec Cities", key: "execCities" },
@@ -183,6 +184,7 @@ function AppShell() {
                 <Link
                   key={n.to}
                   to={n.to}
+                  hash={"hash" in n ? n.hash : undefined}
                   className="rounded-lg border px-4 py-2 text-base font-medium"
                   activeOptions={{ exact: n.to === "/" }}
                   activeProps={{
