@@ -19,6 +19,7 @@ import { Route as AuthenticatedEcsRouteImport } from './routes/_authenticated/ec
 import { Route as AuthenticatedExecutiveCitiesRouteImport } from './routes/_authenticated/executive-cities'
 import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
 import { Route as AuthenticatedAdminLoanAuditRouteImport } from './routes/_authenticated/admin-loan-audit'
+import { Route as AuthenticatedAdminLoanAuditRouteImport } from './routes/_authenticated/admin-loan-audit'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedPendingRouteImport } from './routes/_authenticated/pending'
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
@@ -109,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
   '/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
+  '/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pending': typeof AuthenticatedPendingRoute
   '/report': typeof AuthenticatedReportRoute
@@ -142,6 +144,7 @@ export interface FileRoutesById {
   '/_authenticated/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
   '/_authenticated/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
+  '/_authenticated/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/pending': typeof AuthenticatedPendingRoute
   '/_authenticated/report': typeof AuthenticatedReportRoute
@@ -160,6 +163,7 @@ export interface FileRouteTypes {
     | '/ecs'
     | '/executive-cities'
     | '/loans'
+    | '/admin-loan-audit'
     | '/notifications'
     | '/pending'
     | '/report'
@@ -278,6 +282,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLoanAuditRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin-loan-audit': {
+      id: '/_authenticated/admin-loan-audit'
+      path: '/admin-loan-audit'
+      fullPath: '/admin-loan-audit'
+      preLoaderRoute: typeof AuthenticatedAdminLoanAuditRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/notifications': {
       id: '/_authenticated/notifications'
       path: '/notifications'
@@ -322,6 +333,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedExecutiveCitiesRoute: typeof AuthenticatedExecutiveCitiesRoute
   AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
   AuthenticatedAdminLoanAuditRoute: typeof AuthenticatedAdminLoanAuditRoute
+  AuthenticatedAdminLoanAuditRoute: typeof AuthenticatedAdminLoanAuditRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPendingRoute: typeof AuthenticatedPendingRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
@@ -334,6 +346,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEcsRoute: AuthenticatedEcsRoute,
   AuthenticatedExecutiveCitiesRoute: AuthenticatedExecutiveCitiesRoute,
   AuthenticatedLoansRoute: AuthenticatedLoansRoute,
+  AuthenticatedAdminLoanAuditRoute: AuthenticatedAdminLoanAuditRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPendingRoute: AuthenticatedPendingRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,
