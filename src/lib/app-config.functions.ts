@@ -81,7 +81,9 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
 });
 
 export function isSettingsPasswordValid(input: string): boolean {
-  const expected = "Mahadev@Babaji@0003";
+  // Configure this only in the deployment's server-side secrets; never commit it.
+  const expected = process.env.MAHAVAATAR_ADMIN_PASSWORD ?? "";
+  if (!expected) return false;
   let diff = input.length === expected.length ? 0 : 1;
   for (let i = 0; i < Math.max(input.length, expected.length); i++) {
     diff |= (input.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
