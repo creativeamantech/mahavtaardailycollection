@@ -212,6 +212,49 @@ async function fetchRange(range: string): Promise<string[][]> {
   return fetchFromPublicSheet(range);
 }
 
+export async function sheetsGetCellLinks(range: string): Promise<Record<number, string>> {
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) return {};
+  try {
+    const url = new URL(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}`);
+    url.searchParams.set("includeGridData", "true");
+    url.searchParams.set("ranges", range);
+    url.searchParams.set(
+      "fields",
+      "sheets(data(startRow,startColumn,rowData(values(hyperlink,userEnteredValue,textFormatRuns,effectiveFormat(textFormat(link))))))",
+    );
+    const res = await fetch(url, { headers: headers("GOOGLE_SHEETS_API_KEY") });
+    const json = (await ok(res, "Sheets hyperlink metadata")) as {
+      sheets?: { data?: { startRow?: number; startColumn?: number; rowData?: { values?: {
+        hyperlink?: string;
+        userEnteredValue?: { formulaValue?: string };
+        textFormatRuns?: { format?: { link?: { uri?: string } } }[];
+        effectiveFormat?: { textFormat?: { link?: { uri?: string } } };
+      }[] }[] }[];
+    };
+    const links: Record<number, string> = {};
+    for (const sheet of json.sheets ?? []) {
+      for (const grid of sheet.data ?? []) {
+        const firstRow = grid.startRow ?? 0;
+        for (let index = 0; index < (grid.rowData ?? []).length; index++) {
+          const cell = grid.rowData?.[index]?.values?.[0];
+          if (!cell) continue;
+          let href = cell.hyperlink || cell.textFormatRuns?.find((run) => run.format?.link?.uri)?.format?.link?.uri || cell.effectiveFormat?.textFormat?.link?.uri || "";
+          const formula = cell.userEnteredValue?.formulaValue ?? "";
+          if (!href && /^=HYPERLINK\(/i.test(formula)) {
+            const match = formula.match(/^=HYPERLINK\(\s*"([^"]+)"/i);
+            href = match?.[1] ?? "";
+          }
+          if (/^https:\/\//i.test(href)) links[firstRow + index + 1] = href;
+        }
+      }
+    }
+    return links;
+  } catch (err) {
+    console.warn("Could not read linked-name hyperlink metadata:", err);
+    return {};
+  }
+}
+
 export async function sheetsGet(range: string): Promise<string[][]> {
   const cached = readCache.get(range);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.rows;
