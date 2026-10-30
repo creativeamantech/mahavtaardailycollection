@@ -228,7 +228,7 @@ export async function readCollections() {
       return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
     };
     const mapped = (rows ?? [])
-      .filter((r) => r[0])
+      .filter((r) => r[0] && String(r[6] ?? "").trim().toUpperCase() !== "DELETED")
       .map((r, i) => {
         const paymentDate = normalizeSheetDate(r[3] ?? "");
         const entryDateRaw = (r[7] ?? "").trim();
@@ -361,7 +361,7 @@ export const getAdminReviewState = createServerFn({ method: "POST" })
 const verificationEventSchema = z.object({
   loanNumber: z.string().trim().min(1).max(60),
   collectionRow: z.number().int().min(2).max(1000000),
-  action: z.enum(["VERIFIED", "UNVERIFIED", "ENTRY_EDITED"]),
+  action: z.enum(["VERIFIED", "UNVERIFIED", "ENTRY_EDITED", "ENTRY_DELETED"]),
   note: z.string().max(300).optional().default(""),
 });
 
@@ -401,7 +401,8 @@ const updateCollectionRowSchema = z.object({
 type CollectionRowUpdate = z.infer<typeof updateCollectionRowSchema>;
 
 async function persistCollectionRow(data: CollectionRowUpdate) {
-  const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
+  const { sheetsUpdate, invalidateSheetsCache, requireGoogleSheetsWriteAccess } = await import("./mahavtaar.server");
+  requireGoogleSheetsWriteAccess();
   const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
   await sheetsUpdate(`Collections!A${data.row}:J${data.row}`, [[
     data.executive, data.loanId, data.amount, data.date, data.time || "",
@@ -453,8 +454,9 @@ export const updateCollectionAmount = createServerFn({ method: "POST" })
   });
 
 async function persistDeleteCollectionRow(row: number) {
-  const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+  const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache, requireGoogleSheetsWriteAccess } =
     await import("./mahavtaar.server");
+  requireGoogleSheetsWriteAccess();
   try {
     const sheetId = await getSheetId("Collections");
     await sheetsBatchUpdate([{
@@ -480,7 +482,19 @@ export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data }) => {
     await assertProductivityAdmin(data.adminPassword);
-    return persistDeleteCollectionRow(data.row);
+    const { sheetsUpdate, ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppend, invalidateSheetsCache } =
+      await import("./mahavtaar.server");
+    requireGoogleSheetsWriteAccess();
+    const entry = (await readCollections()).find((item) => item.row === data.row);
+    if (!entry) throw new Error("Collection entry not found or already deleted.");
+    await sheetsUpdate(`Collections!G${data.row}`, [["Deleted"]]);
+    await ensureSheet(verificationAuditTab, verificationAuditHeader);
+    await sheetsAppend(`${verificationAuditTab}!A:G`, [[
+      new Date().toISOString(), "Admin", entry.loanId, data.row, "ENTRY_DELETED",
+      "Soft-deleted from Productivity Desk", "Productivity Desk",
+    ]]);
+    invalidateSheetsCache();
+    return { ok: true as const };
   });
 
 export const markConflictAsValid = createServerFn({ method: "POST" })
