@@ -24,7 +24,6 @@ import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
-import { ExcludedLoanManager } from "@/components/ExcludedLoanManager";
 import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 
 
@@ -591,8 +590,6 @@ function ReportPage() {
       <div className="mt-3">
         <CategoryFilter value={category} onChange={setCategory} options={categories} />
       </div>
-      <ExcludedLoanManager />
-
       {alreadyPaidCount > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">
           <div className="flex items-center gap-2">
