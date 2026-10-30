@@ -157,7 +157,7 @@ const ADMIN_NAV = [
   { to: "/admin-loan-audit", label: "Admin Loan Audit", key: "adminLoanAudit" },
   { to: "/conflicts", label: "Conflicts", key: "conflicts" },
   { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
-  { to: "/report", hash: "excluded-loans", label: "Excluded Loans", key: "report" },
+  { to: "/excluded-loans", label: "Excluded Loans", key: "report" },
 ] as const;
 
 function RootComponent() {
