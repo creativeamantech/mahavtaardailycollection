@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square, Trash2, CheckCircle2, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordGate } from "@/components/PasswordGate";
-import { getAdminCollections, getAdminReviewState, saveAdminReviewEvents, adminUpdateCollectionRow, deleteCollectionRow } from "@/lib/mahavtaar.functions";
+import { getAdminCollections, getAdminReviewState, saveAdminReviewEvents, adminUpdateCollectionRow, adminDeleteCollectionRow } from "@/lib/mahavtaar.functions";
 import { formatAmount } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +47,7 @@ function AdminLoanAuditPage() {
   const fetchReviewState = useServerFn(getAdminReviewState);
   const saveReviewEvents = useServerFn(saveAdminReviewEvents);
   const saveRow = useServerFn(adminUpdateCollectionRow);
-  const deleteRow = useServerFn(deleteCollectionRow);
+  const deleteRow = useServerFn(adminDeleteCollectionRow);
   const qc = useQueryClient();
 
 
@@ -154,9 +154,13 @@ function AdminLoanAuditPage() {
         settlement: Boolean(d.settlement), settlementType: d.settlementType || (d.settlement ? "Settlement" : "No"),
         receiptLinks: d.receiptLinks || [], remark: d.remark || "", amansRemarks: d.amansRemarks || "",
       }});
+      await saveReviewEvents({ data: { adminPassword, events: [{
+        loanNumber: d.loanId, collectionRow: entry.row, action: "ENTRY_EDITED",
+        note: "Collection entry corrected from Productivity Desk",
+      }] } });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       setDrafts((old) => { const next = { ...old }; delete next[entry.row]; return next; });
-      toast.success(`Loan ${d.loanId} की entry (row ${entry.row}) Google Sheets में save हो गई।`);
+      toast.success(`Loan ${d.loanId} की entry और edit audit Google Sheets में save हो गई।`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save नहीं हो पाया। कृपया फिर कोशिश करें।");
     }
@@ -166,7 +170,7 @@ function AdminLoanAuditPage() {
     const ok = window.confirm(`क्या आप Loan ${entry.loanId} की Row ${entry.row} वाली पूरी collection entry delete करना चाहते हैं? यह Google Sheet से हटेगी और वापस लाना आसान नहीं होगा।`);
     if (!ok) return;
     try {
-      await deleteRow({ data: { row: entry.row } });
+      await deleteRow({ data: { adminPassword, row: entry.row } });
       setDrafts((old) => { const next = { ...old }; delete next[entry.row]; return next; });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       toast.success(`Loan ${entry.loanId} की entry delete हो गई।`);
