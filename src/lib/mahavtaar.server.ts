@@ -39,6 +39,12 @@ const inFlight = new Map<string, Promise<string[][]>>();
 const localAppended = new Map<string, string[][]>();
 const localUpdated = new Map<string, Map<string, string>>();
 
+export function requireGoogleSheetsWriteAccess() {
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+    throw new Error("Google Sheets write connector is not configured. Verification was not saved.");
+  }
+}
+
 export function invalidateSheetsCache() {
   readCache.clear();
 }
