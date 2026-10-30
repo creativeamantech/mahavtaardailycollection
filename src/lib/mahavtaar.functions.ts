@@ -377,11 +377,11 @@ export const saveAdminReviewEvents = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data }) => {
     await assertProductivityAdmin(data.adminPassword);
-    const { ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppend } = await import("./mahavtaar.server");
+    const { ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await ensureSheet(verificationAuditTab, verificationAuditHeader);
     const timestamp = new Date().toISOString();
-    await sheetsAppend(`${verificationAuditTab}!A:G`, data.events.map((event) => [
+    await sheetsAppendStrict(`${verificationAuditTab}!A:G`, data.events.map((event) => [
       timestamp, "Admin", event.loanNumber, event.collectionRow, event.action, event.note, "Productivity Desk",
     ]));
     return { ok: true as const, saved: data.events.length, timestamp };
@@ -406,17 +406,17 @@ const updateCollectionRowSchema = z.object({
 type CollectionRowUpdate = z.infer<typeof updateCollectionRowSchema>;
 
 async function persistCollectionRow(data: CollectionRowUpdate) {
-  const { sheetsUpdate, invalidateSheetsCache, requireGoogleSheetsWriteAccess } = await import("./mahavtaar.server");
+  const { sheetsUpdateStrict, invalidateSheetsCache, requireGoogleSheetsWriteAccess } = await import("./mahavtaar.server");
   requireGoogleSheetsWriteAccess();
   const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
-  await sheetsUpdate(`Collections!A${data.row}:J${data.row}`, [[
+  await sheetsUpdateStrict(`Collections!A${data.row}:J${data.row}`, [[
     data.executive, data.loanId, data.amount, data.date, data.time || "",
     new Date().toISOString(), "Confirmed", data.entryDate || data.date,
     data.entryType, settlementVal,
   ]]);
-  await sheetsUpdate(`Collections!P${data.row}:Q${data.row}`, [[data.receiptLinks.join(", "), data.remark]]);
+  await sheetsUpdateStrict(`Collections!P${data.row}:Q${data.row}`, [[data.receiptLinks.join(", "), data.remark]]);
   if (data.amansRemarks !== undefined) {
-    await sheetsUpdate(`Collections!S${data.row}`, [[data.amansRemarks]]);
+    await sheetsUpdateStrict(`Collections!S${data.row}`, [[data.amansRemarks]]);
   }
   invalidateSheetsCache();
   return { ok: true as const };
@@ -487,14 +487,14 @@ export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data }) => {
     await assertProductivityAdmin(data.adminPassword);
-    const { sheetsUpdate, ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppend, invalidateSheetsCache } =
+    const { sheetsUpdateStrict, ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppendStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     const entry = (await readCollections()).find((item) => item.row === data.row);
     if (!entry) throw new Error("Collection entry not found or already deleted.");
-    await sheetsUpdate(`Collections!G${data.row}`, [["Deleted"]]);
+    await sheetsUpdateStrict(`Collections!G${data.row}`, [["Deleted"]]);
     await ensureSheet(verificationAuditTab, verificationAuditHeader);
-    await sheetsAppend(`${verificationAuditTab}!A:G`, [[
+    await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
       new Date().toISOString(), "Admin", entry.loanId, data.row, "ENTRY_DELETED",
       "Soft-deleted from Productivity Desk", "Productivity Desk",
     ]]);
