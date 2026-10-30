@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/admin-loan-audit")({
 });
 
 type Entry = {
-  row: number; executive: string; loanId: string; amount: number; date: string; time?: string;
+  row: number; executive: string; loanId: string; linkedName?: string; amount: number; date: string; time?: string;
   entryDate?: string; entryType?: string; settlement?: boolean; settlementType?: "No" | "Settlement" | "Foreclosure";
   receiptLinks?: string[]; remark?: string; amansRemarks?: string; city?: string; bucket?: string; portalUrl?: string;
 };
@@ -201,7 +201,7 @@ function AdminLoanAuditPage() {
     {error && <p className="mt-6 text-sm text-destructive">Data load नहीं हुआ: {error instanceof Error ? error.message : "Unknown error"}</p>}
     {activeGroup && <section className="mt-5 overflow-hidden rounded-2xl border bg-card shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 p-4">
-        <div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sequential review · {activeLoanIndex+1} / {reviewGroups.length}</p><h2 className="mt-1 break-all text-xl font-bold">Loan {activeGroup.loan}</h2><p className="text-sm text-muted-foreground">{activeRows.length} entries · Combined {formatAmount(totalReviewAmount)}</p></div>
+        <div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sequential review · {activeLoanIndex+1} / {reviewGroups.length}</p><h2 className="mt-1 break-all text-xl font-bold">{activeRows[0]?.linkedName || "Customer"} · Loan {activeGroup.loan}</h2><p className="text-sm text-muted-foreground">{activeRows.length} entries · Combined {formatAmount(totalReviewAmount)}</p></div>
         <div className="rounded-full border bg-background px-3 py-2 text-sm font-semibold">{verifiedCount}/{activeRows.length} verified</div>
       </div>
       <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -213,7 +213,7 @@ function AdminLoanAuditPage() {
           </article>;})}
           <div className="flex flex-wrap gap-2"><Button onClick={verifyCurrentLoan} disabled={!activeRows.length||verifiedCount===activeRows.length}><CheckCircle2 className="mr-2 h-4 w-4"/>Verify all entries</Button><Button variant="outline" onClick={goPreviousLoan} disabled={activeLoanIndex===0}><ChevronLeft className="mr-1 h-4 w-4"/>Previous</Button><Button onClick={goNextLoan} disabled={activeLoanIndex>=reviewGroups.length-1}>Next loan<ChevronRight className="ml-1 h-4 w-4"/></Button></div>
         </div>
-        <aside className="space-y-3 rounded-xl bg-muted/40 p-3"><h3 className="font-semibold">Portal workspace</h3><p className="text-sm text-muted-foreground">Embedded Salesforce view becomes available when the source collection data exposes the exact portal URL. No URL is guessed.</p>{activeRows.some(e=>e.portalUrl) ? <iframe title="Bank portal" src={activeRows.find(e=>e.portalUrl)?.portalUrl} className="h-[520px] w-full rounded-lg border bg-background"/> : <div className="rounded-lg border border-dashed bg-background p-4 text-sm text-muted-foreground">Portal URL is not currently present in the loaded collection records.</div>}<p className="text-xs text-muted-foreground">Verification history is recorded in the shared Google Sheets VerificationAudit tab after server-side password validation.</p></aside>
+        <aside className="space-y-3 rounded-xl bg-muted/40 p-3"><h3 className="font-semibold">Portal workspace</h3><p className="text-sm text-muted-foreground">Customer: {activeRows[0]?.linkedName || "Name unavailable"}</p><p className="text-sm text-muted-foreground">The Collections sheet exposes the linked customer name in column W, but the current app connector does not return the hyperlink target URL. The viewer will stay disabled rather than open an incorrect Salesforce record.</p>{activeRows.some(e=>e.portalUrl) ? <iframe title="Bank portal" src={activeRows.find(e=>e.portalUrl)?.portalUrl} className="h-[520px] w-full rounded-lg border bg-background"/> : <div className="rounded-lg border border-dashed bg-background p-4 text-sm text-muted-foreground">Portal URL is not currently present in the loaded collection records.</div>}<p className="text-xs text-muted-foreground">Verification history is recorded in the shared Google Sheets VerificationAudit tab after server-side password validation.</p></aside>
       </div>
     </section>}
     <div className="mt-8"><h2 className="text-lg font-bold">Bulk loan audit</h2><p className="text-sm text-muted-foreground">Paste specific loan numbers to narrow the review queue.</p></div>
