@@ -361,7 +361,7 @@ export const getAdminReviewState = createServerFn({ method: "POST" })
 const verificationEventSchema = z.object({
   loanNumber: z.string().trim().min(1).max(60),
   collectionRow: z.number().int().min(2).max(1000000),
-  action: z.enum(["VERIFIED", "UNVERIFIED"]),
+  action: z.enum(["VERIFIED", "UNVERIFIED", "ENTRY_EDITED"]),
   note: z.string().max(300).optional().default(""),
 });
 
@@ -452,31 +452,35 @@ export const updateCollectionAmount = createServerFn({ method: "POST" })
     return { ok: true as const, row: data.row, amount: data.amount };
   });
 
+async function persistDeleteCollectionRow(row: number) {
+  const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+    await import("./mahavtaar.server");
+  try {
+    const sheetId = await getSheetId("Collections");
+    await sheetsBatchUpdate([{
+      deleteDimension: {
+        range: { sheetId, dimension: "ROWS", startIndex: row - 1, endIndex: row },
+      },
+    }]);
+  } catch {
+    await sheetsUpdate(`Collections!A${row}:V${row}`, [Array(22).fill("")]);
+  }
+  invalidateSheetsCache();
+  return { ok: true as const };
+}
+
 export const deleteCollectionRow = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
+  .handler(async ({ data }) => persistDeleteCollectionRow(data.row));
+
+export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({
+    adminPassword: z.string().min(1).max(200),
+    row: z.number().int().min(2),
+  }).parse(d))
   .handler(async ({ data }) => {
-    const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
-      await import("./mahavtaar.server");
-    const row = data.row;
-    try {
-      const sheetId = await getSheetId("Collections");
-      await sheetsBatchUpdate([
-        {
-          deleteDimension: {
-            range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: row - 1,
-              endIndex: row,
-            },
-          },
-        },
-      ]);
-    } catch {
-      await sheetsUpdate(`Collections!A${row}:V${row}`, [Array(22).fill("")]);
-    }
-    invalidateSheetsCache();
-    return { ok: true as const };
+    await assertProductivityAdmin(data.adminPassword);
+    return persistDeleteCollectionRow(data.row);
   });
 
 export const markConflictAsValid = createServerFn({ method: "POST" })
