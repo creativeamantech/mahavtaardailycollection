@@ -231,7 +231,6 @@ export async function readCollections() {
       return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
     };
     const mapped = (rows ?? [])
-      .filter((r) => r[0] && String(r[6] ?? "").trim().toUpperCase() !== "DELETED")
       .map((r, i) => {
         const paymentDate = normalizeSheetDate(r[3] ?? "");
         const entryDateRaw = (r[7] ?? "").trim();
@@ -287,7 +286,8 @@ export async function readCollections() {
           isConflict: false,
           conflictWith: [] as { row: number; executive: string; date: string; amount: number }[],
         };
-      });
+      })
+      .filter((item) => item.executive && item.status.trim().toUpperCase() !== "DELETED");
 
     // Detect conflicts across entries (same loanId and same amount)
     const groupMap = new Map<string, typeof mapped>();
