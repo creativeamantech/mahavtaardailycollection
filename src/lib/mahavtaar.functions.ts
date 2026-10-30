@@ -214,13 +214,16 @@ export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
 
 export async function readCollections() {
   try {
-    const { sheetsGet } = await import("./mahavtaar.server");
+    const { sheetsGet, sheetsGetCellLinks } = await import("./mahavtaar.server");
     const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
     // Read K:O too — those are maintained with formulas in the sheet and come back
     // as their calculated values (never the formula text).
     // T = Allocation Category, U = Allocation Date (sheet-maintained values).
     // V = Validation flag (VALIDATED if conflict verified as valid)
-    const rows = await sheetsGet("Collections!A2:W");
+    const [rows, linkedNameUrls] = await Promise.all([
+      sheetsGet("Collections!A2:W"),
+      sheetsGetCellLinks("Collections!W2:W"),
+    ]);
     const num = (v: string | undefined) => {
       const s = String(v ?? "")
         .replace(/[^0-9.-]/g, "")
@@ -255,6 +258,7 @@ export async function readCollections() {
           row: i + 2,
           executive: r[0] ?? "",
           linkedName: (r[22] ?? "").trim(),
+          portalUrl: linkedNameUrls[i + 2] ?? "",
           loanId: String(r[1] ?? "")
             .replace(/^['`\u2018\u2019]+/, "")
             .trim(),
