@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { verifySettingsPassword } from "@/lib/app-config.functions";
+import { setAdminPasswordInMemory } from "@/lib/admin-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +31,7 @@ export function PasswordGate({
         setError("");
         try {
           const res = await verify({ data: { password } });
-          if (res.ok) { sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); onUnlock(password); }
+          if (res.ok) { setAdminPasswordInMemory(password); sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); onUnlock(password); }
           else setError("Incorrect password");
         } catch {
           setError("Incorrect password");
