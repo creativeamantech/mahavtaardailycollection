@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { getAdminPasswordInMemory } from "@/lib/admin-session";
 
 export const Route = createFileRoute("/_authenticated/admin-loan-audit")({
   head: () => [{ meta: [{ title: "Productivity Desk — Mahavtaar Daily Collection" }] }],
@@ -34,8 +35,8 @@ function parseLoanNumbers(value: string) {
 }
 
 function AdminLoanAuditPage() {
-  const [unlocked, setUnlocked] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
+  const [adminPassword, setAdminPassword] = useState(() => getAdminPasswordInMemory());
+  const [unlocked, setUnlocked] = useState(() => Boolean(getAdminPasswordInMemory()));
   const [bulkInput, setBulkInput] = useState("");
   const [availableLoans, setAvailableLoans] = useState<string[]>([]);
   const [selectedLoans, setSelectedLoans] = useState<string[]>([]);
