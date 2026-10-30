@@ -8,7 +8,7 @@ import { getCollections, highlightAlreadyPaidInSheet } from "@/lib/mahavtaar.fun
 import { Button } from "@/components/ui/button";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
-import { PasswordGate, SETTINGS_SESSION_KEY } from "@/components/PasswordGate";
+import { PasswordGate, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import { downloadAlreadyPaidCsv } from "@/lib/export";
 import {
   ALL_CATEGORIES,
@@ -43,7 +43,7 @@ export const Route = createFileRoute("/_authenticated/already-paid")({
 function AlreadyPaidPage() {
   const [unlocked, setUnlocked] = useState(false);
   useEffect(() => {
-    if (sessionStorage.getItem(SETTINGS_SESSION_KEY) === "1") setUnlocked(true);
+    if (sessionStorage.getItem(ADMIN_SESSION_KEY) === "1") setUnlocked(true);
   }, []);
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-16 pt-6">
@@ -54,7 +54,6 @@ function AlreadyPaidPage() {
         <PasswordGate
           label="Unlock Already Paid"
           onUnlock={() => {
-            sessionStorage.setItem(SETTINGS_SESSION_KEY, "1");
             setUnlocked(true);
           }}
         />
