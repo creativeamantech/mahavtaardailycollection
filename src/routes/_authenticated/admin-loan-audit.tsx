@@ -221,6 +221,7 @@ function AdminLoanAuditPage() {
       <div><h1 className="text-2xl font-bold tracking-tight">Admin Loan Audit</h1><p className="mt-1 text-sm text-muted-foreground">Bulk loan numbers paste करें, फिर checkbox से सिर्फ़ वही loans चुनें जिन्हें audit करना है।</p></div>
       <Button variant="outline" onClick={() => refetch()} disabled={isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}/>Refresh</Button>
     </div>
+    </section>
 
     <section className="mt-5 space-y-3 rounded-xl border bg-card p-4">
       <Label htmlFor="bulk-loans">Bulk loan numbers</Label>
