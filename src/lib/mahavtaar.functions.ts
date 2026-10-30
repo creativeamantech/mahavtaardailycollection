@@ -220,7 +220,7 @@ export async function readCollections() {
     // as their calculated values (never the formula text).
     // T = Allocation Category, U = Allocation Date (sheet-maintained values).
     // V = Validation flag (VALIDATED if conflict verified as valid)
-    const rows = await sheetsGet("Collections!A2:V");
+    const rows = await sheetsGet("Collections!A2:W");
     const num = (v: string | undefined) => {
       const s = String(v ?? "")
         .replace(/[^0-9.-]/g, "")
@@ -254,6 +254,7 @@ export async function readCollections() {
           foreclosure: num(r[14]),
           row: i + 2,
           executive: r[0] ?? "",
+          linkedName: (r[22] ?? "").trim(),
           loanId: String(r[1] ?? "")
             .replace(/^['`\u2018\u2019]+/, "")
             .trim(),
