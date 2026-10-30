@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square, Trash2 } from "lucide-react";
+import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square, Trash2, CheckCircle2, ChevronLeft, ChevronRight, Layers, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordGate, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import { getCollections, updateCollectionRow, deleteCollectionRow } from "@/lib/mahavtaar.functions";
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/admin-loan-audit")({
 type Entry = {
   row: number; executive: string; loanId: string; amount: number; date: string; time?: string;
   entryDate?: string; entryType?: string; settlement?: boolean; settlementType?: "No" | "Settlement" | "Foreclosure";
-  receiptLinks?: string[]; remark?: string; amansRemarks?: string; city?: string; bucket?: string;
+  receiptLinks?: string[]; remark?: string; amansRemarks?: string; city?: string; bucket?: string; portalUrl?: string;
 };
 
 const SESSION_KEY = ADMIN_SESSION_KEY;
@@ -40,6 +40,14 @@ function AdminLoanAuditPage() {
   const [availableLoans, setAvailableLoans] = useState<string[]>([]);
   const [selectedLoans, setSelectedLoans] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<Record<number, Partial<Entry>>>({});
+  const [verifiedRows, setVerifiedRows] = useState<number[]>([]);
+  const [activeLoanIndex, setActiveLoanIndex] = useState(0);
+  const REVIEW_KEY = "mahavtaar-productivity-review-v1";
+
+  useEffect(() => {
+    try { setVerifiedRows(JSON.parse(localStorage.getItem(REVIEW_KEY) || "[]")); } catch { setVerifiedRows([]); }
+  }, []);
+  useEffect(() => { localStorage.setItem(REVIEW_KEY, JSON.stringify(verifiedRows)); }, [verifiedRows]);
   const fetchCollections = useServerFn(getCollections);
   const saveRow = useServerFn(updateCollectionRow);
   const deleteRow = useServerFn(deleteCollectionRow);
@@ -64,6 +72,33 @@ function AdminLoanAuditPage() {
       .sort((a, b) => String(a.loanId).localeCompare(String(b.loanId)) ||
         (a.date || "").localeCompare(b.date || "") || a.row - b.row);
   }, [data, selectedSet]);
+
+  const reviewGroups = useMemo(() => {
+    const map = new Map<string, Entry[]>();
+    for (const entry of data) {
+      const key = String(entry.loanId ?? "").trim();
+      if (!key) continue;
+      const group = map.get(key) ?? [];
+      group.push(entry);
+      map.set(key, group);
+    }
+    return [...map.entries()].map(([loan, entries]) => ({ loan, entries: entries.sort((a,b) => (a.date || "").localeCompare(b.date || "") || a.row-b.row) }))
+      .sort((a,b) => a.loan.localeCompare(b.loan));
+  }, [data]);
+  const activeGroup = reviewGroups[activeLoanIndex];
+  const activeRows = activeGroup?.entries ?? [];
+  const verifiedCount = activeRows.filter(e => verifiedRows.includes(e.row)).length;
+  const totalReviewAmount = activeRows.reduce((sum,e) => sum + Number(e.amount || 0), 0);
+  const completedLoans = reviewGroups.filter(g => g.entries.length > 0 && g.entries.every(e => verifiedRows.includes(e.row))).length;
+  function setEntryVerified(row: number, checked: boolean) {
+    setVerifiedRows(old => checked ? [...new Set([...old, row])] : old.filter(x => x !== row));
+  }
+  function verifyCurrentLoan() {
+    setVerifiedRows(old => [...new Set([...old, ...activeRows.map(e => e.row)])]);
+    toast.success(`Loan ${activeGroup?.loan} की ${activeRows.length} entries इस browser पर verified mark हुईं।`);
+  }
+  function goNextLoan() { setActiveLoanIndex(i => Math.min(i + 1, reviewGroups.length - 1)); }
+  function goPreviousLoan() { setActiveLoanIndex(i => Math.max(0, i - 1)); }
 
   function loadLoanNumbers() {
     const parsed = parseLoanNumbers(bulkInput);
