@@ -320,6 +320,68 @@ export async function readCollections() {
 
 export const getCollections = createServerFn({ method: "GET" }).handler(() => readCollections());
 
+// Admin-only read path: the password is checked on the server for every request.
+async function assertProductivityAdmin(password: string) {
+  const { isSettingsPasswordValid } = await import("./app-config.functions");
+  if (!isSettingsPasswordValid(password)) throw new Error("Admin authorization failed. Unlock the Productivity Desk again.");
+}
+
+export const getAdminCollections = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
+  .handler(async ({ data }) => {
+    await assertProductivityAdmin(data.adminPassword);
+    return readCollections();
+  });
+
+const verificationAuditTab = "VerificationAudit";
+const verificationAuditHeader = ["Timestamp", "Admin", "Loan Number", "Collection Row", "Action", "Note", "Source"];
+
+export const getAdminReviewState = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
+  .handler(async ({ data }) => {
+    await assertProductivityAdmin(data.adminPassword);
+    const { ensureSheet, sheetsGet } = await import("./mahavtaar.server");
+    await ensureSheet(verificationAuditTab, verificationAuditHeader);
+    const rows = await sheetsGet(`${verificationAuditTab}!A2:G`);
+    const latest = new Map<number, { verified: boolean; timestamp: string; note: string }>();
+    for (const row of rows) {
+      const collectionRow = Number(row[3]);
+      if (!Number.isInteger(collectionRow) || collectionRow < 2) continue;
+      const action = String(row[4] ?? "").trim().toUpperCase();
+      if (action !== "VERIFIED" && action !== "UNVERIFIED") continue;
+      latest.set(collectionRow, {
+        verified: action === "VERIFIED",
+        timestamp: String(row[0] ?? ""),
+        note: String(row[5] ?? ""),
+      });
+    }
+    return [...latest.entries()].filter(([, state]) => state.verified).map(([row]) => row);
+  });
+
+const verificationEventSchema = z.object({
+  loanNumber: z.string().trim().min(1).max(60),
+  collectionRow: z.number().int().min(2).max(1000000),
+  action: z.enum(["VERIFIED", "UNVERIFIED"]),
+  note: z.string().max(300).optional().default(""),
+});
+
+export const saveAdminReviewEvents = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({
+    adminPassword: z.string().min(1).max(200),
+    events: z.array(verificationEventSchema).min(1).max(500),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    await assertProductivityAdmin(data.adminPassword);
+    const { ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppend } = await import("./mahavtaar.server");
+    requireGoogleSheetsWriteAccess();
+    await ensureSheet(verificationAuditTab, verificationAuditHeader);
+    const timestamp = new Date().toISOString();
+    await sheetsAppend(`${verificationAuditTab}!A:G`, data.events.map((event) => [
+      timestamp, "Admin", event.loanNumber, event.collectionRow, event.action, event.note, "Productivity Desk",
+    ]));
+    return { ok: true as const, saved: data.events.length, timestamp };
+  });
+
 const updateCollectionRowSchema = z.object({
   row: z.number().int().min(2),
   executive: z.string().trim().min(1),
@@ -336,39 +398,37 @@ const updateCollectionRowSchema = z.object({
   amansRemarks: z.string().optional(),
 });
 
+type CollectionRowUpdate = z.infer<typeof updateCollectionRowSchema>;
+
+async function persistCollectionRow(data: CollectionRowUpdate) {
+  const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
+  const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
+  await sheetsUpdate(`Collections!A${data.row}:J${data.row}`, [[
+    data.executive, data.loanId, data.amount, data.date, data.time || "",
+    new Date().toISOString(), "Confirmed", data.entryDate || data.date,
+    data.entryType, settlementVal,
+  ]]);
+  await sheetsUpdate(`Collections!P${data.row}:Q${data.row}`, [[data.receiptLinks.join(", "), data.remark]]);
+  if (data.amansRemarks !== undefined) {
+    await sheetsUpdate(`Collections!S${data.row}`, [[data.amansRemarks]]);
+  }
+  invalidateSheetsCache();
+  return { ok: true as const };
+}
+
+export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({
+    adminPassword: z.string().min(1).max(200),
+    entry: updateCollectionRowSchema,
+  }).parse(d))
+  .handler(async ({ data }) => {
+    await assertProductivityAdmin(data.adminPassword);
+    return persistCollectionRow(data.entry);
+  });
+
 export const updateCollectionRow = createServerFn({ method: "POST" })
   .validator((d: unknown) => updateCollectionRowSchema.parse(d))
-  .handler(async ({ data }) => {
-    const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
-    const row = data.row;
-    const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
-
-    await sheetsUpdate(`Collections!A${row}:J${row}`, [
-      [
-        data.executive,
-        data.loanId,
-        data.amount,
-        data.date,
-        data.time || "",
-        new Date().toISOString(),
-        "Confirmed",
-        data.entryDate || data.date,
-        data.entryType,
-        settlementVal,
-      ],
-    ]);
-
-    await sheetsUpdate(`Collections!P${row}:Q${row}`, [
-      [data.receiptLinks.join(", "), data.remark],
-    ]);
-
-    if (data.amansRemarks !== undefined) {
-      await sheetsUpdate(`Collections!S${row}`, [[data.amansRemarks]]);
-    }
-
-    invalidateSheetsCache();
-    return { ok: true as const };
-  });
+  .handler(async ({ data }) => persistCollectionRow(data));
 
 export const updateAmansRemarks = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
