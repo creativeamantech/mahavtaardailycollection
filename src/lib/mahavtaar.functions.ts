@@ -406,18 +406,21 @@ const updateCollectionRowSchema = z.object({
 type CollectionRowUpdate = z.infer<typeof updateCollectionRowSchema>;
 
 async function persistCollectionRow(data: CollectionRowUpdate) {
-  const { sheetsUpdateStrict, invalidateSheetsCache, requireGoogleSheetsWriteAccess } = await import("./mahavtaar.server");
+  const { sheetsBatchUpdateValuesStrict, invalidateSheetsCache, requireGoogleSheetsWriteAccess } = await import("./mahavtaar.server");
   requireGoogleSheetsWriteAccess();
   const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
-  await sheetsUpdateStrict(`Collections!A${data.row}:J${data.row}`, [[
-    data.executive, data.loanId, data.amount, data.date, data.time || "",
-    new Date().toISOString(), "Confirmed", data.entryDate || data.date,
-    data.entryType, settlementVal,
-  ]]);
-  await sheetsUpdateStrict(`Collections!P${data.row}:Q${data.row}`, [[data.receiptLinks.join(", "), data.remark]]);
+  const updates = [
+    { range: `Collections!A${data.row}:H${data.row}`, values: [[
+      data.executive, data.loanId, data.amount, data.date, data.time || "",
+      new Date().toISOString(), "Confirmed", data.entryDate || data.date,
+    ]] },
+    { range: `Collections!J${data.row}`, values: [[settlementVal]] },
+    { range: `Collections!P${data.row}:Q${data.row}`, values: [[data.receiptLinks.join(", "), data.remark]] },
+  ];
   if (data.amansRemarks !== undefined) {
-    await sheetsUpdateStrict(`Collections!S${data.row}`, [[data.amansRemarks]]);
+    updates.push({ range: `Collections!S${data.row}`, values: [[data.amansRemarks]] });
   }
+  await sheetsBatchUpdateValuesStrict(updates);
   invalidateSheetsCache();
   return { ok: true as const };
 }
@@ -429,7 +432,20 @@ export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data }) => {
     await assertProductivityAdmin(data.adminPassword);
-    return persistCollectionRow(data.entry);
+    await persistCollectionRow(data.entry);
+    const { ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
+    try {
+      requireGoogleSheetsWriteAccess();
+      await ensureSheet(verificationAuditTab, verificationAuditHeader);
+      await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
+        new Date().toISOString(), "Admin", data.entry.loanId, data.entry.row,
+        "ENTRY_EDITED", "Collection entry corrected from Productivity Desk", "Productivity Desk",
+      ]]);
+      return { ok: true as const, auditSaved: true as const };
+    } catch (error) {
+      console.error("Collection correction saved but audit append failed:", error);
+      return { ok: true as const, auditSaved: false as const };
+    }
   });
 
 export const updateCollectionRow = createServerFn({ method: "POST" })
