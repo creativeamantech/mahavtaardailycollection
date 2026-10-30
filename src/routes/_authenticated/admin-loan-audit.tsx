@@ -152,8 +152,8 @@ function AdminLoanAuditPage() {
   }
 
   if (!unlocked) return <main className="mx-auto w-full max-w-md px-4 py-12">
-    <div className="mb-5 flex items-center gap-3"><LockKeyhole className="h-7 w-7"/><div><h1 className="text-2xl font-bold">Admin Loan Audit</h1><p className="text-sm text-muted-foreground">Admin password required</p></div></div>
-    <PasswordGate label="Unlock Admin Audit" onUnlock={() => setUnlocked(true)} />
+    <div className="mb-5 flex items-center gap-3"><LockKeyhole className="h-7 w-7"/><div><h1 className="text-2xl font-bold">Productivity Desk</h1><p className="text-sm text-muted-foreground">Admin password required</p></div></div>
+    <PasswordGate label="Unlock Productivity Desk" onUnlock={() => setUnlocked(true)} />
   </main>;
 
   return <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6">
