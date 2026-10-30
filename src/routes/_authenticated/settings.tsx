@@ -12,7 +12,7 @@ import {
   saveFeatureFlags,
 } from "@/lib/app-config.functions";
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
-import { PasswordGate, SETTINGS_SESSION_KEY as SESSION_KEY } from "@/components/PasswordGate";
+import { PasswordGate, ADMIN_SESSION_KEY as SESSION_KEY } from "@/components/PasswordGate";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { ALL_CATEGORIES, uniqueCategories } from "@/components/AllocationFilters";
 import { getCollections } from "@/lib/mahavtaar.functions";
@@ -61,7 +61,6 @@ function SettingsPage() {
       ) : (
         <PasswordGate
           onUnlock={() => {
-            sessionStorage.setItem(SESSION_KEY, "1");
             setUnlocked(true);
           }}
         />
