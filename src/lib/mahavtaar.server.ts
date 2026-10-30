@@ -39,6 +39,12 @@ const inFlight = new Map<string, Promise<string[][]>>();
 const localAppended = new Map<string, string[][]>();
 const localUpdated = new Map<string, Map<string, string>>();
 
+export function requireGoogleSheetsWriteAccess() {
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
+    throw new Error("Google Sheets write connector is not configured. Verification was not saved.");
+  }
+}
+
 export function invalidateSheetsCache() {
   readCache.clear();
 }
@@ -206,6 +212,57 @@ async function fetchRange(range: string): Promise<string[][]> {
   return fetchFromPublicSheet(range);
 }
 
+export async function sheetsGetCellLinks(range: string): Promise<Record<number, string>> {
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) return {};
+  try {
+    const url = new URL(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}`);
+    url.searchParams.set("includeGridData", "true");
+    url.searchParams.set("ranges", range);
+    url.searchParams.set(
+      "fields",
+      "sheets(data(startRow,startColumn,rowData(values(hyperlink,userEnteredValue,textFormatRuns,effectiveFormat(textFormat(link))))))",
+    );
+    const res = await fetch(url, { headers: headers("GOOGLE_SHEETS_API_KEY") });
+    const json = (await ok(res, "Sheets hyperlink metadata")) as {
+      sheets?: Array<{
+        data?: Array<{
+          startRow?: number;
+          startColumn?: number;
+          rowData?: Array<{
+            values?: Array<{
+              hyperlink?: string;
+              userEnteredValue?: { formulaValue?: string };
+              textFormatRuns?: Array<{ format?: { link?: { uri?: string } } }>;
+              effectiveFormat?: { textFormat?: { link?: { uri?: string } } };
+            }>;
+          }>;
+        }>;
+      }>;
+    };
+    const links: Record<number, string> = {};
+    for (const sheet of json.sheets ?? []) {
+      for (const grid of sheet.data ?? []) {
+        const firstRow = grid.startRow ?? 0;
+        for (let index = 0; index < (grid.rowData ?? []).length; index++) {
+          const cell = grid.rowData?.[index]?.values?.[0];
+          if (!cell) continue;
+          let href = cell.hyperlink || cell.textFormatRuns?.find((run) => run.format?.link?.uri)?.format?.link?.uri || cell.effectiveFormat?.textFormat?.link?.uri || "";
+          const formula = cell.userEnteredValue?.formulaValue ?? "";
+          if (!href && /^=HYPERLINK\(/i.test(formula)) {
+            const match = formula.match(/^=HYPERLINK\(\s*"([^"]+)"/i);
+            href = match?.[1] ?? "";
+          }
+          if (/^https:\/\//i.test(href)) links[firstRow + index + 1] = href;
+        }
+      }
+    }
+    return links;
+  } catch (err) {
+    console.warn("Could not read linked-name hyperlink metadata:", err);
+    return {};
+  }
+}
+
 export async function sheetsGet(range: string): Promise<string[][]> {
   const cached = readCache.get(range);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.rows;
@@ -260,6 +317,53 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
   invalidateSheetsCache();
 
   return { updates: { updatedRange: `${sheetTitle}!A${rowNum}:J${rowNum}` } };
+}
+
+export async function sheetsAppendStrict(range: string, values: (string | number)[][]) {
+  requireGoogleSheetsWriteAccess();
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    },
+  );
+  const result = await ok(res, "Strict Sheets append");
+  invalidateSheetsCache();
+  return result;
+}
+
+export async function sheetsUpdateStrict(range: string, values: (string | number)[][]) {
+  requireGoogleSheetsWriteAccess();
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
+    {
+      method: "PUT",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    },
+  );
+  const result = await ok(res, "Strict Sheets update");
+  invalidateSheetsCache();
+  return result;
+}
+
+export async function sheetsBatchUpdateValuesStrict(
+  data: { range: string; values: (string | number)[][] }[],
+) {
+  requireGoogleSheetsWriteAccess();
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }),
+    },
+  );
+  const result = await ok(res, "Strict Sheets batch update");
+  invalidateSheetsCache();
+  return result;
 }
 
 export async function sheetsUpdate(range: string, values: (string | number)[][]) {
@@ -469,6 +573,37 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
 }
 
 // Creates a tab (with optional header row) when it does not exist yet.
+export async function ensureSheetStrict(title: string, header?: string[]) {
+  requireGoogleSheetsWriteAccess();
+  const metadataRes = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
+    { headers: headers("GOOGLE_SHEETS_API_KEY") },
+  );
+  const metadata = (await ok(metadataRes, "Strict Sheets metadata")) as {
+    sheets?: { properties?: { sheetId?: number; title?: string } }[];
+  };
+  const found = (metadata.sheets ?? []).some((sheet) => sheet.properties?.title === title);
+  if (!found) {
+    const createRes = await fetch(
+      `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
+      {
+        method: "POST",
+        headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] }),
+      },
+    );
+    await ok(createRes, "Strict create sheet");
+    sheetIdCache = {};
+    if (header?.length) {
+      const lastColumn = header.length <= 26
+        ? String.fromCharCode(64 + header.length)
+        : "A" + String.fromCharCode(64 + header.length - 26);
+      await sheetsUpdateStrict(`${title}!A1:${lastColumn}1`, [header]);
+    }
+  }
+  return getSheetId(title);
+}
+
 export async function ensureSheet(title: string, header?: string[]) {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     const res = await fetch(

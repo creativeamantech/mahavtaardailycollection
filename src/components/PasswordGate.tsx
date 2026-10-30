@@ -1,20 +1,20 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { verifySettingsPassword } from "@/lib/app-config.functions";
+import { setAdminPasswordInMemory } from "@/lib/admin-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 // One shared unlock state for every page inside the Admin section.
 export const ADMIN_SESSION_KEY = "mahavtaar-admin-unlocked";
-export const ADMIN_CREDENTIAL_KEY = "mahavtaar-admin-credential";
 export const SETTINGS_SESSION_KEY = ADMIN_SESSION_KEY;
 
 export function PasswordGate({
   onUnlock,
   label = "Unlock Settings",
 }: {
-  onUnlock: () => void;
+  onUnlock: (password: string) => void;
   label?: string;
 }) {
   const verify = useServerFn(verifySettingsPassword);
@@ -31,7 +31,7 @@ export function PasswordGate({
         setError("");
         try {
           const res = await verify({ data: { password } });
-          if (res.ok) { sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); sessionStorage.setItem(ADMIN_CREDENTIAL_KEY, password); onUnlock(); }
+          if (res.ok) { setAdminPasswordInMemory(password); sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); onUnlock(password); }
           else setError("Incorrect password");
         } catch {
           setError("Incorrect password");

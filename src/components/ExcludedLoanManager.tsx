@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ADMIN_CREDENTIAL_KEY, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
+import { PasswordGate } from "@/components/PasswordGate";
+import { getAdminPasswordInMemory } from "@/lib/admin-session";
 import { addExcludedLoanNumber, getExcludedLoanNumbers, removeExcludedLoanNumber } from "@/lib/excluded-loans.functions";
 import { ExcludedLoanBulkManager } from "@/components/ExcludedLoanBulkManager";
 
@@ -16,7 +17,8 @@ export function ExcludedLoanManager() {
   const removeLoan = useServerFn(removeExcludedLoanNumber);
   const [loanNumber, setLoanNumber] = useState("");
   const [reason, setReason] = useState("");
-  const [adminUnlocked, setAdminUnlocked] = useState(() => typeof window !== "undefined" && sessionStorage.getItem(ADMIN_SESSION_KEY) === "1");
+  const [adminPassword, setAdminPassword] = useState(() => getAdminPasswordInMemory());
+  const [adminUnlocked, setAdminUnlocked] = useState(() => Boolean(getAdminPasswordInMemory()));
   const [busy, setBusy] = useState(false);
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ["excluded-loan-numbers"],
@@ -28,10 +30,10 @@ export function ExcludedLoanManager() {
 
   async function submitAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!loanNumber.trim()) return;
+    if (!loanNumber.trim() || !adminPassword) return;
     setBusy(true);
     try {
-      await addLoan({ data: { loanNumber: loanNumber.trim(), reason: reason.trim(), adminPassword: sessionStorage.getItem(ADMIN_CREDENTIAL_KEY) ?? "" } });
+      await addLoan({ data: { loanNumber: loanNumber.trim(), reason: reason.trim(), adminPassword } });
       setLoanNumber("");
       setReason("");
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
@@ -48,7 +50,7 @@ export function ExcludedLoanManager() {
     if (!window.confirm(`Remove ${loan} from the exclusion list? Its eligible payments will count in reports again.`)) return;
     setBusy(true);
     try {
-      await removeLoan({ data: { loanNumber: loan, adminPassword: sessionStorage.getItem(ADMIN_CREDENTIAL_KEY) ?? "" } });
+      await removeLoan({ data: { loanNumber: loan, adminPassword } });
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       toast.success("Loan number removed from the active exclusion list.");
@@ -67,7 +69,6 @@ export function ExcludedLoanManager() {
           Active exclusions are omitted from collection totals, executive performance, payment counts, averages and reports. Original payment rows remain unchanged.
         </p>
       </div>
-
       {adminUnlocked ? (
         <form className="grid gap-3 sm:grid-cols-2" onSubmit={submitAdd}>
           <div className="space-y-1">
@@ -82,15 +83,14 @@ export function ExcludedLoanManager() {
             <Button type="submit" disabled={busy || !loanNumber.trim()}>{busy ? "Saving..." : "Add to Exclusion List"}</Button>
           </div>
         </form>
-      ) : <p className="text-sm text-muted-foreground">Admin unlock required. Open any Admin page and unlock once.</p>}
-
-      <ExcludedLoanBulkManager />
-
+      ) : (
+        <PasswordGate label="Unlock Excluded Loan Actions" onUnlock={(password) => { setAdminPassword(password); setAdminUnlocked(true); }} />
+      )}
+      <ExcludedLoanBulkManager adminPassword={adminPassword} unlocked={adminUnlocked} />
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">Current Exclusion List ({active.length})</h3>
         <Button type="button" size="sm" variant="outline" onClick={() => void refetch()} disabled={isLoading}>Refresh</Button>
       </div>
-
       {isLoading ? <p className="text-sm text-muted-foreground">Loading exclusion list...</p> : active.length === 0 ? (
         <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">No excluded loan numbers.</p>
       ) : (

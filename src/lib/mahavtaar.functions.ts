@@ -214,13 +214,16 @@ export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
 
 export async function readCollections() {
   try {
-    const { sheetsGet } = await import("./mahavtaar.server");
+    const { sheetsGet, sheetsGetCellLinks } = await import("./mahavtaar.server");
     const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
     // Read K:O too — those are maintained with formulas in the sheet and come back
     // as their calculated values (never the formula text).
     // T = Allocation Category, U = Allocation Date (sheet-maintained values).
     // V = Validation flag (VALIDATED if conflict verified as valid)
-    const rows = await sheetsGet("Collections!A2:V");
+    const [rows, linkedNameUrls] = await Promise.all([
+      sheetsGet("Collections!A2:W"),
+      sheetsGetCellLinks("Collections!W2:W"),
+    ]);
     const num = (v: string | undefined) => {
       const s = String(v ?? "")
         .replace(/[^0-9.-]/g, "")
@@ -228,7 +231,6 @@ export async function readCollections() {
       return s === "" || Number.isNaN(Number(s)) ? null : Number(s);
     };
     const mapped = (rows ?? [])
-      .filter((r) => r[0])
       .map((r, i) => {
         const paymentDate = normalizeSheetDate(r[3] ?? "");
         const entryDateRaw = (r[7] ?? "").trim();
@@ -254,6 +256,8 @@ export async function readCollections() {
           foreclosure: num(r[14]),
           row: i + 2,
           executive: r[0] ?? "",
+          linkedName: (r[22] ?? "").trim(),
+          portalUrl: linkedNameUrls[i + 2] ?? "",
           loanId: String(r[1] ?? "")
             .replace(/^['`\u2018\u2019]+/, "")
             .trim(),
@@ -282,7 +286,8 @@ export async function readCollections() {
           isConflict: false,
           conflictWith: [] as { row: number; executive: string; date: string; amount: number }[],
         };
-      });
+      })
+      .filter((item) => item.executive && item.status.trim().toUpperCase() !== "DELETED");
 
     // Detect conflicts across entries (same loanId and same amount)
     const groupMap = new Map<string, typeof mapped>();
@@ -320,6 +325,68 @@ export async function readCollections() {
 
 export const getCollections = createServerFn({ method: "GET" }).handler(() => readCollections());
 
+// Admin-only read path: the password is checked on the server for every request.
+async function assertProductivityAdmin(password: string) {
+  const { isSettingsPasswordValid } = await import("./app-config.functions");
+  if (!isSettingsPasswordValid(password)) throw new Error("Admin authorization failed. Unlock the Productivity Desk again.");
+}
+
+export const getAdminCollections = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
+  .handler(async ({ data }) => {
+    await assertProductivityAdmin(data.adminPassword);
+    return readCollections();
+  });
+
+const verificationAuditTab = "VerificationAudit";
+const verificationAuditHeader = ["Timestamp", "Admin", "Loan Number", "Collection Row", "Action", "Note", "Source"];
+
+export const getAdminReviewState = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
+  .handler(async ({ data }) => {
+    await assertProductivityAdmin(data.adminPassword);
+    const { ensureSheetStrict, sheetsGet } = await import("./mahavtaar.server");
+    await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
+    const rows = await sheetsGet(`${verificationAuditTab}!A2:G`);
+    const latest = new Map<number, { verified: boolean; timestamp: string; note: string }>();
+    for (const row of rows) {
+      const collectionRow = Number(row[3]);
+      if (!Number.isInteger(collectionRow) || collectionRow < 2) continue;
+      const action = String(row[4] ?? "").trim().toUpperCase();
+      if (action !== "VERIFIED" && action !== "UNVERIFIED") continue;
+      latest.set(collectionRow, {
+        verified: action === "VERIFIED",
+        timestamp: String(row[0] ?? ""),
+        note: String(row[5] ?? ""),
+      });
+    }
+    return [...latest.entries()].filter(([, state]) => state.verified).map(([row]) => row);
+  });
+
+const verificationEventSchema = z.object({
+  loanNumber: z.string().trim().min(1).max(60),
+  collectionRow: z.number().int().min(2).max(1000000),
+  action: z.enum(["VERIFIED", "UNVERIFIED", "ENTRY_EDITED", "ENTRY_DELETED"]),
+  note: z.string().max(300).optional().default(""),
+});
+
+export const saveAdminReviewEvents = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({
+    adminPassword: z.string().min(1).max(200),
+    events: z.array(verificationEventSchema).min(1).max(500),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    await assertProductivityAdmin(data.adminPassword);
+    const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
+    requireGoogleSheetsWriteAccess();
+    await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
+    const timestamp = new Date().toISOString();
+    await sheetsAppendStrict(`${verificationAuditTab}!A:G`, data.events.map((event) => [
+      timestamp, "Admin", event.loanNumber, event.collectionRow, event.action, event.note, "Productivity Desk",
+    ]));
+    return { ok: true as const, saved: data.events.length, timestamp };
+  });
+
 const updateCollectionRowSchema = z.object({
   row: z.number().int().min(2),
   executive: z.string().trim().min(1),
@@ -336,39 +403,54 @@ const updateCollectionRowSchema = z.object({
   amansRemarks: z.string().optional(),
 });
 
+type CollectionRowUpdate = z.infer<typeof updateCollectionRowSchema>;
+
+async function persistCollectionRow(data: CollectionRowUpdate) {
+  const { sheetsBatchUpdateValuesStrict, invalidateSheetsCache, requireGoogleSheetsWriteAccess } = await import("./mahavtaar.server");
+  requireGoogleSheetsWriteAccess();
+  const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
+  const updates = [
+    { range: `Collections!A${data.row}:H${data.row}`, values: [[
+      data.executive, data.loanId, data.amount, data.date, data.time || "",
+      new Date().toISOString(), "Confirmed", data.entryDate || data.date,
+    ]] },
+    { range: `Collections!J${data.row}`, values: [[settlementVal]] },
+    { range: `Collections!P${data.row}:Q${data.row}`, values: [[data.receiptLinks.join(", "), data.remark]] },
+  ];
+  if (data.amansRemarks !== undefined) {
+    updates.push({ range: `Collections!S${data.row}`, values: [[data.amansRemarks]] });
+  }
+  await sheetsBatchUpdateValuesStrict(updates);
+  invalidateSheetsCache();
+  return { ok: true as const };
+}
+
+export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({
+    adminPassword: z.string().min(1).max(200),
+    entry: updateCollectionRowSchema,
+  }).parse(d))
+  .handler(async ({ data }) => {
+    await assertProductivityAdmin(data.adminPassword);
+    await persistCollectionRow(data.entry);
+    const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
+    try {
+      requireGoogleSheetsWriteAccess();
+      await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
+      await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
+        new Date().toISOString(), "Admin", data.entry.loanId, data.entry.row,
+        "ENTRY_EDITED", "Collection entry corrected from Productivity Desk", "Productivity Desk",
+      ]]);
+      return { ok: true as const, auditSaved: true as const };
+    } catch (error) {
+      console.error("Collection correction saved but audit append failed:", error);
+      return { ok: true as const, auditSaved: false as const };
+    }
+  });
+
 export const updateCollectionRow = createServerFn({ method: "POST" })
   .validator((d: unknown) => updateCollectionRowSchema.parse(d))
-  .handler(async ({ data }) => {
-    const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
-    const row = data.row;
-    const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
-
-    await sheetsUpdate(`Collections!A${row}:J${row}`, [
-      [
-        data.executive,
-        data.loanId,
-        data.amount,
-        data.date,
-        data.time || "",
-        new Date().toISOString(),
-        "Confirmed",
-        data.entryDate || data.date,
-        data.entryType,
-        settlementVal,
-      ],
-    ]);
-
-    await sheetsUpdate(`Collections!P${row}:Q${row}`, [
-      [data.receiptLinks.join(", "), data.remark],
-    ]);
-
-    if (data.amansRemarks !== undefined) {
-      await sheetsUpdate(`Collections!S${row}`, [[data.amansRemarks]]);
-    }
-
-    invalidateSheetsCache();
-    return { ok: true as const };
-  });
+  .handler(async ({ data }) => persistCollectionRow(data));
 
 export const updateAmansRemarks = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
@@ -392,31 +474,53 @@ export const updateCollectionAmount = createServerFn({ method: "POST" })
     return { ok: true as const, row: data.row, amount: data.amount };
   });
 
+async function persistDeleteCollectionRow(row: number) {
+  const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache, requireGoogleSheetsWriteAccess } =
+    await import("./mahavtaar.server");
+  requireGoogleSheetsWriteAccess();
+  try {
+    const sheetId = await getSheetId("Collections");
+    await sheetsBatchUpdate([{
+      deleteDimension: {
+        range: { sheetId, dimension: "ROWS", startIndex: row - 1, endIndex: row },
+      },
+    }]);
+  } catch {
+    await sheetsUpdate(`Collections!A${row}:V${row}`, [Array(22).fill("")]);
+  }
+  invalidateSheetsCache();
+  return { ok: true as const };
+}
+
 export const deleteCollectionRow = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
+  .handler(async ({ data }) => persistDeleteCollectionRow(data.row));
+
+export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({
+    adminPassword: z.string().min(1).max(200),
+    row: z.number().int().min(2),
+  }).parse(d))
   .handler(async ({ data }) => {
-    const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+    await assertProductivityAdmin(data.adminPassword);
+    const { sheetsUpdateStrict, ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
-    const row = data.row;
-    try {
-      const sheetId = await getSheetId("Collections");
-      await sheetsBatchUpdate([
-        {
-          deleteDimension: {
-            range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: row - 1,
-              endIndex: row,
-            },
-          },
-        },
-      ]);
-    } catch {
-      await sheetsUpdate(`Collections!A${row}:V${row}`, [Array(22).fill("")]);
-    }
+    requireGoogleSheetsWriteAccess();
+    const entry = (await readCollections()).find((item) => item.row === data.row);
+    if (!entry) throw new Error("Collection entry not found or already deleted.");
+    await sheetsUpdateStrict(`Collections!G${data.row}`, [["Deleted"]]);
     invalidateSheetsCache();
-    return { ok: true as const };
+    try {
+      await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
+      await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
+        new Date().toISOString(), "Admin", entry.loanId, data.row, "ENTRY_DELETED",
+        "Soft-deleted from Productivity Desk", "Productivity Desk",
+      ]]);
+      return { ok: true as const, auditSaved: true as const };
+    } catch (error) {
+      console.error("Entry soft-deleted but audit append failed:", error);
+      return { ok: true as const, auditSaved: false as const };
+    }
   });
 
 export const markConflictAsValid = createServerFn({ method: "POST" })
