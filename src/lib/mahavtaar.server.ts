@@ -573,6 +573,37 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
 }
 
 // Creates a tab (with optional header row) when it does not exist yet.
+export async function ensureSheetStrict(title: string, header?: string[]) {
+  requireGoogleSheetsWriteAccess();
+  const metadataRes = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
+    { headers: headers("GOOGLE_SHEETS_API_KEY") },
+  );
+  const metadata = (await ok(metadataRes, "Strict Sheets metadata")) as {
+    sheets?: { properties?: { sheetId?: number; title?: string } }[];
+  };
+  const found = (metadata.sheets ?? []).some((sheet) => sheet.properties?.title === title);
+  if (!found) {
+    const createRes = await fetch(
+      `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
+      {
+        method: "POST",
+        headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] }),
+      },
+    );
+    await ok(createRes, "Strict create sheet");
+    sheetIdCache = {};
+    if (header?.length) {
+      const lastColumn = header.length <= 26
+        ? String.fromCharCode(64 + header.length)
+        : "A" + String.fromCharCode(64 + header.length - 26);
+      await sheetsUpdateStrict(`${title}!A1:${lastColumn}1`, [header]);
+    }
+  }
+  return getSheetId(title);
+}
+
 export async function ensureSheet(title: string, header?: string[]) {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     const res = await fetch(
