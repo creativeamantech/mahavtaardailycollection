@@ -8,13 +8,15 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { FEATURES } from "@/lib/app-config.functions";
+import { PasswordGate } from "@/components/PasswordGate";
+import { getAdminPasswordInMemory } from "@/lib/admin-session";
 import { useRouterState } from "@tanstack/react-router";
 
 function NotFoundComponent() {
@@ -176,6 +178,18 @@ function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const current = FEATURES.find((f) => f.path === pathname);
   const disabled = current ? flags[current.key] === false : false;
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminUnlocked, setAdminUnlocked] = useState(() => Boolean(getAdminPasswordInMemory()));
+
+  const openAdmin = () => {
+    if (!adminUnlocked && !getAdminPasswordInMemory()) {
+      setAdminOpen(true);
+      return;
+    }
+    setAdminUnlocked(true);
+    setAdminOpen((open) => !open);
+  };
+
   return (
     <>
       <div className="min-h-screen bg-background">
@@ -199,21 +213,44 @@ function AppShell() {
                 </Link>
               ))}
               {ADMIN_NAV.some((n) => flags[n.key] !== false) && (
-                <details className="relative">
-                  <summary className="cursor-pointer list-none rounded-lg border px-4 py-2 text-base font-semibold">Admin ▾</summary>
-                  <div className="absolute right-0 z-50 mt-2 flex min-w-52 flex-col gap-1 rounded-lg border bg-background p-2 shadow-lg">
-                    {ADMIN_NAV.filter((n) => flags[n.key] !== false).map((n) => (
-                      <Link
-                        key={n.label}
-                        to={n.to}
-                        hash={"hash" in n ? n.hash : undefined}
-                        className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
-                      >
-                        {n.label}
-                      </Link>
-                    ))}
-                  </div>
-                </details>
+                <div className="flex min-w-0 flex-wrap items-start gap-2">
+                  <button
+                    type="button"
+                    aria-expanded={adminOpen}
+                    aria-controls="admin-navigation-panel"
+                    onClick={openAdmin}
+                    className="rounded-lg border px-4 py-2 text-base font-semibold"
+                  >
+                    Admin {adminOpen ? "▴" : "▾"}
+                  </button>
+                  {adminOpen && (
+                    <div
+                      id="admin-navigation-panel"
+                      className="w-full basis-full rounded-lg border bg-background p-3 shadow-sm sm:w-auto sm:min-w-56 sm:basis-auto"
+                    >
+                      {!adminUnlocked ? (
+                        <PasswordGate
+                          label="Unlock Admin"
+                          onUnlock={() => setAdminUnlocked(true)}
+                        />
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {ADMIN_NAV.filter((n) => flags[n.key] !== false).map((n) => (
+                            <Link
+                              key={n.label}
+                              to={n.to}
+                              hash={"hash" in n ? n.hash : undefined}
+                              onClick={() => setAdminOpen(false)}
+                              className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                            >
+                              {n.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </nav>
           </div>
