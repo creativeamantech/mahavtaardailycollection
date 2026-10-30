@@ -167,10 +167,11 @@ function AdminLoanAuditPage() {
     const ok = window.confirm(`क्या आप Loan ${entry.loanId} की Row ${entry.row} वाली पूरी collection entry delete करना चाहते हैं? यह Google Sheet से हटेगी और वापस लाना आसान नहीं होगा।`);
     if (!ok) return;
     try {
-      await deleteRow({ data: { adminPassword, row: entry.row } });
+      const result = await deleteRow({ data: { adminPassword, row: entry.row } });
       setDrafts((old) => { const next = { ...old }; delete next[entry.row]; return next; });
       await qc.invalidateQueries({ queryKey: ["collections"] });
-      toast.success(`Loan ${entry.loanId} की entry delete हो गई।`);
+      toast.success(`Loan ${entry.loanId} की entry soft-delete हो गई।`);
+      if (!result.auditSaved) toast.error("Entry soft-deleted, but audit logging failed. Please report this to the administrator.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Entry delete नहीं हो पाई।");
     }
