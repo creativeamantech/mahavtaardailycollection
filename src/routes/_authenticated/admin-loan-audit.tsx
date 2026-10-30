@@ -63,6 +63,7 @@ function AdminLoanAuditPage() {
       return result as Entry[];
     },
     staleTime: 10_000,
+    enabled: unlocked,
   });
 
   const selectedSet = useMemo(() => new Set(selectedLoans.map((s) => s.toLowerCase())), [selectedLoans]);
@@ -155,8 +156,40 @@ function AdminLoanAuditPage() {
     <PasswordGate label="Unlock Admin Audit" onUnlock={() => setUnlocked(true)} />
   </main>;
 
-  return <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-6">
-    <div className="flex flex-wrap items-start justify-between gap-3">
+  return <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6">
+    <section className="overflow-hidden rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><div className="mb-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"><ShieldCheck className="h-3.5 w-3.5"/> ADMIN WORKSPACE</div><h1 className="text-3xl font-bold tracking-tight">Productivity Desk</h1><p className="mt-1 text-sm text-muted-foreground">One loan at a time. Review every entry together, correct mistakes, verify, and move on.</p></div>
+        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}/>Refresh</Button>
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Unique loans</p><p className="mt-1 text-2xl font-bold">{reviewGroups.length}</p></div>
+        <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Completed loans</p><p className="mt-1 text-2xl font-bold">{completedLoans}</p></div>
+        <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Remaining loans</p><p className="mt-1 text-2xl font-bold">{Math.max(0,reviewGroups.length-completedLoans)}</p></div>
+        <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Current loan entries</p><p className="mt-1 text-2xl font-bold">{activeRows.length}</p></div>
+      </div>
+    </section>
+    {isLoading && <p className="mt-6 text-sm text-muted-foreground">Google Sheets से entries load हो रही हैं…</p>}
+    {error && <p className="mt-6 text-sm text-destructive">Data load नहीं हुआ: {error instanceof Error ? error.message : "Unknown error"}</p>}
+    {activeGroup && <section className="mt-5 overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 p-4">
+        <div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sequential review · {activeLoanIndex+1} / {reviewGroups.length}</p><h2 className="mt-1 break-all text-xl font-bold">Loan {activeGroup.loan}</h2><p className="text-sm text-muted-foreground">{activeRows.length} entries · Combined {formatAmount(totalReviewAmount)}</p></div>
+        <div className="rounded-full border bg-background px-3 py-2 text-sm font-semibold">{verifiedCount}/{activeRows.length} verified</div>
+      </div>
+      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-3">
+          {activeRows.map((entry,index) => { const d={...entry,...drafts[entry.row]}; const dirty=Boolean(drafts[entry.row]); const checked=verifiedRows.includes(entry.row); return <article key={entry.row} className={`rounded-xl border p-3 ${checked?"border-emerald-500/40 bg-emerald-500/5":""}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-semibold">Entry {index+1} <span className="text-xs font-normal text-muted-foreground">· Row {entry.row}</span></p><p className="text-xs text-muted-foreground">{entry.executive} · {entry.date} {entry.time||""}</p></div><label className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-primary" checked={checked} onChange={e=>setEntryVerified(entry.row,e.target.checked)}/>{checked?"Verified":"Mark verified"}</label></div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"><div><p className="text-xs text-muted-foreground">Amount</p><p className="font-semibold">{formatAmount(Number(d.amount||0))}</p></div><div><p className="text-xs text-muted-foreground">Payment date</p><p className="font-medium">{d.date||"—"}</p></div><div><p className="text-xs text-muted-foreground">Type</p><p className="font-medium">{d.entryType||"Normal"}</p></div><div><p className="text-xs text-muted-foreground">Receipts</p><p className="font-medium">{entry.receiptLinks?.length||0}</p></div></div>
+            <details className="mt-3 rounded-lg border bg-background p-3"><summary className="cursor-pointer text-sm font-semibold">Edit this entry</summary><div className="mt-3 grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label>Loan number</Label><Input value={d.loanId} onChange={e=>setField(entry.row,"loanId",e.target.value)}/></div><div className="space-y-1"><Label>Amount (₹)</Label><Input type="number" min="0" step="0.01" value={d.amount} onChange={e=>setField(entry.row,"amount",Number(e.target.value))}/></div><div className="space-y-1"><Label>Payment date</Label><Input type="date" value={d.date||""} onChange={e=>setField(entry.row,"date",e.target.value)}/></div><div className="space-y-1"><Label>Executive</Label><Input value={d.executive} onChange={e=>setField(entry.row,"executive",e.target.value)}/></div><div className="space-y-1 sm:col-span-2"><Label>Remark</Label><Textarea value={d.remark||""} onChange={e=>setField(entry.row,"remark",e.target.value)}/></div><div className="space-y-1 sm:col-span-2"><Label>Admin remarks</Label><Textarea value={d.amansRemarks||""} onChange={e=>setField(entry.row,"amansRemarks",e.target.value)}/></div><div className="flex flex-wrap gap-2 sm:col-span-2"><Button size="sm" disabled={!dirty} onClick={()=>save(entry)}><Save className="mr-2 h-4 w-4"/>Save correction</Button>{entry.receiptLinks?.map((url,i)=><a key={url+i} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs">Receipt {i+1}<ExternalLink className="h-3 w-3"/></a>)}</div></div></details>
+          </article>;})}
+          <div className="flex flex-wrap gap-2"><Button onClick={verifyCurrentLoan} disabled={!activeRows.length||verifiedCount===activeRows.length}><CheckCircle2 className="mr-2 h-4 w-4"/>Verify all entries</Button><Button variant="outline" onClick={goPreviousLoan} disabled={activeLoanIndex===0}><ChevronLeft className="mr-1 h-4 w-4"/>Previous</Button><Button onClick={goNextLoan} disabled={activeLoanIndex>=reviewGroups.length-1}>Next loan<ChevronRight className="ml-1 h-4 w-4"/></Button></div>
+        </div>
+        <aside className="space-y-3 rounded-xl bg-muted/40 p-3"><h3 className="font-semibold">Portal workspace</h3><p className="text-sm text-muted-foreground">Embedded Salesforce view becomes available when the source collection data exposes the exact portal URL. No URL is guessed.</p>{activeRows.some(e=>e.portalUrl) ? <iframe title="Bank portal" src={activeRows.find(e=>e.portalUrl)?.portalUrl} className="h-[520px] w-full rounded-lg border bg-background"/> : <div className="rounded-lg border border-dashed bg-background p-4 text-sm text-muted-foreground">Portal URL is not currently present in the loaded collection records.</div>}<p className="text-xs text-muted-foreground">Review marks are stored in this browser only; shared audit history requires a server-side audit table and a verified admin role.</p></aside>
+      </div>
+    </section>}
+    <div className="mt-8"><h2 className="text-lg font-bold">Bulk loan audit</h2><p className="text-sm text-muted-foreground">Paste specific loan numbers to narrow the review queue.</p></div>
+    <section className="mt-3 space-y-3 rounded-xl border bg-card p-4">
       <div><h1 className="text-2xl font-bold tracking-tight">Admin Loan Audit</h1><p className="mt-1 text-sm text-muted-foreground">Bulk loan numbers paste करें, फिर checkbox से सिर्फ़ वही loans चुनें जिन्हें audit करना है।</p></div>
       <Button variant="outline" onClick={() => refetch()} disabled={isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}/>Refresh</Button>
     </div>
