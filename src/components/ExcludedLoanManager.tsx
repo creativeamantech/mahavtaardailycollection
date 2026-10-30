@@ -82,7 +82,7 @@ export function ExcludedLoanManager() {
   }
 
   return (
-    <section id="excluded-loans" className="mt-6 scroll-mt-6 space-y-4 rounded-xl border p-4">
+    <section className="space-y-3 rounded-xl border p-3">
       <div>
         <h2 className="text-xl font-bold">Excluded Loan Numbers</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -125,16 +125,16 @@ export function ExcludedLoanManager() {
       {isLoading ? <p className="text-sm text-muted-foreground">Loading exclusion list...</p> : active.length === 0 ? (
         <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">No excluded loan numbers.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted"><tr><th className="p-3 text-left">Loan Number</th><th className="p-3 text-left">Date Added</th><th className="p-3 text-left">Reason</th>{adminUnlocked && <th className="p-3 text-right">Action</th>}</tr></thead>
+        <div className="max-h-80 overflow-auto rounded-lg border">
+          <table className="w-full text-xs">
+            <thead className="bg-muted"><tr><th className="px-2 py-1.5 text-left">Loan Number</th><th className="px-2 py-1.5 text-left">Date Added</th><th className="px-2 py-1.5 text-left">Reason</th>{adminUnlocked && <th className="px-2 py-1.5 text-right">Action</th>}</tr></thead>
             <tbody>
               {active.map((item, index) => (
                 <tr key={`${item.loanNumber}-${item.dateAdded}-${index}`} className="border-t">
-                  <td className="p-3 font-medium">{item.loanNumber}</td>
-                  <td className="p-3 whitespace-nowrap">{item.dateAdded || "—"}</td>
-                  <td className="p-3">{item.reason || "—"}</td>
-                  {adminUnlocked && <td className="p-3 text-right"><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void remove(item.loanNumber)}>Remove</Button></td>}
+                  <td className="px-2 py-1.5 font-medium">{item.loanNumber}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{item.dateAdded || "—"}</td>
+                  <td className="px-2 py-1.5">{item.reason || "—"}</td>
+                  {adminUnlocked && <td className="px-2 py-1 text-right"><Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy} onClick={() => void remove(item.loanNumber)}>Remove</Button></td>}
                 </tr>
               ))}
             </tbody>
