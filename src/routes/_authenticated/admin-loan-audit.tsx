@@ -147,20 +147,17 @@ function AdminLoanAuditPage() {
   async function save(entry: Entry) {
     const d = { ...entry, ...drafts[entry.row] };
     try {
-      await saveRow({ data: { adminPassword, entry: {
+      const result = await saveRow({ data: { adminPassword, entry: {
         row: d.row, executive: d.executive, loanId: d.loanId, amount: Number(d.amount),
         date: d.date, time: d.time || "", entryDate: d.entryDate || d.date,
         entryType: d.entryType === "Previous Paid File" ? "Previous Paid File" : "Normal",
         settlement: Boolean(d.settlement), settlementType: d.settlementType || (d.settlement ? "Settlement" : "No"),
         receiptLinks: d.receiptLinks || [], remark: d.remark || "", amansRemarks: d.amansRemarks || "",
       }}});
-      await saveReviewEvents({ data: { adminPassword, events: [{
-        loanNumber: d.loanId, collectionRow: entry.row, action: "ENTRY_EDITED",
-        note: "Collection entry corrected from Productivity Desk",
-      }] } });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       setDrafts((old) => { const next = { ...old }; delete next[entry.row]; return next; });
-      toast.success(`Loan ${d.loanId} की entry और edit audit Google Sheets में save हो गई।`);
+      toast.success(`Loan ${d.loanId} की correction save हो गई।`);
+      if (!result.auditSaved) toast.error("Correction saved, but audit logging failed. Please report this to the administrator.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save नहीं हो पाया। कृपया फिर कोशिश करें।");
     }
