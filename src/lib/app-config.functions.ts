@@ -80,17 +80,18 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
   return { flags, notifications, defaultCategory };
 });
 
+export function isSettingsPasswordValid(input: string): boolean {
+  const expected = "Mahadev@Babaji@0003";
+  let diff = input.length === expected.length ? 0 : 1;
+  for (let i = 0; i < Math.max(input.length, expected.length); i++) {
+    diff |= (input.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
 export const verifySettingsPassword = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ password: z.string().max(200) }).parse(d))
-  .handler(async ({ data }) => {
-    const expected = "Mahadev@Babaji@0003";
-    const input = data.password;
-    let diff = input.length === expected.length ? 0 : 1;
-    for (let i = 0; i < Math.max(input.length, expected.length); i++) {
-      diff |= (input.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
-    }
-    return { ok: diff === 0 };
-  });
+  .handler(async ({ data }) => ({ ok: isSettingsPasswordValid(data.password) }));
 
 export const saveFeatureFlags = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
