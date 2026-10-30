@@ -30,7 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PasswordGate, SETTINGS_SESSION_KEY } from "@/components/PasswordGate";
+import { PasswordGate, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import {
   deleteCollectionRow,
   getCollections,
@@ -151,7 +151,7 @@ export function ConflictsPage() {
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem(SETTINGS_SESSION_KEY) === "1") {
+    if (sessionStorage.getItem(ADMIN_SESSION_KEY) === "1") {
       setUnlocked(true);
     }
   }, []);
@@ -174,7 +174,6 @@ export function ConflictsPage() {
           <PasswordGate
             label="Unlock Conflict Resolution"
             onUnlock={() => {
-              sessionStorage.setItem(SETTINGS_SESSION_KEY, "1");
               setUnlocked(true);
             }}
           />
@@ -186,7 +185,8 @@ export function ConflictsPage() {
   return (
     <ConflictsContent
       onLock={() => {
-        sessionStorage.removeItem(SETTINGS_SESSION_KEY);
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        sessionStorage.removeItem("mahavtaar-admin-credential");
         setUnlocked(false);
       }}
     />

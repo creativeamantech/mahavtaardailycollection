@@ -6,16 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { verifySettingsPassword } from "@/lib/app-config.functions";
+import { ADMIN_CREDENTIAL_KEY, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import { addExcludedLoanNumbersBulk } from "@/lib/excluded-loans.functions";
 
 export function ExcludedLoanBulkManager() {
   const qc = useQueryClient();
-  const verify = useServerFn(verifySettingsPassword);
   const addBulk = useServerFn(addExcludedLoanNumbersBulk);
-  const [password, setPassword] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => typeof window !== "undefined" && sessionStorage.getItem(ADMIN_SESSION_KEY) === "1");
   const [loanNumbers, setLoanNumbers] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,35 +23,13 @@ export function ExcludedLoanBulkManager() {
         <h3 className="font-semibold">Bulk Paste Loan Numbers</h3>
         <p className="mt-1 text-sm text-muted-foreground">Excel या Google Sheets से loan numbers सीधे paste करें। हर line में एक number या comma/space/semicolon-separated list भी मान्य है। Duplicate और पहले से active numbers skip होंगे; अधिकतम 5,000 unique numbers प्रति batch।</p>
       </div>
-      {!unlocked ? (
-        <form className="flex gap-2" onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          try {
-            const result = await verify({ data: { password } });
-            if (result.ok) {
-              setAdminPassword(password);
-              setPassword("");
-              setUnlocked(true);
-              toast.success("Admin controls unlocked.");
-            } else toast.error("Incorrect admin password.");
-          } catch {
-            toast.error("Could not verify admin access.");
-          } finally { setBusy(false); }
-        }}>
-          <div className="min-w-0 flex-1 space-y-1">
-            <Label htmlFor="excluded-bulk-password">Admin password</Label>
-            <Input id="excluded-bulk-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-          </div>
-          <Button type="submit" className="self-end" disabled={busy || !password}>{busy ? "Checking…" : "Unlock"}</Button>
-        </form>
-      ) : (
+      {unlocked ? (
         <form className="space-y-3" onSubmit={async (e) => {
           e.preventDefault();
           if (!loanNumbers.trim()) return;
           setBusy(true);
           try {
-            const result = await addBulk({ data: { loanNumbersText: loanNumbers, reason: reason.trim(), adminPassword } });
+            const result = await addBulk({ data: { loanNumbersText: loanNumbers, reason: reason.trim(), adminPassword: sessionStorage.getItem(ADMIN_CREDENTIAL_KEY) ?? "" } });
             setLoanNumbers("");
             await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
             await qc.invalidateQueries({ queryKey: ["collections"] });
@@ -73,10 +48,9 @@ export function ExcludedLoanBulkManager() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={busy || !loanNumbers.trim()}>{busy ? "Processing…" : "Bulk Add to Exclusion List"}</Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={() => { setUnlocked(false); setAdminPassword(""); }}>Lock</Button>
           </div>
         </form>
-      )}
+      ) : <p className="text-sm text-muted-foreground">Admin unlock required. Open any Admin page and unlock once.</p>}
     </section>
   );
 }
