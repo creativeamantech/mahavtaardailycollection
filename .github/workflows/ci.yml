@@ -25,6 +25,8 @@ jobs:
         run: >-
           bunx eslint
           src/components/PasswordGate.tsx
+          src/components/ExcludedLoanManager.tsx
+          src/components/ExcludedLoanBulkManager.tsx
           src/lib/app-config.functions.ts
           src/lib/mahavtaar.functions.ts
           src/lib/mahavtaar.server.ts
