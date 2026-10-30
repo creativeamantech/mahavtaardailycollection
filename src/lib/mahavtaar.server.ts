@@ -349,6 +349,23 @@ export async function sheetsUpdateStrict(range: string, values: (string | number
   return result;
 }
 
+export async function sheetsBatchUpdateValuesStrict(
+  data: { range: string; values: (string | number)[][] }[],
+) {
+  requireGoogleSheetsWriteAccess();
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }),
+    },
+  );
+  const result = await ok(res, "Strict Sheets batch update");
+  invalidateSheetsCache();
+  return result;
+}
+
 export async function sheetsUpdate(range: string, values: (string | number)[][]) {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
