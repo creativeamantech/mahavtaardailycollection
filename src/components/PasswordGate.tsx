@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 // One shared unlock state for every page inside the Admin section.
+export const ADMIN_CREDENTIAL_KEY = "mahavtaar-admin-credential";
 export const ADMIN_SESSION_KEY = "mahavtaar-admin-unlocked";
 export const SETTINGS_SESSION_KEY = ADMIN_SESSION_KEY;
 
