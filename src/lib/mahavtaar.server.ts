@@ -224,12 +224,20 @@ export async function sheetsGetCellLinks(range: string): Promise<Record<number, 
     );
     const res = await fetch(url, { headers: headers("GOOGLE_SHEETS_API_KEY") });
     const json = (await ok(res, "Sheets hyperlink metadata")) as {
-      sheets?: { data?: { startRow?: number; startColumn?: number; rowData?: { values?: {
-        hyperlink?: string;
-        userEnteredValue?: { formulaValue?: string };
-        textFormatRuns?: { format?: { link?: { uri?: string } } }[];
-        effectiveFormat?: { textFormat?: { link?: { uri?: string } } };
-      }[] }[] }[];
+      sheets?: Array<{
+        data?: Array<{
+          startRow?: number;
+          startColumn?: number;
+          rowData?: Array<{
+            values?: Array<{
+              hyperlink?: string;
+              userEnteredValue?: { formulaValue?: string };
+              textFormatRuns?: Array<{ format?: { link?: { uri?: string } } }>;
+              effectiveFormat?: { textFormat?: { link?: { uri?: string } } };
+            }>;
+          }>;
+        }>;
+      }>;
     };
     const links: Record<number, string> = {};
     for (const sheet of json.sheets ?? []) {
