@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// Same session unlock is shared by Settings and Already Paid.
-export const SETTINGS_SESSION_KEY = "mahavtaar-settings-unlocked";
+// One shared unlock state for every page inside the Admin section.
+export const ADMIN_SESSION_KEY = "mahavtaar-admin-unlocked";
+export const ADMIN_CREDENTIAL_KEY = "mahavtaar-admin-credential";
+export const SETTINGS_SESSION_KEY = ADMIN_SESSION_KEY;
 
 export function PasswordGate({
   onUnlock,
@@ -29,7 +31,7 @@ export function PasswordGate({
         setError("");
         try {
           const res = await verify({ data: { password } });
-          if (res.ok) onUnlock();
+          if (res.ok) { sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); sessionStorage.setItem(ADMIN_CREDENTIAL_KEY, password); onUnlock(); }
           else setError("Incorrect password");
         } catch {
           setError("Incorrect password");
