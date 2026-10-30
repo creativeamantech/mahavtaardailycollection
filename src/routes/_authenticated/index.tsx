@@ -420,7 +420,7 @@ function EntryPage() {
           </Label>
           <Input
             id="loanId"
-            className="h-12 text-base"
+            className={`h-12 text-base ${isExcludedLoan ? "text-orange-600 font-semibold" : ""}`}
             value={loanId}
             maxLength={60}
             onChange={(e) => setLoanId(e.target.value)}

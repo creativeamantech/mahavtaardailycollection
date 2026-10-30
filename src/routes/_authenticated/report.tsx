@@ -250,10 +250,18 @@ function lastFive(rows: Collection[]) {
     .reverse();
 }
 
-function TopPerformers({ rows }: { rows: Collection[] }) {
+function TopPerformers({
+  rows,
+  latestRows,
+  excludedLoanIds,
+}: {
+  rows: Collection[];
+  latestRows: Collection[];
+  excludedLoanIds: Set<string>;
+}) {
   const best = useMemo(() => topOverall(rows), [rows]);
   const daily = useMemo(() => dailyTop(rows), [rows]);
-  const latest = useMemo(() => lastFive(rows), [rows]);
+  const latest = useMemo(() => lastFive(latestRows), [latestRows]);
 
   return (
     <section className="mt-10 space-y-5">
@@ -319,7 +327,7 @@ function TopPerformers({ rows }: { rows: Collection[] }) {
                 className="flex items-center justify-between gap-3 rounded-xl border p-3"
               >
                 <div>
-                  <p className="text-base font-semibold">{r.loanId || "—"}</p>
+                  <p className={`text-base font-semibold ${excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase()) ? "text-orange-600" : ""}`}>{r.loanId || "—"}</p>
                   <p className="text-sm text-muted-foreground">
                     {r.executive} · {r.date}
                   </p>
@@ -682,7 +690,11 @@ function ReportPage() {
         </TabsContent>
       </Tabs>
 
-      <TopPerformers rows={rows.filter((r) => catOk(r.allocationCategory, category))} />
+      <TopPerformers
+        rows={rows.filter((r) => catOk(r.allocationCategory, category))}
+        latestRows={rawRows}
+        excludedLoanIds={excludedLoanIds}
+      />
     </main>
   );
 }
