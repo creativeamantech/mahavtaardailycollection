@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ADMIN_CREDENTIAL_KEY, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import { addExcludedLoanNumber, getExcludedLoanNumbers, removeExcludedLoanNumber } from "@/lib/excluded-loans.functions";
-import { verifySettingsPassword } from "@/lib/app-config.functions";
 import { ExcludedLoanBulkManager } from "@/components/ExcludedLoanBulkManager";
 
 export function ExcludedLoanManager() {
@@ -14,12 +14,9 @@ export function ExcludedLoanManager() {
   const getList = useServerFn(getExcludedLoanNumbers);
   const addLoan = useServerFn(addExcludedLoanNumber);
   const removeLoan = useServerFn(removeExcludedLoanNumber);
-  const verifyPassword = useServerFn(verifySettingsPassword);
   const [loanNumber, setLoanNumber] = useState("");
   const [reason, setReason] = useState("");
-  const [password, setPassword] = useState("");
-  const [adminCredential, setAdminCredential] = useState("");
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [adminUnlocked, setAdminUnlocked] = useState(() => typeof window !== "undefined" && sessionStorage.getItem(ADMIN_SESSION_KEY) === "1");
   const [busy, setBusy] = useState(false);
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ["excluded-loan-numbers"],
@@ -29,31 +26,12 @@ export function ExcludedLoanManager() {
   });
   const active = useMemo(() => data.filter((r) => r.status.toLowerCase() === "active"), [data]);
 
-  async function unlockAdmin() {
-    setBusy(true);
-    try {
-      const result = await verifyPassword({ data: { password } });
-      if (result.ok) {
-        setAdminUnlocked(true);
-        setAdminCredential(password);
-        setPassword("");
-        toast.success("Admin controls unlocked.");
-      } else {
-        toast.error("Incorrect admin password.");
-      }
-    } catch {
-      toast.error("Could not verify admin access.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function submitAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!loanNumber.trim()) return;
     setBusy(true);
     try {
-      await addLoan({ data: { loanNumber: loanNumber.trim(), reason: reason.trim(), adminPassword: adminCredential } });
+      await addLoan({ data: { loanNumber: loanNumber.trim(), reason: reason.trim(), adminPassword: sessionStorage.getItem(ADMIN_CREDENTIAL_KEY) ?? "" } });
       setLoanNumber("");
       setReason("");
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
@@ -70,7 +48,7 @@ export function ExcludedLoanManager() {
     if (!window.confirm(`Remove ${loan} from the exclusion list? Its eligible payments will count in reports again.`)) return;
     setBusy(true);
     try {
-      await removeLoan({ data: { loanNumber: loan, adminPassword: adminCredential } });
+      await removeLoan({ data: { loanNumber: loan, adminPassword: sessionStorage.getItem(ADMIN_CREDENTIAL_KEY) ?? "" } });
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       toast.success("Loan number removed from the active exclusion list.");
@@ -90,15 +68,7 @@ export function ExcludedLoanManager() {
         </p>
       </div>
 
-      {!adminUnlocked ? (
-        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void unlockAdmin(); }}>
-          <Label htmlFor="excluded-admin-password">Admin password to manage exclusions</Label>
-          <div className="flex gap-2">
-            <Input id="excluded-admin-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" className="h-11" />
-            <Button type="submit" disabled={busy || !password}>Unlock</Button>
-          </div>
-        </form>
-      ) : (
+      {adminUnlocked ? (
         <form className="grid gap-3 sm:grid-cols-2" onSubmit={submitAdd}>
           <div className="space-y-1">
             <Label htmlFor="excluded-loan-number">Loan Number</Label>
@@ -110,10 +80,9 @@ export function ExcludedLoanManager() {
           </div>
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             <Button type="submit" disabled={busy || !loanNumber.trim()}>{busy ? "Saving..." : "Add to Exclusion List"}</Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={() => { setAdminUnlocked(false); setAdminCredential(""); }}>Lock Admin Controls</Button>
           </div>
         </form>
-      )}
+      ) : <p className="text-sm text-muted-foreground">Admin unlock required. Open any Admin page and unlock once.</p>}
 
       <ExcludedLoanBulkManager />
 
