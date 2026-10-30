@@ -6,13 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ADMIN_CREDENTIAL_KEY, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import { addExcludedLoanNumbersBulk } from "@/lib/excluded-loans.functions";
 
-export function ExcludedLoanBulkManager() {
+export function ExcludedLoanBulkManager({ adminPassword, unlocked }: { adminPassword: string; unlocked: boolean }) {
   const qc = useQueryClient();
   const addBulk = useServerFn(addExcludedLoanNumbersBulk);
-  const [unlocked, setUnlocked] = useState(() => typeof window !== "undefined" && sessionStorage.getItem(ADMIN_SESSION_KEY) === "1");
   const [loanNumbers, setLoanNumbers] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,10 +24,10 @@ export function ExcludedLoanBulkManager() {
       {unlocked ? (
         <form className="space-y-3" onSubmit={async (e) => {
           e.preventDefault();
-          if (!loanNumbers.trim()) return;
+          if (!loanNumbers.trim() || !adminPassword) return;
           setBusy(true);
           try {
-            const result = await addBulk({ data: { loanNumbersText: loanNumbers, reason: reason.trim(), adminPassword: sessionStorage.getItem(ADMIN_CREDENTIAL_KEY) ?? "" } });
+            const result = await addBulk({ data: { loanNumbersText: loanNumbers, reason: reason.trim(), adminPassword } });
             setLoanNumbers("");
             await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
             await qc.invalidateQueries({ queryKey: ["collections"] });
@@ -50,7 +48,7 @@ export function ExcludedLoanBulkManager() {
             <Button type="submit" disabled={busy || !loanNumbers.trim()}>{busy ? "Processing…" : "Bulk Add to Exclusion List"}</Button>
           </div>
         </form>
-      ) : <p className="text-sm text-muted-foreground">Admin unlock required. Open any Admin page and unlock once.</p>}
+      ) : <p className="text-sm text-muted-foreground">Admin unlock required. Unlock above to manage exclusions.</p>}
     </section>
   );
 }
