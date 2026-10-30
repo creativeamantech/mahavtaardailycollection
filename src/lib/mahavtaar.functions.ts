@@ -345,8 +345,8 @@ export const getAdminReviewState = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
   .handler(async ({ data }) => {
     await assertProductivityAdmin(data.adminPassword);
-    const { ensureSheet, sheetsGet } = await import("./mahavtaar.server");
-    await ensureSheet(verificationAuditTab, verificationAuditHeader);
+    const { ensureSheetStrict, sheetsGet } = await import("./mahavtaar.server");
+    await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
     const rows = await sheetsGet(`${verificationAuditTab}!A2:G`);
     const latest = new Map<number, { verified: boolean; timestamp: string; note: string }>();
     for (const row of rows) {
@@ -377,9 +377,9 @@ export const saveAdminReviewEvents = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data }) => {
     await assertProductivityAdmin(data.adminPassword);
-    const { ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
+    const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
-    await ensureSheet(verificationAuditTab, verificationAuditHeader);
+    await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
     const timestamp = new Date().toISOString();
     await sheetsAppendStrict(`${verificationAuditTab}!A:G`, data.events.map((event) => [
       timestamp, "Admin", event.loanNumber, event.collectionRow, event.action, event.note, "Productivity Desk",
@@ -433,10 +433,10 @@ export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertProductivityAdmin(data.adminPassword);
     await persistCollectionRow(data.entry);
-    const { ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
+    const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
     try {
       requireGoogleSheetsWriteAccess();
-      await ensureSheet(verificationAuditTab, verificationAuditHeader);
+      await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
       await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
         new Date().toISOString(), "Admin", data.entry.loanId, data.entry.row,
         "ENTRY_EDITED", "Collection entry corrected from Productivity Desk", "Productivity Desk",
@@ -503,19 +503,24 @@ export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data }) => {
     await assertProductivityAdmin(data.adminPassword);
-    const { sheetsUpdateStrict, ensureSheet, requireGoogleSheetsWriteAccess, sheetsAppendStrict, invalidateSheetsCache } =
+    const { sheetsUpdateStrict, ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     const entry = (await readCollections()).find((item) => item.row === data.row);
     if (!entry) throw new Error("Collection entry not found or already deleted.");
     await sheetsUpdateStrict(`Collections!G${data.row}`, [["Deleted"]]);
-    await ensureSheet(verificationAuditTab, verificationAuditHeader);
-    await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
-      new Date().toISOString(), "Admin", entry.loanId, data.row, "ENTRY_DELETED",
-      "Soft-deleted from Productivity Desk", "Productivity Desk",
-    ]]);
     invalidateSheetsCache();
-    return { ok: true as const };
+    try {
+      await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
+      await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
+        new Date().toISOString(), "Admin", entry.loanId, data.row, "ENTRY_DELETED",
+        "Soft-deleted from Productivity Desk", "Productivity Desk",
+      ]]);
+      return { ok: true as const, auditSaved: true as const };
+    } catch (error) {
+      console.error("Entry soft-deleted but audit append failed:", error);
+      return { ok: true as const, auditSaved: false as const };
+    }
   });
 
 export const markConflictAsValid = createServerFn({ method: "POST" })
