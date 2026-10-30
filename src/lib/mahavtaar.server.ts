@@ -311,6 +311,36 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
   return { updates: { updatedRange: `${sheetTitle}!A${rowNum}:J${rowNum}` } };
 }
 
+export async function sheetsAppendStrict(range: string, values: (string | number)[][]) {
+  requireGoogleSheetsWriteAccess();
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    },
+  );
+  const result = await ok(res, "Strict Sheets append");
+  invalidateSheetsCache();
+  return result;
+}
+
+export async function sheetsUpdateStrict(range: string, values: (string | number)[][]) {
+  requireGoogleSheetsWriteAccess();
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
+    {
+      method: "PUT",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    },
+  );
+  const result = await ok(res, "Strict Sheets update");
+  invalidateSheetsCache();
+  return result;
+}
+
 export async function sheetsUpdate(range: string, values: (string | number)[][]) {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
