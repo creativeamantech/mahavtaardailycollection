@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordGate } from "@/components/PasswordGate";
+import { getAdminPasswordInMemory } from "@/lib/admin-session";
 import { addExcludedLoanNumber, getExcludedLoanNumbers, removeExcludedLoanNumber } from "@/lib/excluded-loans.functions";
 import { ExcludedLoanBulkManager } from "@/components/ExcludedLoanBulkManager";
 
@@ -16,8 +17,8 @@ export function ExcludedLoanManager() {
   const removeLoan = useServerFn(removeExcludedLoanNumber);
   const [loanNumber, setLoanNumber] = useState("");
   const [reason, setReason] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [adminPassword, setAdminPassword] = useState(() => getAdminPasswordInMemory());
+  const [adminUnlocked, setAdminUnlocked] = useState(() => Boolean(getAdminPasswordInMemory()));
   const [busy, setBusy] = useState(false);
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ["excluded-loan-numbers"],
