@@ -147,13 +147,13 @@ function AdminLoanAuditPage() {
   async function save(entry: Entry) {
     const d = { ...entry, ...drafts[entry.row] };
     try {
-      await saveRow({ data: {
+      await saveRow({ data: { adminPassword, entry: {
         row: d.row, executive: d.executive, loanId: d.loanId, amount: Number(d.amount),
         date: d.date, time: d.time || "", entryDate: d.entryDate || d.date,
         entryType: d.entryType === "Previous Paid File" ? "Previous Paid File" : "Normal",
         settlement: Boolean(d.settlement), settlementType: d.settlementType || (d.settlement ? "Settlement" : "No"),
         receiptLinks: d.receiptLinks || [], remark: d.remark || "", amansRemarks: d.amansRemarks || "",
-      }});
+      }}});
       await saveReviewEvents({ data: { adminPassword, events: [{
         loanNumber: d.loanId, collectionRow: entry.row, action: "ENTRY_EDITED",
         note: "Collection entry corrected from Productivity Desk",
