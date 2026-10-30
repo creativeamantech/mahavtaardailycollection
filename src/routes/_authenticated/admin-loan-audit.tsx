@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square, Trash2, CheckCircle2, ChevronLeft, ChevronRight, Layers, ShieldCheck } from "lucide-react";
+import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square, Trash2, CheckCircle2, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordGate, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import { getCollections, updateCollectionRow, deleteCollectionRow } from "@/lib/mahavtaar.functions";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/admin-loan-audit")({
-  head: () => [{ meta: [{ title: "Admin Loan Audit — Mahavtaar Daily Collection" }] }],
+  head: () => [{ meta: [{ title: "Productivity Desk — Mahavtaar Daily Collection" }] }],
   component: AdminLoanAuditPage,
 });
 
@@ -24,6 +24,7 @@ type Entry = {
 };
 
 const SESSION_KEY = ADMIN_SESSION_KEY;
+const REVIEW_KEY = "mahavtaar-productivity-review-v1";
 
 function receiptImage(url: string) {
   const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
@@ -42,7 +43,6 @@ function AdminLoanAuditPage() {
   const [drafts, setDrafts] = useState<Record<number, Partial<Entry>>>({});
   const [verifiedRows, setVerifiedRows] = useState<number[]>([]);
   const [activeLoanIndex, setActiveLoanIndex] = useState(0);
-  const REVIEW_KEY = "mahavtaar-productivity-review-v1";
 
   useEffect(() => {
     try { setVerifiedRows(JSON.parse(localStorage.getItem(REVIEW_KEY) || "[]")); } catch { setVerifiedRows([]); }
