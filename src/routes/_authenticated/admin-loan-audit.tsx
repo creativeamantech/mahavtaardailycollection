@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square, Trash2, CheckCircle2, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { PasswordGate, ADMIN_SESSION_KEY, ADMIN_CREDENTIAL_KEY } from "@/components/PasswordGate";
+import { PasswordGate } from "@/components/PasswordGate";
 import { getAdminCollections, getAdminReviewState, saveAdminReviewEvents, adminUpdateCollectionRow, deleteCollectionRow } from "@/lib/mahavtaar.functions";
 import { formatAmount } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,6 @@ type Entry = {
   receiptLinks?: string[]; remark?: string; amansRemarks?: string; city?: string; bucket?: string; portalUrl?: string;
 };
 
-const SESSION_KEY = ADMIN_SESSION_KEY;
 
 function receiptImage(url: string) {
   const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
@@ -51,11 +50,7 @@ function AdminLoanAuditPage() {
   const deleteRow = useServerFn(deleteCollectionRow);
   const qc = useQueryClient();
 
-  useEffect(() => {
-    const savedPassword = sessionStorage.getItem(ADMIN_CREDENTIAL_KEY) || "";
-    setAdminPassword(savedPassword);
-    setUnlocked(sessionStorage.getItem(SESSION_KEY) === "1" && savedPassword.length > 0);
-  }, []);
+
 
   const { data = [], isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
@@ -182,7 +177,7 @@ function AdminLoanAuditPage() {
 
   if (!unlocked) return <main className="mx-auto w-full max-w-md px-4 py-12">
     <div className="mb-5 flex items-center gap-3"><LockKeyhole className="h-7 w-7"/><div><h1 className="text-2xl font-bold">Productivity Desk</h1><p className="text-sm text-muted-foreground">Admin password required</p></div></div>
-    <PasswordGate label="Unlock Productivity Desk" onUnlock={() => { setAdminPassword(sessionStorage.getItem(ADMIN_CREDENTIAL_KEY) || ""); setUnlocked(true); }} />
+    <PasswordGate label="Unlock Productivity Desk" onUnlock={(password) => { setAdminPassword(password); setUnlocked(true); }} />
   </main>;
 
   return <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6">
