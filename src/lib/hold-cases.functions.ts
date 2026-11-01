@@ -6,7 +6,7 @@ const tab = "Hold_Cases";
 const header = ["Submitted At", "Executive Name", "Loan ID", "Hold Reason / Remarks", "Status", "Removed At"];
 
 function normaliseLoanId(value: string) {
-  return value.replace(/^['\`\\u2018\\u2019]+/, "").trim().toUpperCase();
+  return value.replace(/^['’‘\x60]+/, "").trim().toUpperCase();
 }
 
 async function ensureHoldTab() {
