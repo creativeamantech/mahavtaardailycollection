@@ -1,5 +1,7 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
+import { HoldCasesPanel } from "@/components/HoldCasesPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -389,6 +391,12 @@ function EntryPage() {
         Record a payment collected by an executive.
       </p>
 
+      <Tabs defaultValue="collection" className="mt-6 w-full">
+        <TabsList className="grid h-12 w-full grid-cols-2">
+          <TabsTrigger value="collection" className="text-sm sm:text-base">Collection Entry</TabsTrigger>
+          <TabsTrigger value="hold" className="text-sm sm:text-base">Hold Cases</TabsTrigger>
+        </TabsList>
+        <TabsContent value="collection">
       <div
         className={`mt-6 space-y-5 rounded-xl border p-4 ${
           conflicts.length > 0
@@ -712,6 +720,11 @@ function EntryPage() {
           View reports
         </Link>
       </div>
+        </TabsContent>
+        <TabsContent value="hold">
+          <HoldCasesPanel />
+        </TabsContent>
+      </Tabs>
 
       <Dialog
         open={showSettlementPrompt}
