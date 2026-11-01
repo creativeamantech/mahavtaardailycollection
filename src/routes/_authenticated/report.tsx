@@ -25,6 +25,7 @@ import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
 import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
+import { listActiveHoldCasesForReport } from "@/lib/hold-cases.functions";
 
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
@@ -417,8 +418,73 @@ function PreviousCard({ count, total }: { count: number; total: number }) {
   );
 }
 
+type HoldReportRow = {
+  row: number; executive: string; loanId: string; status: string; city: string; principalOutstanding: number;
+};
+
+function HoldCasesReport({ rows, isLoading, error }: { rows: HoldReportRow[]; isLoading: boolean; error: boolean }) {
+  const activeRows = rows.filter((r) => r.status.toLowerCase() === "active" && r.loanId);
+  const totalPrincipal = activeRows.reduce((sum, r) => sum + r.principalOutstanding, 0);
+  const cityGroups = useMemo(() => {
+    const map = new Map<string, { count: number; principal: number }>();
+    activeRows.forEach((r) => { const v = map.get(r.city) ?? { count: 0, principal: 0 }; v.count++; v.principal += r.principalOutstanding; map.set(r.city, v); });
+    return [...map.entries()].map(([city, v]) => ({ city, ...v })).sort((a, b) => b.count - a.count || a.city.localeCompare(b.city));
+  }, [activeRows]);
+  const executiveGroups = useMemo(() => {
+    const map = new Map<string, Map<string, { count: number; principal: number }>>();
+    activeRows.forEach((r) => { const cities = map.get(r.executive) ?? new Map<string, { count: number; principal: number }>(); const v = cities.get(r.city) ?? { count: 0, principal: 0 }; v.count++; v.principal += r.principalOutstanding; cities.set(r.city, v); map.set(r.executive, cities); });
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [activeRows]);
+  if (isLoading) return <p className="rounded-xl border p-6 text-center">Loading Hold Cases report…</p>;
+  if (error) return <p className="rounded-xl border p-6 text-center text-destructive">Could not load Hold Cases report. Please refresh and try again.</p>;
+  return <section className="space-y-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <StatCard label="Active Hold Cases" value={String(activeRows.length)} />
+      <StatCard label="Total Cities" value={String(cityGroups.length)} />
+      <StatCard label="Total Executives" value={String(executiveGroups.length)} />
+      <StatCard label="Principal Outstanding" value={formatAmount(totalPrincipal)} />
+    </div>
+    <Tabs defaultValue="executive" className="w-full">
+      <TabsList className="grid h-auto w-full grid-cols-3">
+        <TabsTrigger value="executive" className="whitespace-normal text-xs sm:text-sm">Executive-wise</TabsTrigger>
+        <TabsTrigger value="city" className="whitespace-normal text-xs sm:text-sm">City-wise</TabsTrigger>
+        <TabsTrigger value="overall" className="whitespace-normal text-xs sm:text-sm">Overall</TabsTrigger>
+      </TabsList>
+      <TabsContent value="executive" className="mt-4 space-y-3">
+        {executiveGroups.length === 0 ? <p className="rounded-xl border p-6 text-center">No active Hold Cases found.</p> : executiveGroups.map(([executive, cities]) => {
+          const items = [...cities.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+          const count = items.reduce((sum, [, v]) => sum + v.count, 0);
+          const principal = items.reduce((sum, [, v]) => sum + v.principal, 0);
+          return <div key={executive} className="overflow-hidden rounded-xl border">
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/50 p-3"><h3 className="font-semibold">{executive}</h3><span className="text-sm text-muted-foreground">{count} cases · {formatAmount(principal)}</span></div>
+            <div className="overflow-x-auto"><table className="w-full text-sm">
+              <thead><tr className="border-t text-muted-foreground"><th className="p-3 text-left">City</th><th className="p-3 text-right">Cases</th><th className="p-3 text-right">Principal Outstanding</th></tr></thead>
+              <tbody>{items.map(([city, v]) => <tr key={city} className="border-t"><td className="p-3">{city}</td><td className="p-3 text-right tabular-nums">{v.count}</td><td className="p-3 text-right font-medium tabular-nums">{formatAmount(v.principal)}</td></tr>)}
+              <tr className="border-t bg-muted/40 font-semibold"><td className="p-3">Executive Total</td><td className="p-3 text-right">{count}</td><td className="p-3 text-right">{formatAmount(principal)}</td></tr></tbody>
+            </table></div>
+          </div>;
+        })}
+      </TabsContent>
+      <TabsContent value="city" className="mt-4"><div className="overflow-x-auto rounded-xl border"><table className="w-full text-sm">
+        <thead className="bg-muted"><tr><th className="p-3 text-left">City</th><th className="p-3 text-right">Cases</th><th className="p-3 text-right">Principal Outstanding</th></tr></thead>
+        <tbody>{cityGroups.map((r) => <tr key={r.city} className="border-t"><td className="p-3">{r.city}</td><td className="p-3 text-right tabular-nums">{r.count}</td><td className="p-3 text-right font-medium tabular-nums">{formatAmount(r.principal)}</td></tr>)}
+          {cityGroups.length === 0 && <tr><td colSpan={3} className="p-6 text-center">No active Hold Cases found.</td></tr>}
+          <tr className="border-t-2 bg-muted/50 font-bold"><td className="p-3">TOTAL</td><td className="p-3 text-right">{activeRows.length}</td><td className="p-3 text-right">{formatAmount(totalPrincipal)}</td></tr></tbody>
+      </table></div></TabsContent>
+      <TabsContent value="overall" className="mt-4"><div className="overflow-hidden rounded-xl border"><table className="w-full text-sm"><tbody>
+        <tr className="border-b"><td className="p-3">Active Hold Cases</td><td className="p-3 text-right font-semibold">{activeRows.length}</td></tr>
+        <tr className="border-b"><td className="p-3">Total Cities</td><td className="p-3 text-right font-semibold">{cityGroups.length}</td></tr>
+        <tr className="border-b"><td className="p-3">Total Executives</td><td className="p-3 text-right font-semibold">{executiveGroups.length}</td></tr>
+        <tr className="bg-muted/50"><td className="p-3 font-bold">Total Principal Outstanding</td><td className="p-3 text-right text-base font-bold">{formatAmount(totalPrincipal)}</td></tr>
+      </tbody></table></div></TabsContent>
+    </Tabs>
+    <p className="text-xs text-muted-foreground">Only Active Hold Cases are included. Removed and Collected cases are excluded. Figures refresh from the Hold_Cases Google Sheet.</p>
+  </section>;
+}
+
 function ReportPage() {
   const fetchCollections = useServerFn(getCollections);
+  const fetchActiveHoldCases = useServerFn(listActiveHoldCasesForReport);
   const fetchExcludedLoans = useServerFn(getExcludedLoanNumbers);
   const { data: excludedLoanRecords = [] } = useQuery({
     queryKey: ["excluded-loan-numbers"],
@@ -453,6 +519,17 @@ function ReportPage() {
       return res;
     },
     refetchOnWindowFocus: true,
+  });
+
+  const { data: holdCaseRows = [], isLoading: holdCasesLoading, error: holdCasesError, refetch: refetchHoldCases } = useQuery({
+    queryKey: ["active-hold-cases-report"],
+    queryFn: async () => {
+      const result = await fetchActiveHoldCases();
+      if (!Array.isArray(result)) throw new Error("Unable to load Hold Cases");
+      return result as HoldReportRow[];
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const [from, setFrom] = useState(todayISO());
@@ -628,13 +705,14 @@ function ReportPage() {
       )}
 
       <Tabs defaultValue="datewise" className="mt-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="datewise" className="text-base">
             Date-wise
           </TabsTrigger>
           <TabsTrigger value="overall" className="text-base">
             Overall
           </TabsTrigger>
+          <TabsTrigger value="holdcases" className="text-base">Hold Cases</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datewise" className="mt-4 space-y-4">
@@ -687,6 +765,10 @@ function ReportPage() {
             label={month}
             onExportSync={syncHighlight}
           />
+        </TabsContent>
+        <TabsContent value="holdcases" className="mt-4 space-y-4">
+          <div className="flex justify-end"><Button variant="outline" onClick={() => refetchHoldCases()} disabled={holdCasesLoading}>Refresh Hold Cases</Button></div>
+          <HoldCasesReport rows={holdCaseRows} isLoading={holdCasesLoading} error={Boolean(holdCasesError)} />
         </TabsContent>
       </Tabs>
 
