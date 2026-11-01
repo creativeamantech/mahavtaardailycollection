@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EXECUTIVES } from "@/lib/executives";
-import { submitHoldCases } from "@/lib/hold-cases.functions";
+import { listActiveHoldCases, removeHoldCases, submitHoldCases } from "@/lib/hold-cases.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -15,8 +16,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type ActiveHoldCase = {
+  row: number;
+  submittedAt: string;
+  executive: string;
+  loanId: string;
+  remarks: string;
+  status: string;
+};
+
 function normaliseLoanId(value: string) {
-  return value.replace(/^['`\u2018\u2019]+/, "").trim().toUpperCase();
+  return value.replace(/^['\`\\u2018\\u2019]+/, "").trim().toUpperCase();
 }
 
 export function HoldCasesPanel() {
@@ -24,7 +34,12 @@ export function HoldCasesPanel() {
   const [loanIdsText, setLoanIdsText] = useState("");
   const [remarks, setRemarks] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loadingCases, setLoadingCases] = useState(false);
+  const [activeCases, setActiveCases] = useState<ActiveHoldCase[]>([]);
+  const [selectedToRemove, setSelectedToRemove] = useState<string[]>([]);
   const submit = useServerFn(submitHoldCases);
+  const loadCases = useServerFn(listActiveHoldCases);
+  const removeCases = useServerFn(removeHoldCases);
 
   const loanIds = useMemo(() => {
     const raw = loanIdsText.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean);
@@ -36,6 +51,24 @@ export function HoldCasesPanel() {
       return true;
     });
   }, [loanIdsText]);
+
+  async function loadMyHoldCases() {
+    if (!executive) {
+      toast.error("Please select your executive name first.");
+      return;
+    }
+    setLoadingCases(true);
+    try {
+      const result = await loadCases({ data: { executive: executive as (typeof EXECUTIVES)[number] } });
+      setActiveCases(result as ActiveHoldCase[]);
+      setSelectedToRemove([]);
+      if (result.length === 0) toast.info("No active Hold Cases found for this executive.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load Hold Cases.");
+    } finally {
+      setLoadingCases(false);
+    }
+  }
 
   async function handleSubmit() {
     if (!executive) {
@@ -52,17 +85,12 @@ export function HoldCasesPanel() {
       const result = await submit({
         data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim() },
       });
-      if (result.savedCount > 0) {
-        toast.success(`${result.savedCount} Hold Case(s) submitted successfully.`);
-      }
-      if (result.duplicateCount > 0) {
-        toast.warning(`${result.duplicateCount} duplicate/already-held Loan ID(s) skipped.`);
-      }
-      if (result.savedCount === 0 && result.duplicateCount > 0) {
-        toast.info("No new Hold Cases were added.");
-      }
+      if (result.savedCount > 0) toast.success(result.savedCount + " Hold Case(s) submitted successfully.");
+      if (result.duplicateCount > 0) toast.warning(result.duplicateCount + " duplicate/already-held Loan ID(s) skipped.");
+      if (result.savedCount === 0 && result.duplicateCount > 0) toast.info("No new Hold Cases were added.");
       setLoanIdsText("");
       setRemarks("");
+      if (executive) await loadMyHoldCases();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not submit Hold Cases.");
     } finally {
@@ -70,11 +98,45 @@ export function HoldCasesPanel() {
     }
   }
 
+  async function handleRemoveSelected() {
+    if (!executive || selectedToRemove.length === 0) return;
+    setSaving(true);
+    try {
+      const result = await removeCases({
+        data: {
+          executive: executive as (typeof EXECUTIVES)[number],
+          loanIds: selectedToRemove,
+        },
+      });
+      toast.success(result.removedCount + " Hold Case(s) removed.");
+      await loadMyHoldCases();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove Hold Cases.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleSelected(loanId: string, checked: boolean) {
+    setSelectedToRemove((current) =>
+      checked
+        ? [...current.filter((id) => normaliseLoanId(id) !== normaliseLoanId(loanId)), loanId]
+        : current.filter((id) => normaliseLoanId(id) !== normaliseLoanId(loanId)),
+    );
+  }
+
   return (
-    <section className="mt-6 space-y-5 rounded-xl border p-4">
+    <section className="mt-6 space-y-6 rounded-xl border p-4">
       <div className="space-y-2">
         <Label className="text-base">Executive Name</Label>
-        <Select value={executive} onValueChange={setExecutive}>
+        <Select
+          value={executive}
+          onValueChange={(value) => {
+            setExecutive(value);
+            setActiveCases([]);
+            setSelectedToRemove([]);
+          }}
+        >
           <SelectTrigger className="h-12 text-base">
             <SelectValue placeholder="Select executive" />
           </SelectTrigger>
@@ -87,6 +149,7 @@ export function HoldCasesPanel() {
       </div>
 
       <div className="space-y-2">
+        <h3 className="text-lg font-semibold">Add Hold Cases</h3>
         <Label className="text-base" htmlFor="holdLoanIds">Loan IDs (Bulk Entry)</Label>
         <Textarea
           id="holdLoanIds"
@@ -117,6 +180,60 @@ export function HoldCasesPanel() {
       <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={saving || !executive || loanIds.length === 0}>
         {saving ? "Submitting..." : "Submit Hold Cases"}
       </Button>
+
+      <div className="border-t pt-5 space-y-3">
+        <div>
+          <h3 className="text-lg font-semibold">Remove Hold Cases</h3>
+          <p className="text-sm text-muted-foreground">
+            Select your executive name above, load your active cases, then choose the cases to remove.
+          </p>
+        </div>
+        <Button type="button" variant="outline" className="w-full h-11" onClick={loadMyHoldCases} disabled={!executive || loadingCases || saving}>
+          {loadingCases ? "Loading..." : "Load My Active Hold Cases"}
+        </Button>
+        {activeCases.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">{activeCases.length} active case(s)</span>
+              <button
+                type="button"
+                className="text-primary underline"
+                onClick={() => setSelectedToRemove(selectedToRemove.length === activeCases.length ? [] : activeCases.map((item) => item.loanId))}
+              >
+                {selectedToRemove.length === activeCases.length ? "Clear selection" : "Select all"}
+              </button>
+            </div>
+            <ul className="max-h-72 space-y-2 overflow-y-auto rounded-lg border p-3">
+              {activeCases.map((item) => (
+                <li key={item.row} className="flex items-start gap-3 border-b pb-2 last:border-0">
+                  <Checkbox
+                    checked={selectedToRemove.some((id) => normaliseLoanId(id) === normaliseLoanId(item.loanId))}
+                    onCheckedChange={(checked) => toggleSelected(item.loanId, checked === true)}
+                    aria-label={"Select Loan ID " + item.loanId + " for removal"}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold break-all">{item.loanId}</p>
+                    {item.remarks && <p className="text-sm text-muted-foreground">{item.remarks}</p>}
+                    <p className="text-xs text-muted-foreground">Added: {item.submittedAt || "—"}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-12 w-full"
+              onClick={handleRemoveSelected}
+              disabled={saving || selectedToRemove.length === 0}
+            >
+              {saving ? "Processing..." : "Remove Selected (" + selectedToRemove.length + ")"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Removed cases remain in the Google Sheet history with a Removed status and timestamp.
+            </p>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
