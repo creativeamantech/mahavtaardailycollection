@@ -137,3 +137,42 @@ export const removeHoldCases = createServerFn({ method: "POST" })
     }
     return { ok: true as const, removedCount: removedLoanIds.length, removedLoanIds };
   });
+
+// Called only after a collection entry has been successfully appended.
+// Matching active holds are closed as Collected, regardless of the executive,
+// so the loan disappears from every executive's active Hold Cases list.
+export async function removeMatchingHoldCasesAfterCollection(loanId: string) {
+  const targetId = normaliseLoanId(loanId);
+  if (!targetId) return { collectedCount: 0 };
+
+  const {
+    requireGoogleSheetsWriteAccess,
+    sheetsGet,
+    sheetsBatchUpdateValuesStrict,
+    invalidateSheetsCache,
+  } = await import("./mahavtaar.server");
+  requireGoogleSheetsWriteAccess();
+  await ensureHoldTab();
+
+  const rows = await sheetsGet("Hold_Cases!A2:F");
+  const updates: { range: string; values: (string | number)[][] }[] = [];
+  for (let index = 0; index < (rows ?? []).length; index++) {
+    const row = rows[index]!;
+    const existingId = normaliseLoanId(String(row[2] ?? ""));
+    const status = String(row[4] ?? "").trim() || "Active";
+    if (existingId === targetId && status.toLowerCase() === "active") {
+      const sheetRow = index + 2;
+      updates.push({
+        range: `Hold_Cases!E${sheetRow}:F${sheetRow}`,
+        values: [["Collected", new Date().toISOString()]],
+      });
+    }
+  }
+
+  if (updates.length > 0) {
+    await sheetsBatchUpdateValuesStrict(updates);
+    invalidateSheetsCache();
+  }
+  return { collectedCount: updates.length };
+}
+
