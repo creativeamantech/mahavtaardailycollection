@@ -121,7 +121,18 @@ export const saveCollection = createServerFn({ method: "POST" })
         await sheetsUpdate(`Collections!S${rowNum}`, [[data.amansRemarks]]);
       }
     }
-    return { ok: true as const, row: rowNum };
+    // Once the collection row is safely saved, close any matching active Hold Case.
+    // This is intentionally best-effort: a Hold tab issue must not report a saved
+    // collection as failed or encourage the executive to submit the payment twice.
+    let holdCasesRemoved = 0;
+    try {
+      const { removeMatchingHoldCasesAfterCollection } = await import("./hold-cases.functions");
+      const result = await removeMatchingHoldCasesAfterCollection(data.loanId);
+      holdCasesRemoved = result.collectedCount;
+    } catch (error) {
+      console.error("Collection saved, but matching Hold Case could not be closed:", error);
+    }
+    return { ok: true as const, row: rowNum, holdCasesRemoved };
   });
 
 // Marks conflicting Collections rows with a red background so the conflict is
