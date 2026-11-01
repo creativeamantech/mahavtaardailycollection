@@ -26,7 +26,7 @@ type ActiveHoldCase = {
 };
 
 function normaliseLoanId(value: string) {
-  return value.replace(/^['\`\\u2018\\u2019]+/, "").trim().toUpperCase();
+  return value.replace(/^['’‘\x60]+/, "").trim().toUpperCase();
 }
 
 export function HoldCasesPanel() {
