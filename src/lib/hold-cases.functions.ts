@@ -70,6 +70,23 @@ export const submitHoldCases = createServerFn({ method: "POST" })
     };
   });
 
+export const listActiveHoldCasesForReport = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const { sheetsGet } = await import("./mahavtaar.server");
+    await ensureHoldTab();
+    const rows = await sheetsGet("Hold_Cases!A2:I");
+    return (rows ?? [])
+      .map((row, index) => ({
+        row: index + 2,
+        executive: String(row[1] ?? "").trim(),
+        loanId: String(row[2] ?? "").trim(),
+        status: String(row[4] ?? "").trim() || "Active",
+        city: String(row[7] ?? "").trim() || "Unmapped",
+        principalOutstanding: Number(String(row[8] ?? "").replace(/[,₹\\s]/g, "")) || 0,
+      }))
+      .filter((item) => item.loanId !== "" && item.status.toLowerCase() === "active");
+  });
+
 const executiveSchema = z.object({ executive: z.enum(executives) });
 
 export const listActiveHoldCases = createServerFn({ method: "POST" })
