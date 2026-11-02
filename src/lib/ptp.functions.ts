@@ -5,6 +5,34 @@ const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "V
 const tab = "PTPs";
 const header = ["Submitted At", "Executive Name", "Loan ID", "Promise Date", "Promise Amount", "Remarks", "Status", "Removed At"];
 
+export async function loadLoanCaseIndex() {
+  const { sheetsGet } = await import("./mahavtaar.server");
+  const [collections, holds, ptps] = await Promise.all([
+    sheetsGet("Collections!A2:G"),
+    sheetsGet("Hold_Cases!A2:F"),
+    sheetsGet("PTPs!A2:H"),
+  ]);
+  const paid = new Set<string>();
+  const held = new Set<string>();
+  const promised = new Set<string>();
+  for (const row of collections ?? []) {
+    const id = normaliseLoanId(String(row[1] ?? ""));
+    const status = String(row[6] ?? "").trim().toUpperCase();
+    if (id && status !== "DELETED") paid.add(id);
+  }
+  for (const row of holds ?? []) {
+    const id = normaliseLoanId(String(row[2] ?? ""));
+    const status = String(row[4] ?? "").trim().toLowerCase() || "active";
+    if (id && status === "active") held.add(id);
+  }
+  for (const row of ptps ?? []) {
+    const id = normaliseLoanId(String(row[2] ?? ""));
+    const status = String(row[6] ?? "").trim().toLowerCase() || "active";
+    if (id && status === "active") promised.add(id);
+  }
+  return { paid, held, promised };
+}
+
 function normaliseLoanId(value: string) {
   return value.replace(/^['’‘\x60]+/, "").trim().toUpperCase();
 }
@@ -31,13 +59,14 @@ export const submitPTPs = createServerFn({ method: "POST" })
     requireGoogleSheetsWriteAccess();
     await ensurePTPTab();
     const rows = await sheetsGet("PTPs!A2:H");
+    const caseIndex = await loadLoanCaseIndex();
     const active = new Set((rows ?? []).filter(r => !String(r[6] ?? "").trim() || String(r[6]).trim().toLowerCase() === "active").map(r => normaliseLoanId(String(r[2] ?? ""))).filter(Boolean));
     const seen = new Set<string>();
     const fresh: string[] = [];
     let duplicateCount = 0;
     for (const raw of data.loanIds) {
       const id = normaliseLoanId(raw);
-      if (!id || seen.has(id) || active.has(id)) { duplicateCount++; continue; }
+      if (!id || seen.has(id) || active.has(id) || caseIndex.paid.has(id) || caseIndex.held.has(id)) { duplicateCount++; continue; }
       seen.add(id); fresh.push(raw.trim());
     }
     if (fresh.length) {
@@ -74,16 +103,19 @@ export const removePTPs = createServerFn({ method: "POST" })
     await ensurePTPTab();
     const rows = await sheetsGet("PTPs!A2:H");
     const requested = new Set(data.loanIds.map(normaliseLoanId));
+    const caseIndex = await loadLoanCaseIndex();
+    const paidRequested = new Set([...requested].filter(id => caseIndex.paid.has(id)));
     const updates: { range: string; values: (string | number)[][] }[] = [];
     for (let i = 0; i < (rows ?? []).length; i++) {
       const r = rows[i]!;
-      if (String(r[1] ?? "").trim() === data.executive && requested.has(normaliseLoanId(String(r[2] ?? ""))) && (String(r[6] ?? "").trim() || "Active").toLowerCase() === "active") {
+      const id = normaliseLoanId(String(r[2] ?? ""));
+      if (String(r[1] ?? "").trim() === data.executive && requested.has(id) && !caseIndex.paid.has(id) && (String(r[6] ?? "").trim() || "Active").toLowerCase() === "active") {
         const row = i + 2;
         updates.push({ range: `PTPs!G${row}:H${row}`, values: [["Removed", new Date().toISOString()]] });
       }
     }
     if (updates.length) { await sheetsBatchUpdateValuesStrict(updates); invalidateSheetsCache(); }
-    return { ok: true as const, removedCount: updates.length };
+    return { ok: true as const, removedCount: updates.length, skippedPaidCount: paidRequested.size };
   });
 
 export const listActivePTPsForReport = createServerFn({ method: "POST" })
