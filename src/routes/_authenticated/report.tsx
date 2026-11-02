@@ -790,15 +790,16 @@ function ReportPage() {
         </p>
       )}
 
-      <Tabs defaultValue="datewise" className="mt-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="datewise" className="text-base">
+      <Tabs defaultValue="datewise" className="mt-6 w-full min-w-0">
+        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4">
+          <TabsTrigger value="datewise" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">
             Date-wise
           </TabsTrigger>
-          <TabsTrigger value="overall" className="text-base">
+          <TabsTrigger value="overall" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">
             Overall
           </TabsTrigger>
-          <TabsTrigger value="holdcases" className="text-base">Hold Cases</TabsTrigger><TabsTrigger value="paid-hold" className="text-base">Paid &amp; Hold</TabsTrigger>
+          <TabsTrigger value="holdcases" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">Hold Cases</TabsTrigger>
+          <TabsTrigger value="paid-hold" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">Paid &amp; Hold</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datewise" className="mt-4 space-y-4">
