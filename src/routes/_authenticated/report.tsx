@@ -26,6 +26,7 @@ import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/expor
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
 import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 import { listActiveHoldCasesForReport } from "@/lib/hold-cases.functions";
+import { listActivePTPsForReport } from "@/lib/ptp.functions";
 
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
@@ -568,9 +569,83 @@ function PaidHoldAnalysis({ paidRows, holdRows, isLoading, error }: {
   </section>;
 }
 
+
+type PTPReportRow = { row: number; submittedAt: string; executive: string; loanId: string; promiseDate: string; promiseAmount: number; remarks: string; status: string };
+
+function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow[]; collections: Collection[]; isLoading: boolean; error: boolean }) {
+  const [view, setView] = useState("overall");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const collectionByLoan = useMemo(() => {
+    const map = new Map<string, Collection>();
+    collections.forEach(r => { const id = String(r.loanId ?? "").trim().toUpperCase(); if (id && !map.has(id)) map.set(id, r); });
+    return map;
+  }, [collections]);
+  const filtered = useMemo(() => rows.filter(r => (!from || r.promiseDate >= from) && (!to || r.promiseDate <= to)), [rows, from, to]);
+  const stats = useMemo(() => {
+    const map = new Map<string, { count: number; amount: number }>();
+    filtered.forEach(r => { const status = r.status || "Active"; const v = map.get(status) ?? { count: 0, amount: 0 }; v.count++; v.amount += r.promiseAmount; map.set(status, v); });
+    return [...map.entries()].map(([status, v]) => ({ status, ...v }));
+  }, [filtered]);
+  const pie = stats.filter(s => s.count > 0).map(s => ({ name: s.status, value: s.count }));
+  const groups = useMemo(() => {
+    const map = new Map<string, Map<string, { count: number; amount: number; active: number; kept: number; removed: number }>>();
+    filtered.forEach(r => {
+      const col = collectionByLoan.get(r.loanId.trim().toUpperCase());
+      const city = col?.city || "Unmapped";
+      const owner = view === "executive" ? r.executive : view === "city" ? city : "Overall";
+      const cities = map.get(owner) ?? new Map();
+      const v = cities.get(city) ?? { count: 0, amount: 0, active: 0, kept: 0, removed: 0 };
+      v.count++; v.amount += r.promiseAmount;
+      if (r.status.toLowerCase() === "active") v.active++;
+      if (r.status.toLowerCase() === "kept") v.kept++;
+      if (r.status.toLowerCase() === "removed") v.removed++;
+      cities.set(city, v); map.set(owner, cities);
+    });
+    return [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  }, [filtered, collectionByLoan, view]);
+  if (isLoading) return <p className="rounded-xl border p-6 text-center">Loading PTP report…</p>;
+  if (error) return <p className="rounded-xl border p-6 text-center text-destructive">Could not load PTP report. Please refresh.</p>;
+  return <section className="space-y-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <StatCard label="Total PTPs" value={String(filtered.length)} />
+      <StatCard label="Pending" value={String(filtered.filter(r=>r.status.toLowerCase()==="active").length)} />
+      <StatCard label="Kept" value={String(filtered.filter(r=>r.status.toLowerCase()==="kept").length)} />
+      <StatCard label="Promised Amount" value={formatAmount(filtered.reduce((n,r)=>n+r.promiseAmount,0))} />
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-1"><Label>Promise Date From</Label><Input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="h-11"/></div>
+      <div className="space-y-1"><Label>To</Label><Input type="date" value={to} onChange={e=>setTo(e.target.value)} className="h-11"/></div>
+    </div>
+    {pie.length > 0 && <div className="h-64 rounded-xl border p-3"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label>{pie.map(s=><Cell key={s.name}/>)}</Pie><Tooltip/><Legend/></PieChart></ResponsiveContainer></div>}
+    <Tabs value={view} onValueChange={setView} className="w-full">
+      <TabsList className="grid h-auto w-full grid-cols-3"><TabsTrigger value="overall">Overall</TabsTrigger><TabsTrigger value="executive">Executive-wise</TabsTrigger><TabsTrigger value="city">City-wise</TabsTrigger></TabsList>
+      <TabsContent value={view} className="mt-3 space-y-3">
+        {groups.map(([name,cities]) => {
+          const items=[...cities.entries()];
+          const total=items.reduce((n,[,v])=>n+v.count,0);
+          const amount=items.reduce((n,[,v])=>n+v.amount,0);
+          return <div key={name} className="overflow-hidden rounded-xl border">
+            <div className="flex flex-wrap justify-between gap-2 bg-muted/50 p-3"><strong>{name}</strong><span className="text-sm">{total} PTPs · {formatAmount(amount)}</span></div>
+            <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-muted-foreground"><th className="p-2 text-left">City</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Pending</th><th className="p-2 text-right">Kept</th><th className="p-2 text-right">Removed</th><th className="p-2 text-right">Promised</th></tr></thead><tbody>
+              {items.map(([city,v])=><tr key={city} className="border-t"><td className="p-2">{city}</td><td className="p-2 text-right">{v.count}</td><td className="p-2 text-right">{v.active}</td><td className="p-2 text-right">{v.kept}</td><td className="p-2 text-right">{v.removed}</td><td className="p-2 text-right">{formatAmount(v.amount)}</td></tr>)}
+            </tbody></table></div>
+          </div>;
+        })}
+        {filtered.length===0 && <p className="rounded-xl border p-6 text-center">No PTP records found for this date range.</p>}
+      </TabsContent>
+    </Tabs>
+    <div className="overflow-x-auto rounded-xl border"><table className="w-full text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">Loan ID</th><th className="p-2 text-left">Executive</th><th className="p-2 text-left">Promise Date</th><th className="p-2 text-right">Amount</th><th className="p-2 text-left">Status</th></tr></thead><tbody>
+      {filtered.map(r=><tr key={r.row} className="border-t"><td className="p-2 font-medium">{r.loanId}</td><td className="p-2">{r.executive}</td><td className="p-2">{r.promiseDate}</td><td className="p-2 text-right">{formatAmount(r.promiseAmount)}</td><td className="p-2">{r.status}</td></tr>)}
+    </tbody></table></div>
+    <p className="text-xs text-muted-foreground">PTPs remain Pending until collection marks them Kept or the executive removes them. Removed records remain in history.</p>
+  </section>;
+}
+
 function ReportPage() {
   const fetchCollections = useServerFn(getCollections);
   const fetchActiveHoldCases = useServerFn(listActiveHoldCasesForReport);
+  const fetchPTPs = useServerFn(listActivePTPsForReport);
   const fetchExcludedLoans = useServerFn(getExcludedLoanNumbers);
   const { data: excludedLoanRecords = [] } = useQuery({
     queryKey: ["excluded-loan-numbers"],
@@ -613,6 +688,17 @@ function ReportPage() {
       const result = await fetchActiveHoldCases();
       if (!Array.isArray(result)) throw new Error("Unable to load Hold Cases");
       return result as HoldReportRow[];
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+
+  const { data: ptpRows = [], isLoading: ptpsLoading, error: ptpsError, refetch: refetchPTPs } = useQuery({
+    queryKey: ["ptps-report"],
+    queryFn: async () => {
+      const result = await fetchPTPs();
+      if (!Array.isArray(result)) throw new Error("Unable to load PTPs");
+      return result as PTPReportRow[];
     },
     refetchOnWindowFocus: true,
     staleTime: 0,
@@ -799,7 +885,7 @@ function ReportPage() {
             Overall
           </TabsTrigger>
           <TabsTrigger value="holdcases" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">Hold Cases</TabsTrigger>
-          <TabsTrigger value="paid-hold" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">Paid &amp; Hold</TabsTrigger>
+          <TabsTrigger value="paid-hold" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">Paid &amp; Hold</TabsTrigger>\n          <TabsTrigger value="ptps" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">PTPs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datewise" className="mt-4 space-y-4">
@@ -857,7 +943,7 @@ function ReportPage() {
           <div className="flex justify-end"><Button variant="outline" onClick={() => refetchHoldCases()} disabled={holdCasesLoading}>Refresh Hold Cases</Button></div>
           <HoldCasesReport rows={holdCaseRows} isLoading={holdCasesLoading} error={Boolean(holdCasesError)} />
         </TabsContent>
-        <TabsContent value="paid-hold" className="mt-4 space-y-4">
+        <TabsContent value="ptps" className="mt-4 space-y-4">\n          <div className="flex justify-end"><Button variant="outline" onClick={() => void refetchPTPs()} disabled={ptpsLoading}>Refresh PTPs</Button></div>\n          <PTPReport rows={ptpRows} collections={rawRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />\n        </TabsContent>\n        <TabsContent value="paid-hold" className="mt-4 space-y-4">
           <div className="flex justify-end"><Button variant="outline" onClick={() => { void refetch(); void refetchHoldCases(); }} disabled={isFetching || holdCasesLoading}>Refresh Paid &amp; Hold</Button></div>
           <PaidHoldAnalysis paidRows={rows} holdRows={holdCaseRows} isLoading={isLoading || holdCasesLoading} error={Boolean(error || holdCasesError)} />
         </TabsContent>
