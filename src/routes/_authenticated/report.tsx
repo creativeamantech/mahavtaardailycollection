@@ -877,7 +877,7 @@ function ReportPage() {
       )}
 
       <Tabs defaultValue="datewise" className="mt-6 w-full min-w-0">
-        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4">
+        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-5">
           <TabsTrigger value="datewise" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">
             Date-wise
           </TabsTrigger>
