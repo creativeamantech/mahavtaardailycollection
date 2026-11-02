@@ -22,8 +22,6 @@ const submitSchema = z.object({
   executive: z.enum(executives),
   loanIds: z.array(z.string().trim().min(1).max(60)).min(1).max(1000),
   remarks: z.string().trim().max(300).optional().default(""),
-  promiseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  promiseAmount: z.number().positive().finite(),
 });
 
 export const submitPTPs = createServerFn({ method: "POST" })
@@ -44,7 +42,7 @@ export const submitPTPs = createServerFn({ method: "POST" })
     }
     if (fresh.length) {
       const stamp = new Date().toISOString();
-      await sheetsAppendStrict("PTPs!A:H", fresh.map(loanId => [stamp, data.executive, loanId, data.promiseDate, data.promiseAmount, data.remarks, "Active", ""]));
+      await sheetsAppendStrict("PTPs!A:H", fresh.map(loanId => [stamp, data.executive, loanId, "", "", data.remarks, "Active", ""]));
       invalidateSheetsCache();
     }
     return { ok: true as const, savedCount: fresh.length, duplicateCount };
