@@ -127,6 +127,10 @@ type Row = {
 type Collection = {
   executive: string;
   loanId?: string;
+  actualId?: string;
+  linkedName?: string;
+  portalUrl?: string;
+  status?: string;
   amount: number;
   date: string;
   time?: string;
@@ -421,7 +425,8 @@ function PreviousCard({ count, total }: { count: number; total: number }) {
 }
 
 type HoldReportRow = {
-  row: number; executive: string; loanId: string; status: string; city: string; principalOutstanding: number;
+  row: number; submittedAt: string; executive: string; loanId: string; actualId: string;
+  remarks: string; status: string; removedAt: string; city: string; principalOutstanding: number;
 };
 
 function HoldCasesReport({ rows, isLoading, error }: { rows: HoldReportRow[]; isLoading: boolean; error: boolean }) {
@@ -487,10 +492,31 @@ function HoldCasesReport({ rows, isLoading, error }: { rows: HoldReportRow[]; is
 
 type PTPReportRow = { row: number; submittedAt: string; executive: string; loanId: string; actualId?: string; remarks: string; status: string; city?: string; principalOutstanding?: number };
 
-function PaidHoldAnalysis({ paidRows, holdRows, ptpRows, isLoading, error }: {
-  paidRows: Collection[]; holdRows: HoldReportRow[]; ptpRows: PTPReportRow[]; isLoading: boolean; error: boolean;
+function downloadDetailCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+  const quote = (value: string | number) => '"' + String(value ?? "").replace(/"/g, '""') + '"';
+  const csv = "\\uFEFF" + [headers, ...rows].map((row) => row.map(quote).join(",")).join("\\r\\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url; anchor.download = filename; anchor.style.display = "none";
+  document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+}
+
+function PaidHoldAnalysis({ paidRows, allPaidRows, holdRows, ptpRows, isLoading, error }: {
+  paidRows: Collection[]; allPaidRows: Collection[]; holdRows: HoldReportRow[]; ptpRows: PTPReportRow[]; isLoading: boolean; error: boolean;
 }) {
   const [includePTPs, setIncludePTPs] = useState(true);
+  const activeHoldRows = holdRows.filter((r) => r.status.toLowerCase() === "active" && r.loanId);
+  function downloadPaidDetails() {
+    const headers = ["Collection Row","Executive","Loan ID","Actual ID","Customer / Linked Name","Portal URL","Amount","Payment Date","Payment Time","Entry Date","Entry Type","Status","Settlement Type","Bucket","City","EMI Amount","Principal Outstanding","Approx Foreclosure","Allocation Category","Allocation Date","Already Paid","Receipt Links","Remarks","Admin Remarks","Created At"];
+    const rows = allPaidRows.map((r) => [r.row ?? "",r.executive,r.loanId ?? "",r.actualId ?? "",r.linkedName ?? "",r.portalUrl ?? "",r.amount,r.date,r.time ?? "",r.entryDate ?? "",r.entryType ?? "",r.status ?? "",r.settlementType ?? "",r.bucket ?? "",r.city ?? "",r.emiAmount ?? "",r.pos ?? "",r.foreclosure ?? "",r.allocationCategory ?? "",r.allocationDate ?? "",r.alreadyPaid ? "Yes" : "No",(r.receiptLinks ?? []).join(" | "),r.remark ?? "",r.amansRemarks ?? "",r.createdAt ?? ""]);
+    downloadDetailCsv("Mahavtaar_Paid_Complete_Details.csv", headers, rows);
+  }
+  function downloadActiveHoldDetails() {
+    const headers = ["Hold Sheet Row","Submitted At","Executive","Loan ID","Actual ID","Hold Reason / Remarks","Status","Removed At","City","Principal Outstanding"];
+    const rows = activeHoldRows.map((r) => [r.row,r.submittedAt,r.executive,r.loanId,r.actualId,r.remarks,r.status,r.removedAt,r.city,r.principalOutstanding]);
+    downloadDetailCsv("Mahavtaar_Active_Hold_Complete_Details.csv", headers, rows);
+  }
   const cityStats = useMemo(() => {
     const map = new Map<string, { city: string; paidCount: number; paidPos: number; holdCount: number; holdPos: number; ptpCount: number; ptpPos: number }>();
     const get = (city: string) => {
@@ -567,6 +593,10 @@ function PaidHoldAnalysis({ paidRows, holdRows, ptpRows, isLoading, error }: {
   if (isLoading) return <p className="rounded-xl border p-6 text-center">Loading Paid &amp; Hold analysis…</p>;
   if (error) return <p className="rounded-xl border p-6 text-center text-destructive">Could not load the combined report. Please refresh.</p>;
   return <section className="space-y-5">
+    <div className="flex flex-wrap gap-2">
+      <Button type="button" variant="outline" onClick={downloadPaidDetails} disabled={allPaidRows.length === 0}><Download className="mr-2 size-4" />Download Paid Complete Details ({allPaidRows.length})</Button>
+      <Button type="button" variant="outline" onClick={downloadActiveHoldDetails} disabled={activeHoldRows.length === 0}><Download className="mr-2 size-4" />Download Active Hold Complete Details ({activeHoldRows.length})</Button>
+    </div>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
       <div><p className="font-semibold">Include PTPs in this report</p><p className="text-xs text-muted-foreground">OFF करने पर PTP count और POS सभी totals और breakdown से हटेंगे। Original PTP records सुरक्षित रहेंगे।</p></div>
       <div className="flex items-center gap-2"><Label htmlFor="include-ptps">PTPs</Label><Switch id="include-ptps" checked={includePTPs} onCheckedChange={setIncludePTPs} /></div>
@@ -966,7 +996,7 @@ function ReportPage() {
         </TabsContent>
         <TabsContent value="ptps" className="mt-4 space-y-4">\n          <div className="flex justify-end"><Button variant="outline" onClick={() => void refetchPTPs()} disabled={ptpsLoading}>Refresh PTPs</Button></div>\n          <PTPReport rows={ptpRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />\n        </TabsContent>\n        <TabsContent value="paid-hold" className="mt-4 space-y-4">
           <div className="flex justify-end"><Button variant="outline" onClick={() => { void refetch(); void refetchHoldCases(); void refetchPTPs(); }} disabled={isFetching || holdCasesLoading || ptpsLoading}>Refresh Paid, Hold &amp; PTP</Button></div>
-          <PaidHoldAnalysis paidRows={rows} holdRows={holdCaseRows} ptpRows={ptpRows} isLoading={isLoading || holdCasesLoading || ptpsLoading} error={Boolean(error || holdCasesError || ptpsError)} />
+          <PaidHoldAnalysis paidRows={rows} allPaidRows={rawRows} holdRows={holdCaseRows} ptpRows={ptpRows} isLoading={isLoading || holdCasesLoading || ptpsLoading} error={Boolean(error || holdCasesError || ptpsError)} />
         </TabsContent>
       </Tabs>
 
