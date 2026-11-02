@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
+const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Shikha", "Sona", "Sunanda", "Vinita"] as const;
 const tab = "PTPs";
 const header = ["Submitted At", "Executive Name", "Loan ID", "Promise Date", "Promise Amount", "Remarks", "Status", "Removed At"];
 
