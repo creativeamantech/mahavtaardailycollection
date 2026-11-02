@@ -584,7 +584,7 @@ function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow
   const filtered = useMemo(() => rows.filter(r => (!from || r.promiseDate >= from) && (!to || r.promiseDate <= to)), [rows, from, to]);
   const stats = useMemo(() => {
     const map = new Map<string, { count: number; amount: number }>();
-    filtered.forEach(r => { const status = r.status || "Active"; const v = map.get(status) ?? { count: 0, amount: 0 }; v.count++; v.amount += r.promiseAmount; map.set(status, v); });
+    filtered.forEach(r => { const status = r.status || "Active"; const v = map.get(status) ?? { count: 0, amount: 0 }; v.count++; v.amount += r.promiseAmount; v.pos += Number(col?.pos ?? 0); map.set(status, v); });
     return [...map.entries()].map(([status, v]) => ({ status, ...v }));
   }, [filtered]);
   const pie = stats.filter(s => s.count > 0).map(s => ({ name: s.status, value: s.count }));
@@ -595,7 +595,7 @@ function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow
       const city = col?.city || "Unmapped";
       const owner = view === "executive" ? r.executive : view === "city" ? city : "Overall";
       const cities = map.get(owner) ?? new Map();
-      const v = cities.get(city) ?? { count: 0, amount: 0, active: 0, kept: 0, removed: 0 };
+      const v = cities.get(city) ?? { count: 0, amount: 0, pos: 0, active: 0, kept: 0, removed: 0 };
       v.count++; v.amount += r.promiseAmount;
       if (r.status.toLowerCase() === "active") v.active++;
       if (r.status.toLowerCase() === "kept") v.kept++;
