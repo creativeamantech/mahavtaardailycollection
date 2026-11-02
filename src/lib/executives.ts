@@ -4,6 +4,8 @@ export const EXECUTIVES = [
   "Bharti",
   "Julee",
   "Pooja",
+  "Shikha",
+  "Sona",
   "Sunanda",
   "Vinita",
 ] as const;
