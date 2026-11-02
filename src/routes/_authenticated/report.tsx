@@ -494,12 +494,12 @@ type PTPReportRow = { row: number; submittedAt: string; executive: string; loanI
 
 function downloadDetailCsv(filename: string, headers: string[], rows: (string | number)[][]) {
   const quote = (value: string | number) => '"' + String(value ?? "").replace(/"/g, '""') + '"';
-  const csv = "\\uFEFF" + [headers, ...rows].map((row) => row.map(quote).join(",")).join("\\r\\n");
+  const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(quote).join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url; anchor.download = filename; anchor.style.display = "none";
-  document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+  document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function PaidHoldAnalysis({ paidRows, allPaidRows, holdRows, ptpRows, isLoading, error }: {
