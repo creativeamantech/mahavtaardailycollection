@@ -98,7 +98,7 @@ export const listActivePTPsForReport = createServerFn({ method: "POST" })
       loanId: String(r[2] ?? "").trim(), promiseDate: String(r[3] ?? ""),
       promiseAmount: Number(String(r[4] ?? "").replace(/[,₹\\s]/g, "")) || 0,
       remarks: String(r[5] ?? "").trim(), status: String(r[6] ?? "").trim() || "Active",
-    })).filter(r => r.loanId && r.status.toLowerCase() === "active");
+    })).filter(r => r.loanId);
   });
 
 // A successfully recorded payment fulfils the matching active PTP, retaining its history.
