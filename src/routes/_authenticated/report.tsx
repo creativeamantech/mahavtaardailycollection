@@ -964,7 +964,7 @@ function ReportPage() {
           <div className="flex justify-end"><Button variant="outline" onClick={() => refetchHoldCases()} disabled={holdCasesLoading}>Refresh Hold Cases</Button></div>
           <HoldCasesReport rows={holdCaseRows} isLoading={holdCasesLoading} error={Boolean(holdCasesError)} />
         </TabsContent>
-        <TabsContent value="ptps" className="mt-4 space-y-4">\n          <div className="flex justify-end"><Button variant="outline" onClick={() => void refetchPTPs()} disabled={ptpsLoading}>Refresh PTPs</Button></div>\n          <PTPReport rows={ptpRows} collections={rawRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />\n        </TabsContent>\n        <TabsContent value="paid-hold" className="mt-4 space-y-4">
+        <TabsContent value="ptps" className="mt-4 space-y-4">\n          <div className="flex justify-end"><Button variant="outline" onClick={() => void refetchPTPs()} disabled={ptpsLoading}>Refresh PTPs</Button></div>\n          <PTPReport rows={ptpRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />\n        </TabsContent>\n        <TabsContent value="paid-hold" className="mt-4 space-y-4">
           <div className="flex justify-end"><Button variant="outline" onClick={() => { void refetch(); void refetchHoldCases(); void refetchPTPs(); }} disabled={isFetching || holdCasesLoading || ptpsLoading}>Refresh Paid, Hold &amp; PTP</Button></div>
           <PaidHoldAnalysis paidRows={rows} holdRows={holdCaseRows} ptpRows={ptpRows} isLoading={isLoading || holdCasesLoading || ptpsLoading} error={Boolean(error || holdCasesError || ptpsError)} />
         </TabsContent>
