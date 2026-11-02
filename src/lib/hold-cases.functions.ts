@@ -35,13 +35,15 @@ const holdCasesSchema = z.object({
 export const submitHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => holdCasesSchema.parse(data))
   .handler(async ({ data }) => {
-    const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsAppendStrict, invalidateSheetsCache } =
+    const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsAppendStrict, sheetsBatchUpdateValuesStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await assertHoldCasesUnlocked();
     await ensureHoldTab();
 
     const existingRows = await sheetsGet("Hold_Cases!A2:F");
+    const { loadLoanCaseIndex } = await import("./ptp.functions");
+    const caseIndex = await loadLoanCaseIndex();
     const existingIds = new Set(
       (existingRows ?? [])
         .filter((row) => !String(row[4] ?? "").trim() || String(row[4]).trim().toLowerCase() === "active")
@@ -55,7 +57,7 @@ export const submitHoldCases = createServerFn({ method: "POST" })
     for (const raw of data.loanIds) {
       const id = normaliseLoanId(raw);
       if (!id) continue;
-      if (seen.has(id) || existingIds.has(id)) {
+      if (seen.has(id) || existingIds.has(id) || caseIndex.paid.has(id)) {
         duplicates.push(id);
         continue;
       }
@@ -64,6 +66,18 @@ export const submitHoldCases = createServerFn({ method: "POST" })
     }
 
     if (uniqueIds.length > 0) {
+      const ptpRows = await sheetsGet("PTPs!A2:H");
+      const moveIds = new Set(uniqueIds.map(normaliseLoanId));
+      const ptpUpdates: { range: string; values: (string | number)[][] }[] = [];
+      for (let i = 0; i < (ptpRows ?? []).length; i++) {
+        const row = ptpRows[i]!;
+        const id = normaliseLoanId(String(row[2] ?? ""));
+        const status = String(row[6] ?? "").trim() || "Active";
+        if (moveIds.has(id) && status.toLowerCase() === "active") {
+          ptpUpdates.push({ range: `PTPs!G${i + 2}:H${i + 2}`, values: [["Removed", new Date().toISOString()]] });
+        }
+      }
+      if (ptpUpdates.length) await sheetsBatchUpdateValuesStrict(ptpUpdates);
       const submittedAt = new Date().toISOString();
       await sheetsAppendStrict("Hold_Cases!A:F", uniqueIds.map((loanId) => [
         submittedAt, data.executive, loanId, data.remarks, "Active", "",
@@ -141,6 +155,9 @@ export const removeHoldCases = createServerFn({ method: "POST" })
 
     const rows = await sheetsGet("Hold_Cases!A2:F");
     const requested = new Set(data.loanIds.map(normaliseLoanId));
+    const { loadLoanCaseIndex } = await import("./ptp.functions");
+    const caseIndex = await loadLoanCaseIndex();
+    const paidRequested = new Set([...requested].filter(id => caseIndex.paid.has(id)));
     const updates: { range: string; values: (string | number)[][] }[] = [];
     const removedLoanIds: string[] = [];
     for (let index = 0; index < (rows ?? []).length; index++) {
@@ -148,7 +165,7 @@ export const removeHoldCases = createServerFn({ method: "POST" })
       const executive = String(row[1] ?? "").trim();
       const loanId = String(row[2] ?? "").trim();
       const status = String(row[4] ?? "").trim() || "Active";
-      if (executive === data.executive && loanId && requested.has(normaliseLoanId(loanId)) && status.toLowerCase() === "active") {
+      if (executive === data.executive && loanId && requested.has(normaliseLoanId(loanId)) && !caseIndex.paid.has(normaliseLoanId(loanId)) && status.toLowerCase() === "active") {
         const sheetRow = index + 2;
         updates.push({
           range: "Hold_Cases!E" + sheetRow + ":F" + sheetRow,
@@ -162,7 +179,7 @@ export const removeHoldCases = createServerFn({ method: "POST" })
       await sheetsBatchUpdateValuesStrict(updates);
       invalidateSheetsCache();
     }
-    return { ok: true as const, removedCount: removedLoanIds.length, removedLoanIds };
+    return { ok: true as const, removedCount: removedLoanIds.length, removedLoanIds, skippedPaidCount: paidRequested.size };
   });
 
 // Called only after a collection entry has been successfully appended.
