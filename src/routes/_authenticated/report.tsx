@@ -11,6 +11,7 @@ import { formatAmount, todayISO } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -484,14 +485,17 @@ function HoldCasesReport({ rows, isLoading, error }: { rows: HoldReportRow[]; is
 }
 
 
-function PaidHoldAnalysis({ paidRows, holdRows, isLoading, error }: {
-  paidRows: Collection[]; holdRows: HoldReportRow[]; isLoading: boolean; error: boolean;
+type PTPReportRow = { row: number; submittedAt: string; executive: string; loanId: string; remarks: string; status: string; city?: string; principalOutstanding?: number };
+
+function PaidHoldAnalysis({ paidRows, holdRows, ptpRows, isLoading, error }: {
+  paidRows: Collection[]; holdRows: HoldReportRow[]; ptpRows: PTPReportRow[]; isLoading: boolean; error: boolean;
 }) {
+  const [includePTPs, setIncludePTPs] = useState(true);
   const cityStats = useMemo(() => {
-    const map = new Map<string, { city: string; paidCount: number; paidPos: number; holdCount: number; holdPos: number }>();
+    const map = new Map<string, { city: string; paidCount: number; paidPos: number; holdCount: number; holdPos: number; ptpCount: number; ptpPos: number }>();
     const get = (city: string) => {
       const name = city.trim() || "Unmapped";
-      if (!map.has(name)) map.set(name, { city: name, paidCount: 0, paidPos: 0, holdCount: 0, holdPos: 0 });
+      if (!map.has(name)) map.set(name, { city: name, paidCount: 0, paidPos: 0, holdCount: 0, holdPos: 0, ptpCount: 0, ptpPos: 0 });
       return map.get(name)!;
     };
     const paidSeen = new Set<string>();
@@ -508,16 +512,25 @@ function PaidHoldAnalysis({ paidRows, holdRows, isLoading, error }: {
       holdSeen.add(id);
       const v = get(r.city); v.holdCount++; v.holdPos += Number(r.principalOutstanding) || 0;
     });
-    return [...map.values()].sort((a, b) => (b.paidCount + b.holdCount) - (a.paidCount + a.holdCount) || a.city.localeCompare(b.city));
-  }, [paidRows, holdRows]);
+    if (includePTPs) {
+      const ptpSeen = new Set<string>();
+      ptpRows.filter(r => r.status.toLowerCase() === "active" && r.loanId).forEach(r => {
+        const id = r.loanId.trim().toUpperCase();
+        if (ptpSeen.has(id)) return;
+        ptpSeen.add(id);
+        const v = get(r.city || ""); v.ptpCount++; v.ptpPos += Number(r.principalOutstanding) || 0;
+      });
+    }
+    return [...map.values()].sort((a, b) => (b.paidCount + b.holdCount + b.ptpCount) - (a.paidCount + a.holdCount + a.ptpCount) || a.city.localeCompare(b.city));
+  }, [paidRows, holdRows, ptpRows, includePTPs]);
 
   const executiveStats = useMemo(() => {
-    const map = new Map<string, Map<string, { city: string; paidCount: number; paidPos: number; holdCount: number; holdPos: number }>>();
+    const map = new Map<string, Map<string, { city: string; paidCount: number; paidPos: number; holdCount: number; holdPos: number; ptpCount: number; ptpPos: number }>>();
     const get = (executive: string, city: string) => {
       const name = executive.trim() || "Unassigned"; const cityName = city.trim() || "Unmapped";
       if (!map.has(name)) map.set(name, new Map());
       const cities = map.get(name)!;
-      if (!cities.has(cityName)) cities.set(cityName, { city: cityName, paidCount: 0, paidPos: 0, holdCount: 0, holdPos: 0 });
+      if (!cities.has(cityName)) cities.set(cityName, { city: cityName, paidCount: 0, paidPos: 0, holdCount: 0, holdPos: 0, ptpCount: 0, ptpPos: 0 });
       return cities.get(cityName)!;
     };
     const paidSeen = new Set<string>();
@@ -531,46 +544,62 @@ function PaidHoldAnalysis({ paidRows, holdRows, isLoading, error }: {
       const key = r.executive + "|" + r.loanId.trim().toUpperCase(); if (holdSeen.has(key)) return; holdSeen.add(key);
       const v = get(r.executive, r.city); v.holdCount++; v.holdPos += Number(r.principalOutstanding) || 0;
     });
+    if (includePTPs) {
+      const ptpSeen = new Set<string>();
+      ptpRows.filter(r => r.status.toLowerCase() === "active" && r.loanId).forEach(r => {
+        const id = r.loanId.trim().toUpperCase(); const key = r.executive + "|" + id;
+        if (ptpSeen.has(key)) return; ptpSeen.add(key);
+        const v = get(r.executive, r.city || ""); v.ptpCount++; v.ptpPos += Number(r.principalOutstanding) || 0;
+      });
+    }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([executive, cities]) => ({ executive, cities: [...cities.values()].sort((a, b) => a.city.localeCompare(b.city)) }));
-  }, [paidRows, holdRows]);
+  }, [paidRows, holdRows, ptpRows, includePTPs]);
 
   const paidCount = cityStats.reduce((n, r) => n + r.paidCount, 0);
   const holdCount = cityStats.reduce((n, r) => n + r.holdCount, 0);
   const paidPos = cityStats.reduce((n, r) => n + r.paidPos, 0);
   const holdPos = cityStats.reduce((n, r) => n + r.holdPos, 0);
-  const pieData = [{ name: "Paid", value: paidCount }, { name: "Hold", value: holdCount }].filter((r) => r.value > 0);
+  const ptpCount = includePTPs ? cityStats.reduce((n, r) => n + r.ptpCount, 0) : 0;
+  const ptpPos = includePTPs ? cityStats.reduce((n, r) => n + r.ptpPos, 0) : 0;
+  const totalCount = paidCount + holdCount + ptpCount;
+  const totalPos = paidPos + holdPos + ptpPos;
+  const pieData = [{ name: "Paid", value: paidCount }, { name: "Hold", value: holdCount }, ...(includePTPs ? [{ name: "PTP", value: ptpCount }] : [])].filter((r) => r.value > 0);
   if (isLoading) return <p className="rounded-xl border p-6 text-center">Loading Paid &amp; Hold analysis…</p>;
   if (error) return <p className="rounded-xl border p-6 text-center text-destructive">Could not load the combined report. Please refresh.</p>;
   return <section className="space-y-5">
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <StatCard label="Paid Cases" value={String(paidCount)} /><StatCard label="Hold Cases" value={String(holdCount)} />
-      <StatCard label="Combined Cases" value={String(paidCount + holdCount)} /><StatCard label="Combined POS" value={formatAmount(paidPos + holdPos)} />
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
+      <div><p className="font-semibold">Include PTPs in this report</p><p className="text-xs text-muted-foreground">OFF करने पर PTP count और POS सभी totals और breakdown से हटेंगे। Original PTP records सुरक्षित रहेंगे।</p></div>
+      <div className="flex items-center gap-2"><Label htmlFor="include-ptps">PTPs</Label><Switch id="include-ptps" checked={includePTPs} onCheckedChange={setIncludePTPs} /></div>
+    </div>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <StatCard label="Paid Cases" value={String(paidCount)} /><StatCard label="Hold Cases" value={String(holdCount)} /><StatCard label="PTP Cases" value={String(ptpCount)} />
+      <StatCard label="Combined Cases" value={String(totalCount)} /><StatCard label="Combined POS" value={formatAmount(totalPos)} /><StatCard label="PTP POS" value={formatAmount(ptpPos)} />
     </div>
     <div className="grid grid-cols-2 gap-3"><StatCard label="Paid POS" value={formatAmount(paidPos)} /><StatCard label="Hold POS" value={formatAmount(holdPos)} /></div>
-    <div className="rounded-xl border p-4"><h3 className="font-semibold">Paid vs Hold — Case Count Distribution</h3>
+    <div className="rounded-xl border p-4"><h3 className="font-semibold">Paid vs Hold vs PTP — Case Count Distribution</h3>
       {pieData.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No Paid or Hold cases found.</p> : <div className="h-72"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="48%" outerRadius={92} label={({ name, value }) => String(name) + ": " + String(value)}>{pieData.map((entry) => <Cell key={entry.name} fill={entry.name === "Paid" ? "#16a34a" : "#d97706"} />)}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div>}
     </div>
     <Tabs defaultValue="city" className="w-full"><TabsList className="grid h-auto w-full grid-cols-2"><TabsTrigger value="city">City-wise</TabsTrigger><TabsTrigger value="executive">Executive-wise</TabsTrigger></TabsList>
-      <TabsContent value="city" className="mt-3"><div className="overflow-x-auto rounded-xl border"><table className="w-full text-xs sm:text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">City</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Paid POS</th><th className="p-2 text-right">Hold</th><th className="p-2 text-right">Hold POS</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Total POS</th></tr></thead><tbody>
-        {cityStats.map((r) => <tr key={r.city} className="border-t"><td className="p-2 font-medium">{r.city}</td><td className="p-2 text-right">{r.paidCount}</td><td className="p-2 text-right">{formatAmount(r.paidPos)}</td><td className="p-2 text-right">{r.holdCount}</td><td className="p-2 text-right">{formatAmount(r.holdPos)}</td><td className="p-2 text-right font-semibold">{r.paidCount + r.holdCount}</td><td className="p-2 text-right font-semibold">{formatAmount(r.paidPos + r.holdPos)}</td></tr>)}
+      <TabsContent value="city" className="mt-3"><div className="overflow-x-auto rounded-xl border"><table className="w-full text-xs sm:text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">City</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Paid POS</th><th className="p-2 text-right">Hold</th><th className="p-2 text-right">Hold POS</th><th className="p-2 text-right">PTP</th><th className="p-2 text-right">PTP POS</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Total POS</th></tr></thead><tbody>
+        {cityStats.map((r) => <tr key={r.city} className="border-t"><td className="p-2 font-medium">{r.city}</td><td className="p-2 text-right">{r.paidCount}</td><td className="p-2 text-right">{formatAmount(r.paidPos)}</td><td className="p-2 text-right">{r.holdCount}</td><td className="p-2 text-right">{formatAmount(r.holdPos)}</td><td className="p-2 text-right">{r.ptpCount}</td><td className="p-2 text-right">{formatAmount(r.ptpPos)}</td><td className="p-2 text-right font-semibold">{r.paidCount + r.holdCount + (includePTPs ? r.ptpCount : 0)}</td><td className="p-2 text-right font-semibold">{formatAmount(r.paidPos + r.holdPos + (includePTPs ? r.ptpPos : 0))}</td></tr>)}
         {cityStats.length === 0 && <tr><td colSpan={7} className="p-6 text-center">No data found.</td></tr>}
-        <tr className="border-t-2 bg-muted/50 font-bold"><td className="p-2">TOTAL</td><td className="p-2 text-right">{paidCount}</td><td className="p-2 text-right">{formatAmount(paidPos)}</td><td className="p-2 text-right">{holdCount}</td><td className="p-2 text-right">{formatAmount(holdPos)}</td><td className="p-2 text-right">{paidCount + holdCount}</td><td className="p-2 text-right">{formatAmount(paidPos + holdPos)}</td></tr>
+        <tr className="border-t-2 bg-muted/50 font-bold"><td className="p-2">TOTAL</td><td className="p-2 text-right">{paidCount}</td><td className="p-2 text-right">{formatAmount(paidPos)}</td><td className="p-2 text-right">{holdCount}</td><td className="p-2 text-right">{formatAmount(holdPos)}</td><td className="p-2 text-right">{ptpCount}</td><td className="p-2 text-right">{formatAmount(ptpPos)}</td><td className="p-2 text-right">{totalCount}</td><td className="p-2 text-right">{formatAmount(totalPos)}</td></tr>
       </tbody></table></div></TabsContent>
       <TabsContent value="executive" className="mt-3 space-y-3">{executiveStats.map(({ executive, cities }) => {
-        const pc = cities.reduce((n, r) => n + r.paidCount, 0); const hc = cities.reduce((n, r) => n + r.holdCount, 0);
-        const pp = cities.reduce((n, r) => n + r.paidPos, 0); const hp = cities.reduce((n, r) => n + r.holdPos, 0);
-        return <div key={executive} className="overflow-hidden rounded-xl border"><div className="flex flex-wrap items-center justify-between gap-2 bg-muted/50 p-3"><h3 className="font-semibold">{executive}</h3><span className="text-sm font-semibold">Paid {pc} · Hold {hc} · Total {pc + hc}</span></div><div className="overflow-x-auto"><table className="w-full text-xs sm:text-sm"><thead><tr className="border-t text-muted-foreground"><th className="p-2 text-left">City</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Paid POS</th><th className="p-2 text-right">Hold</th><th className="p-2 text-right">Hold POS</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Total POS</th></tr></thead><tbody>
-          {cities.map((r) => <tr key={r.city} className="border-t"><td className="p-2">{r.city}</td><td className="p-2 text-right">{r.paidCount}</td><td className="p-2 text-right">{formatAmount(r.paidPos)}</td><td className="p-2 text-right">{r.holdCount}</td><td className="p-2 text-right">{formatAmount(r.holdPos)}</td><td className="p-2 text-right font-semibold">{r.paidCount + r.holdCount}</td><td className="p-2 text-right font-semibold">{formatAmount(r.paidPos + r.holdPos)}</td></tr>)}
-          <tr className="border-t bg-muted/40 font-bold"><td className="p-2">Executive Total</td><td className="p-2 text-right">{pc}</td><td className="p-2 text-right">{formatAmount(pp)}</td><td className="p-2 text-right">{hc}</td><td className="p-2 text-right">{formatAmount(hp)}</td><td className="p-2 text-right">{pc + hc}</td><td className="p-2 text-right">{formatAmount(pp + hp)}</td></tr>
+        const pc = cities.reduce((n, r) => n + r.paidCount, 0); const hc = cities.reduce((n, r) => n + r.holdCount, 0); const tc = includePTPs ? cities.reduce((n, r) => n + r.ptpCount, 0) : 0;
+        const pp = cities.reduce((n, r) => n + r.paidPos, 0); const hp = cities.reduce((n, r) => n + r.holdPos, 0); const tp = includePTPs ? cities.reduce((n, r) => n + r.ptpPos, 0) : 0;
+        return <div key={executive} className="overflow-hidden rounded-xl border"><div className="flex flex-wrap items-center justify-between gap-2 bg-muted/50 p-3"><h3 className="font-semibold">{executive}</h3><span className="text-sm font-semibold">Paid {pc} · Hold {hc} · PTP {tc} · Total {pc + hc + tc}</span></div><div className="overflow-x-auto"><table className="w-full text-xs sm:text-sm"><thead><tr className="border-t text-muted-foreground"><th className="p-2 text-left">City</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Paid POS</th><th className="p-2 text-right">Hold</th><th className="p-2 text-right">Hold POS</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Total POS</th></tr></thead><tbody>
+          {cities.map((r) => <tr key={r.city} className="border-t"><td className="p-2">{r.city}</td><td className="p-2 text-right">{r.paidCount}</td><td className="p-2 text-right">{formatAmount(r.paidPos)}</td><td className="p-2 text-right">{r.holdCount}</td><td className="p-2 text-right">{formatAmount(r.holdPos)}</td><td className="p-2 text-right">{includePTPs ? r.ptpCount : 0}</td><td className="p-2 text-right">{formatAmount(includePTPs ? r.ptpPos : 0)}</td><td className="p-2 text-right font-semibold">{r.paidCount + r.holdCount + (includePTPs ? r.ptpCount : 0)}</td><td className="p-2 text-right font-semibold">{formatAmount(r.paidPos + r.holdPos + (includePTPs ? r.ptpPos : 0))}</td></tr>)}
+          <tr className="border-t bg-muted/40 font-bold"><td className="p-2">Executive Total</td><td className="p-2 text-right">{pc}</td><td className="p-2 text-right">{formatAmount(pp)}</td><td className="p-2 text-right">{hc}</td><td className="p-2 text-right">{formatAmount(hp)}</td><td className="p-2 text-right">{tc}</td><td className="p-2 text-right">{formatAmount(tp)}</td><td className="p-2 text-right">{pc + hc + tc}</td><td className="p-2 text-right">{formatAmount(pp + hp + tp)}</td></tr>
         </tbody></table></div></div>;
       })}</TabsContent>
     </Tabs>
-    <p className="text-xs text-muted-foreground">Paid cases count distinct Loan IDs in the selected month, excluding Already Paid and excluded loans. Hold cases count distinct active Loan IDs. POS is summed once per Loan ID; the pie chart compares Paid and Hold case counts.</p>
+    <p className="text-xs text-muted-foreground">Paid cases count distinct Loan IDs in the selected month; Hold and PTP include distinct active Loan IDs. PTP POS comes from PTPs column K (Principal Outstanding). The toggle controls whether active PTP counts and POS contribute to all combined totals and breakdowns.</p>
   </section>;
 }
 
 
-type PTPReportRow = { row: number; submittedAt: string; executive: string; loanId: string; remarks: string; status: string };
+
 
 function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow[]; collections: Collection[]; isLoading: boolean; error: boolean }) {
   const [view, setView] = useState("overall");
@@ -941,8 +970,8 @@ function ReportPage() {
           <HoldCasesReport rows={holdCaseRows} isLoading={holdCasesLoading} error={Boolean(holdCasesError)} />
         </TabsContent>
         <TabsContent value="ptps" className="mt-4 space-y-4">\n          <div className="flex justify-end"><Button variant="outline" onClick={() => void refetchPTPs()} disabled={ptpsLoading}>Refresh PTPs</Button></div>\n          <PTPReport rows={ptpRows} collections={rawRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />\n        </TabsContent>\n        <TabsContent value="paid-hold" className="mt-4 space-y-4">
-          <div className="flex justify-end"><Button variant="outline" onClick={() => { void refetch(); void refetchHoldCases(); }} disabled={isFetching || holdCasesLoading}>Refresh Paid &amp; Hold</Button></div>
-          <PaidHoldAnalysis paidRows={rows} holdRows={holdCaseRows} isLoading={isLoading || holdCasesLoading} error={Boolean(error || holdCasesError)} />
+          <div className="flex justify-end"><Button variant="outline" onClick={() => { void refetch(); void refetchHoldCases(); void refetchPTPs(); }} disabled={isFetching || holdCasesLoading || ptpsLoading}>Refresh Paid, Hold &amp; PTP</Button></div>
+          <PaidHoldAnalysis paidRows={rows} holdRows={holdCaseRows} ptpRows={ptpRows} isLoading={isLoading || holdCasesLoading || ptpsLoading} error={Boolean(error || holdCasesError || ptpsError)} />
         </TabsContent>
       </Tabs>
 
