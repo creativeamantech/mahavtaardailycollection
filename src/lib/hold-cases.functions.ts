@@ -116,9 +116,13 @@ export const listActiveHoldCasesForReport = createServerFn({ method: "POST" })
     return (rows ?? [])
       .map((row, index) => ({
         row: index + 2,
+        submittedAt: String(row[0] ?? "").trim(),
         executive: String(row[1] ?? "").trim(),
         loanId: String(row[2] ?? "").trim(),
+        remarks: String(row[3] ?? "").trim(),
         status: String(row[4] ?? "").trim() || "Active",
+        removedAt: String(row[5] ?? "").trim(),
+        actualId: String(row[6] ?? "").trim(),
         city: String(row[7] ?? "").trim() || "Unmapped",
         principalOutstanding: Number(String(row[8] ?? "").replace(/[,₹\\s]/g, "")) || 0,
       }))
