@@ -90,12 +90,13 @@ export const listActivePTPsForReport = createServerFn({ method: "POST" })
   .handler(async () => {
     const { sheetsGet } = await import("./mahavtaar.server");
     await ensurePTPTab();
-    const rows = await sheetsGet("PTPs!A2:H");
+    const rows = await sheetsGet("PTPs!A2:K");
     return (rows ?? []).map((r, i) => ({
       row: i + 2, submittedAt: String(r[0] ?? ""), executive: String(r[1] ?? "").trim(),
       loanId: String(r[2] ?? "").trim(), promiseDate: String(r[3] ?? ""),
       promiseAmount: Number(String(r[4] ?? "").replace(/[,₹\\s]/g, "")) || 0,
       remarks: String(r[5] ?? "").trim(), status: String(r[6] ?? "").trim() || "Active",
+      city: String(r[9] ?? "").trim(), principalOutstanding: Number(String(r[10] ?? "").replace(/[,₹\\s]/g, "")) || 0,
     })).filter(r => r.loanId);
   });
 
