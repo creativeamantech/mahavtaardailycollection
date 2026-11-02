@@ -23,8 +23,6 @@ type ActivePTP = {
   loanId: string;
   remarks: string;
   status: string;
-  promiseDate?: string;
-  promiseAmount?: number;
 };
 
 function normaliseLoanId(value: string) {
@@ -35,8 +33,6 @@ export function PTPsPanel() {
   const [executive, setExecutive] = useState("");
   const [loanIdsText, setLoanIdsText] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [promiseDate, setPromiseDate] = useState("");
-  const [promiseAmount, setPromiseAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingCases, setLoadingCases] = useState(false);
   const [activeCases, setActiveCases] = useState<ActivePTP[]>([]);
@@ -79,8 +75,6 @@ export function PTPsPanel() {
       toast.error("Please select your executive name.");
       return;
     }
-    if (!promiseDate) { toast.error("Please select the Promise Date."); return; }
-    if (!promiseAmount || Number(promiseAmount) <= 0) { toast.error("Please enter a valid Promise Amount."); return; }
     if (loanIds.length === 0) {
       toast.error("Please enter at least one Loan ID.");
       return;
@@ -89,15 +83,13 @@ export function PTPsPanel() {
     setSaving(true);
     try {
       const result = await submit({
-        data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim(), promiseDate, promiseAmount: Number(promiseAmount) },
+        data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim() },
       });
       if (result.savedCount > 0) toast.success(result.savedCount + " PTP(s) submitted successfully.");
       if (result.duplicateCount > 0) toast.warning(result.duplicateCount + " duplicate/already-active PTP Loan ID(s) skipped.");
       if (result.savedCount === 0 && result.duplicateCount > 0) toast.info("No new PTPs were added.");
       setLoanIdsText("");
       setRemarks("");
-      setPromiseDate("");
-      setPromiseAmount("");
       if (executive) await loadMyPTPs();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not submit PTPs.");
@@ -174,10 +166,6 @@ export function PTPsPanel() {
         <p className="text-sm font-medium">{loanIds.length} unique Loan ID(s) ready</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-2"><Label className="text-base" htmlFor="promiseDate">Promise Date</Label><Input id="promiseDate" type="date" value={promiseDate} onChange={(e) => setPromiseDate(e.target.value)} min={new Date().toISOString().slice(0,10)} className="h-12 text-base" /></div>
-        <div className="space-y-2"><Label className="text-base" htmlFor="promiseAmount">Promise Amount</Label><Input id="promiseAmount" type="number" min="1" value={promiseAmount} onChange={(e) => setPromiseAmount(e.target.value)} placeholder="0" className="h-12 text-base" /></div>
-      </div>
       <div className="space-y-2">
         <Label className="text-base" htmlFor="ptpRemarks">PTP Remarks (Optional)</Label>
         <Input
@@ -190,7 +178,7 @@ export function PTPsPanel() {
         />
       </div>
 
-      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={saving || !executive || loanIds.length === 0 || !promiseDate || Number(promiseAmount) <= 0}>
+      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={saving || !executive || loanIds.length === 0}>
         {saving ? "Submitting..." : "Submit PTPs"}
       </Button>
 
@@ -227,7 +215,7 @@ export function PTPsPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold break-all">{item.loanId}</p>
                     {item.remarks && <p className="text-sm text-muted-foreground">{item.remarks}</p>}
-                    <p className="text-xs text-muted-foreground">Promise: {item.promiseDate || "—"} · {item.promiseAmount ? item.promiseAmount.toLocaleString("en-IN") : "—"} · Added: {item.submittedAt || "—"}</p>
+                    <p className="text-xs text-muted-foreground">Added: {item.submittedAt || "—"}</p>
                   </div>
                 </li>
               ))}
