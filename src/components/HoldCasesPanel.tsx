@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EXECUTIVES } from "@/lib/executives";
 import { listActiveHoldCases, removeHoldCases, submitHoldCases } from "@/lib/hold-cases.functions";
+import { useAppConfig } from "@/hooks/useAppConfig";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ function normaliseLoanId(value: string) {
 }
 
 export function HoldCasesPanel() {
+  const { holdCasesLocked } = useAppConfig();
   const [executive, setExecutive] = useState("");
   const [loanIdsText, setLoanIdsText] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -71,6 +73,10 @@ export function HoldCasesPanel() {
   }
 
   async function handleSubmit() {
+    if (holdCasesLocked) {
+      toast.error("Hold Cases are locked by administrator.");
+      return;
+    }
     if (!executive) {
       toast.error("Please select your executive name.");
       return;
@@ -99,6 +105,10 @@ export function HoldCasesPanel() {
   }
 
   async function handleRemoveSelected() {
+    if (holdCasesLocked) {
+      toast.error("Hold Cases are locked by administrator.");
+      return;
+    }
     if (!executive || selectedToRemove.length === 0) return;
     setSaving(true);
     try {
@@ -127,6 +137,11 @@ export function HoldCasesPanel() {
 
   return (
     <section className="mt-6 space-y-6 rounded-xl border p-4">
+      {holdCasesLocked && (
+        <div role="alert" className="rounded-lg border border-amber-500 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+          Hold Cases are locked by administrator. Nobody can add or remove Hold Cases until this lock is turned off in Settings.
+        </div>
+      )}
       <div className="space-y-2">
         <Label className="text-base">Executive Name</Label>
         <Select
@@ -155,6 +170,7 @@ export function HoldCasesPanel() {
           id="holdLoanIds"
           value={loanIdsText}
           onChange={(event) => setLoanIdsText(event.target.value)}
+          disabled={holdCasesLocked}
           placeholder={"Paste multiple Loan IDs — one per line\n185978480\n184267502\n182564627"}
           className="min-h-40 resize-y text-base"
           aria-describedby="hold-loan-help"
@@ -177,7 +193,7 @@ export function HoldCasesPanel() {
         />
       </div>
 
-      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={saving || !executive || loanIds.length === 0}>
+      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={holdCasesLocked || saving || !executive || loanIds.length === 0}>
         {saving ? "Submitting..." : "Submit Hold Cases"}
       </Button>
 
@@ -188,7 +204,7 @@ export function HoldCasesPanel() {
             Select your executive name above, load your active cases, then choose the cases to remove.
           </p>
         </div>
-        <Button type="button" variant="outline" className="w-full h-11" onClick={loadMyHoldCases} disabled={!executive || loadingCases || saving}>
+        <Button type="button" variant="outline" className="w-full h-11" onClick={loadMyHoldCases} disabled={holdCasesLocked || !executive || loadingCases || saving}>
           {loadingCases ? "Loading..." : "Load My Active Hold Cases"}
         </Button>
         {activeCases.length > 0 && (
@@ -224,7 +240,7 @@ export function HoldCasesPanel() {
               variant="destructive"
               className="h-12 w-full"
               onClick={handleRemoveSelected}
-              disabled={saving || selectedToRemove.length === 0}
+              disabled={holdCasesLocked || saving || selectedToRemove.length === 0}
             >
               {saving ? "Processing..." : "Remove Selected (" + selectedToRemove.length + ")"}
             </Button>
