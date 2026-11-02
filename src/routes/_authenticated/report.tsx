@@ -885,7 +885,8 @@ function ReportPage() {
             Overall
           </TabsTrigger>
           <TabsTrigger value="holdcases" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">Hold Cases</TabsTrigger>
-          <TabsTrigger value="paid-hold" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">Paid &amp; Hold</TabsTrigger>\n          <TabsTrigger value="ptps" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">PTPs</TabsTrigger>
+          <TabsTrigger value="paid-hold" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">Paid &amp; Hold</TabsTrigger>
+          <TabsTrigger value="ptps" className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base">PTPs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datewise" className="mt-4 space-y-4">
