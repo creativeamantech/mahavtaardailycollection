@@ -1,6 +1,7 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
+import { PTPsPanel } from "@/components/PTPsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -392,9 +393,10 @@ function EntryPage() {
       </p>
 
       <Tabs defaultValue="collection" className="mt-6 w-full">
-        <TabsList className="grid h-12 w-full grid-cols-2">
-          <TabsTrigger value="collection" className="text-sm sm:text-base">Collection Entry</TabsTrigger>
-          <TabsTrigger value="hold" className="text-sm sm:text-base">Hold Cases</TabsTrigger>
+        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3">
+          <TabsTrigger value="collection" className="shrink-0 whitespace-nowrap px-3 text-sm">Collection Entry</TabsTrigger>
+          <TabsTrigger value="hold" className="shrink-0 whitespace-nowrap px-3 text-sm">Hold Cases</TabsTrigger>
+          <TabsTrigger value="ptps" className="shrink-0 whitespace-nowrap px-3 text-sm">PTPs</TabsTrigger>
         </TabsList>
         <TabsContent value="collection">
       <div
@@ -723,6 +725,9 @@ function EntryPage() {
         </TabsContent>
         <TabsContent value="hold">
           <HoldCasesPanel />
+        </TabsContent>
+        <TabsContent value="ptps">
+          <PTPsPanel />
         </TabsContent>
       </Tabs>
 
