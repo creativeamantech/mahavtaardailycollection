@@ -8,7 +8,7 @@ const header = ["Submitted At", "Executive Name", "Loan ID", "Promise Date", "Pr
 export async function loadLoanCaseIndex() {
   const { sheetsGet } = await import("./mahavtaar.server");
   const [collections, holds, ptps] = await Promise.all([
-    sheetsGet("Collections!A2:G"),
+    sheetsGet("Collections!A2:R"),
     sheetsGet("Hold_Cases!A2:F"),
     sheetsGet("PTPs!A2:H"),
   ]);
@@ -16,9 +16,12 @@ export async function loadLoanCaseIndex() {
   const held = new Set<string>();
   const promised = new Set<string>();
   for (const row of collections ?? []) {
-    const id = normaliseLoanId(String(row[1] ?? ""));
     const status = String(row[6] ?? "").trim().toUpperCase();
-    if (id && status !== "DELETED") paid.add(id);
+    if (status === "DELETED") continue;
+    const loanId = normaliseLoanId(String(row[1] ?? ""));
+    const actualId = normaliseLoanId(String(row[17] ?? ""));
+    if (loanId) paid.add(loanId);
+    if (actualId) paid.add(actualId);
   }
   for (const row of holds ?? []) {
     const id = normaliseLoanId(String(row[2] ?? ""));
@@ -64,9 +67,13 @@ export const submitPTPs = createServerFn({ method: "POST" })
     const seen = new Set<string>();
     const fresh: string[] = [];
     let duplicateCount = 0;
+    let skippedPaidCount = 0;
+    let skippedHoldCount = 0;
     for (const raw of data.loanIds) {
       const id = normaliseLoanId(raw);
-      if (!id || seen.has(id) || active.has(id) || caseIndex.paid.has(id) || caseIndex.held.has(id)) { duplicateCount++; continue; }
+      if (!id || seen.has(id) || active.has(id)) { duplicateCount++; continue; }
+      if (caseIndex.paid.has(id)) { skippedPaidCount++; continue; }
+      if (caseIndex.held.has(id)) { skippedHoldCount++; continue; }
       seen.add(id); fresh.push(raw.trim());
     }
     if (fresh.length) {
@@ -74,7 +81,7 @@ export const submitPTPs = createServerFn({ method: "POST" })
       await sheetsAppendStrict("PTPs!A:H", fresh.map(loanId => [stamp, data.executive, loanId, "", "", data.remarks, "Active", ""]));
       invalidateSheetsCache();
     }
-    return { ok: true as const, savedCount: fresh.length, duplicateCount };
+    return { ok: true as const, savedCount: fresh.length, duplicateCount, skippedPaidCount, skippedHoldCount };
   });
 
 const executiveSchema = z.object({ executive: z.enum(executives) });
