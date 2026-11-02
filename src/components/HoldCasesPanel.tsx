@@ -92,8 +92,11 @@ export function HoldCasesPanel() {
         data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim() },
       });
       if (result.savedCount > 0) toast.success(result.savedCount + " Hold Case(s) submitted successfully.");
-      if (result.duplicateCount > 0) toast.warning(result.duplicateCount + " duplicate/already-held Loan ID(s) skipped.");
-      if (result.savedCount === 0 && result.duplicateCount > 0) toast.info("No new Hold Cases were added.");
+      if (result.skippedPaidCount > 0) toast.warning(result.skippedPaidCount + " Loan ID(s) already Paid — skipped. Paid cases cannot be added to Hold.");
+      if (result.skippedHoldCount > 0) toast.info(result.skippedHoldCount + " Loan ID(s) already in Hold — skipped as already present.");
+      if (result.movedFromPTPCount > 0) toast.success(result.movedFromPTPCount + " active PTP(s) moved to Hold and removed from PTP.");
+      if (result.duplicateCount > 0 && result.skippedPaidCount === 0 && result.skippedHoldCount === 0) toast.info(result.duplicateCount + " duplicate Loan ID(s) skipped.");
+      if (result.savedCount === 0 && result.duplicateCount > 0 && result.skippedPaidCount === 0 && result.skippedHoldCount === 0) toast.info("No new Hold Cases were added.");
       setLoanIdsText("");
       setRemarks("");
       if (executive) await loadMyHoldCases();
