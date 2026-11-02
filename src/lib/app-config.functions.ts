@@ -110,16 +110,20 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     // Preserve the default-category row so flag saves never wipe it.
     let defaultCategory = "";
+    let holdCasesLocked = false;
     try {
       const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
       defaultCategory =
         rows.find((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY)?.[1]?.trim() ?? "";
+      holdCasesLocked =
+        (rows.find((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY)?.[1] ?? "").trim().toUpperCase() === "ON";
     } catch {
-      /* keep "" */
+      /* keep defaults */
     }
     const entries = Object.entries(data.flags);
     const values = entries.map(([k, v]) => [k, v ? "ON" : "OFF"]);
     values.push([DEFAULT_CATEGORY_KEY, defaultCategory]);
+    values.push([HOLD_CASES_LOCK_KEY, holdCasesLocked ? "ON" : "OFF"]);
     // Pad so removed keys never leave stale rows behind.
     while (values.length < 40) values.push(["", ""]);
     await sheetsUpdate(`${SETTINGS_TAB}!A2:B41`, values);
