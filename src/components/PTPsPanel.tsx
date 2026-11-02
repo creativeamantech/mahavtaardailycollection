@@ -163,7 +163,7 @@ export function PTPsPanel() {
           id="ptpLoanIds"
           value={loanIdsText}
           onChange={(event) => setLoanIdsText(event.target.value)}
-          disabled={ptpsLocked}
+          
           placeholder={"Paste multiple Loan IDs — one per line\n185978480\n184267502\n182564627"}
           className="min-h-40 resize-y text-base"
           aria-describedby="ptp-loan-help"
