@@ -3,6 +3,14 @@ import { z } from "zod";
 
 const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 const tab = "Hold_Cases";
+const LOCK_KEY = "holdCasesLocked";
+
+async function assertHoldCasesUnlocked() {
+  const { sheetsGet } = await import("./mahavtaar.server");
+  const settings = await sheetsGet("AppSettings!A2:B");
+  const locked = settings.some((row) => String(row[0] ?? "").trim() === LOCK_KEY && String(row[1] ?? "").trim().toUpperCase() === "ON");
+  if (locked) throw new Error("Hold Cases are locked by administrator. Adding or removing is currently disabled for everyone.");
+}
 const header = ["Submitted At", "Executive Name", "Loan ID", "Hold Reason / Remarks", "Status", "Removed At"];
 
 function normaliseLoanId(value: string) {
@@ -30,6 +38,7 @@ export const submitHoldCases = createServerFn({ method: "POST" })
     const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsAppendStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
+    await assertHoldCasesUnlocked();
     await ensureHoldTab();
 
     const existingRows = await sheetsGet("Hold_Cases!A2:F");
@@ -127,6 +136,7 @@ export const removeHoldCases = createServerFn({ method: "POST" })
       invalidateSheetsCache,
     } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
+    await assertHoldCasesUnlocked();
     await ensureHoldTab();
 
     const rows = await sheetsGet("Hold_Cases!A2:F");
