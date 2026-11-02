@@ -1,0 +1,265 @@
+import { useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { EXECUTIVES } from "@/lib/executives";
+import { listActivePTPs, removePTPs, submitPTPs } from "@/lib/ptp.functions";
+import { useAppConfig } from "@/hooks/useAppConfig";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type ActiveHoldCase = {
+  row: number;
+  submittedAt: string;
+  executive: string;
+  loanId: string;
+  remarks: string;
+  status: string;
+};
+
+function normaliseLoanId(value: string) {
+  return value.replace(/^['’‘\x60]+/, "").trim().toUpperCase();
+}
+
+export function PTPsPanel() {
+  const { ptpsLocked } = useAppConfig();
+  const [executive, setExecutive] = useState("");
+  const [loanIdsText, setLoanIdsText] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [promiseDate, setPromiseDate] = useState("");
+  const [promiseAmount, setPromiseAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loadingCases, setLoadingCases] = useState(false);
+  const [activeCases, setActiveCases] = useState<ActiveHoldCase[]>([]);
+  const [selectedToRemove, setSelectedToRemove] = useState<string[]>([]);
+  const submit = useServerFn(submitPTPs);
+  const loadCases = useServerFn(listActivePTPs);
+  const removeCases = useServerFn(removePTPs);
+
+  const loanIds = useMemo(() => {
+    const raw = loanIdsText.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean);
+    const seen = new Set<string>();
+    return raw.filter((value) => {
+      const key = normaliseLoanId(value);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [loanIdsText]);
+
+  async function loadMyPTPs() {
+    if (!executive) {
+      toast.error("Please select your executive name first.");
+      return;
+    }
+    setLoadingCases(true);
+    try {
+      const result = await loadCases({ data: { executive: executive as (typeof EXECUTIVES)[number] } });
+      setActiveCases(result as ActiveHoldCase[]);
+      setSelectedToRemove([]);
+      if (result.length === 0) toast.info("No active PTPs found for this executive.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load PTPs.");
+    } finally {
+      setLoadingCases(false);
+    }
+  }
+
+  async function handleSubmit() {
+    if (ptpsLocked) {
+      toast.error("PTPs are locked by administrator.");
+      return;
+    }
+    if (!executive) {
+      toast.error("Please select your executive name.");
+      return;
+    }
+    if (!promiseDate) { toast.error("Please select the Promise Date."); return; }
+    if (!promiseAmount || Number(promiseAmount) <= 0) { toast.error("Please enter a valid Promise Amount."); return; }
+    if (loanIds.length === 0) {
+      toast.error("Please enter at least one Loan ID.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result = await submit({
+        data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim(), promiseDate, promiseAmount: Number(promiseAmount) },
+      });
+      if (result.savedCount > 0) toast.success(result.savedCount + " PTP(s) submitted successfully.");
+      if (result.duplicateCount > 0) toast.warning(result.duplicateCount + " duplicate/already-held Loan ID(s) skipped.");
+      if (result.savedCount === 0 && result.duplicateCount > 0) toast.info("No new PTPs were added.");
+      setLoanIdsText("");
+      setRemarks("");
+      setPromiseDate("");
+      setPromiseAmount("");
+      if (executive) await loadMyPTPs();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not submit PTPs.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemoveSelected() {
+    if (ptpsLocked) {
+      toast.error("PTPs are locked by administrator.");
+      return;
+    }
+    if (!executive || selectedToRemove.length === 0) return;
+    setSaving(true);
+    try {
+      const result = await removeCases({
+        data: {
+          executive: executive as (typeof EXECUTIVES)[number],
+          loanIds: selectedToRemove,
+        },
+      });
+      toast.success(result.removedCount + " PTP(s) removed.");
+      await loadMyPTPs();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove PTPs.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleSelected(loanId: string, checked: boolean) {
+    setSelectedToRemove((current) =>
+      checked
+        ? [...current.filter((id) => normaliseLoanId(id) !== normaliseLoanId(loanId)), loanId]
+        : current.filter((id) => normaliseLoanId(id) !== normaliseLoanId(loanId)),
+    );
+  }
+
+  return (
+    <section className="mt-6 space-y-6 rounded-xl border p-4">
+      {ptpsLocked && (
+        <div role="alert" className="rounded-lg border border-amber-500 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+          PTPs are locked by administrator. Nobody can add or remove PTPs until this lock is turned off in Settings.
+        </div>
+      )}
+      <div className="space-y-2">
+        <Label className="text-base">Executive Name</Label>
+        <Select
+          value={executive}
+          onValueChange={(value) => {
+            setExecutive(value);
+            setActiveCases([]);
+            setSelectedToRemove([]);
+          }}
+        >
+          <SelectTrigger className="h-12 text-base">
+            <SelectValue placeholder="Select executive" />
+          </SelectTrigger>
+          <SelectContent>
+            {EXECUTIVES.map((name) => (
+              <SelectItem key={name} value={name} className="text-base">{name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold">Add PTPs</h3>
+        <Label className="text-base" htmlFor="ptpLoanIds">Loan IDs (Bulk Entry)</Label>
+        <Textarea
+          id="ptpLoanIds"
+          value={loanIdsText}
+          onChange={(event) => setLoanIdsText(event.target.value)}
+          disabled={ptpsLocked}
+          placeholder={"Paste multiple Loan IDs — one per line\n185978480\n184267502\n182564627"}
+          className="min-h-40 resize-y text-base"
+          aria-describedby="ptp-loan-help"
+        />
+        <p id="ptp-loan-help" className="text-sm text-muted-foreground">
+          Paste IDs from Excel or a list. New lines, spaces, commas and semicolons are supported.
+        </p>
+        <p className="text-sm font-medium">{loanIds.length} unique Loan ID(s) ready</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-2"><Label className="text-base" htmlFor="promiseDate">Promise Date</Label><Input id="promiseDate" type="date" value={promiseDate} onChange={(e) => setPromiseDate(e.target.value)} min={new Date().toISOString().slice(0,10)} className="h-12 text-base" /></div>
+        <div className="space-y-2"><Label className="text-base" htmlFor="promiseAmount">Promise Amount</Label><Input id="promiseAmount" type="number" min="1" value={promiseAmount} onChange={(e) => setPromiseAmount(e.target.value)} placeholder="0" className="h-12 text-base" /></div>
+      </div>
+      <div className="space-y-2">
+        <Label className="text-base" htmlFor="ptpRemarks">PTP Remarks (Optional)</Label>
+        <Input
+          id="ptpRemarks"
+          value={remarks}
+          onChange={(event) => setRemarks(event.target.value)}
+          maxLength={300}
+          placeholder="Optional"
+          className="h-12 text-base"
+        />
+      </div>
+
+      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={ptpsLocked || saving || !executive || loanIds.length === 0 || !promiseDate || Number(promiseAmount) <= 0}>
+        {saving ? "Submitting..." : "Submit PTPs"}
+      </Button>
+
+      <div className="border-t pt-5 space-y-3">
+        <div>
+          <h3 className="text-lg font-semibold">Remove PTPs</h3>
+          <p className="text-sm text-muted-foreground">
+            Select your executive name above, load your active cases, then choose the cases to remove.
+          </p>
+        </div>
+        <Button type="button" variant="outline" className="w-full h-11" onClick={loadMyPTPs} disabled={ptpsLocked || !executive || loadingCases || saving}>
+          {loadingCases ? "Loading..." : "Load My Active PTPs"}
+        </Button>
+        {activeCases.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">{activeCases.length} active case(s)</span>
+              <button
+                type="button"
+                className="text-primary underline"
+                onClick={() => setSelectedToRemove(selectedToRemove.length === activeCases.length ? [] : activeCases.map((item) => item.loanId))}
+              >
+                {selectedToRemove.length === activeCases.length ? "Clear selection" : "Select all"}
+              </button>
+            </div>
+            <ul className="max-h-72 space-y-2 overflow-y-auto rounded-lg border p-3">
+              {activeCases.map((item) => (
+                <li key={item.row} className="flex items-start gap-3 border-b pb-2 last:border-0">
+                  <Checkbox
+                    checked={selectedToRemove.some((id) => normaliseLoanId(id) === normaliseLoanId(item.loanId))}
+                    onCheckedChange={(checked) => toggleSelected(item.loanId, checked === true)}
+                    aria-label={"Select Loan ID " + item.loanId + " for removal"}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold break-all">{item.loanId}</p>
+                    {item.remarks && <p className="text-sm text-muted-foreground">{item.remarks}</p>}
+                    <p className="text-xs text-muted-foreground">Added: {item.submittedAt || "—"}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-12 w-full"
+              onClick={handleRemoveSelected}
+              disabled={ptpsLocked || saving || selectedToRemove.length === 0}
+            >
+              {saving ? "Processing..." : "Remove Selected (" + selectedToRemove.length + ")"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Removed PTPs remain in Google Sheet history with a Removed status and timestamp.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
