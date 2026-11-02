@@ -589,7 +589,7 @@ function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow
   }, [filtered]);
   const pie = stats.filter(s => s.count > 0).map(s => ({ name: s.status, value: s.count }));
   const groups = useMemo(() => {
-    const map = new Map<string, Map<string, { count: number; amount: number; active: number; kept: number; removed: number }>>();
+    const map = new Map<string, Map<string, { count: number; amount: number; pos: number; active: number; kept: number; removed: number }>>();
     filtered.forEach(r => {
       const col = collectionByLoan.get(r.loanId.trim().toUpperCase());
       const city = col?.city || "Unmapped";
@@ -611,7 +611,7 @@ function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow
       <StatCard label="Total PTPs" value={String(filtered.length)} />
       <StatCard label="Pending" value={String(filtered.filter(r=>r.status.toLowerCase()==="active").length)} />
       <StatCard label="Kept" value={String(filtered.filter(r=>r.status.toLowerCase()==="kept").length)} />
-      <StatCard label="Promised Amount" value={formatAmount(filtered.reduce((n,r)=>n+r.promiseAmount,0))} />
+      <StatCard label="Promised Amount" value={formatAmount(filtered.reduce((n,r)=>n+r.promiseAmount,0))} />\n      <StatCard label="PTP Completion" value={(() => { const active=filtered.filter(r=>r.status.toLowerCase()==="active").length; const kept=filtered.filter(r=>r.status.toLowerCase()==="kept").length; return active+kept ? Math.round(kept/(active+kept)*100)+"%" : "—"; })()} />
     </div>
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-1"><Label>Promise Date From</Label><Input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="h-11"/></div>
@@ -627,8 +627,8 @@ function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow
           const amount=items.reduce((n,[,v])=>n+v.amount,0);
           return <div key={name} className="overflow-hidden rounded-xl border">
             <div className="flex flex-wrap justify-between gap-2 bg-muted/50 p-3"><strong>{name}</strong><span className="text-sm">{total} PTPs · {formatAmount(amount)}</span></div>
-            <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-muted-foreground"><th className="p-2 text-left">City</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Pending</th><th className="p-2 text-right">Kept</th><th className="p-2 text-right">Removed</th><th className="p-2 text-right">Promised</th></tr></thead><tbody>
-              {items.map(([city,v])=><tr key={city} className="border-t"><td className="p-2">{city}</td><td className="p-2 text-right">{v.count}</td><td className="p-2 text-right">{v.active}</td><td className="p-2 text-right">{v.kept}</td><td className="p-2 text-right">{v.removed}</td><td className="p-2 text-right">{formatAmount(v.amount)}</td></tr>)}
+            <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-muted-foreground"><th className="p-2 text-left">City</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Pending</th><th className="p-2 text-right">Kept</th><th className="p-2 text-right">Removed</th><th className="p-2 text-right">Promised</th><th className="p-2 text-right">POS</th></tr></thead><tbody>
+              {items.map(([city,v])=><tr key={city} className="border-t"><td className="p-2">{city}</td><td className="p-2 text-right">{v.count}</td><td className="p-2 text-right">{v.active}</td><td className="p-2 text-right">{v.kept}</td><td className="p-2 text-right">{v.removed}</td><td className="p-2 text-right">{formatAmount(v.amount)}</td><td className="p-2 text-right">{formatAmount(v.pos)}</td></tr>)}
             </tbody></table></div>
           </div>;
         })}
