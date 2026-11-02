@@ -108,7 +108,8 @@ export function PTPsPanel() {
           loanIds: selectedToRemove,
         },
       });
-      toast.success(result.removedCount + " PTP(s) removed.");
+      if (result.removedCount > 0) toast.success(result.removedCount + " PTP(s) removed.");
+      if (result.skippedPaidCount > 0) toast.warning(result.skippedPaidCount + " Paid Loan ID(s) were protected and not removed.");
       await loadMyPTPs();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not remove PTPs.");
