@@ -86,8 +86,10 @@ export function PTPsPanel() {
         data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim() },
       });
       if (result.savedCount > 0) toast.success(result.savedCount + " PTP(s) submitted successfully.");
-      if (result.duplicateCount > 0) toast.warning(result.duplicateCount + " duplicate/already-active PTP Loan ID(s) skipped.");
-      if (result.savedCount === 0 && result.duplicateCount > 0) toast.info("No new PTPs were added.");
+      if (result.skippedPaidCount > 0) toast.warning(result.skippedPaidCount + " Loan ID(s) already Paid — skipped. Paid cases cannot be added to PTP.");
+      if (result.skippedHoldCount > 0) toast.warning(result.skippedHoldCount + " Loan ID(s) already in Hold — skipped. These remain in Hold, not PTP.");
+      if (result.duplicateCount > 0) toast.info(result.duplicateCount + " duplicate/already-active PTP Loan ID(s) skipped.");
+      if (result.savedCount === 0 && result.duplicateCount > 0 && result.skippedPaidCount === 0 && result.skippedHoldCount === 0) toast.info("No new PTPs were added.");
       setLoanIdsText("");
       setRemarks("");
       if (executive) await loadMyPTPs();
