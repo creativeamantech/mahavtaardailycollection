@@ -35,6 +35,7 @@ const SETTINGS_TAB = "AppSettings";
 const NOTIF_TAB = "Notifications";
 // AppSettings key holding the default allocation category ("" = All Categories).
 export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
+export const HOLD_CASES_LOCK_KEY = "holdCasesLocked";
 
 export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { sheetsGet, ensureSheet } = await import("./mahavtaar.server");
@@ -57,9 +58,14 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS };
   let defaultCategory = "";
+  let holdCasesLocked = false;
   for (const r of settingRows) {
     const key = (r[0] ?? "").trim();
     if (key === "") continue;
+    if (key === HOLD_CASES_LOCK_KEY) {
+      holdCasesLocked = (r[1] ?? "").trim().toUpperCase() === "ON";
+      continue;
+    }
     if (key === DEFAULT_CATEGORY_KEY) {
       defaultCategory = (r[1] ?? "").trim();
       continue;
@@ -77,7 +83,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }))
     .filter((n) => n.text !== "" || n.imageUrl !== "");
 
-  return { flags, notifications, defaultCategory };
+  return { flags, notifications, defaultCategory, holdCasesLocked };
 });
 
 export function isSettingsPasswordValid(input: string): boolean {
@@ -118,6 +124,18 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     while (values.length < 40) values.push(["", ""]);
     await sheetsUpdate(`${SETTINGS_TAB}!A2:B41`, values);
     return { ok: true as const };
+  });
+
+export const saveHoldCasesLock = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ locked: z.boolean() }).parse(d))
+  .handler(async ({ data }) => {
+    const { sheetsGet, sheetsUpdateStrict, ensureSheetStrict } = await import("./mahavtaar.server");
+    await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
+    const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
+    const idx = rows.findIndex((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY);
+    const row = idx >= 0 ? idx + 2 : Math.max(2, rows.length + 2);
+    await sheetsUpdateStrict(`${SETTINGS_TAB}!A${row}:B${row}`, [[HOLD_CASES_LOCK_KEY, data.locked ? "ON" : "OFF"]]);
+    return { ok: true as const, locked: data.locked };
   });
 
 export const saveDefaultCategory = createServerFn({ method: "POST" })
