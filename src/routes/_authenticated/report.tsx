@@ -485,7 +485,7 @@ function HoldCasesReport({ rows, isLoading, error }: { rows: HoldReportRow[]; is
 }
 
 
-type PTPReportRow = { row: number; submittedAt: string; executive: string; loanId: string; remarks: string; status: string; city?: string; principalOutstanding?: number };
+type PTPReportRow = { row: number; submittedAt: string; executive: string; loanId: string; actualId?: string; remarks: string; status: string; city?: string; principalOutstanding?: number };
 
 function PaidHoldAnalysis({ paidRows, holdRows, ptpRows, isLoading, error }: {
   paidRows: Collection[]; holdRows: HoldReportRow[]; ptpRows: PTPReportRow[]; isLoading: boolean; error: boolean;
@@ -515,7 +515,7 @@ function PaidHoldAnalysis({ paidRows, holdRows, ptpRows, isLoading, error }: {
     if (includePTPs) {
       const ptpSeen = new Set<string>();
       ptpRows.filter(r => r.status.toLowerCase() === "active" && r.loanId).forEach(r => {
-        const id = r.loanId.trim().toUpperCase();
+        const id = (r.actualId || r.loanId).trim().toUpperCase();
         if (ptpSeen.has(id)) return;
         ptpSeen.add(id);
         const v = get(r.city || ""); v.ptpCount++; v.ptpPos += Number(r.principalOutstanding) || 0;
@@ -547,7 +547,7 @@ function PaidHoldAnalysis({ paidRows, holdRows, ptpRows, isLoading, error }: {
     if (includePTPs) {
       const ptpSeen = new Set<string>();
       ptpRows.filter(r => r.status.toLowerCase() === "active" && r.loanId).forEach(r => {
-        const id = r.loanId.trim().toUpperCase(); const key = r.executive + "|" + id;
+        const id = (r.actualId || r.loanId).trim().toUpperCase(); const key = r.executive + "|" + id;
         if (ptpSeen.has(key)) return; ptpSeen.add(key);
         const v = get(r.executive, r.city || ""); v.ptpCount++; v.ptpPos += Number(r.principalOutstanding) || 0;
       });
@@ -601,13 +601,9 @@ function PaidHoldAnalysis({ paidRows, holdRows, ptpRows, isLoading, error }: {
 
 
 
-function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow[]; collections: Collection[]; isLoading: boolean; error: boolean }) {
+function PTPReport({ rows, isLoading, error }: { rows: PTPReportRow[]; isLoading: boolean; error: boolean }) {
   const [view, setView] = useState("overall");
-  const collectionByLoan = useMemo(() => {
-    const map = new Map<string, Collection>();
-    collections.forEach(r => { const id = String(r.loanId ?? "").trim().toUpperCase(); if (id && !map.has(id)) map.set(id, r); });
-    return map;
-  }, [collections]);
+  
   const stats = useMemo(() => {
     const map = new Map<string, number>();
     rows.forEach(r => { const status = r.status || "Active"; map.set(status, (map.get(status) ?? 0) + 1); });
@@ -617,20 +613,19 @@ function PTPReport({ rows, collections, isLoading, error }: { rows: PTPReportRow
   const groups = useMemo(() => {
     const map = new Map<string, Map<string, { count: number; pos: number; active: number; kept: number; removed: number }>>();
     rows.forEach(r => {
-      const col = collectionByLoan.get(r.loanId.trim().toUpperCase());
-      const city = col?.city || "Unmapped";
+      const city = r.city?.trim() || "Unmapped";
       const owner = view === "executive" ? r.executive : view === "city" ? city : "Overall";
       const cities = map.get(owner) ?? new Map();
       const v = cities.get(city) ?? { count: 0, pos: 0, active: 0, kept: 0, removed: 0 };
       v.count++;
-      v.pos += Number(col?.pos ?? 0);
+      v.pos += Number(r.principalOutstanding ?? 0);
       if (r.status.toLowerCase() === "active") v.active++;
       if (r.status.toLowerCase() === "kept") v.kept++;
       if (r.status.toLowerCase() === "removed") v.removed++;
       cities.set(city, v); map.set(owner, cities);
     });
     return [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
-  }, [rows, collectionByLoan, view]);
+  }, [rows, view]);
   const pending = rows.filter(r => r.status.toLowerCase() === "active").length;
   const kept = rows.filter(r => r.status.toLowerCase() === "kept").length;
   if (isLoading) return <p className="rounded-xl border p-6 text-center">Loading PTP report…</p>;
