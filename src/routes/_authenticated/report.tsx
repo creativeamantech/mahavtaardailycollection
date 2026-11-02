@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell, Legend } from "recharts";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { getCollections, highlightAlreadyPaidInSheet } from "@/lib/mahavtaar.functions";
@@ -482,6 +482,92 @@ function HoldCasesReport({ rows, isLoading, error }: { rows: HoldReportRow[]; is
   </section>;
 }
 
+
+function PaidHoldAnalysis({ paidRows, holdRows, isLoading, error }: {
+  paidRows: Collection[]; holdRows: HoldReportRow[]; isLoading: boolean; error: boolean;
+}) {
+  const cityStats = useMemo(() => {
+    const map = new Map<string, { city: string; paidCount: number; paidPos: number; holdCount: number; holdPos: number }>();
+    const get = (city: string) => {
+      const name = city.trim() || "Unmapped";
+      if (!map.has(name)) map.set(name, { city: name, paidCount: 0, paidPos: 0, holdCount: 0, holdPos: 0 });
+      return map.get(name)!;
+    };
+    const paidSeen = new Set<string>();
+    paidRows.forEach((r) => {
+      const id = String(r.loanId || "").trim().toUpperCase() || "ROW-" + String(r.row ?? paidSeen.size);
+      if (paidSeen.has(id)) return;
+      paidSeen.add(id);
+      const v = get(r.city || ""); v.paidCount++; v.paidPos += Number(r.pos) || 0;
+    });
+    const holdSeen = new Set<string>();
+    holdRows.filter((r) => r.status.toLowerCase() === "active" && r.loanId).forEach((r) => {
+      const id = r.loanId.trim().toUpperCase();
+      if (holdSeen.has(id)) return;
+      holdSeen.add(id);
+      const v = get(r.city); v.holdCount++; v.holdPos += Number(r.principalOutstanding) || 0;
+    });
+    return [...map.values()].sort((a, b) => (b.paidCount + b.holdCount) - (a.paidCount + a.holdCount) || a.city.localeCompare(b.city));
+  }, [paidRows, holdRows]);
+
+  const executiveStats = useMemo(() => {
+    const map = new Map<string, Map<string, { city: string; paidCount: number; paidPos: number; holdCount: number; holdPos: number }>>();
+    const get = (executive: string, city: string) => {
+      const name = executive.trim() || "Unassigned"; const cityName = city.trim() || "Unmapped";
+      if (!map.has(name)) map.set(name, new Map());
+      const cities = map.get(name)!;
+      if (!cities.has(cityName)) cities.set(cityName, { city: cityName, paidCount: 0, paidPos: 0, holdCount: 0, holdPos: 0 });
+      return cities.get(cityName)!;
+    };
+    const paidSeen = new Set<string>();
+    paidRows.forEach((r) => {
+      const id = String(r.loanId || "").trim().toUpperCase() || "ROW-" + String(r.row ?? paidSeen.size);
+      const key = r.executive + "|" + id; if (paidSeen.has(key)) return; paidSeen.add(key);
+      const v = get(r.executive, r.city || ""); v.paidCount++; v.paidPos += Number(r.pos) || 0;
+    });
+    const holdSeen = new Set<string>();
+    holdRows.filter((r) => r.status.toLowerCase() === "active" && r.loanId).forEach((r) => {
+      const key = r.executive + "|" + r.loanId.trim().toUpperCase(); if (holdSeen.has(key)) return; holdSeen.add(key);
+      const v = get(r.executive, r.city); v.holdCount++; v.holdPos += Number(r.principalOutstanding) || 0;
+    });
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([executive, cities]) => ({ executive, cities: [...cities.values()].sort((a, b) => a.city.localeCompare(b.city)) }));
+  }, [paidRows, holdRows]);
+
+  const paidCount = cityStats.reduce((n, r) => n + r.paidCount, 0);
+  const holdCount = cityStats.reduce((n, r) => n + r.holdCount, 0);
+  const paidPos = cityStats.reduce((n, r) => n + r.paidPos, 0);
+  const holdPos = cityStats.reduce((n, r) => n + r.holdPos, 0);
+  const pieData = [{ name: "Paid", value: paidCount }, { name: "Hold", value: holdCount }].filter((r) => r.value > 0);
+  if (isLoading) return <p className="rounded-xl border p-6 text-center">Loading Paid &amp; Hold analysis…</p>;
+  if (error) return <p className="rounded-xl border p-6 text-center text-destructive">Could not load the combined report. Please refresh.</p>;
+  return <section className="space-y-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <StatCard label="Paid Cases" value={String(paidCount)} /><StatCard label="Hold Cases" value={String(holdCount)} />
+      <StatCard label="Combined Cases" value={String(paidCount + holdCount)} /><StatCard label="Combined POS" value={formatAmount(paidPos + holdPos)} />
+    </div>
+    <div className="grid grid-cols-2 gap-3"><StatCard label="Paid POS" value={formatAmount(paidPos)} /><StatCard label="Hold POS" value={formatAmount(holdPos)} /></div>
+    <div className="rounded-xl border p-4"><h3 className="font-semibold">Paid vs Hold — Case Count Distribution</h3>
+      {pieData.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No Paid or Hold cases found.</p> : <div className="h-72"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="48%" outerRadius={92} label={({ name, value }) => String(name) + ": " + String(value)}>{pieData.map((entry) => <Cell key={entry.name} fill={entry.name === "Paid" ? "#16a34a" : "#d97706"} />)}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div>}
+    </div>
+    <Tabs defaultValue="city" className="w-full"><TabsList className="grid h-auto w-full grid-cols-2"><TabsTrigger value="city">City-wise</TabsTrigger><TabsTrigger value="executive">Executive-wise</TabsTrigger></TabsList>
+      <TabsContent value="city" className="mt-3"><div className="overflow-x-auto rounded-xl border"><table className="w-full text-xs sm:text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">City</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Paid POS</th><th className="p-2 text-right">Hold</th><th className="p-2 text-right">Hold POS</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Total POS</th></tr></thead><tbody>
+        {cityStats.map((r) => <tr key={r.city} className="border-t"><td className="p-2 font-medium">{r.city}</td><td className="p-2 text-right">{r.paidCount}</td><td className="p-2 text-right">{formatAmount(r.paidPos)}</td><td className="p-2 text-right">{r.holdCount}</td><td className="p-2 text-right">{formatAmount(r.holdPos)}</td><td className="p-2 text-right font-semibold">{r.paidCount + r.holdCount}</td><td className="p-2 text-right font-semibold">{formatAmount(r.paidPos + r.holdPos)}</td></tr>)}
+        {cityStats.length === 0 && <tr><td colSpan={7} className="p-6 text-center">No data found.</td></tr>}
+        <tr className="border-t-2 bg-muted/50 font-bold"><td className="p-2">TOTAL</td><td className="p-2 text-right">{paidCount}</td><td className="p-2 text-right">{formatAmount(paidPos)}</td><td className="p-2 text-right">{holdCount}</td><td className="p-2 text-right">{formatAmount(holdPos)}</td><td className="p-2 text-right">{paidCount + holdCount}</td><td className="p-2 text-right">{formatAmount(paidPos + holdPos)}</td></tr>
+      </tbody></table></div></TabsContent>
+      <TabsContent value="executive" className="mt-3 space-y-3">{executiveStats.map(({ executive, cities }) => {
+        const pc = cities.reduce((n, r) => n + r.paidCount, 0); const hc = cities.reduce((n, r) => n + r.holdCount, 0);
+        const pp = cities.reduce((n, r) => n + r.paidPos, 0); const hp = cities.reduce((n, r) => n + r.holdPos, 0);
+        return <div key={executive} className="overflow-hidden rounded-xl border"><div className="flex flex-wrap items-center justify-between gap-2 bg-muted/50 p-3"><h3 className="font-semibold">{executive}</h3><span className="text-sm font-semibold">Paid {pc} · Hold {hc} · Total {pc + hc}</span></div><div className="overflow-x-auto"><table className="w-full text-xs sm:text-sm"><thead><tr className="border-t text-muted-foreground"><th className="p-2 text-left">City</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Paid POS</th><th className="p-2 text-right">Hold</th><th className="p-2 text-right">Hold POS</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Total POS</th></tr></thead><tbody>
+          {cities.map((r) => <tr key={r.city} className="border-t"><td className="p-2">{r.city}</td><td className="p-2 text-right">{r.paidCount}</td><td className="p-2 text-right">{formatAmount(r.paidPos)}</td><td className="p-2 text-right">{r.holdCount}</td><td className="p-2 text-right">{formatAmount(r.holdPos)}</td><td className="p-2 text-right font-semibold">{r.paidCount + r.holdCount}</td><td className="p-2 text-right font-semibold">{formatAmount(r.paidPos + r.holdPos)}</td></tr>)}
+          <tr className="border-t bg-muted/40 font-bold"><td className="p-2">Executive Total</td><td className="p-2 text-right">{pc}</td><td className="p-2 text-right">{formatAmount(pp)}</td><td className="p-2 text-right">{hc}</td><td className="p-2 text-right">{formatAmount(hp)}</td><td className="p-2 text-right">{pc + hc}</td><td className="p-2 text-right">{formatAmount(pp + hp)}</td></tr>
+        </tbody></table></div></div>;
+      })}</TabsContent>
+    </Tabs>
+    <p className="text-xs text-muted-foreground">Paid cases count distinct Loan IDs in the selected month, excluding Already Paid and excluded loans. Hold cases count distinct active Loan IDs. POS is summed once per Loan ID; the pie chart compares Paid and Hold case counts.</p>
+  </section>;
+}
+
 function ReportPage() {
   const fetchCollections = useServerFn(getCollections);
   const fetchActiveHoldCases = useServerFn(listActiveHoldCasesForReport);
@@ -705,14 +791,14 @@ function ReportPage() {
       )}
 
       <Tabs defaultValue="datewise" className="mt-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="datewise" className="text-base">
             Date-wise
           </TabsTrigger>
           <TabsTrigger value="overall" className="text-base">
             Overall
           </TabsTrigger>
-          <TabsTrigger value="holdcases" className="text-base">Hold Cases</TabsTrigger>
+          <TabsTrigger value="holdcases" className="text-base">Hold Cases</TabsTrigger><TabsTrigger value="paid-hold" className="text-base">Paid &amp; Hold</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datewise" className="mt-4 space-y-4">
@@ -769,6 +855,10 @@ function ReportPage() {
         <TabsContent value="holdcases" className="mt-4 space-y-4">
           <div className="flex justify-end"><Button variant="outline" onClick={() => refetchHoldCases()} disabled={holdCasesLoading}>Refresh Hold Cases</Button></div>
           <HoldCasesReport rows={holdCaseRows} isLoading={holdCasesLoading} error={Boolean(holdCasesError)} />
+        </TabsContent>
+        <TabsContent value="paid-hold" className="mt-4 space-y-4">
+          <div className="flex justify-end"><Button variant="outline" onClick={() => { void refetch(); void refetchHoldCases(); }} disabled={isFetching || holdCasesLoading}>Refresh Paid &amp; Hold</Button></div>
+          <PaidHoldAnalysis paidRows={rows} holdRows={holdCaseRows} isLoading={isLoading || holdCasesLoading} error={Boolean(error || holdCasesError)} />
         </TabsContent>
       </Tabs>
 
