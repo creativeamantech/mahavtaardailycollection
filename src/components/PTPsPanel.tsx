@@ -3,7 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EXECUTIVES } from "@/lib/executives";
 import { listActivePTPs, removePTPs, submitPTPs } from "@/lib/ptp.functions";
-import { useAppConfig } from "@/hooks/useAppConfig";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,13 +16,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type ActiveHoldCase = {
+type ActivePTP = {
   row: number;
   submittedAt: string;
   executive: string;
   loanId: string;
   remarks: string;
   status: string;
+  promiseDate?: string;
+  promiseAmount?: number;
 };
 
 function normaliseLoanId(value: string) {
@@ -31,7 +32,6 @@ function normaliseLoanId(value: string) {
 }
 
 export function PTPsPanel() {
-  const { ptpsLocked } = useAppConfig();
   const [executive, setExecutive] = useState("");
   const [loanIdsText, setLoanIdsText] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -39,7 +39,7 @@ export function PTPsPanel() {
   const [promiseAmount, setPromiseAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingCases, setLoadingCases] = useState(false);
-  const [activeCases, setActiveCases] = useState<ActiveHoldCase[]>([]);
+  const [activeCases, setActiveCases] = useState<ActivePTP[]>([]);
   const [selectedToRemove, setSelectedToRemove] = useState<string[]>([]);
   const submit = useServerFn(submitPTPs);
   const loadCases = useServerFn(listActivePTPs);
@@ -64,7 +64,7 @@ export function PTPsPanel() {
     setLoadingCases(true);
     try {
       const result = await loadCases({ data: { executive: executive as (typeof EXECUTIVES)[number] } });
-      setActiveCases(result as ActiveHoldCase[]);
+      setActiveCases(result as ActivePTP[]);
       setSelectedToRemove([]);
       if (result.length === 0) toast.info("No active PTPs found for this executive.");
     } catch (error) {
@@ -75,11 +75,7 @@ export function PTPsPanel() {
   }
 
   async function handleSubmit() {
-    if (ptpsLocked) {
-      toast.error("PTPs are locked by administrator.");
-      return;
-    }
-    if (!executive) {
+        if (!executive) {
       toast.error("Please select your executive name.");
       return;
     }
@@ -96,7 +92,7 @@ export function PTPsPanel() {
         data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim(), promiseDate, promiseAmount: Number(promiseAmount) },
       });
       if (result.savedCount > 0) toast.success(result.savedCount + " PTP(s) submitted successfully.");
-      if (result.duplicateCount > 0) toast.warning(result.duplicateCount + " duplicate/already-held Loan ID(s) skipped.");
+      if (result.duplicateCount > 0) toast.warning(result.duplicateCount + " duplicate/already-active PTP Loan ID(s) skipped.");
       if (result.savedCount === 0 && result.duplicateCount > 0) toast.info("No new PTPs were added.");
       setLoanIdsText("");
       setRemarks("");
@@ -111,11 +107,7 @@ export function PTPsPanel() {
   }
 
   async function handleRemoveSelected() {
-    if (ptpsLocked) {
-      toast.error("PTPs are locked by administrator.");
-      return;
-    }
-    if (!executive || selectedToRemove.length === 0) return;
+        if (!executive || selectedToRemove.length === 0) return;
     setSaving(true);
     try {
       const result = await removeCases({
@@ -143,12 +135,7 @@ export function PTPsPanel() {
 
   return (
     <section className="mt-6 space-y-6 rounded-xl border p-4">
-      {ptpsLocked && (
-        <div role="alert" className="rounded-lg border border-amber-500 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
-          PTPs are locked by administrator. Nobody can add or remove PTPs until this lock is turned off in Settings.
-        </div>
-      )}
-      <div className="space-y-2">
+            <div className="space-y-2">
         <Label className="text-base">Executive Name</Label>
         <Select
           value={executive}
@@ -203,7 +190,7 @@ export function PTPsPanel() {
         />
       </div>
 
-      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={ptpsLocked || saving || !executive || loanIds.length === 0 || !promiseDate || Number(promiseAmount) <= 0}>
+      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={saving || !executive || loanIds.length === 0 || !promiseDate || Number(promiseAmount) <= 0}>
         {saving ? "Submitting..." : "Submit PTPs"}
       </Button>
 
@@ -214,7 +201,7 @@ export function PTPsPanel() {
             Select your executive name above, load your active cases, then choose the cases to remove.
           </p>
         </div>
-        <Button type="button" variant="outline" className="w-full h-11" onClick={loadMyPTPs} disabled={ptpsLocked || !executive || loadingCases || saving}>
+        <Button type="button" variant="outline" className="w-full h-11" onClick={loadMyPTPs} disabled={!executive || loadingCases || saving}>
           {loadingCases ? "Loading..." : "Load My Active PTPs"}
         </Button>
         {activeCases.length > 0 && (
@@ -240,7 +227,7 @@ export function PTPsPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold break-all">{item.loanId}</p>
                     {item.remarks && <p className="text-sm text-muted-foreground">{item.remarks}</p>}
-                    <p className="text-xs text-muted-foreground">Added: {item.submittedAt || "—"}</p>
+                    <p className="text-xs text-muted-foreground">Promise: {item.promiseDate || "—"} · {item.promiseAmount ? item.promiseAmount.toLocaleString("en-IN") : "—"} · Added: {item.submittedAt || "—"}</p>
                   </div>
                 </li>
               ))}
@@ -250,7 +237,7 @@ export function PTPsPanel() {
               variant="destructive"
               className="h-12 w-full"
               onClick={handleRemoveSelected}
-              disabled={ptpsLocked || saving || selectedToRemove.length === 0}
+              disabled={saving || selectedToRemove.length === 0}
             >
               {saving ? "Processing..." : "Remove Selected (" + selectedToRemove.length + ")"}
             </Button>
