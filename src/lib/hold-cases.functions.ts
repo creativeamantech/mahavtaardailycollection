@@ -54,17 +54,26 @@ export const submitHoldCases = createServerFn({ method: "POST" })
     const seen = new Set<string>();
     const uniqueIds: string[] = [];
     const duplicates: string[] = [];
+    let skippedPaidCount = 0;
+    let skippedHoldCount = 0;
     for (const raw of data.loanIds) {
       const id = normaliseLoanId(raw);
       if (!id) continue;
-      if (seen.has(id) || existingIds.has(id) || caseIndex.paid.has(id)) {
+      if (seen.has(id) || existingIds.has(id)) {
         duplicates.push(id);
+        skippedHoldCount++;
+        continue;
+      }
+      if (caseIndex.paid.has(id)) {
+        duplicates.push(id);
+        skippedPaidCount++;
         continue;
       }
       seen.add(id);
       uniqueIds.push(raw.trim());
     }
 
+    let movedFromPTPCount = 0;
     if (uniqueIds.length > 0) {
       const ptpRows = await sheetsGet("PTPs!A2:H");
       const moveIds = new Set(uniqueIds.map(normaliseLoanId));
@@ -77,7 +86,10 @@ export const submitHoldCases = createServerFn({ method: "POST" })
           ptpUpdates.push({ range: `PTPs!G${i + 2}:H${i + 2}`, values: [["Removed", new Date().toISOString()]] });
         }
       }
-      if (ptpUpdates.length) await sheetsBatchUpdateValuesStrict(ptpUpdates);
+      if (ptpUpdates.length) {
+        await sheetsBatchUpdateValuesStrict(ptpUpdates);
+        movedFromPTPCount = ptpUpdates.length;
+      }
       const submittedAt = new Date().toISOString();
       await sheetsAppendStrict("Hold_Cases!A:F", uniqueIds.map((loanId) => [
         submittedAt, data.executive, loanId, data.remarks, "Active", "",
@@ -89,6 +101,9 @@ export const submitHoldCases = createServerFn({ method: "POST" })
       ok: true as const,
       savedCount: uniqueIds.length,
       duplicateCount: duplicates.length,
+      skippedPaidCount,
+      skippedHoldCount,
+      movedFromPTPCount,
       duplicates: [...new Set(duplicates)],
     };
   });
