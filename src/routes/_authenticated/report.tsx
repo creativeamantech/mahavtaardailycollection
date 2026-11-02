@@ -512,6 +512,27 @@ function PaidHoldAnalysis({ paidRows, allPaidRows, holdRows, ptpRows, isLoading,
     const rows = allPaidRows.map((r) => [r.row ?? "",r.executive,r.loanId ?? "",r.actualId ?? "",r.linkedName ?? "",r.portalUrl ?? "",r.amount,r.date,r.time ?? "",r.entryDate ?? "",r.entryType ?? "",r.status ?? "",r.settlementType ?? "",r.bucket ?? "",r.city ?? "",r.emiAmount ?? "",r.pos ?? "",r.foreclosure ?? "",r.allocationCategory ?? "",r.allocationDate ?? "",r.alreadyPaid ? "Yes" : "No",(r.receiptLinks ?? []).join(" | "),r.remark ?? "",r.amansRemarks ?? "",r.createdAt ?? ""]);
     downloadDetailCsv("Mahavtaar_Paid_Complete_Details.csv", headers, rows);
   }
+  function downloadPaidHoldMix() {
+    const seen = new Set<string>();
+    const combined: (string | number)[][] = [];
+    for (const r of allPaidRows) {
+      const status = String(r.status ?? "Confirmed").trim().toLowerCase();
+      const loanId = String(r.loanId ?? "").trim();
+      const key = loanId.toUpperCase();
+      if (!loanId || status === "deleted" || seen.has(key)) continue;
+      seen.add(key);
+      combined.push([loanId, r.executive ?? "", "Paid"]);
+    }
+    for (const r of activeHoldRows) {
+      const loanId = String(r.loanId ?? "").trim();
+      const key = loanId.toUpperCase();
+      if (!loanId || seen.has(key)) continue;
+      seen.add(key);
+      combined.push([loanId, r.executive ?? "", "Hold"]);
+    }
+    combined.sort((a, b) => String(a[2]).localeCompare(String(b[2])) || String(a[1]).localeCompare(String(b[1])) || String(a[0]).localeCompare(String(b[0])));
+    downloadDetailCsv("Mahavtaar_Paid_and_Active_Hold_Mix.csv", ["Loan Number", "Executive Name", "Status"], combined);
+  }
   function downloadActiveHoldDetails() {
     const headers = ["Hold Sheet Row","Submitted At","Executive","Loan ID","Actual ID","Hold Reason / Remarks","Status","Removed At","City","Principal Outstanding"];
     const rows = activeHoldRows.map((r) => [r.row,r.submittedAt,r.executive,r.loanId,r.actualId,r.remarks,r.status,r.removedAt,r.city,r.principalOutstanding]);
@@ -596,6 +617,7 @@ function PaidHoldAnalysis({ paidRows, allPaidRows, holdRows, ptpRows, isLoading,
     <div className="flex flex-wrap gap-2">
       <Button type="button" variant="outline" onClick={downloadPaidDetails} disabled={allPaidRows.length === 0}><Download className="mr-2 size-4" />Download Paid Complete Details ({allPaidRows.length})</Button>
       <Button type="button" variant="outline" onClick={downloadActiveHoldDetails} disabled={activeHoldRows.length === 0}><Download className="mr-2 size-4" />Download Active Hold Complete Details ({activeHoldRows.length})</Button>
+      <Button type="button" variant="outline" onClick={downloadPaidHoldMix} disabled={allPaidRows.length === 0 && activeHoldRows.length === 0}><Download className="mr-2 size-4" />Download Paid + Active Hold Mix ({new Set([...allPaidRows.filter(r => String(r.status ?? "Confirmed").trim().toLowerCase() !== "deleted").map(r => String(r.loanId ?? "").trim().toUpperCase()), ...activeHoldRows.map(r => r.loanId.trim().toUpperCase())].filter(Boolean)).size})</Button>
     </div>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
       <div><p className="font-semibold">Include PTPs in this report</p><p className="text-xs text-muted-foreground">OFF करने पर PTP count और POS सभी totals और breakdown से हटेंगे। Original PTP records सुरक्षित रहेंगे।</p></div>
