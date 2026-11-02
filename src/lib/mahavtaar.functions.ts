@@ -132,7 +132,15 @@ export const saveCollection = createServerFn({ method: "POST" })
     } catch (error) {
       console.error("Collection saved, but matching Hold Case could not be closed:", error);
     }
-    return { ok: true as const, row: rowNum, holdCasesRemoved };
+    let ptpsKept = 0;
+    try {
+      const { markMatchingPTPsKept } = await import("./ptp.functions");
+      const result = await markMatchingPTPsKept(data.loanId);
+      ptpsKept = result.keptCount;
+    } catch (error) {
+      console.error("Collection saved, but matching PTP could not be marked Kept:", error);
+    }
+    return { ok: true as const, row: rowNum, holdCasesRemoved, ptpsKept };
   });
 
 // Marks conflicting Collections rows with a red background so the conflict is
