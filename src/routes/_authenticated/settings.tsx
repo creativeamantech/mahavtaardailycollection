@@ -10,6 +10,7 @@ import {
   removeNotification,
   saveDefaultCategory,
   saveFeatureFlags,
+  saveHoldCasesLock,
 } from "@/lib/app-config.functions";
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
 import { PasswordGate, ADMIN_SESSION_KEY as SESSION_KEY } from "@/components/PasswordGate";
@@ -71,9 +72,10 @@ function SettingsPage() {
 
 function SettingsContent() {
   const qc = useQueryClient();
-  const { flags, notifications, defaultCategory, isLoading } = useAppConfig();
+  const { flags, notifications, defaultCategory, holdCasesLocked, isLoading } = useAppConfig();
   const saveFlags = useServerFn(saveFeatureFlags);
   const saveDefaultCat = useServerFn(saveDefaultCategory);
+  const saveHoldLock = useServerFn(saveHoldCasesLock);
   const addNotif = useServerFn(addNotification);
   const removeNotif = useServerFn(removeNotification);
   const fetchCollections = useServerFn(getCollections);
@@ -101,6 +103,7 @@ function SettingsContent() {
   }, [detectedCategories, defaultCategory]);
 
   const [savingCategory, setSavingCategory] = useState(false);
+  const [savingHoldLock, setSavingHoldLock] = useState(false);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [customCategoryInput, setCustomCategoryInput] = useState("");
 
@@ -112,6 +115,21 @@ function SettingsContent() {
   const [saving, setSaving] = useState(false);
 
   const activeNotifications = notifications.filter((n) => n.status.toLowerCase() !== "removed");
+
+  async function handleToggleHoldLock(locked: boolean) {
+    setSavingHoldLock(true);
+    qc.setQueryData(APP_CONFIG_KEY, (old: unknown) => old ? { ...(old as object), holdCasesLocked: locked } : old);
+    try {
+      await saveHoldLock({ data: { locked } });
+      toast.success(locked ? "Hold Cases locked for everyone." : "Hold Cases unlocked for everyone.");
+      await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update Hold Cases lock.");
+      await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
+    } finally {
+      setSavingHoldLock(false);
+    }
+  }
 
   async function handleSaveCategory(category: string) {
     const categoryToSave = category === ALL_CATEGORIES ? "" : category.trim();
@@ -178,6 +196,20 @@ function SettingsContent() {
   return (
     <div className="space-y-8">
       <NotificationPanel />
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Hold Cases Access Lock</h2>
+          <p className="text-sm text-muted-foreground">When enabled, all executives are blocked from adding or manually removing Hold Cases. This setting applies globally to everyone.</p>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg border p-4">
+          <div>
+            <p className="font-medium">{holdCasesLocked ? "Hold Cases Locked" : "Hold Cases Unlocked"}</p>
+            <p className="text-xs text-muted-foreground">{holdCasesLocked ? "Nobody can add or remove cases." : "Executives can add and remove cases."}</p>
+          </div>
+          <Switch checked={holdCasesLocked} disabled={isLoading || savingHoldLock} onCheckedChange={(value) => void handleToggleHoldLock(value)} aria-label="Lock Hold Cases for everyone" />
+        </div>
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Page &amp; Feature Visibility</h2>
