@@ -88,20 +88,6 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
   return { flags, notifications, defaultCategory, holdCasesLocked };
 });
 
-export function isSettingsPasswordValid(input: string): boolean {
-  // Configure this only in the deployment's server-side secrets; never commit it.
-  const expected = process.env["MAHAVTAAR_ADMIN_PASSWORD"] ?? "";
-  if (!expected) return false;
-  let diff = input.length === expected.length ? 0 : 1;
-  for (let i = 0; i < Math.max(input.length, expected.length); i++) {
-    diff |= (input.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
-  }
-  return diff === 0;
-}
-
-export const verifySettingsPassword = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ password: z.string().max(200) }).parse(d))
-  .handler(async () => { await requireSession("Admin"); return { ok: true as const }; });
 
 export const saveFeatureFlags = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
