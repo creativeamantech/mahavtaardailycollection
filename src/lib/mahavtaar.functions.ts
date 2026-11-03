@@ -361,8 +361,7 @@ const verificationAuditTab = "VerificationAudit";
 const verificationAuditHeader = ["Timestamp", "Admin", "Loan Number", "Collection Row", "Action", "Note", "Source"];
 
 export const getAdminReviewState = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async () => {
     await requireSession("Admin");
     const { ensureSheetStrict, sheetsGet } = await import("./mahavtaar.server");
     await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
