@@ -160,8 +160,7 @@ export const loginWithPin = createServerFn({ method: "POST" })
     const { ensureSheetStrict, sheetsAppendStrict } = await import("./mahavtaar.server");
     await ensureSheetStrict("AppSessions", ["Token_Hash", "Executive_Name", "Role", "Created_At", "Expires_At", "Revoked"]);
     await sheetsAppendStrict("AppSessions!A:F", [[tokenHash, user.name, user.role, now.toISOString(), expires.toISOString(), "No"]]);
-    sessionCache.set(tokenHash, { name: user.name, role: user.role, expiresAt: expires.getTime(), rowNumber: -1 });
-    sessionCacheLoadedAt = Date.now();
+    await refreshSessionCache(true);
     setSessionCookie(token, SESSION_TTL / 1000);
     return { name: user.name, role: user.role };
   });
