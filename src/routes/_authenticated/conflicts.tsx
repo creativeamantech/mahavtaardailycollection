@@ -18,12 +18,10 @@ import {
   FileText,
   ImageIcon,
   Layers,
-  Lock,
   MapPin,
   Maximize2,
   RotateCw,
   Search,
-  ShieldAlert,
   Table,
   Trash2,
   Undo2,
@@ -456,18 +454,7 @@ function ConflictsContent() {
         </div>
 
         <div className="flex items-center gap-2">
-          {onLock && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 text-sm font-medium text-muted-foreground hover:text-foreground shadow-sm"
-              onClick={onLock}
-              title="Lock page session"
-            >
-              <Lock className="mr-1.5 h-4 w-4" />
-              Lock
-            </Button>
-          )}
+
           <Button
             variant="outline"
             size="sm"
