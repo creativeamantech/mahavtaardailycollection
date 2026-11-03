@@ -557,7 +557,6 @@ export const updateCollectionAmount = createServerFn({ method: "POST" })
     return { ok: true as const, row: data.row, amount: data.amount };
   });
 
-
 export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
