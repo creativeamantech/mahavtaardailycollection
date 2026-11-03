@@ -1,3 +1,4 @@
+import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -35,6 +36,7 @@ const holdCasesSchema = z.object({
 export const submitHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => holdCasesSchema.parse(data))
   .handler(async ({ data }) => {
+    await requireSession();
     const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsAppendStrict, sheetsBatchUpdateValuesStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
@@ -110,6 +112,7 @@ export const submitHoldCases = createServerFn({ method: "POST" })
 
 export const listActiveHoldCasesForReport = createServerFn({ method: "POST" })
   .handler(async () => {
+    await requireSession();
     const { sheetsGet } = await import("./mahavtaar.server");
     await ensureHoldTab();
     const rows = await sheetsGet("Hold_Cases!A2:I");
@@ -134,6 +137,7 @@ const executiveSchema = z.object({ executive: z.enum(executives) });
 export const listActiveHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => executiveSchema.parse(data))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet } = await import("./mahavtaar.server");
     await ensureHoldTab();
     const rows = await sheetsGet("Hold_Cases!A2:F");
@@ -162,6 +166,7 @@ const removeHoldCasesSchema = z.object({
 export const removeHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => removeHoldCasesSchema.parse(data))
   .handler(async ({ data }) => {
+    await requireSession();
     const {
       requireGoogleSheetsWriteAccess,
       sheetsGet,
