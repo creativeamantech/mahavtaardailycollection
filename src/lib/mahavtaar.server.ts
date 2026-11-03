@@ -636,3 +636,12 @@ export async function ensureSheet(title: string, header?: string[]) {
   }
   return getSheetId(title);
 }
+
+export async function checkConnectorHealth() {
+  requireGoogleSheetsWriteAccess();
+  if (!hasCredentials('GOOGLE_DRIVE_API_KEY')) throw new Error('Google Drive connector is not configured.');
+  await sheetsGet('Users!A1:E1');
+  const driveResponse = await fetch(`${GATEWAY}/google_drive/drive/v3/files/${DRIVE_FOLDER_ID}?fields=id`, { headers: headers('GOOGLE_DRIVE_API_KEY') });
+  await ok(driveResponse, 'Drive health check');
+  return { sheets: true, drive: true };
+}
