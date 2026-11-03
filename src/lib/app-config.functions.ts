@@ -140,7 +140,7 @@ export const saveDefaultCategory = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireSession("Admin");
     const { sheetsGet, sheetsUpdateStrict, ensureSheetStrict } = await import("./mahavtaar.server");
-    await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
+    await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
     let rows: string[][] = [];
     try {
       rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
