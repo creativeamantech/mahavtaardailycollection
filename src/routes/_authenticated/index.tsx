@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { getCurrentSession } from "@/lib/auth.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { toast } from "sonner";
@@ -100,6 +101,9 @@ function EntryPage() {
   const today = todayISO();
   const yesterday = todayISO(new Date(Date.now() - 86400000));
   const [executive, setExecutive] = useState("");
+  const getSession = useServerFn(getCurrentSession);
+  const { data: session } = useQuery({ queryKey: ["auth-session"], queryFn: () => getSession(), staleTime: 30_000 });
+  useEffect(() => { if (session?.role === "Executive") setExecutive(session.name); }, [session]);
   const [loanId, setLoanId] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
@@ -324,7 +328,7 @@ function EntryPage() {
       qc.invalidateQueries({ queryKey: ["collections"] });
       setShowConfirm(false);
 
-      setExecutive("");
+      setExecutive(session?.role === "Executive" ? session.name : "");
       setLoanId("");
       setAmount("");
       setConfirmed(false);
@@ -410,7 +414,7 @@ function EntryPage() {
       >
         <div className="space-y-2">
           <Label className="text-base">Executive Name</Label>
-          <Select value={executive} onValueChange={setExecutive}>
+          <Select value={executive} onValueChange={setExecutive} disabled={session?.role !== "Admin"}>
             <SelectTrigger className="h-12 text-base">
               <SelectValue placeholder="Select executive" />
             </SelectTrigger>
