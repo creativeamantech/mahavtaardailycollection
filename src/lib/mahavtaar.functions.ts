@@ -561,13 +561,24 @@ export const deleteCollectionRow = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const { sheetsUpdateStrict, ensureSheetStrict, sheetsAppendStrict, invalidateSheetsCache } = await import("./mahavtaar.server");
+    const { sheetsUpdateStrict, ensureSheetStrict, sheetsAppendStrict, invalidateSheetsCache } =
+      await import("./mahavtaar.server");
     const entry = (await readCollections()).find((item) => item.row === data.row);
     if (!entry) throw new Error("Collection entry not found or already deleted.");
     await sheetsUpdateStrict(`Collections!G${data.row}`, [["Deleted"]]);
     invalidateSheetsCache();
     await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
-    await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[new Date().toISOString(), "Admin", entry.loanId, data.row, "ENTRY_DELETED", "Soft-deleted", "Conflict Resolution"]]);
+    await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [
+      [
+        new Date().toISOString(),
+        "Admin",
+        entry.loanId,
+        data.row,
+        "ENTRY_DELETED",
+        "Soft-deleted",
+        "Conflict Resolution",
+      ],
+    ]);
     return { ok: true as const };
   });
 export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
