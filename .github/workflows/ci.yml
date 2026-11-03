@@ -21,9 +21,9 @@ jobs:
           bun-version: "1.4.4"
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: Production build (regenerates TanStack route tree)
+        run: bun run build
       - name: TypeScript
         run: bunx tsc --noEmit
       - name: ESLint (entire repository)
         run: bunx eslint .
-      - name: Production build
-        run: bun run build
