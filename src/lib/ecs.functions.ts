@@ -1,3 +1,4 @@
+import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -23,6 +24,7 @@ const updateSchema = z.object({
 export const saveEcsEntry = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => ecsSchema.parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsAppend } = await import("./mahavtaar.server");
     if (data.paymentDate > data.entryDate) {
       throw new Error("Payment date cannot be in the future.");
@@ -49,6 +51,7 @@ export const saveEcsEntry = createServerFn({ method: "POST" })
   });
 
 export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () => {
+    await requireSession();
   try {
     const { sheetsGet } = await import("./mahavtaar.server");
     const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
@@ -76,6 +79,7 @@ export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () 
 export const updateEcsEntry = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateSchema.parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
     const rows = await sheetsGet("ECS_Special_Info!A2:L");
     const idx = rows.findIndex((r) => (r[0] ?? "").trim() === data.id);
