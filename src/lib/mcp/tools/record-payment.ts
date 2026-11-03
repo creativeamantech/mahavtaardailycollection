@@ -3,7 +3,17 @@ import { z } from "zod";
 import { saveCollection, uploadReceiptImage } from "../../mahavtaar.functions";
 import { todayISO } from "../../executives";
 
-const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Shikha", "Sona", "Sunanda", "Vinita"] as const;
+const executives = [
+  "Aarti",
+  "Ankita",
+  "Bharti",
+  "Julee",
+  "Pooja",
+  "Shikha",
+  "Sona",
+  "Sunanda",
+  "Vinita",
+] as const;
 
 export default defineTool({
   name: "record_payment",

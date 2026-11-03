@@ -6,7 +6,10 @@ const TAB = "Excluded Loan Numbers";
 const header = ["Loan Number", "Date Added", "Reason", "Status"];
 
 function normaliseLoanId(value: string) {
-  return String(value ?? "").replace(/^['`\u2018\u2019]+/, "").trim().toUpperCase();
+  return String(value ?? "")
+    .replace(/^['`\u2018\u2019]+/, "")
+    .trim()
+    .toUpperCase();
 }
 
 export type ExcludedLoan = {
@@ -17,7 +20,7 @@ export type ExcludedLoan = {
 };
 
 export const getExcludedLoanNumbers = createServerFn({ method: "GET" }).handler(async () => {
-    await requireSession("Admin");
+  await requireSession("Admin");
   const { ensureSheet, sheetsGet } = await import("./mahavtaar.server");
   await ensureSheet(TAB, header);
   const rows = await sheetsGet(`${TAB}!A2:D`);
@@ -33,10 +36,12 @@ export const getExcludedLoanNumbers = createServerFn({ method: "GET" }).handler(
 
 export const addExcludedLoanNumber = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({
-      loanNumber: z.string().trim().min(1).max(60),
-      reason: z.string().trim().max(300).optional().default(""),
-    }).parse(d),
+    z
+      .object({
+        loanNumber: z.string().trim().min(1).max(60),
+        reason: z.string().trim().max(300).optional().default(""),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     await requireSession("Admin");
@@ -44,24 +49,32 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
     await ensureSheet(TAB, header);
     const loanNumber = normaliseLoanId(data.loanNumber);
     const rows = await sheetsGet(`${TAB}!A2:D`);
-    const exists = rows.some((r) =>
-      normaliseLoanId(r[0] ?? "") === loanNumber && ((r[3] ?? "Active").trim() || "Active").toLowerCase() === "active",
+    const exists = rows.some(
+      (r) =>
+        normaliseLoanId(r[0] ?? "") === loanNumber &&
+        ((r[3] ?? "Active").trim() || "Active").toLowerCase() === "active",
     );
     if (exists) throw new Error("This loan number is already in the exclusion list.");
-    await sheetsAppendStrict(`${TAB}!A:D`, [[loanNumber, new Date().toISOString().slice(0, 10), data.reason ?? "", "Active"]]);
+    await sheetsAppendStrict(`${TAB}!A:D`, [
+      [loanNumber, new Date().toISOString().slice(0, 10), data.reason ?? "", "Active"],
+    ]);
     return { ok: true as const, loanNumber };
   });
 
 export const removeExcludedLoanNumber = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ loanNumber: z.string().trim().min(1).max(60), }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ loanNumber: z.string().trim().min(1).max(60) }).parse(d),
+  )
   .handler(async ({ data }) => {
     await requireSession("Admin");
     const { ensureSheet, sheetsGet, sheetsUpdateStrict } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const rows = await sheetsGet(`${TAB}!A2:D`);
     const target = normaliseLoanId(data.loanNumber);
-    const idx = rows.findIndex((r) =>
-      normaliseLoanId(r[0] ?? "") === target && ((r[3] ?? "Active").trim() || "Active").toLowerCase() === "active",
+    const idx = rows.findIndex(
+      (r) =>
+        normaliseLoanId(r[0] ?? "") === target &&
+        ((r[3] ?? "Active").trim() || "Active").toLowerCase() === "active",
     );
     if (idx < 0) throw new Error("Active excluded loan number not found.");
     // Keep the audit record; mark it removed instead of deleting it.
@@ -71,10 +84,12 @@ export const removeExcludedLoanNumber = createServerFn({ method: "POST" })
 
 export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({
-      loanNumbersText: z.string().trim().min(1).max(100_000),
-      reason: z.string().trim().max(300).optional().default(""),
-    }).parse(d),
+    z
+      .object({
+        loanNumbersText: z.string().trim().min(1).max(100_000),
+        reason: z.string().trim().max(300).optional().default(""),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     await requireSession("Admin");
@@ -86,7 +101,8 @@ export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
       .filter(Boolean);
     const unique = [...new Set(pasted)];
     if (unique.length === 0) throw new Error("Paste at least one valid loan number.");
-    if (unique.length > 5000) throw new Error("Bulk import is limited to 5,000 unique loan numbers per batch.");
+    if (unique.length > 5000)
+      throw new Error("Bulk import is limited to 5,000 unique loan numbers per batch.");
     const rows = await sheetsGet(`${TAB}!A2:D`);
     const active = new Set(
       rows
@@ -98,7 +114,17 @@ export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
     const toAdd = unique.filter((loan) => !active.has(loan));
     if (toAdd.length) {
       const today = new Date().toISOString().slice(0, 10);
-      await sheetsAppendStrict(`${TAB}!A:D`, toAdd.map((loan) => [loan, today, data.reason ?? "", "Active"]));
+      await sheetsAppendStrict(
+        `${TAB}!A:D`,
+        toAdd.map((loan) => [loan, today, data.reason ?? "", "Active"]),
+      );
     }
-    return { ok: true as const, pasted: pasted.length, unique: unique.length, added: toAdd.length, skippedExisting: existing.length, existingLoanNumbers: existing };
+    return {
+      ok: true as const,
+      pasted: pasted.length,
+      unique: unique.length,
+      added: toAdd.length,
+      skippedExisting: existing.length,
+      existingLoanNumbers: existing,
+    };
   });

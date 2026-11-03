@@ -9,7 +9,13 @@ const SESSION_CACHE_TTL = 15_000;
 const SCRYPT_N = 16_384;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
-type User = { name: string; role: "Admin" | "Executive"; pin: string; status: string; rowNumber: number };
+type User = {
+  name: string;
+  role: "Admin" | "Executive";
+  pin: string;
+  status: string;
+  rowNumber: number;
+};
 type Session = { name: string; role: "Admin" | "Executive"; expiresAt: number; rowNumber: number };
 type Attempt = { count: number; lockedUntil: number };
 
@@ -20,30 +26,47 @@ const loginAttempts = new Map<string, Attempt>();
 async function readUsers(): Promise<User[]> {
   const { sheetsGet } = await import("./mahavtaar.server");
   const rows = await sheetsGet("Users!A2:E");
-  return rows.map((r, index): User | null => {
-    const roleText = String(r[3] ?? "").trim().toLowerCase();
-    if (roleText !== "admin" && roleText !== "executive") return null;
-    return {
-      name: String(r[1] ?? "").trim(),
-      pin: String(r[2] ?? "").trim(),
-      role: roleText === "admin" ? "Admin" : "Executive",
-      status: String(r[4] ?? "").trim().toLowerCase(),
-      rowNumber: index + 2,
-    };
-  }).filter((u): u is User => Boolean(u?.name && u.status === "active"));
+  return rows
+    .map((r, index): User | null => {
+      const roleText = String(r[3] ?? "")
+        .trim()
+        .toLowerCase();
+      if (roleText !== "admin" && roleText !== "executive") return null;
+      return {
+        name: String(r[1] ?? "").trim(),
+        pin: String(r[2] ?? "").trim(),
+        role: roleText === "admin" ? "Admin" : "Executive",
+        status: String(r[4] ?? "")
+          .trim()
+          .toLowerCase(),
+        rowNumber: index + 2,
+      };
+    })
+    .filter((u): u is User => Boolean(u?.name && u.status === "active"));
 }
 
 function cookieToken() {
   const cookie = getRequestHeader("cookie") ?? "";
-  const item = cookie.split(";").map((s) => s.trim()).find((s) => s.startsWith(COOKIE + "="));
+  const item = cookie
+    .split(";")
+    .map((s) => s.trim())
+    .find((s) => s.startsWith(COOKIE + "="));
   return item ? decodeURIComponent(item.slice(COOKIE.length + 1)) : "";
 }
 
 function setSessionCookie(value: string, maxAge: number) {
   const secure = process.env["NODE_ENV"] === "production" ? "; Secure" : "";
-  setResponseHeader("Set-Cookie", value
-    ? COOKIE + "=" + encodeURIComponent(value) + "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + maxAge + secure
-    : COOKIE + "=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0" + secure);
+  setResponseHeader(
+    "Set-Cookie",
+    value
+      ? COOKIE +
+          "=" +
+          encodeURIComponent(value) +
+          "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" +
+          maxAge +
+          secure
+      : COOKIE + "=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0" + secure,
+  );
 }
 
 async function digest(value: string) {
@@ -56,8 +79,15 @@ function randomToken() {
 
 function hashPin(pin: string) {
   const salt = randomBytes(16);
-  const hash = scryptSync(pin, salt, 64, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: 64 * 1024 * 1024 });
-  return ["scrypt", SCRYPT_N, SCRYPT_R, SCRYPT_P, salt.toString("hex"), hash.toString("hex")].join("$");
+  const hash = scryptSync(pin, salt, 64, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    maxmem: 64 * 1024 * 1024,
+  });
+  return ["scrypt", SCRYPT_N, SCRYPT_R, SCRYPT_P, salt.toString("hex"), hash.toString("hex")].join(
+    "$",
+  );
 }
 
 function verifyPin(pin: string, stored: string) {
@@ -66,7 +96,12 @@ function verifyPin(pin: string, stored: string) {
     if (!n || !r || !p || !saltHex || !hashHex) return false;
     const expected = Buffer.from(hashHex, "hex");
     if (expected.length !== 64) return false;
-    const actual = scryptSync(pin, Buffer.from(saltHex, "hex"), 64, { N: Number(n), r: Number(r), p: Number(p), maxmem: 64 * 1024 * 1024 });
+    const actual = scryptSync(pin, Buffer.from(saltHex, "hex"), 64, {
+      N: Number(n),
+      r: Number(r),
+      p: Number(p),
+      maxmem: 64 * 1024 * 1024,
+    });
     return timingSafeEqual(actual, expected);
   }
   const expected = createHash("sha256").update(stored).digest();
@@ -75,7 +110,10 @@ function verifyPin(pin: string, stored: string) {
 }
 
 function rateLimitKeys(userName: string) {
-  const ip = (getRequestHeader("x-forwarded-for") ?? getRequestHeader("cf-connecting-ip") ?? "unknown").split(",")[0]?.trim() || "unknown";
+  const ip =
+    (getRequestHeader("x-forwarded-for") ?? getRequestHeader("cf-connecting-ip") ?? "unknown")
+      .split(",")[0]
+      ?.trim() || "unknown";
   return ["user:" + userName.toLowerCase(), "ip:" + ip];
 }
 
@@ -83,7 +121,8 @@ function assertNotRateLimited(keys: string[]) {
   const now = Date.now();
   for (const key of keys) {
     const attempt = loginAttempts.get(key);
-    if (attempt && attempt.lockedUntil > now) throw new Error("Too many login attempts. Please wait before trying again.");
+    if (attempt && attempt.lockedUntil > now)
+      throw new Error("Too many login attempts. Please wait before trying again.");
   }
 }
 
@@ -112,8 +151,17 @@ async function refreshSessionCache(force = false) {
     const name = String(row[1] ?? "").trim();
     const role = String(row[2] ?? "").trim();
     const expiresAt = Date.parse(String(row[4] ?? ""));
-    const revoked = String(row[5] ?? "").trim().toLowerCase() === "yes";
-    if (tokenHash && name && (role === "Admin" || role === "Executive") && !revoked && expiresAt > now) {
+    const revoked =
+      String(row[5] ?? "")
+        .trim()
+        .toLowerCase() === "yes";
+    if (
+      tokenHash &&
+      name &&
+      (role === "Admin" || role === "Executive") &&
+      !revoked &&
+      expiresAt > now
+    ) {
       next.set(tokenHash, { name, role, expiresAt, rowNumber: index + 2 });
     }
   });
@@ -136,7 +184,11 @@ export const getLoginUsers = createServerFn({ method: "GET" }).handler(async () 
 });
 
 export const loginWithPin = createServerFn({ method: "POST" })
-  .inputValidator((v: unknown) => z.object({ executiveName: z.string().trim().min(1).max(100), pin: z.string().min(1).max(100) }).parse(v))
+  .inputValidator((v: unknown) =>
+    z
+      .object({ executiveName: z.string().trim().min(1).max(100), pin: z.string().min(1).max(100) })
+      .parse(v),
+  )
   .handler(async ({ data }) => {
     const keys = rateLimitKeys(data.executiveName);
     assertNotRateLimited(keys);
@@ -158,8 +210,17 @@ export const loginWithPin = createServerFn({ method: "POST" })
     const now = new Date();
     const expires = new Date(now.getTime() + SESSION_TTL);
     const { ensureSheetStrict, sheetsAppendStrict } = await import("./mahavtaar.server");
-    await ensureSheetStrict("AppSessions", ["Token_Hash", "Executive_Name", "Role", "Created_At", "Expires_At", "Revoked"]);
-    await sheetsAppendStrict("AppSessions!A:F", [[tokenHash, user.name, user.role, now.toISOString(), expires.toISOString(), "No"]]);
+    await ensureSheetStrict("AppSessions", [
+      "Token_Hash",
+      "Executive_Name",
+      "Role",
+      "Created_At",
+      "Expires_At",
+      "Revoked",
+    ]);
+    await sheetsAppendStrict("AppSessions!A:F", [
+      [tokenHash, user.name, user.role, now.toISOString(), expires.toISOString(), "No"],
+    ]);
     await refreshSessionCache(true);
     setSessionCookie(token, SESSION_TTL / 1000);
     return { name: user.name, role: user.role };
@@ -175,8 +236,13 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(async
     if (session) sessionCache.delete(hash);
     return null;
   }
-  const user = (await readUsers()).find((candidate) => candidate.name === session.name && candidate.role === session.role);
-  if (!user) { sessionCache.delete(hash); return null; }
+  const user = (await readUsers()).find(
+    (candidate) => candidate.name === session.name && candidate.role === session.role,
+  );
+  if (!user) {
+    sessionCache.delete(hash);
+    return null;
+  }
   return { name: user.name, role: user.role };
 });
 
@@ -190,6 +256,7 @@ export const logoutCurrentSession = createServerFn({ method: "POST" }).handler(a
 export async function requireSession(requiredRole?: "Admin" | "Executive") {
   const session = await getCurrentSession();
   if (!session) throw new Error("Authentication required. Please log in again.");
-  if (requiredRole && session.role !== requiredRole) throw new Error("Administrator access required.");
+  if (requiredRole && session.role !== requiredRole)
+    throw new Error("Administrator access required.");
   return session;
 }

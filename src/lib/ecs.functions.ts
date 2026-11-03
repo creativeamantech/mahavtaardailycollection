@@ -2,7 +2,17 @@ import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Shikha", "Sona", "Sunanda", "Vinita"] as const;
+const executives = [
+  "Aarti",
+  "Ankita",
+  "Bharti",
+  "Julee",
+  "Pooja",
+  "Shikha",
+  "Sona",
+  "Sunanda",
+  "Vinita",
+] as const;
 
 const ecsSchema = z.object({
   executive: z.enum(executives),
@@ -52,7 +62,7 @@ export const saveEcsEntry = createServerFn({ method: "POST" })
   });
 
 export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () => {
-    await requireSession();
+  await requireSession();
   try {
     const { sheetsGet } = await import("./mahavtaar.server");
     const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
@@ -86,7 +96,8 @@ export const updateEcsEntry = createServerFn({ method: "POST" })
     const idx = rows.findIndex((r) => (r[0] ?? "").trim() === data.id);
     if (idx === -1) throw new Error("ECS / Special entry not found.");
     const row = rows[idx]!;
-    if (session.role !== "Admin" && String(row[1] ?? "").trim() !== session.name) throw new Error("You can only edit your own ECS / Special entries.");
+    if (session.role !== "Admin" && String(row[1] ?? "").trim() !== session.name)
+      throw new Error("You can only edit your own ECS / Special entries.");
     const rowNumber = idx + 2;
     await sheetsUpdateStrict(`ECS_Special_Info!I${rowNumber}:J${rowNumber}`, [
       [data.status, data.remark ?? ""],

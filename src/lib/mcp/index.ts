@@ -38,7 +38,11 @@ export default defineMcp({
   name: "daily-collection-hub",
   title: "Mahavtaar Daily Collection Hub",
   version: "0.5.0",
-  auth: auth.oauth.issuer({ issuer: "https://ydgexnboxazquiiqcrup.supabase.co/auth/v1", acceptedAudiences: "authenticated", resource: "https://mahavtaardailycollection.lovable.app/mcp" }),
+  auth: auth.oauth.issuer({
+    issuer: "https://ydgexnboxazquiiqcrup.supabase.co/auth/v1",
+    acceptedAudiences: "authenticated",
+    resource: "https://mahavtaardailycollection.lovable.app/mcp",
+  }),
   instructions:
     "Comprehensive suite of read and write tools for Mahavtaar Daily Collection: load, filter, and parse collection data; full sequential EMI loan analytics and short EMI tracking; executive-city performance breakdown; date-wise & monthly reports; Already Paid case listings and sheet highlighting; pending receipt management (creation, review, completion into collections, and image upload to Drive); payment entry recording, updating, and deletion; ECS/Special entry tracking; conflict detection, sheet highlighting, and resolution; app settings & notifications; and raw Google Sheets operations.",
   tools: [

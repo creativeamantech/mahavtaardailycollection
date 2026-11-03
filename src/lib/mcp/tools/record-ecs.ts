@@ -3,7 +3,17 @@ import { z } from "zod";
 import { saveEcsEntry } from "../../ecs.functions";
 import { todayISO } from "../../executives";
 
-const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Shikha", "Sona", "Sunanda", "Vinita"] as const;
+const executives = [
+  "Aarti",
+  "Ankita",
+  "Bharti",
+  "Julee",
+  "Pooja",
+  "Shikha",
+  "Sona",
+  "Sunanda",
+  "Vinita",
+] as const;
 
 export default defineTool({
   name: "record_ecs_entry",

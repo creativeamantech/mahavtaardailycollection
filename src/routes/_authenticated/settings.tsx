@@ -104,10 +104,14 @@ function SettingsContent() {
 
   async function handleToggleHoldLock(locked: boolean) {
     setSavingHoldLock(true);
-    qc.setQueryData(APP_CONFIG_KEY, (old: unknown) => old ? { ...(old as object), holdCasesLocked: locked } : old);
+    qc.setQueryData(APP_CONFIG_KEY, (old: unknown) =>
+      old ? { ...(old as object), holdCasesLocked: locked } : old,
+    );
     try {
       await saveHoldLock({ data: { locked } });
-      toast.success(locked ? "Hold Cases locked for everyone." : "Hold Cases unlocked for everyone.");
+      toast.success(
+        locked ? "Hold Cases locked for everyone." : "Hold Cases unlocked for everyone.",
+      );
       await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update Hold Cases lock.");
@@ -186,14 +190,28 @@ function SettingsContent() {
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold">Hold Cases Access Lock</h2>
-          <p className="text-sm text-muted-foreground">When enabled, all executives are blocked from adding or manually removing Hold Cases. This setting applies globally to everyone.</p>
+          <p className="text-sm text-muted-foreground">
+            When enabled, all executives are blocked from adding or manually removing Hold Cases.
+            This setting applies globally to everyone.
+          </p>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-lg border p-4">
           <div>
-            <p className="font-medium">{holdCasesLocked ? "Hold Cases Locked" : "Hold Cases Unlocked"}</p>
-            <p className="text-xs text-muted-foreground">{holdCasesLocked ? "Nobody can add or remove cases." : "Executives can add and remove cases."}</p>
+            <p className="font-medium">
+              {holdCasesLocked ? "Hold Cases Locked" : "Hold Cases Unlocked"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {holdCasesLocked
+                ? "Nobody can add or remove cases."
+                : "Executives can add and remove cases."}
+            </p>
           </div>
-          <Switch checked={holdCasesLocked} disabled={isLoading || savingHoldLock} onCheckedChange={(value) => void handleToggleHoldLock(value)} aria-label="Lock Hold Cases for everyone" />
+          <Switch
+            checked={holdCasesLocked}
+            disabled={isLoading || savingHoldLock}
+            onCheckedChange={(value) => void handleToggleHoldLock(value)}
+            aria-label="Lock Hold Cases for everyone"
+          />
         </div>
       </section>
 

@@ -78,7 +78,12 @@ export function ExecutiveCitiesPage() {
     refetchOnWindowFocus: true,
   });
   const excludedLoanIds = useMemo(
-    () => new Set(excludedLoanRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase())),
+    () =>
+      new Set(
+        excludedLoanRecords
+          .filter((r) => r.status.toLowerCase() === "active")
+          .map((r) => r.loanNumber.trim().toUpperCase()),
+      ),
     [excludedLoanRecords],
   );
   const {
@@ -154,7 +159,14 @@ export function ExecutiveCitiesPage() {
   const filteredRows = useMemo(() => {
     return data.filter((r) => {
       // Exclude active excluded-loan entries from all performance calculations.
-      if (excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase())) return false;
+      if (
+        excludedLoanIds.has(
+          String(r.loanId ?? "")
+            .trim()
+            .toUpperCase(),
+        )
+      )
+        return false;
       // Exclude Already Paid (matching loans.tsx city table by default)
       if (excludeAlreadyPaid && r.alreadyPaid) return false;
 

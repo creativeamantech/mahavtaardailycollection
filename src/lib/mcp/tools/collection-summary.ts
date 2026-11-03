@@ -18,7 +18,11 @@ export default defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ from, to, category }) => {
     const excludedRecords = await getExcludedLoanNumbers();
-    const excludedIds = new Set(excludedRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase()));
+    const excludedIds = new Set(
+      excludedRecords
+        .filter((r) => r.status.toLowerCase() === "active")
+        .map((r) => r.loanNumber.trim().toUpperCase()),
+    );
     const rows = (await loadCollections()).filter(
       (r) =>
         !r.alreadyPaid &&

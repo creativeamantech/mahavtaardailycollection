@@ -146,7 +146,7 @@ export async function readCashierLinkActivities(): Promise<{
 }
 
 export const getCashierLinkData = createServerFn({ method: "GET" }).handler(async () => {
-    await requireSession();
+  await requireSession();
   return await readCashierLinkActivities();
 });
 

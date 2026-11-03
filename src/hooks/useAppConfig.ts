@@ -30,7 +30,14 @@ export function useAppConfig(options: { enabled?: boolean } = {}) {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .pop() ?? null;
 
-  return { ...query, flags, notifications, activeNotification, defaultCategory, holdCasesLocked: query.data?.holdCasesLocked ?? false };
+  return {
+    ...query,
+    flags,
+    notifications,
+    activeNotification,
+    defaultCategory,
+    holdCasesLocked: query.data?.holdCasesLocked ?? false,
+  };
 }
 
 export function useFeatureEnabled(key: string) {

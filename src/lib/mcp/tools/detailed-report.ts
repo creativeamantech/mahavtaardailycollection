@@ -35,8 +35,14 @@ export default defineTool({
   handler: async ({ month, dateFrom, dateTo, category, bucket, executive }) => {
     const raw = await loadCollections();
     const excludedRecords = await getExcludedLoanNumbers();
-    const excludedLoanIds = new Set(excludedRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase()));
-    let rows = raw.filter((r) => !r.alreadyPaid && !excludedLoanIds.has(r.loanId.trim().toUpperCase()));
+    const excludedLoanIds = new Set(
+      excludedRecords
+        .filter((r) => r.status.toLowerCase() === "active")
+        .map((r) => r.loanNumber.trim().toUpperCase()),
+    );
+    let rows = raw.filter(
+      (r) => !r.alreadyPaid && !excludedLoanIds.has(r.loanId.trim().toUpperCase()),
+    );
 
     if (month) {
       rows = rows.filter((r) => monthKey(r.date) === month);

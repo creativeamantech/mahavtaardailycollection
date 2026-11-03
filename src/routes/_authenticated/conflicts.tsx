@@ -454,7 +454,6 @@ function ConflictsContent() {
         </div>
 
         <div className="flex items-center gap-2">
-
           <Button
             variant="outline"
             size="sm"
@@ -1000,7 +999,7 @@ function ConflictsContent() {
                                   : "Conflict नहीं है, सही है"}
                               </Button>
 
-                                                            <Button
+                              <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
@@ -1626,7 +1625,6 @@ function ConflictsContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </main>
   );
 }

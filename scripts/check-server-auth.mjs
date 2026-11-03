@@ -3,7 +3,12 @@ import path from "node:path";
 import ts from "typescript";
 
 const root = path.resolve("src");
-const exempt = new Set(["getLoginUsers", "loginWithPin", "getCurrentSession", "logoutCurrentSession"]);
+const exempt = new Set([
+  "getLoginUsers",
+  "loginWithPin",
+  "getCurrentSession",
+  "logoutCurrentSession",
+]);
 const failures = [];
 
 function walk(directory) {
@@ -18,12 +23,19 @@ function inspect(file) {
   const source = fs.readFileSync(file, "utf8");
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   function visit(node) {
-    if (ts.isVariableStatement(node) && node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) {
+    if (
+      ts.isVariableStatement(node) &&
+      node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+    ) {
       for (const declaration of node.declarationList.declarations) {
         if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue;
         const name = declaration.name.text;
         const block = declaration.initializer.getText(ast);
-        if (block.includes("createServerFn(") && !exempt.has(name) && !block.includes("requireSession(")) {
+        if (
+          block.includes("createServerFn(") &&
+          !exempt.has(name) &&
+          !block.includes("requireSession(")
+        ) {
           failures.push(`${file}: exported server function ${name} has no requireSession guard`);
         }
       }

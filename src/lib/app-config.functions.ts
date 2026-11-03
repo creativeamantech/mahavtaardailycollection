@@ -39,7 +39,7 @@ export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
 export const HOLD_CASES_LOCK_KEY = "holdCasesLocked";
 
 export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
-    await requireSession();
+  await requireSession();
   const { sheetsGet, ensureSheet } = await import("./mahavtaar.server");
 
   let settingRows: string[][] = [];
@@ -88,7 +88,6 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
   return { flags, notifications, defaultCategory, holdCasesLocked };
 });
 
-
 export const saveFeatureFlags = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({ flags: z.record(z.string().max(40), z.boolean()) }).parse(d),
@@ -105,7 +104,9 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
       defaultCategory =
         rows.find((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY)?.[1]?.trim() ?? "";
       holdCasesLocked =
-        (rows.find((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY)?.[1] ?? "").trim().toUpperCase() === "ON";
+        (rows.find((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY)?.[1] ?? "")
+          .trim()
+          .toUpperCase() === "ON";
     } catch {
       /* keep defaults */
     }
@@ -128,7 +129,9 @@ export const saveHoldCasesLock = createServerFn({ method: "POST" })
     const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
     const idx = rows.findIndex((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY);
     const row = idx >= 0 ? idx + 2 : Math.max(2, rows.length + 2);
-    await sheetsUpdateStrict(`${SETTINGS_TAB}!A${row}:B${row}`, [[HOLD_CASES_LOCK_KEY, data.locked ? "ON" : "OFF"]]);
+    await sheetsUpdateStrict(`${SETTINGS_TAB}!A${row}:B${row}`, [
+      [HOLD_CASES_LOCK_KEY, data.locked ? "ON" : "OFF"],
+    ]);
     return { ok: true as const, locked: data.locked };
   });
 
@@ -173,7 +176,8 @@ export const addNotification = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const { sheetsAppendStrict, driveUpload, ensureSheetStrict } = await import("./mahavtaar.server");
+    const { sheetsAppendStrict, driveUpload, ensureSheetStrict } =
+      await import("./mahavtaar.server");
     await ensureSheetStrict(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
     let imageUrl = "";
     if (data.image) {

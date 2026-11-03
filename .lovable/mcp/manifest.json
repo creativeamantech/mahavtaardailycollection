@@ -6,9 +6,7 @@
     "type": "oauth",
     "issuer": "https://ydgexnboxazquiiqcrup.supabase.co/auth/v1",
     "require_oauth_client_claim": true,
-    "accepted_audiences": [
-      "authenticated"
-    ],
+    "accepted_audiences": ["authenticated"],
     "resource": "https://mahavtaardailycollection.lovable.app/mcp"
   },
   "mcp": {
@@ -47,10 +45,7 @@
               "maxLength": 80
             }
           },
-          "required": [
-            "from",
-            "to"
-          ],
+          "required": ["from", "to"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -75,9 +70,7 @@
               "description": "Loan ID to look up."
             }
           },
-          "required": [
-            "loanId"
-          ],
+          "required": ["loanId"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -131,12 +124,7 @@
             },
             "language": {
               "type": "string",
-              "enum": [
-                "hi",
-                "en",
-                "mr",
-                "gu"
-              ],
+              "enum": ["hi", "en", "mr", "gu"],
               "default": "hi",
               "description": "OCR language hint: Hindi, English, Marathi, or Gujarati."
             }
