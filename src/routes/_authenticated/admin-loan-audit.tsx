@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getAdminPasswordInMemory } from "@/lib/admin-session";
 
 export const Route = createFileRoute("/_authenticated/admin-loan-audit")({
-  head: () => [{ meta: [{ title: "Productivity Desk — Mahavtaar Daily Collection" }] }],
+  head: () => ({ meta: [{ title: "Productivity Desk — Mahavtaar Daily Collection" }] }),
   component: AdminLoanAuditPage,
 });
 
