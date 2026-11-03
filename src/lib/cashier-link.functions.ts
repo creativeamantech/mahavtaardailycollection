@@ -158,17 +158,18 @@ const actionSchema = z.object({
 export const recordCashierLinkAction = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => actionSchema.parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
-    const { sheetsAppend, ensureSheet } = await import("./mahavtaar.server");
-    await ensureSheet(CASHIER_LINK_TAB, CASHIER_LINK_HEADERS);
+    const session = await requireSession();
+    const executive = session.role === "Admin" ? data.executive : session.name;
+    const { sheetsAppendStrict, ensureSheetStrict } = await import("./mahavtaar.server");
+    await ensureSheetStrict(CASHIER_LINK_TAB, CASHIER_LINK_HEADERS);
 
     // Read current data to prevent duplicate or invalid actions
     const currentData = await readCashierLinkActivities();
-    const currentStatus = currentData.executiveStatuses[data.executive];
+    const currentStatus = currentData.executiveStatuses[executive];
 
     if (data.action === "ON" && currentStatus?.isOnline) {
       throw new Error(
-        `Cashier ID Link is already ON for ${data.executive}. Duplicate ON action prevented.`,
+        `Cashier ID Link is already ON for ${executive}. Duplicate ON action prevented.`,
       );
     }
 
@@ -190,7 +191,7 @@ export const recordCashierLinkAction = createServerFn({ method: "POST" })
     if (data.action === "OFF") {
       // Find the most recent ON activity for this executive
       const lastOnActivity = currentData.activities.find(
-        (a) => a.executive === data.executive && a.action === "ON",
+        (a) => a.executive === executive && a.action === "ON",
       );
 
       if (lastOnActivity && lastOnActivity.createdAt) {
@@ -203,15 +204,15 @@ export const recordCashierLinkAction = createServerFn({ method: "POST" })
       }
     }
 
-    await sheetsAppend(`${CASHIER_LINK_TAB}!A:H`, [
-      [id, data.executive, data.action, date, time, durationSeconds, durationDisplay, createdAt],
+    await sheetsAppendStrict(`${CASHIER_LINK_TAB}!A:H`, [
+      [id, executive, data.action, date, time, durationSeconds, durationDisplay, createdAt],
     ]);
 
     return {
       ok: true as const,
       activity: {
         id,
-        executive: data.executive,
+        executive,
         action: data.action,
         date,
         time,
