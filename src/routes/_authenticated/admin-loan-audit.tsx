@@ -2,16 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Search, RefreshCw, Save, LockKeyhole, ExternalLink, CheckSquare, Square, Trash2, CheckCircle2, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
+import { Search, RefreshCw, Save, ExternalLink, CheckSquare, Square, Trash2, CheckCircle2, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { PasswordGate } from "@/components/PasswordGate";
 import { getAdminCollections, getAdminReviewState, saveAdminReviewEvents, adminUpdateCollectionRow, adminDeleteCollectionRow } from "@/lib/mahavtaar.functions";
 import { formatAmount } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { getAdminPasswordInMemory } from "@/lib/admin-session";
 
 export const Route = createFileRoute("/_authenticated/admin-loan-audit")({
   head: () => ({ meta: [{ title: "Productivity Desk — Mahavtaar Daily Collection" }] }),
@@ -35,8 +33,6 @@ function parseLoanNumbers(value: string) {
 }
 
 function AdminLoanAuditPage() {
-  const [adminPassword, setAdminPassword] = useState(() => getAdminPasswordInMemory());
-  const [unlocked, setUnlocked] = useState(() => Boolean(getAdminPasswordInMemory()));
   const [bulkInput, setBulkInput] = useState("");
   const [availableLoans, setAvailableLoans] = useState<string[]>([]);
   const [selectedLoans, setSelectedLoans] = useState<string[]>([]);
@@ -56,17 +52,17 @@ function AdminLoanAuditPage() {
   const { data = [], isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
     queryFn: async () => {
-      const result = await fetchCollections({ data: { adminPassword } });
+      const result = await fetchCollections();
       if (!Array.isArray(result)) throw new Error("Google Sheets से collections load नहीं हो पाए।");
       return result as Entry[];
     },
     staleTime: 10_000,
-    enabled: unlocked && adminPassword.length > 0,
+    enabled: true,
   });
 
   const { data: persistedVerifiedRows = [], refetch: refetchReviewState } = useQuery({
     queryKey: ["admin-review-state"],
-    queryFn: () => fetchReviewState({ data: { adminPassword } }),
+    queryFn: () => fetchReviewState(),
     enabled: unlocked && adminPassword.length > 0,
     staleTime: 5_000,
   });
@@ -101,7 +97,7 @@ function AdminLoanAuditPage() {
     const entry = data.find((item) => item.row === row);
     if (!entry) return;
     try {
-      await saveReviewEvents({ data: { adminPassword, events: [{
+      await saveReviewEvents({ data: { events: [{
         loanNumber: entry.loanId, collectionRow: row, action: checked ? "VERIFIED" : "UNVERIFIED",
         note: checked ? "Verified from Productivity Desk" : "Verification reverted from Productivity Desk",
       }] } });
@@ -114,7 +110,7 @@ function AdminLoanAuditPage() {
   async function verifyCurrentLoan() {
     if (!activeGroup || !activeRows.length) return;
     try {
-      await saveReviewEvents({ data: { adminPassword, events: activeRows
+      await saveReviewEvents({ data: { events: activeRows
         .filter((entry) => !verifiedRows.includes(entry.row))
         .map((entry) => ({ loanNumber: activeGroup.loan, collectionRow: entry.row, action: "VERIFIED" as const, note: "Bulk verified from Productivity Desk" })) } });
       await refetchReviewState();
@@ -148,7 +144,7 @@ function AdminLoanAuditPage() {
   async function save(entry: Entry) {
     const d = { ...entry, ...drafts[entry.row] };
     try {
-      const result = await saveRow({ data: { adminPassword, entry: {
+      const result = await saveRow({ data: { entry: {
         row: d.row, executive: d.executive, loanId: d.loanId, amount: Number(d.amount),
         date: d.date, time: d.time || "", entryDate: d.entryDate || d.date,
         entryType: d.entryType === "Previous Paid File" ? "Previous Paid File" : "Normal",
@@ -168,7 +164,7 @@ function AdminLoanAuditPage() {
     const ok = window.confirm(`क्या आप Loan ${entry.loanId} की Row ${entry.row} वाली पूरी collection entry delete करना चाहते हैं? यह Google Sheet से हटेगी और वापस लाना आसान नहीं होगा।`);
     if (!ok) return;
     try {
-      const result = await deleteRow({ data: { adminPassword, row: entry.row } });
+      const result = await deleteRow({ data: { row: entry.row } });
       setDrafts((old) => { const next = { ...old }; delete next[entry.row]; return next; });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       toast.success(`Loan ${entry.loanId} की entry soft-delete हो गई।`);
@@ -177,11 +173,6 @@ function AdminLoanAuditPage() {
       toast.error(e instanceof Error ? e.message : "Entry delete नहीं हो पाई।");
     }
   }
-
-  if (!unlocked) return <main className="mx-auto w-full max-w-md px-4 py-12">
-    <div className="mb-5 flex items-center gap-3"><LockKeyhole className="h-7 w-7"/><div><h1 className="text-2xl font-bold">Productivity Desk</h1><p className="text-sm text-muted-foreground">Admin password required</p></div></div>
-    <PasswordGate label="Unlock Productivity Desk" onUnlock={(password) => { setAdminPassword(password); setUnlocked(true); }} />
-  </main>;
 
   return <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6">
     <section className="overflow-hidden rounded-2xl border bg-card p-5 shadow-sm">
