@@ -296,8 +296,11 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
       invalidateSheetsCache();
       return ok(res, "Sheets append");
     } catch (err) {
-      console.warn("Gateway append failed, using local overlay:", err);
+      if (process.env["NODE_ENV"] === "production") throw err;
+      console.warn("Gateway append failed, using development-only local overlay:", err);
     }
+  } else if (process.env["NODE_ENV"] === "production") {
+    throw new Error("Google Sheets connector is not configured in production.");
   }
 
   const { sheetTitle } = parseRange(range);
@@ -382,8 +385,11 @@ export async function sheetsUpdate(range: string, values: (string | number)[][])
       invalidateSheetsCache();
       return ok(res, "Sheets update");
     } catch (err) {
-      console.warn("Gateway update failed, using local overlay:", err);
+      if (process.env["NODE_ENV"] === "production") throw err;
+      console.warn("Gateway update failed, using development-only local overlay:", err);
     }
+  } else if (process.env["NODE_ENV"] === "production") {
+    throw new Error("Google Sheets connector is not configured in production.");
   }
 
   const { sheetTitle, startRow, startCol } = parseRange(range);
