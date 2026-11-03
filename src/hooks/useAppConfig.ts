@@ -10,11 +10,12 @@ import {
 export const APP_CONFIG_KEY = ["app-config"] as const;
 
 // One shared fetch for feature flags + notifications, reused by every page.
-export function useAppConfig() {
+export function useAppConfig(options: { enabled?: boolean } = {}) {
   const fetchConfig = useServerFn(getAppConfig);
   const query = useQuery({
     queryKey: APP_CONFIG_KEY,
     queryFn: () => fetchConfig(),
+    enabled: options.enabled ?? true,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
