@@ -352,8 +352,7 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
 
 // Admin-only read path: the password is checked on the server for every request.
 export const getAdminCollections = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async () => {
     await requireSession("Admin");
     return readCollections();
   });
