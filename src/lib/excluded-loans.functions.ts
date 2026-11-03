@@ -78,7 +78,7 @@ export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
+    const { ensureSheet, sheetsGet, sheetsAppendStrict } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const pasted = data.loanNumbersText
       .split(/[\s,;]+/)
@@ -98,7 +98,7 @@ export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
     const toAdd = unique.filter((loan) => !active.has(loan));
     if (toAdd.length) {
       const today = new Date().toISOString().slice(0, 10);
-      await sheetsAppend(`${TAB}!A:D`, toAdd.map((loan) => [loan, today, data.reason ?? "", "Active"]));
+      await sheetsAppendStrict(`${TAB}!A:D`, toAdd.map((loan) => [loan, today, data.reason ?? "", "Active"]));
     }
     return { ok: true as const, pasted: pasted.length, unique: unique.length, added: toAdd.length, skippedExisting: existing.length, existingLoanNumbers: existing };
   });
