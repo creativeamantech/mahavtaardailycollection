@@ -5,12 +5,6 @@ import { z } from "zod";
 const TAB = "Excluded Loan Numbers";
 const header = ["Loan Number", "Date Added", "Reason", "Status"];
 
-async function assertAdminPassword(password: string) {
-  const { verifySettingsPassword } = await import("./app-config.functions");
-  const result = await verifySettingsPassword({ data: { password } });
-  if (!result.ok) throw new Error("Admin authorization failed.");
-}
-
 function normaliseLoanId(value: string) {
   return String(value ?? "").replace(/^['`\u2018\u2019]+/, "").trim().toUpperCase();
 }
@@ -42,12 +36,11 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
     z.object({
       loanNumber: z.string().trim().min(1).max(60),
       reason: z.string().trim().max(300).optional().default(""),
-      adminPassword: z.string().max(200),
     }).parse(d),
   )
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
+    const { ensureSheet, sheetsGet, sheetsAppendStrict } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const loanNumber = normaliseLoanId(data.loanNumber);
     const rows = await sheetsGet(`${TAB}!A2:D`);
@@ -55,16 +48,15 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
       normaliseLoanId(r[0] ?? "") === loanNumber && ((r[3] ?? "Active").trim() || "Active").toLowerCase() === "active",
     );
     if (exists) throw new Error("This loan number is already in the exclusion list.");
-    await sheetsAppend(`${TAB}!A:D`, [[loanNumber, new Date().toISOString().slice(0, 10), data.reason ?? "", "Active"]]);
+    await sheetsAppendStrict(`${TAB}!A:D`, [[loanNumber, new Date().toISOString().slice(0, 10), data.reason ?? "", "Active"]]);
     return { ok: true as const, loanNumber };
   });
 
 export const removeExcludedLoanNumber = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ loanNumber: z.string().trim().min(1).max(60), adminPassword: z.string().max(200) }).parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
-    await assertAdminPassword(data.adminPassword);
-    const { ensureSheet, sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
+    await requireSession("Admin");
+    const { ensureSheet, sheetsGet, sheetsUpdateStrict } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const rows = await sheetsGet(`${TAB}!A2:D`);
     const target = normaliseLoanId(data.loanNumber);
@@ -73,7 +65,7 @@ export const removeExcludedLoanNumber = createServerFn({ method: "POST" })
     );
     if (idx < 0) throw new Error("Active excluded loan number not found.");
     // Keep the audit record; mark it removed instead of deleting it.
-    await sheetsUpdate(`${TAB}!D${idx + 2}`, [["Removed"]]);
+    await sheetsUpdateStrict(`${TAB}!D${idx + 2}`, [["Removed"]]);
     return { ok: true as const, loanNumber: target };
   });
 
@@ -82,12 +74,10 @@ export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
     z.object({
       loanNumbersText: z.string().trim().min(1).max(100_000),
       reason: z.string().trim().max(300).optional().default(""),
-      adminPassword: z.string().max(200),
     }).parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
-    await assertAdminPassword(data.adminPassword);
+    await requireSession("Admin");
     const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const pasted = data.loanNumbersText
