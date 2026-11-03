@@ -469,7 +469,29 @@ export async function sheetsBatchUpdate(requests: unknown[]) {
   return { ok: true };
 }
 
+function validateReceiptImage(name: string, mimeType: string, base64: string) {
+  const allowed: Record<string, { signature: number[]; extension: string }> = {
+    'image/jpeg': { signature: [0xff, 0xd8, 0xff], extension: 'jpg' },
+    'image/png': { signature: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], extension: 'png' },
+    'image/webp': { signature: [0x52, 0x49, 0x46, 0x46], extension: 'webp' },
+  };
+  const spec = allowed[mimeType.toLowerCase()];
+  if (!spec) throw new Error('Only JPEG, PNG, and WebP receipt images are allowed.');
+  const cleanBase64 = base64.replace(/^data:[^,]+,/, '').replace(/\s/g, '');
+  if (!cleanBase64 || cleanBase64.length > 16_800_000) throw new Error('Receipt image exceeds the 12 MB limit.');
+  const binary = atob(cleanBase64);
+  if (binary.length > 12 * 1024 * 1024) throw new Error('Receipt image exceeds the 12 MB limit.');
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const valid = spec.extension === 'webp' ? String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP' && spec.signature.every((byte, index) => bytes[index] === byte) : spec.signature.every((byte, index) => bytes[index] === byte);
+  if (!valid) throw new Error('Receipt image content does not match its declared MIME type.');
+  const safeName = name.normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu, '_').replace(/^\.+/, '').slice(0, 90) || 'receipt';
+  return { name: safeName.replace(/\.[^.]+$/, '') + '.' + spec.extension, base64: cleanBase64 };
+}
 export async function driveUpload(name: string, mimeType: string, base64: string) {
+  const validated = validateReceiptImage(name, mimeType, base64);
+  name = validated.name;
+  base64 = validated.base64;
+  if (process.env['NODE_ENV'] === 'production' && !hasCredentials('GOOGLE_DRIVE_API_KEY')) throw new Error('Google Drive connector is not configured in production.');
   if (hasCredentials("GOOGLE_DRIVE_API_KEY")) {
     try {
       const boundary = "mahavtaarboundary" + Math.random().toString(36).slice(2);
@@ -492,19 +514,21 @@ export async function driveUpload(name: string, mimeType: string, base64: string
       );
       const file = (await ok(res, "Drive upload")) as { id: string; webViewLink?: string };
 
-      await fetch(`${GATEWAY}/google_drive/drive/v3/files/${file.id}/permissions`, {
+      // Receipt files remain private; the application serves them through an authenticated proxy.
+      /* await fetch(`${GATEWAY}/google_drive/drive/v3/files/${file.id}/permissions`, {
         method: "POST",
         headers: { ...headers("GOOGLE_DRIVE_API_KEY"), "Content-Type": "application/json" },
         body: JSON.stringify({ role: "reader", type: "anyone" }),
-      }).catch((e) => console.error("Drive share failed", e));
+      }).catch((e) => console.error("Drive share failed", e)); */
 
       return file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`;
     } catch (err) {
-      console.warn("Google Drive upload via gateway failed, using data URI fallback:", err);
+      if (process.env["NODE_ENV"] === "production") throw err;
+      console.warn("Google Drive upload failed; using development-only data URI fallback:", err);
     }
   }
 
-  // Return base64 data URI when drive upload credentials are not available
+  if (process.env["NODE_ENV"] === "production") throw new Error("Google Drive upload failed in production.");
   return `data:${mimeType};base64,${base64}`;
 }
 
