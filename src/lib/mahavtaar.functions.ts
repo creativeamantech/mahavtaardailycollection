@@ -833,7 +833,7 @@ export const markPendingDone = createServerFn({ method: "POST" })
         "Normal",
         String(pending[7] ?? "").trim().toLowerCase() === "yes" ? "Yes" : "No",
       ]])) as { updates?: { updatedRange?: string } };
-      const collectionRow = Number(/![A-Z]+(\\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+      const collectionRow = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
       if (!collectionRow) throw new Error("Collection was appended but its row could not be confirmed. Retry completion to reconcile it safely.");
       await sheetsUpdateStrict("Collections!W" + collectionRow, [[data.id]]);
       await sheetsUpdateStrict("Pending!E" + rowNumber, [["Done"]]);
