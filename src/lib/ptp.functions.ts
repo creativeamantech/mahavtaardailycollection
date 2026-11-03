@@ -1,3 +1,4 @@
+import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -58,6 +59,7 @@ const submitSchema = z.object({
 export const submitPTPs = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submitSchema.parse(data))
   .handler(async ({ data }) => {
+    await requireSession();
     const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsAppendStrict, invalidateSheetsCache } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await ensurePTPTab();
@@ -89,6 +91,7 @@ const executiveSchema = z.object({ executive: z.enum(executives) });
 export const listActivePTPs = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => executiveSchema.parse(data))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet } = await import("./mahavtaar.server");
     await ensurePTPTab();
     const rows = await sheetsGet("PTPs!A2:H");
@@ -105,6 +108,7 @@ const removeSchema = z.object({ executive: z.enum(executives), loanIds: z.array(
 export const removePTPs = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => removeSchema.parse(data))
   .handler(async ({ data }) => {
+    await requireSession();
     const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsBatchUpdateValuesStrict, invalidateSheetsCache } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await ensurePTPTab();
@@ -127,6 +131,7 @@ export const removePTPs = createServerFn({ method: "POST" })
 
 export const listActivePTPsForReport = createServerFn({ method: "POST" })
   .handler(async () => {
+    await requireSession();
     const { sheetsGet } = await import("./mahavtaar.server");
     await ensurePTPTab();
     const rows = await sheetsGet("PTPs!A2:K");
