@@ -59,14 +59,9 @@ export async function readCashierLinkActivities(): Promise<{
   executiveStatuses: Record<string, ExecutiveLinkStatus>;
   activeCount: number;
 }> {
-  const { sheetsGet, ensureSheet } = await import("./mahavtaar.server");
-
-  let rawRows: string[][] = [];
-  try {
-    rawRows = await sheetsGet(`${CASHIER_LINK_TAB}!A2:H`);
-  } catch {
-    await ensureSheet(CASHIER_LINK_TAB, CASHIER_LINK_HEADERS).catch(() => undefined);
-  }
+  const { sheetsGet, ensureSheetStrict } = await import("./mahavtaar.server");
+  await ensureSheetStrict(CASHIER_LINK_TAB, CASHIER_LINK_HEADERS);
+  const rawRows = await sheetsGet(`${CASHIER_LINK_TAB}!A2:H`);
 
   // Parse activities
   const activities: CashierLinkActivity[] = (rawRows ?? [])
