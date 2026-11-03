@@ -1,3 +1,4 @@
+import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -55,6 +56,7 @@ const receiptSchema = z.object({
 export const uploadReceiptImage = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => receiptSchema.parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { driveUpload } = await import("./mahavtaar.server");
     const safeLoan = data.loanNumber.replace(/[^A-Za-z0-9._-]/g, "");
     const link = await driveUpload(
@@ -68,6 +70,7 @@ export const uploadReceiptImage = createServerFn({ method: "POST" })
 export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsAppend } = await import("./mahavtaar.server");
     const { todayISO } = await import("./executives");
     const entryDate = data.entryDate ?? todayISO();
@@ -150,6 +153,7 @@ export const markConflictRows = createServerFn({ method: "POST" })
     z.object({ rows: z.array(z.number().int().min(2).max(1000000)).min(1).max(50) }).parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     const { getSheetId, sheetsBatchUpdate } = await import("./mahavtaar.server");
     const sheetId = await getSheetId("Collections");
     const red = { red: 0.98, green: 0.8, blue: 0.8 };
@@ -182,6 +186,7 @@ export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
       .parse(d ?? {}),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet, getSheetId, sheetsBatchUpdate } = await import("./mahavtaar.server");
     const { normalizeSheetDate } = await import("./executives");
 
@@ -353,6 +358,7 @@ async function assertProductivityAdmin(password: string) {
 export const getAdminCollections = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     await assertProductivityAdmin(data.adminPassword);
     return readCollections();
   });
@@ -363,6 +369,7 @@ const verificationAuditHeader = ["Timestamp", "Admin", "Loan Number", "Collectio
 export const getAdminReviewState = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     await assertProductivityAdmin(data.adminPassword);
     const { ensureSheetStrict, sheetsGet } = await import("./mahavtaar.server");
     await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
@@ -395,6 +402,7 @@ export const saveAdminReviewEvents = createServerFn({ method: "POST" })
     events: z.array(verificationEventSchema).min(1).max(500),
   }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     await assertProductivityAdmin(data.adminPassword);
     const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
@@ -450,6 +458,7 @@ export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
     entry: updateCollectionRowSchema,
   }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     await assertProductivityAdmin(data.adminPassword);
     await persistCollectionRow(data.entry);
     const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
@@ -476,6 +485,7 @@ export const updateAmansRemarks = createServerFn({ method: "POST" })
     z.object({ row: z.number().int().min(2), remarks: z.string() }).parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
     await sheetsUpdate(`Collections!S${data.row}`, [[data.remarks]]);
     invalidateSheetsCache();
@@ -487,6 +497,7 @@ export const updateCollectionAmount = createServerFn({ method: "POST" })
     z.object({ row: z.number().int().min(2), amount: z.number().positive() }).parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
     await sheetsUpdate(`Collections!C${data.row}`, [[data.amount]]);
     invalidateSheetsCache();
@@ -521,6 +532,7 @@ export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
     row: z.number().int().min(2),
   }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     await assertProductivityAdmin(data.adminPassword);
     const { sheetsUpdateStrict, ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
@@ -552,6 +564,7 @@ export const markConflictAsValid = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     await sheetsUpdate(`Collections!V${data.row}`, [["VALIDATED"]]);
@@ -590,6 +603,7 @@ export const markConflictGroupAsValid = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     for (const r of data.rows) {
@@ -622,6 +636,7 @@ export const markConflictGroupAsValid = createServerFn({ method: "POST" })
 export const revertConflictValidation = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     await sheetsUpdate(`Collections!V${data.row}`, [[""]]);
@@ -653,6 +668,7 @@ export const revertConflictValidation = createServerFn({ method: "POST" })
 export const savePending = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => pendingSchema.parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsAppend, driveUpload } = await import("./mahavtaar.server");
     const links: string[] = [];
     for (const p of data.photos) {
@@ -704,6 +720,7 @@ export const getPending = createServerFn({ method: "GET" }).handler(() => readPe
 export const markPendingDone = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");
     const rows = await sheetsGet("Pending!A2:H");
     const idx = rows.findIndex((r) => (r[6] ?? "") === data.id && (r[4] ?? "") === "Pending");
