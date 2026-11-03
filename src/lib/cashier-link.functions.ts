@@ -1,3 +1,4 @@
+import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { EXECUTIVES, type Executive, nowTime, todayISO } from "./executives";
@@ -145,6 +146,7 @@ export async function readCashierLinkActivities(): Promise<{
 }
 
 export const getCashierLinkData = createServerFn({ method: "GET" }).handler(async () => {
+    await requireSession();
   return await readCashierLinkActivities();
 });
 
@@ -156,6 +158,7 @@ const actionSchema = z.object({
 export const recordCashierLinkAction = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => actionSchema.parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsAppend, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(CASHIER_LINK_TAB, CASHIER_LINK_HEADERS);
 
