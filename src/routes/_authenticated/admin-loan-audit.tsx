@@ -63,7 +63,7 @@ function AdminLoanAuditPage() {
   const { data: persistedVerifiedRows = [], refetch: refetchReviewState } = useQuery({
     queryKey: ["admin-review-state"],
     queryFn: () => fetchReviewState(),
-    enabled: unlocked && adminPassword.length > 0,
+    enabled: true,
     staleTime: 5_000,
   });
   useEffect(() => setVerifiedRows(persistedVerifiedRows), [persistedVerifiedRows]);
