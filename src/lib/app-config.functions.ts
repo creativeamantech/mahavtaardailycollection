@@ -1,3 +1,4 @@
+import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -38,6 +39,7 @@ export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
 export const HOLD_CASES_LOCK_KEY = "holdCasesLocked";
 
 export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
+    await requireSession();
   const { sheetsGet, ensureSheet } = await import("./mahavtaar.server");
 
   let settingRows: string[][] = [];
@@ -106,6 +108,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     z.object({ flags: z.record(z.string().max(40), z.boolean()) }).parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     // Preserve the default-category row so flag saves never wipe it.
@@ -133,6 +136,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
 export const saveHoldCasesLock = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ locked: z.boolean() }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet, sheetsUpdateStrict, ensureSheetStrict } = await import("./mahavtaar.server");
     await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
     const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
@@ -145,6 +149,7 @@ export const saveHoldCasesLock = createServerFn({ method: "POST" })
 export const saveDefaultCategory = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ category: z.string().trim().max(80) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     let rows: string[][] = [];
@@ -181,6 +186,7 @@ export const addNotification = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsAppend, driveUpload, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
     let imageUrl = "";
@@ -201,6 +207,7 @@ export const addNotification = createServerFn({ method: "POST" })
 export const removeNotification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(60) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
     const rows = await sheetsGet(`${NOTIF_TAB}!A2:E`);
     const idx = rows.findIndex((r, i) => ((r[4] ?? "").trim() || `row-${i + 2}`) === data.id);
