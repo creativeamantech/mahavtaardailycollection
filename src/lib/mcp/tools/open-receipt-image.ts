@@ -6,7 +6,7 @@ function extractDriveId(url: string): string | null {
   if (!url) return null;
   // Match /file/d/{id}
   const matchFileD = /\/file\/d\/([a-zA-Z0-9_-]+)/i.exec(url);
-  if (matchFileD) return matchFileD[1];
+  if (matchFileD?.[1]) return matchFileD[1];
 
   // Match id={id}
   const matchIdParam = /[?&]id=([a-zA-Z0-9_-]+)/i.exec(url);
