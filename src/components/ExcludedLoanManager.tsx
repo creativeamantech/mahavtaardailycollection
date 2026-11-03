@@ -65,7 +65,7 @@ export function ExcludedLoanManager() {
           Active exclusions are omitted from collection totals, executive performance, payment counts, averages and reports. Original payment rows remain unchanged.
         </p>
       </div>
-      {true ? (
+      
         <form className="grid gap-3 sm:grid-cols-2" onSubmit={submitAdd}>
           <div className="space-y-1">
             <Label htmlFor="excluded-loan-number">Loan Number</Label>
@@ -79,7 +79,7 @@ export function ExcludedLoanManager() {
             <Button type="submit" disabled={busy || !loanNumber.trim()}>{busy ? "Saving..." : "Add to Exclusion List"}</Button>
           </div>
         </form>
-      ) : null}
+
       <ExcludedLoanBulkManager />
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">Current Exclusion List ({active.length})</h3>
@@ -90,14 +90,14 @@ export function ExcludedLoanManager() {
       ) : (
         <div className="max-h-80 overflow-auto rounded-lg border">
           <table className="w-full text-xs">
-            <thead className="bg-muted"><tr><th className="px-2 py-1.5 text-left">Loan Number</th><th className="px-2 py-1.5 text-left">Date Added</th><th className="px-2 py-1.5 text-left">Reason</th>{<th className="px-2 py-1.5 text-right">Action</th>}</tr></thead>
+            <thead className="bg-muted"><tr><th className="px-2 py-1.5 text-left">Loan Number</th><th className="px-2 py-1.5 text-left">Date Added</th><th className="px-2 py-1.5 text-left">Reason</th><th className="px-2 py-1.5 text-right">Action</th></tr></thead>
             <tbody>
               {active.map((item, index) => (
                 <tr key={`${item.loanNumber}-${item.dateAdded}-${index}`} className="border-t">
                   <td className="px-2 py-1.5 font-medium">{item.loanNumber}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{item.dateAdded || "—"}</td>
                   <td className="px-2 py-1.5">{item.reason || "—"}</td>
-                  {<td className="px-2 py-1 text-right"><Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy} onClick={() => void remove(item.loanNumber)}>Remove</Button></td>}
+                  <td className="px-2 py-1 text-right"><Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy} onClick={() => void remove(item.loanNumber)}>Remove</Button></td>
                 </tr>
               ))}
             </tbody>
