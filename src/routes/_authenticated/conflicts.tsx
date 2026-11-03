@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  deleteCollectionRow,
+  adminDeleteCollectionRow,
   getAdminCollections,
   markConflictAsValid,
   markConflictGroupAsValid,
@@ -151,7 +151,7 @@ export function ConflictsPage() {
 function ConflictsContent() {
   const fetchCollections = useServerFn(getAdminCollections);
   const updateRow = useServerFn(updateCollectionRow);
-  const deleteRow = useServerFn(deleteCollectionRow);
+  const deleteRow = useServerFn(adminDeleteCollectionRow);
   const markValid = useServerFn(markConflictAsValid);
   const markGroupValid = useServerFn(markConflictGroupAsValid);
   const revertValid = useServerFn(revertConflictValidation);
