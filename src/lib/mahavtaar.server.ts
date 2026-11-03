@@ -363,7 +363,7 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
 
 export async function sheetsAppendStrict(range: string, values: (string | number)[][]) {
   requireGoogleSheetsWriteAccess();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
@@ -378,7 +378,7 @@ export async function sheetsAppendStrict(range: string, values: (string | number
 
 export async function sheetsUpdateStrict(range: string, values: (string | number)[][]) {
   requireGoogleSheetsWriteAccess();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
     {
       method: "PUT",
@@ -395,7 +395,7 @@ export async function sheetsBatchUpdateValuesStrict(
   data: { range: string; values: (string | number)[][] }[],
 ) {
   requireGoogleSheetsWriteAccess();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`,
     {
       method: "POST",
@@ -475,7 +475,7 @@ export async function getSheetId(title: string): Promise<number> {
 export async function sheetsBatchUpdate(requests: unknown[]) {
   if (!hasCredentials("GOOGLE_SHEETS_API_KEY"))
     throw new Error("Google Sheets connector is not configured.");
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
     {
       method: "POST",
