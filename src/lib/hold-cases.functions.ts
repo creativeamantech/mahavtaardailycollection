@@ -2,20 +2,49 @@ import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Shikha", "Sona", "Sunanda", "Vinita"] as const;
+const executives = [
+  "Aarti",
+  "Ankita",
+  "Bharti",
+  "Julee",
+  "Pooja",
+  "Shikha",
+  "Sona",
+  "Sunanda",
+  "Vinita",
+] as const;
 const tab = "Hold_Cases";
 const LOCK_KEY = "holdCasesLocked";
 
 async function assertHoldCasesUnlocked() {
   const { sheetsGet } = await import("./mahavtaar.server");
   const settings = await sheetsGet("AppSettings!A2:B");
-  const locked = settings.some((row) => String(row[0] ?? "").trim() === LOCK_KEY && String(row[1] ?? "").trim().toUpperCase() === "ON");
-  if (locked) throw new Error("Hold Cases are locked by administrator. Adding or removing is currently disabled for everyone.");
+  const locked = settings.some(
+    (row) =>
+      String(row[0] ?? "").trim() === LOCK_KEY &&
+      String(row[1] ?? "")
+        .trim()
+        .toUpperCase() === "ON",
+  );
+  if (locked)
+    throw new Error(
+      "Hold Cases are locked by administrator. Adding or removing is currently disabled for everyone.",
+    );
 }
-const header = ["Submitted At", "Executive Name", "Loan ID", "Hold Reason / Remarks", "Status", "Removed At"];
+const header = [
+  "Submitted At",
+  "Executive Name",
+  "Loan ID",
+  "Hold Reason / Remarks",
+  "Status",
+  "Removed At",
+];
 
 function normaliseLoanId(value: string) {
-  return value.replace(/^['’‘\x60]+/, "").trim().toUpperCase();
+  return value
+    .replace(/^['’‘\x60]+/, "")
+    .trim()
+    .toUpperCase();
 }
 
 async function ensureHoldTab() {
@@ -36,9 +65,15 @@ const holdCasesSchema = z.object({
 export const submitHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => holdCasesSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
-    const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsAppendStrict, sheetsBatchUpdateValuesStrict, invalidateSheetsCache } =
-      await import("./mahavtaar.server");
+    const session = await requireSession();
+    const executive = session.role === "Admin" ? data.executive : session.name;
+    const {
+      requireGoogleSheetsWriteAccess,
+      sheetsGet,
+      sheetsAppendStrict,
+      sheetsBatchUpdateValuesStrict,
+      invalidateSheetsCache,
+    } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await assertHoldCasesUnlocked();
     await ensureHoldTab();
@@ -48,7 +83,9 @@ export const submitHoldCases = createServerFn({ method: "POST" })
     const caseIndex = await loadLoanCaseIndex();
     const existingIds = new Set(
       (existingRows ?? [])
-        .filter((row) => !String(row[4] ?? "").trim() || String(row[4]).trim().toLowerCase() === "active")
+        .filter(
+          (row) => !String(row[4] ?? "").trim() || String(row[4]).trim().toLowerCase() === "active",
+        )
         .map((row) => normaliseLoanId(String(row[2] ?? "")))
         .filter(Boolean),
     );
@@ -85,7 +122,10 @@ export const submitHoldCases = createServerFn({ method: "POST" })
         const id = normaliseLoanId(String(row[2] ?? ""));
         const status = String(row[6] ?? "").trim() || "Active";
         if (moveIds.has(id) && status.toLowerCase() === "active") {
-          ptpUpdates.push({ range: `PTPs!G${i + 2}:H${i + 2}`, values: [["Removed", new Date().toISOString()]] });
+          ptpUpdates.push({
+            range: `PTPs!G${i + 2}:H${i + 2}`,
+            values: [["Removed", new Date().toISOString()]],
+          });
         }
       }
       if (ptpUpdates.length) {
@@ -93,9 +133,10 @@ export const submitHoldCases = createServerFn({ method: "POST" })
         movedFromPTPCount = ptpUpdates.length;
       }
       const submittedAt = new Date().toISOString();
-      await sheetsAppendStrict("Hold_Cases!A:F", uniqueIds.map((loanId) => [
-        submittedAt, data.executive, loanId, data.remarks, "Active", "",
-      ]));
+      await sheetsAppendStrict(
+        "Hold_Cases!A:F",
+        uniqueIds.map((loanId) => [submittedAt, executive, loanId, data.remarks, "Active", ""]),
+      );
       invalidateSheetsCache();
     }
 
@@ -110,34 +151,34 @@ export const submitHoldCases = createServerFn({ method: "POST" })
     };
   });
 
-export const listActiveHoldCasesForReport = createServerFn({ method: "POST" })
-  .handler(async () => {
-    await requireSession();
-    const { sheetsGet } = await import("./mahavtaar.server");
-    await ensureHoldTab();
-    const rows = await sheetsGet("Hold_Cases!A2:I");
-    return (rows ?? [])
-      .map((row, index) => ({
-        row: index + 2,
-        submittedAt: String(row[0] ?? "").trim(),
-        executive: String(row[1] ?? "").trim(),
-        loanId: String(row[2] ?? "").trim(),
-        remarks: String(row[3] ?? "").trim(),
-        status: String(row[4] ?? "").trim() || "Active",
-        removedAt: String(row[5] ?? "").trim(),
-        actualId: String(row[6] ?? "").trim(),
-        city: String(row[7] ?? "").trim() || "Unmapped",
-        principalOutstanding: Number(String(row[8] ?? "").replace(/[,₹\\s]/g, "")) || 0,
-      }))
-      .filter((item) => item.loanId !== "" && item.status.toLowerCase() === "active");
-  });
+export const listActiveHoldCasesForReport = createServerFn({ method: "POST" }).handler(async () => {
+  await requireSession();
+  const { sheetsGet } = await import("./mahavtaar.server");
+  await ensureHoldTab();
+  const rows = await sheetsGet("Hold_Cases!A2:I");
+  return (rows ?? [])
+    .map((row, index) => ({
+      row: index + 2,
+      submittedAt: String(row[0] ?? "").trim(),
+      executive: String(row[1] ?? "").trim(),
+      loanId: String(row[2] ?? "").trim(),
+      remarks: String(row[3] ?? "").trim(),
+      status: String(row[4] ?? "").trim() || "Active",
+      removedAt: String(row[5] ?? "").trim(),
+      actualId: String(row[6] ?? "").trim(),
+      city: String(row[7] ?? "").trim() || "Unmapped",
+      principalOutstanding: Number(String(row[8] ?? "").replace(/[,₹\\s]/g, "")) || 0,
+    }))
+    .filter((item) => item.loanId !== "" && item.status.toLowerCase() === "active");
+});
 
 const executiveSchema = z.object({ executive: z.enum(executives) });
 
 export const listActiveHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => executiveSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const targetExecutive = session.role === "Admin" ? data.executive : session.name;
     const { sheetsGet } = await import("./mahavtaar.server");
     await ensureHoldTab();
     const rows = await sheetsGet("Hold_Cases!A2:F");
@@ -150,10 +191,11 @@ export const listActiveHoldCases = createServerFn({ method: "POST" })
         remarks: String(row[3] ?? "").trim(),
         status: String(row[4] ?? "").trim() || "Active",
       }))
-      .filter((item) =>
-        item.executive === data.executive &&
-        item.loanId !== "" &&
-        item.status.toLowerCase() === "active",
+      .filter(
+        (item) =>
+          item.executive === targetExecutive &&
+          item.loanId !== "" &&
+          item.status.toLowerCase() === "active",
       )
       .reverse();
   });
@@ -166,7 +208,8 @@ const removeHoldCasesSchema = z.object({
 export const removeHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => removeHoldCasesSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const targetExecutive = session.role === "Admin" ? data.executive : session.name;
     const {
       requireGoogleSheetsWriteAccess,
       sheetsGet,
@@ -181,7 +224,7 @@ export const removeHoldCases = createServerFn({ method: "POST" })
     const requested = new Set(data.loanIds.map(normaliseLoanId));
     const { loadLoanCaseIndex } = await import("./ptp.functions");
     const caseIndex = await loadLoanCaseIndex();
-    const paidRequested = new Set([...requested].filter(id => caseIndex.paid.has(id)));
+    const paidRequested = new Set([...requested].filter((id) => caseIndex.paid.has(id)));
     const updates: { range: string; values: (string | number)[][] }[] = [];
     const removedLoanIds: string[] = [];
     for (let index = 0; index < (rows ?? []).length; index++) {
@@ -189,7 +232,13 @@ export const removeHoldCases = createServerFn({ method: "POST" })
       const executive = String(row[1] ?? "").trim();
       const loanId = String(row[2] ?? "").trim();
       const status = String(row[4] ?? "").trim() || "Active";
-      if (executive === data.executive && loanId && requested.has(normaliseLoanId(loanId)) && !caseIndex.paid.has(normaliseLoanId(loanId)) && status.toLowerCase() === "active") {
+      if (
+        executive === targetExecutive &&
+        loanId &&
+        requested.has(normaliseLoanId(loanId)) &&
+        !caseIndex.paid.has(normaliseLoanId(loanId)) &&
+        status.toLowerCase() === "active"
+      ) {
         const sheetRow = index + 2;
         updates.push({
           range: "Hold_Cases!E" + sheetRow + ":F" + sheetRow,
@@ -203,7 +252,12 @@ export const removeHoldCases = createServerFn({ method: "POST" })
       await sheetsBatchUpdateValuesStrict(updates);
       invalidateSheetsCache();
     }
-    return { ok: true as const, removedCount: removedLoanIds.length, removedLoanIds, skippedPaidCount: paidRequested.size };
+    return {
+      ok: true as const,
+      removedCount: removedLoanIds.length,
+      removedLoanIds,
+      skippedPaidCount: paidRequested.size,
+    };
   });
 
 // Called only after a collection entry has been successfully appended.
@@ -243,4 +297,3 @@ export async function removeMatchingHoldCasesAfterCollection(loanId: string) {
   }
   return { collectedCount: updates.length };
 }
-

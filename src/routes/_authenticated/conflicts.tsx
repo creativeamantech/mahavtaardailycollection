@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -18,22 +18,19 @@ import {
   FileText,
   ImageIcon,
   Layers,
-  Lock,
   MapPin,
   Maximize2,
   RotateCw,
   Search,
-  ShieldAlert,
   Table,
   Trash2,
   Undo2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PasswordGate, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import {
-  deleteCollectionRow,
-  getCollections,
+  adminDeleteCollectionRow,
+  getAdminCollections,
   markConflictAsValid,
   markConflictGroupAsValid,
   revertConflictValidation,
@@ -116,13 +113,13 @@ type ConflictGroup = {
 function extractDriveFileId(url: string): string | null {
   if (!url) return null;
   const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }
 
 function getReceiptImageUrl(url: string): string | null {
   const id = extractDriveFileId(url);
   if (id) {
-    return `https://lh3.googleusercontent.com/d/${id}=w800`;
+    return `/receipt/${id}`;
   }
   if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
     return url;
@@ -134,7 +131,7 @@ function getReceiptViewUrl(url: string): string {
   if (!url) return "#";
   const id = extractDriveFileId(url);
   if (id) {
-    return `https://drive.google.com/file/d/${id}/view?usp=sharing`;
+    return `/receipt/${id}`;
   }
   return url;
 }
@@ -142,61 +139,19 @@ function getReceiptViewUrl(url: string): string {
 function getReceiptPreviewUrl(url: string): string | null {
   const id = extractDriveFileId(url);
   if (id) {
-    return `https://drive.google.com/file/d/${id}/preview`;
+    return `/receipt/${id}`;
   }
   return null;
 }
 
 export function ConflictsPage() {
-  const [unlocked, setUnlocked] = useState(false);
-
-  useEffect(() => {
-    if (sessionStorage.getItem(ADMIN_SESSION_KEY) === "1") {
-      setUnlocked(true);
-    }
-  }, []);
-
-  if (!unlocked) {
-    return (
-      <main className="mx-auto w-full max-w-md px-4 py-16">
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <ShieldAlert className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Conflict Resolution</h1>
-              <p className="text-xs text-muted-foreground">
-                Settings &amp; Already Paid पासवर्ड से सुरक्षित
-              </p>
-            </div>
-          </div>
-          <PasswordGate
-            label="Unlock Conflict Resolution"
-            onUnlock={() => {
-              setUnlocked(true);
-            }}
-          />
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <ConflictsContent
-      onLock={() => {
-        sessionStorage.removeItem(ADMIN_SESSION_KEY);
-        sessionStorage.removeItem("mahavtaar-admin-credential");
-        setUnlocked(false);
-      }}
-    />
-  );
+  return <ConflictsContent />;
 }
 
-function ConflictsContent({ onLock }: { onLock?: () => void }) {
-  const fetchCollections = useServerFn(getCollections);
+function ConflictsContent() {
+  const fetchCollections = useServerFn(getAdminCollections);
   const updateRow = useServerFn(updateCollectionRow);
-  const deleteRow = useServerFn(deleteCollectionRow);
+  const deleteRow = useServerFn(adminDeleteCollectionRow);
   const markValid = useServerFn(markConflictAsValid);
   const markGroupValid = useServerFn(markConflictGroupAsValid);
   const revertValid = useServerFn(revertConflictValidation);
@@ -499,18 +454,6 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
         </div>
 
         <div className="flex items-center gap-2">
-          {onLock && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 text-sm font-medium text-muted-foreground hover:text-foreground shadow-sm"
-              onClick={onLock}
-              title="Lock page session"
-            >
-              <Lock className="mr-1.5 h-4 w-4" />
-              Lock
-            </Button>
-          )}
           <Button
             variant="outline"
             size="sm"
@@ -1056,7 +999,7 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
                                   : "Conflict नहीं है, सही है"}
                               </Button>
 
-                                                            <Button
+                              <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
@@ -1682,7 +1625,6 @@ function ConflictsContent({ onLock }: { onLock?: () => void }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </main>
   );
 }

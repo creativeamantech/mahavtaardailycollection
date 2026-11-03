@@ -26,7 +26,10 @@ type ActivePTP = {
 };
 
 function normaliseLoanId(value: string) {
-  return value.replace(/^['’‘\x60]+/, "").trim().toUpperCase();
+  return value
+    .replace(/^['’‘\x60]+/, "")
+    .trim()
+    .toUpperCase();
 }
 
 export function PTPsPanel() {
@@ -42,7 +45,10 @@ export function PTPsPanel() {
   const removeCases = useServerFn(removePTPs);
 
   const loanIds = useMemo(() => {
-    const raw = loanIdsText.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean);
+    const raw = loanIdsText
+      .split(/[\s,;]+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
     const seen = new Set<string>();
     return raw.filter((value) => {
       const key = normaliseLoanId(value);
@@ -59,7 +65,9 @@ export function PTPsPanel() {
     }
     setLoadingCases(true);
     try {
-      const result = await loadCases({ data: { executive: executive as (typeof EXECUTIVES)[number] } });
+      const result = await loadCases({
+        data: { executive: executive as (typeof EXECUTIVES)[number] },
+      });
       setActiveCases(result as ActivePTP[]);
       setSelectedToRemove([]);
       if (result.length === 0) toast.info("No active PTPs found for this executive.");
@@ -71,7 +79,7 @@ export function PTPsPanel() {
   }
 
   async function handleSubmit() {
-        if (!executive) {
+    if (!executive) {
       toast.error("Please select your executive name.");
       return;
     }
@@ -83,13 +91,33 @@ export function PTPsPanel() {
     setSaving(true);
     try {
       const result = await submit({
-        data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim() },
+        data: {
+          executive: executive as (typeof EXECUTIVES)[number],
+          loanIds,
+          remarks: remarks.trim(),
+        },
       });
-      if (result.savedCount > 0) toast.success(result.savedCount + " PTP(s) submitted successfully.");
-      if (result.skippedPaidCount > 0) toast.warning(result.skippedPaidCount + " Loan ID(s) already Paid — skipped. Paid cases cannot be added to PTP.");
-      if (result.skippedHoldCount > 0) toast.warning(result.skippedHoldCount + " Loan ID(s) already in Hold — skipped. These remain in Hold, not PTP.");
-      if (result.duplicateCount > 0) toast.info(result.duplicateCount + " duplicate/already-active PTP Loan ID(s) skipped.");
-      if (result.savedCount === 0 && result.duplicateCount > 0 && result.skippedPaidCount === 0 && result.skippedHoldCount === 0) toast.info("No new PTPs were added.");
+      if (result.savedCount > 0)
+        toast.success(result.savedCount + " PTP(s) submitted successfully.");
+      if (result.skippedPaidCount > 0)
+        toast.warning(
+          result.skippedPaidCount +
+            " Loan ID(s) already Paid — skipped. Paid cases cannot be added to PTP.",
+        );
+      if (result.skippedHoldCount > 0)
+        toast.warning(
+          result.skippedHoldCount +
+            " Loan ID(s) already in Hold — skipped. These remain in Hold, not PTP.",
+        );
+      if (result.duplicateCount > 0)
+        toast.info(result.duplicateCount + " duplicate/already-active PTP Loan ID(s) skipped.");
+      if (
+        result.savedCount === 0 &&
+        result.duplicateCount > 0 &&
+        result.skippedPaidCount === 0 &&
+        result.skippedHoldCount === 0
+      )
+        toast.info("No new PTPs were added.");
       setLoanIdsText("");
       setRemarks("");
       if (executive) await loadMyPTPs();
@@ -101,7 +129,7 @@ export function PTPsPanel() {
   }
 
   async function handleRemoveSelected() {
-        if (!executive || selectedToRemove.length === 0) return;
+    if (!executive || selectedToRemove.length === 0) return;
     setSaving(true);
     try {
       const result = await removeCases({
@@ -111,7 +139,8 @@ export function PTPsPanel() {
         },
       });
       if (result.removedCount > 0) toast.success(result.removedCount + " PTP(s) removed.");
-      if (result.skippedPaidCount > 0) toast.warning(result.skippedPaidCount + " Paid Loan ID(s) were protected and not removed.");
+      if (result.skippedPaidCount > 0)
+        toast.warning(result.skippedPaidCount + " Paid Loan ID(s) were protected and not removed.");
       await loadMyPTPs();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not remove PTPs.");
@@ -130,7 +159,7 @@ export function PTPsPanel() {
 
   return (
     <section className="mt-6 space-y-6 rounded-xl border p-4">
-            <div className="space-y-2">
+      <div className="space-y-2">
         <Label className="text-base">Executive Name</Label>
         <Select
           value={executive}
@@ -145,7 +174,9 @@ export function PTPsPanel() {
           </SelectTrigger>
           <SelectContent>
             {EXECUTIVES.map((name) => (
-              <SelectItem key={name} value={name} className="text-base">{name}</SelectItem>
+              <SelectItem key={name} value={name} className="text-base">
+                {name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -153,12 +184,14 @@ export function PTPsPanel() {
 
       <div className="space-y-2">
         <h3 className="text-lg font-semibold">Add PTPs</h3>
-        <Label className="text-base" htmlFor="ptpLoanIds">Loan IDs (Bulk Entry)</Label>
+        <Label className="text-base" htmlFor="ptpLoanIds">
+          Loan IDs (Bulk Entry)
+        </Label>
         <Textarea
           id="ptpLoanIds"
           value={loanIdsText}
           onChange={(event) => setLoanIdsText(event.target.value)}
-          
+
           placeholder={"Paste multiple Loan IDs — one per line\n185978480\n184267502\n182564627"}
           className="min-h-40 resize-y text-base"
           aria-describedby="ptp-loan-help"
@@ -170,7 +203,9 @@ export function PTPsPanel() {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-base" htmlFor="ptpRemarks">PTP Remarks (Optional)</Label>
+        <Label className="text-base" htmlFor="ptpRemarks">
+          PTP Remarks (Optional)
+        </Label>
         <Input
           id="ptpRemarks"
           value={remarks}
@@ -181,7 +216,11 @@ export function PTPsPanel() {
         />
       </div>
 
-      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={saving || !executive || loanIds.length === 0}>
+      <Button
+        className="h-14 w-full text-lg"
+        onClick={handleSubmit}
+        disabled={saving || !executive || loanIds.length === 0}
+      >
         {saving ? "Submitting..." : "Submit PTPs"}
       </Button>
 
@@ -189,10 +228,17 @@ export function PTPsPanel() {
         <div>
           <h3 className="text-lg font-semibold">Remove PTPs</h3>
           <p className="text-sm text-muted-foreground">
-            Select your executive name above, load your active cases, then choose the cases to remove.
+            Select your executive name above, load your active cases, then choose the cases to
+            remove.
           </p>
         </div>
-        <Button type="button" variant="outline" className="w-full h-11" onClick={loadMyPTPs} disabled={!executive || loadingCases || saving}>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full h-11"
+          onClick={loadMyPTPs}
+          disabled={!executive || loadingCases || saving}
+        >
           {loadingCases ? "Loading..." : "Load My Active PTPs"}
         </Button>
         {activeCases.length > 0 && (
@@ -202,7 +248,13 @@ export function PTPsPanel() {
               <button
                 type="button"
                 className="text-primary underline"
-                onClick={() => setSelectedToRemove(selectedToRemove.length === activeCases.length ? [] : activeCases.map((item) => item.loanId))}
+                onClick={() =>
+                  setSelectedToRemove(
+                    selectedToRemove.length === activeCases.length
+                      ? []
+                      : activeCases.map((item) => item.loanId),
+                  )
+                }
               >
                 {selectedToRemove.length === activeCases.length ? "Clear selection" : "Select all"}
               </button>
@@ -211,14 +263,20 @@ export function PTPsPanel() {
               {activeCases.map((item) => (
                 <li key={item.row} className="flex items-start gap-3 border-b pb-2 last:border-0">
                   <Checkbox
-                    checked={selectedToRemove.some((id) => normaliseLoanId(id) === normaliseLoanId(item.loanId))}
+                    checked={selectedToRemove.some(
+                      (id) => normaliseLoanId(id) === normaliseLoanId(item.loanId),
+                    )}
                     onCheckedChange={(checked) => toggleSelected(item.loanId, checked === true)}
                     aria-label={"Select Loan ID " + item.loanId + " for removal"}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold break-all">{item.loanId}</p>
-                    {item.remarks && <p className="text-sm text-muted-foreground">{item.remarks}</p>}
-                    <p className="text-xs text-muted-foreground">Added: {item.submittedAt || "—"}</p>
+                    {item.remarks && (
+                      <p className="text-sm text-muted-foreground">{item.remarks}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Added: {item.submittedAt || "—"}
+                    </p>
                   </div>
                 </li>
               ))}

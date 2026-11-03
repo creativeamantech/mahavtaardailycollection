@@ -86,6 +86,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "robots", content: "noindex, nofollow, noarchive" },
       { title: "Mahavtaar Daily Collection" },
       {
         name: "description",
@@ -192,7 +193,11 @@ function AppShell() {
   const [adminOpen, setAdminOpen] = useState(false);
 
   if (isLoading) {
-    return <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading session...</main>;
+    return (
+      <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Loading session...
+      </main>
+    );
   }
   if (!session) return <LoginScreen />;
 
@@ -216,8 +221,7 @@ function AppShell() {
               {NAV.filter((n) => flags[n.key] !== false).map((n) => (
                 <Link
                   key={n.to}
-                  to={n.to}
-                  hash={"hash" in n ? n.hash : undefined}
+                  to={n.to as never}
                   className="rounded-lg border px-4 py-2 text-base font-medium"
                   activeOptions={{ exact: n.to === "/" }}
                   activeProps={{
@@ -230,14 +234,26 @@ function AppShell() {
               ))}
               {session.role === "Admin" && ADMIN_NAV.some((n) => flags[n.key] !== false) && (
                 <div className="flex min-w-0 flex-wrap items-start gap-2">
-                  <button type="button" aria-expanded={adminOpen} onClick={() => setAdminOpen((v) => !v)} className="rounded-lg border px-4 py-2 text-base font-semibold">
+                  <button
+                    type="button"
+                    aria-expanded={adminOpen}
+                    onClick={() => setAdminOpen((v) => !v)}
+                    className="rounded-lg border px-4 py-2 text-base font-semibold"
+                  >
                     Admin {adminOpen ? "▴" : "▾"}
                   </button>
                   {adminOpen && (
                     <div className="w-full basis-full rounded-lg border bg-background p-3 shadow-sm sm:w-auto sm:min-w-56 sm:basis-auto">
                       <div className="flex flex-col gap-1">
                         {ADMIN_NAV.filter((n) => flags[n.key] !== false).map((n) => (
-                          <Link key={n.label} to={n.to} hash={"hash" in n ? n.hash : undefined} onClick={() => setAdminOpen(false)} className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">{n.label}</Link>
+                          <Link
+                            key={n.label}
+                            to={n.to as never}
+                            onClick={() => setAdminOpen(false)}
+                            className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                          >
+                            {n.label}
+                          </Link>
                         ))}
                       </div>
                     </div>
@@ -245,8 +261,12 @@ function AppShell() {
                 </div>
               )}
               <div className="ml-auto flex items-center gap-2 text-sm">
-                <span className="font-medium">{session.name} · {session.role}</span>
-                <button type="button" onClick={signOut} className="rounded-lg border px-3 py-2">Logout</button>
+                <span className="font-medium">
+                  {session.name} · {session.role}
+                </span>
+                <button type="button" onClick={signOut} className="rounded-lg border px-3 py-2">
+                  Logout
+                </button>
               </div>
             </nav>
           </div>

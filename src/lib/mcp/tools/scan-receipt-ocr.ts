@@ -23,8 +23,17 @@ export default defineTool({
   inputSchema: {
     rowNumber: z.number().int().min(2).optional().describe("Collections sheet row number."),
     loanId: z.string().trim().min(1).max(60).optional().describe("Loan ID to find a receipt for."),
-    receiptUrl: z.string().trim().min(1).max(1000).optional().describe("Direct Google Drive receipt URL or file ID."),
-    language: z.enum(["hi", "en", "mr", "gu"]).default("hi").describe("OCR language hint: Hindi, English, Marathi, or Gujarati."),
+    receiptUrl: z
+      .string()
+      .trim()
+      .min(1)
+      .max(1000)
+      .optional()
+      .describe("Direct Google Drive receipt URL or file ID."),
+    language: z
+      .enum(["hi", "en", "mr", "gu"])
+      .default("hi")
+      .describe("OCR language hint: Hindi, English, Marathi, or Gujarati."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ rowNumber, loanId, receiptUrl, language }) => {
@@ -33,9 +42,10 @@ export default defineTool({
     let selectedUrl = receiptUrl;
 
     if (rowNumber !== undefined || loanId) {
-      const matches = collections.filter((item) =>
-        (rowNumber === undefined || item.row === rowNumber) &&
-        (!loanId || item.loanId.trim().toLowerCase() === loanId.trim().toLowerCase())
+      const matches = collections.filter(
+        (item) =>
+          (rowNumber === undefined || item.row === rowNumber) &&
+          (!loanId || item.loanId.trim().toLowerCase() === loanId.trim().toLowerCase()),
       );
       entry = matches.find((item) => item.receiptLinks?.length) ?? matches[0];
       if (!entry) throw new Error("No matching Collections entry was found.");
@@ -61,7 +71,8 @@ export default defineTool({
     const loanIdFound = expectedLoanDigits && ocrDigits.includes(expectedLoanDigits) ? true : null;
 
     let status = "MANUAL_REVIEW";
-    if (amountFound === true && (loanIdFound === true || loanIdFound === null)) status = "AMOUNT_MATCH";
+    if (amountFound === true && (loanIdFound === true || loanIdFound === null))
+      status = "AMOUNT_MATCH";
     if (amountFound === false) status = "CHECK_MISMATCH";
 
     const result = {
@@ -71,13 +82,15 @@ export default defineTool({
       fileId: ocr.fileId,
       fileName: ocr.fileName,
       mimeType: ocr.mimeType,
-      collectionsEntry: entry ? {
-        rowNumber: entry.row,
-        loanId: entry.loanId,
-        amount: entry.amount,
-        paymentDate: entry.date,
-        executive: entry.executive,
-      } : null,
+      collectionsEntry: entry
+        ? {
+            rowNumber: entry.row,
+            loanId: entry.loanId,
+            amount: entry.amount,
+            paymentDate: entry.date,
+            executive: entry.executive,
+          }
+        : null,
       comparison: {
         expectedAmount: expectedAmount || null,
         amountFoundInOcr: amountFound,

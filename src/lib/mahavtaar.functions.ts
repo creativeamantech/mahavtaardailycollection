@@ -2,7 +2,17 @@ import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Shikha", "Sona", "Sunanda", "Vinita"] as const;
+const executives = [
+  "Aarti",
+  "Ankita",
+  "Bharti",
+  "Julee",
+  "Pooja",
+  "Shikha",
+  "Sona",
+  "Sunanda",
+  "Vinita",
+] as const;
 
 const entrySchema = z.object({
   executive: z.enum(executives),
@@ -72,7 +82,7 @@ export const saveCollection = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requireSession();
     const executive = session.role === "Admin" ? data.executive : session.name;
-    const { sheetsAppend } = await import("./mahavtaar.server");
+    const { sheetsAppendStrict } = await import("./mahavtaar.server");
     const { todayISO } = await import("./executives");
     const entryDate = data.entryDate ?? todayISO();
     if (data.entryType === "Previous Paid File") {
@@ -96,7 +106,7 @@ export const saveCollection = createServerFn({ method: "POST" })
     } else {
       settlementValue = "No";
     }
-    const appended = (await sheetsAppend("Collections!A:J", [
+    const appended = (await sheetsAppendStrict("Collections!A:J", [
       [
         executive,
         data.loanId,
@@ -115,14 +125,14 @@ export const saveCollection = createServerFn({ method: "POST" })
     // so they are written to the exact row the append landed on.
     const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
     if (rowNum > 0) {
-      const { sheetsUpdate } = await import("./mahavtaar.server");
+      const { sheetsUpdateStrict } = await import("./mahavtaar.server");
       if (data.receiptLinks.length > 0 || data.remark !== "") {
-        await sheetsUpdate(`Collections!P${rowNum}:Q${rowNum}`, [
+        await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [
           [data.receiptLinks.join(" | "), data.remark],
         ]);
       }
       if (data.amansRemarks) {
-        await sheetsUpdate(`Collections!S${rowNum}`, [[data.amansRemarks]]);
+        await sheetsUpdateStrict(`Collections!S${rowNum}`, [[data.amansRemarks]]);
       }
     }
     // Once the collection row is safely saved, close any matching active Hold Case.
@@ -154,7 +164,7 @@ export const markConflictRows = createServerFn({ method: "POST" })
     z.object({ rows: z.array(z.number().int().min(2).max(1000000)).min(1).max(50) }).parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
+    await requireSession("Admin");
     const { getSheetId, sheetsBatchUpdate } = await import("./mahavtaar.server");
     const sheetId = await getSheetId("Collections");
     const red = { red: 0.98, green: 0.8, blue: 0.8 };
@@ -187,7 +197,7 @@ export const highlightAlreadyPaidInSheet = createServerFn({ method: "POST" })
       .parse(d ?? {}),
   )
   .handler(async ({ data }) => {
-    await requireSession();
+    await requireSession("Admin");
     const { sheetsGet, getSheetId, sheetsBatchUpdate } = await import("./mahavtaar.server");
     const { normalizeSheetDate } = await import("./executives");
 
@@ -344,51 +354,53 @@ export async function readCollections() {
     return mapped;
   } catch (err) {
     console.error("Failed to read collections from Google Sheets:", err);
-    return [];
+    throw new Error("Unable to load collection data. Please retry.");
   }
 }
 
-export const getCollections = createServerFn({ method: "GET" }).handler(() => readCollections());
+export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
+  await requireSession();
+  return readCollections();
+});
 
 // Admin-only read path: the password is checked on the server for every request.
-async function assertProductivityAdmin(password: string) {
-  const { isSettingsPasswordValid } = await import("./app-config.functions");
-  if (!isSettingsPasswordValid(password)) throw new Error("Admin authorization failed. Unlock the Productivity Desk again.");
-}
-
-export const getAdminCollections = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
-  .handler(async ({ data }) => {
-    await requireSession();
-    await assertProductivityAdmin(data.adminPassword);
-    return readCollections();
-  });
+export const getAdminCollections = createServerFn({ method: "POST" }).handler(async () => {
+  await requireSession("Admin");
+  return readCollections();
+});
 
 const verificationAuditTab = "VerificationAudit";
-const verificationAuditHeader = ["Timestamp", "Admin", "Loan Number", "Collection Row", "Action", "Note", "Source"];
+const verificationAuditHeader = [
+  "Timestamp",
+  "Admin",
+  "Loan Number",
+  "Collection Row",
+  "Action",
+  "Note",
+  "Source",
+];
 
-export const getAdminReviewState = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
-  .handler(async ({ data }) => {
-    await requireSession();
-    await assertProductivityAdmin(data.adminPassword);
-    const { ensureSheetStrict, sheetsGet } = await import("./mahavtaar.server");
-    await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
-    const rows = await sheetsGet(`${verificationAuditTab}!A2:G`);
-    const latest = new Map<number, { verified: boolean; timestamp: string; note: string }>();
-    for (const row of rows) {
-      const collectionRow = Number(row[3]);
-      if (!Number.isInteger(collectionRow) || collectionRow < 2) continue;
-      const action = String(row[4] ?? "").trim().toUpperCase();
-      if (action !== "VERIFIED" && action !== "UNVERIFIED") continue;
-      latest.set(collectionRow, {
-        verified: action === "VERIFIED",
-        timestamp: String(row[0] ?? ""),
-        note: String(row[5] ?? ""),
-      });
-    }
-    return [...latest.entries()].filter(([, state]) => state.verified).map(([row]) => row);
-  });
+export const getAdminReviewState = createServerFn({ method: "POST" }).handler(async () => {
+  await requireSession("Admin");
+  const { ensureSheetStrict, sheetsGet } = await import("./mahavtaar.server");
+  await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
+  const rows = await sheetsGet(`${verificationAuditTab}!A2:G`);
+  const latest = new Map<number, { verified: boolean; timestamp: string; note: string }>();
+  for (const row of rows) {
+    const collectionRow = Number(row[3]);
+    if (!Number.isInteger(collectionRow) || collectionRow < 2) continue;
+    const action = String(row[4] ?? "")
+      .trim()
+      .toUpperCase();
+    if (action !== "VERIFIED" && action !== "UNVERIFIED") continue;
+    latest.set(collectionRow, {
+      verified: action === "VERIFIED",
+      timestamp: String(row[0] ?? ""),
+      note: String(row[5] ?? ""),
+    });
+  }
+  return [...latest.entries()].filter(([, state]) => state.verified).map(([row]) => row);
+});
 
 const verificationEventSchema = z.object({
   loanNumber: z.string().trim().min(1).max(60),
@@ -398,20 +410,32 @@ const verificationEventSchema = z.object({
 });
 
 export const saveAdminReviewEvents = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({
-    adminPassword: z.string().min(1).max(200),
-    events: z.array(verificationEventSchema).min(1).max(500),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        events: z.array(verificationEventSchema).min(1).max(500),
+      })
+      .parse(d),
+  )
   .handler(async ({ data }) => {
-    await requireSession();
-    await assertProductivityAdmin(data.adminPassword);
-    const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
+    await requireSession("Admin");
+    const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } =
+      await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
     const timestamp = new Date().toISOString();
-    await sheetsAppendStrict(`${verificationAuditTab}!A:G`, data.events.map((event) => [
-      timestamp, "Admin", event.loanNumber, event.collectionRow, event.action, event.note, "Productivity Desk",
-    ]));
+    await sheetsAppendStrict(
+      `${verificationAuditTab}!A:G`,
+      data.events.map((event) => [
+        timestamp,
+        "Admin",
+        event.loanNumber,
+        event.collectionRow,
+        event.action,
+        event.note,
+        "Productivity Desk",
+      ]),
+    );
     return { ok: true as const, saved: data.events.length, timestamp };
   });
 
@@ -434,16 +458,31 @@ const updateCollectionRowSchema = z.object({
 type CollectionRowUpdate = z.infer<typeof updateCollectionRowSchema>;
 
 async function persistCollectionRow(data: CollectionRowUpdate) {
-  const { sheetsBatchUpdateValuesStrict, invalidateSheetsCache, requireGoogleSheetsWriteAccess } = await import("./mahavtaar.server");
+  const { sheetsBatchUpdateValuesStrict, invalidateSheetsCache, requireGoogleSheetsWriteAccess } =
+    await import("./mahavtaar.server");
   requireGoogleSheetsWriteAccess();
   const settlementVal = data.settlementType || (data.settlement ? "Settlement" : "No");
   const updates = [
-    { range: `Collections!A${data.row}:H${data.row}`, values: [[
-      data.executive, data.loanId, data.amount, data.date, data.time || "",
-      new Date().toISOString(), "Confirmed", data.entryDate || data.date,
-    ]] },
+    {
+      range: `Collections!A${data.row}:H${data.row}`,
+      values: [
+        [
+          data.executive,
+          data.loanId,
+          data.amount,
+          data.date,
+          data.time || "",
+          new Date().toISOString(),
+          "Confirmed",
+          data.entryDate || data.date,
+        ],
+      ],
+    },
     { range: `Collections!J${data.row}`, values: [[settlementVal]] },
-    { range: `Collections!P${data.row}:Q${data.row}`, values: [[data.receiptLinks.join(", "), data.remark]] },
+    {
+      range: `Collections!P${data.row}:Q${data.row}`,
+      values: [[data.receiptLinks.join(", "), data.remark]],
+    },
   ];
   if (data.amansRemarks !== undefined) {
     updates.push({ range: `Collections!S${data.row}`, values: [[data.amansRemarks]] });
@@ -454,22 +493,32 @@ async function persistCollectionRow(data: CollectionRowUpdate) {
 }
 
 export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({
-    adminPassword: z.string().min(1).max(200),
-    entry: updateCollectionRowSchema,
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        entry: updateCollectionRowSchema,
+      })
+      .parse(d),
+  )
   .handler(async ({ data }) => {
-    await requireSession();
-    await assertProductivityAdmin(data.adminPassword);
+    await requireSession("Admin");
     await persistCollectionRow(data.entry);
-    const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
+    const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } =
+      await import("./mahavtaar.server");
     try {
       requireGoogleSheetsWriteAccess();
       await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
-      await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
-        new Date().toISOString(), "Admin", data.entry.loanId, data.entry.row,
-        "ENTRY_EDITED", "Collection entry corrected from Productivity Desk", "Productivity Desk",
-      ]]);
+      await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [
+        [
+          new Date().toISOString(),
+          "Admin",
+          data.entry.loanId,
+          data.entry.row,
+          "ENTRY_EDITED",
+          "Collection entry corrected from Productivity Desk",
+          "Productivity Desk",
+        ],
+      ]);
       return { ok: true as const, auditSaved: true as const };
     } catch (error) {
       console.error("Collection correction saved but audit append failed:", error);
@@ -479,16 +528,19 @@ export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
 
 export const updateCollectionRow = createServerFn({ method: "POST" })
   .validator((d: unknown) => updateCollectionRowSchema.parse(d))
-  .handler(async ({ data }) => persistCollectionRow(data));
+  .handler(async ({ data }) => {
+    await requireSession("Admin");
+    return persistCollectionRow(data);
+  });
 
 export const updateAmansRemarks = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
     z.object({ row: z.number().int().min(2), remarks: z.string() }).parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
-    const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
-    await sheetsUpdate(`Collections!S${data.row}`, [[data.remarks]]);
+    await requireSession("Admin");
+    const { sheetsUpdateStrict, invalidateSheetsCache } = await import("./mahavtaar.server");
+    await sheetsUpdateStrict(`Collections!S${data.row}`, [[data.remarks]]);
     invalidateSheetsCache();
     return { ok: true as const, row: data.row, remarks: data.remarks };
   });
@@ -498,45 +550,54 @@ export const updateCollectionAmount = createServerFn({ method: "POST" })
     z.object({ row: z.number().int().min(2), amount: z.number().positive() }).parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
-    const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
-    await sheetsUpdate(`Collections!C${data.row}`, [[data.amount]]);
+    await requireSession("Admin");
+    const { sheetsUpdateStrict, invalidateSheetsCache } = await import("./mahavtaar.server");
+    await sheetsUpdateStrict(`Collections!C${data.row}`, [[data.amount]]);
     invalidateSheetsCache();
     return { ok: true as const, row: data.row, amount: data.amount };
   });
 
-async function persistDeleteCollectionRow(row: number) {
-  const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache, requireGoogleSheetsWriteAccess } =
-    await import("./mahavtaar.server");
-  requireGoogleSheetsWriteAccess();
-  try {
-    const sheetId = await getSheetId("Collections");
-    await sheetsBatchUpdate([{
-      deleteDimension: {
-        range: { sheetId, dimension: "ROWS", startIndex: row - 1, endIndex: row },
-      },
-    }]);
-  } catch {
-    await sheetsUpdate(`Collections!A${row}:V${row}`, [Array(22).fill("")]);
-  }
-  invalidateSheetsCache();
-  return { ok: true as const };
-}
-
 export const deleteCollectionRow = createServerFn({ method: "POST" })
-  .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
-  .handler(async ({ data }) => persistDeleteCollectionRow(data.row));
-
-export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({
-    adminPassword: z.string().min(1).max(200),
-    row: z.number().int().min(2),
-  }).parse(d))
+  .inputValidator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
-    await assertProductivityAdmin(data.adminPassword);
-    const { sheetsUpdateStrict, ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict, invalidateSheetsCache } =
+    await requireSession("Admin");
+    const { sheetsUpdateStrict, ensureSheetStrict, sheetsAppendStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
+    const entry = (await readCollections()).find((item) => item.row === data.row);
+    if (!entry) throw new Error("Collection entry not found or already deleted.");
+    await sheetsUpdateStrict(`Collections!G${data.row}`, [["Deleted"]]);
+    invalidateSheetsCache();
+    await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
+    await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [
+      [
+        new Date().toISOString(),
+        "Admin",
+        entry.loanId,
+        data.row,
+        "ENTRY_DELETED",
+        "Soft-deleted",
+        "Conflict Resolution",
+      ],
+    ]);
+    return { ok: true as const };
+  });
+export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        row: z.number().int().min(2),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    await requireSession("Admin");
+    const {
+      sheetsUpdateStrict,
+      ensureSheetStrict,
+      requireGoogleSheetsWriteAccess,
+      sheetsAppendStrict,
+      invalidateSheetsCache,
+    } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     const entry = (await readCollections()).find((item) => item.row === data.row);
     if (!entry) throw new Error("Collection entry not found or already deleted.");
@@ -544,10 +605,17 @@ export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
     invalidateSheetsCache();
     try {
       await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
-      await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [[
-        new Date().toISOString(), "Admin", entry.loanId, data.row, "ENTRY_DELETED",
-        "Soft-deleted from Productivity Desk", "Productivity Desk",
-      ]]);
+      await sheetsAppendStrict(`${verificationAuditTab}!A:G`, [
+        [
+          new Date().toISOString(),
+          "Admin",
+          entry.loanId,
+          data.row,
+          "ENTRY_DELETED",
+          "Soft-deleted from Productivity Desk",
+          "Productivity Desk",
+        ],
+      ]);
       return { ok: true as const, auditSaved: true as const };
     } catch (error) {
       console.error("Entry soft-deleted but audit append failed:", error);
@@ -565,10 +633,10 @@ export const markConflictAsValid = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
-    const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+    await requireSession("Admin");
+    const { getSheetId, sheetsBatchUpdate, sheetsUpdateStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
-    await sheetsUpdate(`Collections!V${data.row}`, [["VALIDATED"]]);
+    await sheetsUpdateStrict(`Collections!V${data.row}`, [["VALIDATED"]]);
     try {
       const sheetId = await getSheetId("Collections");
       const white = { red: 1, green: 1, blue: 1 };
@@ -604,7 +672,7 @@ export const markConflictGroupAsValid = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
+    await requireSession("Admin");
     const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     for (const r of data.rows) {
@@ -637,7 +705,7 @@ export const markConflictGroupAsValid = createServerFn({ method: "POST" })
 export const revertConflictValidation = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
+    await requireSession("Admin");
     const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     await sheetsUpdate(`Collections!V${data.row}`, [[""]]);
@@ -670,15 +738,17 @@ export const savePending = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => pendingSchema.parse(d))
   .handler(async ({ data }) => {
     await requireSession();
-    const { sheetsAppend, driveUpload } = await import("./mahavtaar.server");
+    const session = await requireSession();
+    const executive = session.role === "Admin" ? data.executive : session.name;
+    const { sheetsAppendStrict, driveUpload } = await import("./mahavtaar.server");
     const links: string[] = [];
     for (const p of data.photos) {
       links.push(await driveUpload(`${data.loanNumber}-${p.name}`, p.mimeType, p.base64));
     }
     const id = `PND-${Date.now()}`;
-    await sheetsAppend("Pending!A:H", [
+    await sheetsAppendStrict("Pending!A:H", [
       [
-        data.executive,
+        executive,
         data.loanNumber,
         data.amount,
         links.join(", "),
@@ -712,40 +782,87 @@ export async function readPending() {
       .filter((r) => r.loanNumber && r.status === "Pending");
   } catch (err) {
     console.error("Failed to read pending from Google Sheets:", err);
-    return [];
+    throw new Error("Unable to load pending receipts. Please retry.");
   }
 }
 
-export const getPending = createServerFn({ method: "GET" }).handler(() => readPending());
+export const getPending = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await requireSession();
+  const rows = await readPending();
+  return session.role === "Admin" ? rows : rows.filter((row) => row.executive === session.name);
+});
 
 export const markPendingDone = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
-    const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");
-    const rows = await sheetsGet("Pending!A2:H");
-    const idx = rows.findIndex((r) => (r[6] ?? "") === data.id && (r[4] ?? "") === "Pending");
-    if (idx === -1) throw new Error("Pending entry not found or already completed.");
-    const r = rows[idx]!;
-    const rowNumber = idx + 2;
-
-    await sheetsUpdate(`Pending!E${rowNumber}`, [["Done"]]);
-
-    const { todayISO, nowTime } = await import("./executives");
-    const now = new Date();
-    await sheetsAppend("Collections!A:J", [
-      [
-        r[0] ?? "",
-        r[1] ?? "",
-        Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-        todayISO(now),
-        nowTime(now),
-        now.toISOString(),
-        "Confirmed",
-        todayISO(now),
-        "Normal",
-        (r[7] ?? "").trim().toLowerCase() === "yes" ? "Yes" : "No",
-      ],
-    ]);
-    return { ok: true as const };
+    const session = await requireSession();
+    const { sheetsGet, sheetsUpdateStrict, sheetsAppendStrict, withSheetMutex } =
+      await import("./mahavtaar.server");
+    return withSheetMutex("pending-completion:" + data.id, async () => {
+      const rows = await sheetsGet("Pending!A2:H");
+      const idx = rows.findIndex((row) => String(row[6] ?? "") === data.id);
+      if (idx < 0) throw new Error("Pending entry not found.");
+      const pending = rows[idx]!;
+      if (session.role !== "Admin" && String(pending[0] ?? "").trim() !== session.name)
+        throw new Error("You can only complete your own pending entries.");
+      const rowNumber = idx + 2;
+      const { todayISO, nowTime } = await import("./executives");
+      const now = new Date();
+      const pendingTimestamp = String(pending[5] ?? "");
+      const loanId = String(pending[1] ?? "").trim();
+      const amount = Number(String(pending[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0;
+      const marker = (await sheetsGet("Collections!W1"))[0]?.[0] ?? "";
+      if (marker && marker !== "Pending_Entry_ID")
+        throw new Error(
+          "Collections column W is already in use; pending idempotency migration needs review.",
+        );
+      if (!marker) await sheetsUpdateStrict("Collections!W1", [["Pending_Entry_ID"]]);
+      const collections = await sheetsGet("Collections!A2:W");
+      const existingIndex = collections.findIndex(
+        (row) =>
+          String(row[22] ?? "") === data.id ||
+          (pendingTimestamp &&
+            String(row[5] ?? "") === pendingTimestamp &&
+            String(row[1] ?? "").trim() === loanId &&
+            (Number(row[2] ?? 0) || 0) === amount),
+      );
+      if (existingIndex >= 0) {
+        const existingRowNumber = existingIndex + 2;
+        if (String(collections[existingIndex]?.[22] ?? "") !== data.id)
+          await sheetsUpdateStrict("Collections!W" + existingRowNumber, [[data.id]]);
+        if (String(pending[4] ?? "") !== "Done")
+          await sheetsUpdateStrict("Pending!E" + rowNumber, [["Done"]]);
+        return { ok: true as const, alreadyCompleted: true as const };
+      }
+      if (String(pending[4] ?? "") === "Done")
+        return { ok: true as const, alreadyCompleted: true as const };
+      const appended = (await sheetsAppendStrict("Collections!A:J", [
+        [
+          pending[0] ?? "",
+          loanId,
+          amount,
+          todayISO(now),
+          nowTime(now),
+          pendingTimestamp || now.toISOString(),
+          "Confirmed",
+          todayISO(now),
+          "Normal",
+          String(pending[7] ?? "")
+            .trim()
+            .toLowerCase() === "yes"
+            ? "Yes"
+            : "No",
+        ],
+      ])) as { updates?: { updatedRange?: string } };
+      const collectionRow = Number(
+        /![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0",
+      );
+      if (!collectionRow)
+        throw new Error(
+          "Collection was appended but its row could not be confirmed. Retry completion to reconcile it safely.",
+        );
+      await sheetsUpdateStrict("Collections!W" + collectionRow, [[data.id]]);
+      await sheetsUpdateStrict("Pending!E" + rowNumber, [["Done"]]);
+      return { ok: true as const, alreadyCompleted: false as const };
+    });
   });

@@ -2,7 +2,17 @@ import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Shikha", "Sona", "Sunanda", "Vinita"] as const;
+const executives = [
+  "Aarti",
+  "Ankita",
+  "Bharti",
+  "Julee",
+  "Pooja",
+  "Shikha",
+  "Sona",
+  "Sunanda",
+  "Vinita",
+] as const;
 
 const ecsSchema = z.object({
   executive: z.enum(executives),
@@ -24,17 +34,18 @@ const updateSchema = z.object({
 export const saveEcsEntry = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => ecsSchema.parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
-    const { sheetsAppend } = await import("./mahavtaar.server");
+    const session = await requireSession();
+    const executive = session.role === "Admin" ? data.executive : session.name;
+    const { sheetsAppendStrict } = await import("./mahavtaar.server");
     if (data.paymentDate > data.entryDate) {
       throw new Error("Payment date cannot be in the future.");
     }
     const id = `ECS-${Date.now()}`;
     const now = new Date().toISOString();
-    await sheetsAppend("ECS_Special_Info!A:L", [
+    await sheetsAppendStrict("ECS_Special_Info!A:L", [
       [
         id,
-        data.executive,
+        executive,
         data.loanId,
         data.amount,
         data.paymentType,
@@ -51,7 +62,7 @@ export const saveEcsEntry = createServerFn({ method: "POST" })
   });
 
 export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () => {
-    await requireSession();
+  await requireSession();
   try {
     const { sheetsGet } = await import("./mahavtaar.server");
     const { normalizeSheetDate, normalizeSheetTime } = await import("./executives");
@@ -72,22 +83,25 @@ export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () 
       }));
   } catch (err) {
     console.error("Failed to read ECS entries from Google Sheets:", err);
-    return [];
+    throw new Error("Unable to load ECS entries. Please retry.");
   }
 });
 
 export const updateEcsEntry = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => updateSchema.parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
-    const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
+    const session = await requireSession();
+    const { sheetsGet, sheetsUpdateStrict } = await import("./mahavtaar.server");
     const rows = await sheetsGet("ECS_Special_Info!A2:L");
     const idx = rows.findIndex((r) => (r[0] ?? "").trim() === data.id);
     if (idx === -1) throw new Error("ECS / Special entry not found.");
+    const row = rows[idx]!;
+    if (session.role !== "Admin" && String(row[1] ?? "").trim() !== session.name)
+      throw new Error("You can only edit your own ECS / Special entries.");
     const rowNumber = idx + 2;
-    await sheetsUpdate(`ECS_Special_Info!I${rowNumber}:J${rowNumber}`, [
+    await sheetsUpdateStrict(`ECS_Special_Info!I${rowNumber}:J${rowNumber}`, [
       [data.status, data.remark ?? ""],
     ]);
-    await sheetsUpdate(`ECS_Special_Info!L${rowNumber}`, [[new Date().toISOString()]]);
+    await sheetsUpdateStrict(`ECS_Special_Info!L${rowNumber}`, [[new Date().toISOString()]]);
     return { ok: true as const };
   });

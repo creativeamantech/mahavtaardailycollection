@@ -4,11 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
-import { getCollections, highlightAlreadyPaidInSheet } from "@/lib/mahavtaar.functions";
+import { getAdminCollections, highlightAlreadyPaidInSheet } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
-import { PasswordGate, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import { downloadAlreadyPaidCsv } from "@/lib/export";
 import {
   ALL_CATEGORIES,
@@ -41,29 +40,16 @@ export const Route = createFileRoute("/_authenticated/already-paid")({
 });
 
 function AlreadyPaidPage() {
-  const [unlocked, setUnlocked] = useState(false);
-  useEffect(() => {
-    if (sessionStorage.getItem(ADMIN_SESSION_KEY) === "1") setUnlocked(true);
-  }, []);
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-16 pt-6">
       <h1 className="text-2xl font-bold tracking-tight">Already Paid</h1>
-      {unlocked ? (
-        <AlreadyPaidContent />
-      ) : (
-        <PasswordGate
-          label="Unlock Already Paid"
-          onUnlock={() => {
-            setUnlocked(true);
-          }}
-        />
-      )}
+      <AlreadyPaidContent />
     </main>
   );
 }
 
 function AlreadyPaidContent() {
-  const fetchCollections = useServerFn(getCollections);
+  const fetchCollections = useServerFn(getAdminCollections);
   const highlightAlreadyPaid = useServerFn(highlightAlreadyPaidInSheet);
   const [highlighting, setHighlighting] = useState(false);
 

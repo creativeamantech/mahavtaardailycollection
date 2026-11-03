@@ -6,11 +6,11 @@ function extractDriveId(url: string): string | null {
   if (!url) return null;
   // Match /file/d/{id}
   const matchFileD = /\/file\/d\/([a-zA-Z0-9_-]+)/i.exec(url);
-  if (matchFileD) return matchFileD[1];
+  if (matchFileD?.[1]) return matchFileD[1];
 
   // Match id={id}
   const matchIdParam = /[?&]id=([a-zA-Z0-9_-]+)/i.exec(url);
-  if (matchIdParam) return matchIdParam[1];
+  if (matchIdParam?.[1]) return matchIdParam[1];
 
   // Match bare drive ID (alphanumeric with underscores/hyphens, length 25-45)
   if (/^[a-zA-Z0-9_-]{25,45}$/.test(url.trim())) {
@@ -35,9 +35,9 @@ function buildDriveLinks(rawUrl: string) {
   return {
     rawUrl,
     fileId,
-    driveViewUrl: `https://drive.google.com/file/d/${fileId}/view`,
+    driveViewUrl: `https://mahavtaardailycollection.lovable.app/receipt/${fileId}`,
     driveFolderUrl: "https://drive.google.com/drive/folders/1iBlXqe09aG5kA_hHf3WtFILnA1RibCf7",
-    previewUrl: `https://lh3.googleusercontent.com/d/${fileId}`,
+    previewUrl: `https://mahavtaardailycollection.lovable.app/receipt/${fileId}`,
     thumbnailUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`,
     directDownloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
   };

@@ -2,7 +2,17 @@ import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { savePending } from "../../mahavtaar.functions";
 
-const executives = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Shikha", "Sona", "Sunanda", "Vinita"] as const;
+const executives = [
+  "Aarti",
+  "Ankita",
+  "Bharti",
+  "Julee",
+  "Pooja",
+  "Shikha",
+  "Sona",
+  "Sunanda",
+  "Vinita",
+] as const;
 
 export default defineTool({
   name: "record_pending",

@@ -51,6 +51,37 @@ export function invalidateSheetsCache() {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const sheetLocks = new Map<string, Promise<void>>();
+export async function withSheetMutex<T>(key: string, operation: () => Promise<T>): Promise<T> {
+  const previous = sheetLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  sheetLocks.set(key, current);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (sheetLocks.get(key) === current) sheetLocks.delete(key);
+  }
+}
+async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const response = await fetch(input, init);
+      if (response.status !== 429 && response.status < 500) return response;
+      if (attempt === 3) return response;
+      await sleep(500 * 2 ** attempt + Math.random() * 250);
+    } catch (error) {
+      if (attempt === 3) throw error;
+      await sleep(500 * 2 ** attempt + Math.random() * 250);
+    }
+  }
+  throw new Error("Sheets request retry limit exceeded.");
+}
+
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -181,6 +212,9 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
 }
 
 async function fetchRange(range: string): Promise<string[][]> {
+  const production = process.env["NODE_ENV"] === "production";
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY") && production)
+    throw new Error("Google Sheets connector is not configured in production.");
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     let lastBody = "";
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -204,11 +238,17 @@ async function fetchRange(range: string): Promise<string[][]> {
         break;
       }
     }
+    if (production) throw new Error("Google Sheets gateway read failed in production: " + lastBody);
     console.warn(
-      `Gateway fetch failed for ${range} (${lastBody}). Falling back to public sheet reader.`,
+      "Gateway fetch failed for " +
+        range +
+        " (" +
+        lastBody +
+        "). Using development-only public reader.",
     );
   }
 
+  if (production) throw new Error("Google Sheets public fallback is disabled in production.");
   return fetchFromPublicSheet(range);
 }
 
@@ -246,7 +286,11 @@ export async function sheetsGetCellLinks(range: string): Promise<Record<number, 
         for (let index = 0; index < (grid.rowData ?? []).length; index++) {
           const cell = grid.rowData?.[index]?.values?.[0];
           if (!cell) continue;
-          let href = cell.hyperlink || cell.textFormatRuns?.find((run) => run.format?.link?.uri)?.format?.link?.uri || cell.effectiveFormat?.textFormat?.link?.uri || "";
+          let href =
+            cell.hyperlink ||
+            cell.textFormatRuns?.find((run) => run.format?.link?.uri)?.format?.link?.uri ||
+            cell.effectiveFormat?.textFormat?.link?.uri ||
+            "";
           const formula = cell.userEnteredValue?.formulaValue ?? "";
           if (!href && /^=HYPERLINK\(/i.test(formula)) {
             const match = formula.match(/^=HYPERLINK\(\s*"([^"]+)"/i);
@@ -294,8 +338,11 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
       invalidateSheetsCache();
       return ok(res, "Sheets append");
     } catch (err) {
-      console.warn("Gateway append failed, using local overlay:", err);
+      if (process.env["NODE_ENV"] === "production") throw err;
+      console.warn("Gateway append failed, using development-only local overlay:", err);
     }
+  } else if (process.env["NODE_ENV"] === "production") {
+    throw new Error("Google Sheets connector is not configured in production.");
   }
 
   const { sheetTitle } = parseRange(range);
@@ -321,6 +368,8 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
 
 export async function sheetsAppendStrict(range: string, values: (string | number)[][]) {
   requireGoogleSheetsWriteAccess();
+  // Appends are non-idempotent: never retry automatically, or a timeout after a
+  // successful write could create duplicate collection/payment rows.
   const res = await fetch(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
@@ -336,7 +385,7 @@ export async function sheetsAppendStrict(range: string, values: (string | number
 
 export async function sheetsUpdateStrict(range: string, values: (string | number)[][]) {
   requireGoogleSheetsWriteAccess();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
     {
       method: "PUT",
@@ -353,7 +402,7 @@ export async function sheetsBatchUpdateValuesStrict(
   data: { range: string; values: (string | number)[][] }[],
 ) {
   requireGoogleSheetsWriteAccess();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`,
     {
       method: "POST",
@@ -380,8 +429,11 @@ export async function sheetsUpdate(range: string, values: (string | number)[][])
       invalidateSheetsCache();
       return ok(res, "Sheets update");
     } catch (err) {
-      console.warn("Gateway update failed, using local overlay:", err);
+      if (process.env["NODE_ENV"] === "production") throw err;
+      console.warn("Gateway update failed, using development-only local overlay:", err);
     }
+  } else if (process.env["NODE_ENV"] === "production") {
+    throw new Error("Google Sheets connector is not configured in production.");
   }
 
   const { sheetTitle, startRow, startCol } = parseRange(range);
@@ -407,61 +459,76 @@ let sheetIdCache: Record<string, number> = {};
 export async function getSheetId(title: string): Promise<number> {
   const cached = sheetIdCache[title];
   if (typeof cached === "number") return cached;
-
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    try {
-      const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
-        { headers: headers("GOOGLE_SHEETS_API_KEY") },
-      );
-      const json = (await ok(res, "Sheets metadata")) as {
-        sheets?: { properties?: { sheetId?: number; title?: string } }[];
-      };
-      sheetIdCache = {};
-      for (const s of json.sheets ?? []) {
-        const p = s.properties;
-        if (p && typeof p.sheetId === "number" && p.title) sheetIdCache[p.title] = p.sheetId;
-      }
-      const id = sheetIdCache[title];
-      if (typeof id === "number") return id;
-    } catch (err) {
-      console.warn(`Failed to fetch sheet ID for ${title} via gateway:`, err);
-    }
-  }
-
-  // Fallback fixed sheet IDs
-  const knownSheetIds: Record<string, number> = {
-    Collections: 0,
-    Pending: 1,
-    ECS_Special_Info: 2,
-    AppSettings: 3,
-    Notifications: 4,
-    "Cashier Link Activity": 5,
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY"))
+    throw new Error("Google Sheets connector is not configured.");
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
+    { headers: headers("GOOGLE_SHEETS_API_KEY") },
+  );
+  const json = (await ok(res, "Sheets metadata")) as {
+    sheets?: { properties?: { sheetId?: number; title?: string } }[];
   };
-  return knownSheetIds[title] ?? 0;
+  sheetIdCache = {};
+  for (const sheet of json.sheets ?? []) {
+    const properties = sheet.properties;
+    if (properties && typeof properties.sheetId === "number" && properties.title)
+      sheetIdCache[properties.title] = properties.sheetId;
+  }
+  const id = sheetIdCache[title];
+  if (typeof id !== "number") throw new Error("Google Sheets tab not found: " + title);
+  return id;
 }
 
 export async function sheetsBatchUpdate(requests: unknown[]) {
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    try {
-      const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
-        {
-          method: "POST",
-          headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-          body: JSON.stringify({ requests }),
-        },
-      );
-      return ok(res, "Sheets batchUpdate");
-    } catch (err) {
-      console.warn("Gateway batchUpdate failed:", err);
-    }
-  }
-
-  return { ok: true };
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY"))
+    throw new Error("Google Sheets connector is not configured.");
+  const res = await fetchWithRetry(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ requests }),
+    },
+  );
+  const result = await ok(res, "Sheets batchUpdate");
+  invalidateSheetsCache();
+  return result;
 }
 
+function validateReceiptImage(name: string, mimeType: string, base64: string) {
+  const allowed: Record<string, { signature: number[]; extension: string }> = {
+    "image/jpeg": { signature: [0xff, 0xd8, 0xff], extension: "jpg" },
+    "image/png": { signature: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], extension: "png" },
+    "image/webp": { signature: [0x52, 0x49, 0x46, 0x46], extension: "webp" },
+  };
+  const spec = allowed[mimeType.toLowerCase()];
+  if (!spec) throw new Error("Only JPEG, PNG, and WebP receipt images are allowed.");
+  const cleanBase64 = base64.replace(/^data:[^,]+,/, "").replace(/\s/g, "");
+  if (!cleanBase64 || cleanBase64.length > 16_800_000)
+    throw new Error("Receipt image exceeds the 12 MB limit.");
+  const binary = atob(cleanBase64);
+  if (binary.length > 12 * 1024 * 1024) throw new Error("Receipt image exceeds the 12 MB limit.");
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const valid =
+    spec.extension === "webp"
+      ? String.fromCharCode(...bytes.slice(8, 12)) === "WEBP" &&
+        spec.signature.every((byte, index) => bytes[index] === byte)
+      : spec.signature.every((byte, index) => bytes[index] === byte);
+  if (!valid) throw new Error("Receipt image content does not match its declared MIME type.");
+  const safeName =
+    name
+      .normalize("NFKC")
+      .replace(/[^\p{L}\p{N}._-]+/gu, "_")
+      .replace(/^\.+/, "")
+      .slice(0, 90) || "receipt";
+  return { name: safeName.replace(/\.[^.]+$/, "") + "." + spec.extension, base64: cleanBase64 };
+}
 export async function driveUpload(name: string, mimeType: string, base64: string) {
+  const validated = validateReceiptImage(name, mimeType, base64);
+  name = validated.name;
+  base64 = validated.base64;
+  if (process.env["NODE_ENV"] === "production" && !hasCredentials("GOOGLE_DRIVE_API_KEY"))
+    throw new Error("Google Drive connector is not configured in production.");
   if (hasCredentials("GOOGLE_DRIVE_API_KEY")) {
     try {
       const boundary = "mahavtaarboundary" + Math.random().toString(36).slice(2);
@@ -484,19 +551,22 @@ export async function driveUpload(name: string, mimeType: string, base64: string
       );
       const file = (await ok(res, "Drive upload")) as { id: string; webViewLink?: string };
 
-      await fetch(`${GATEWAY}/google_drive/drive/v3/files/${file.id}/permissions`, {
+      // Receipt files remain private; the application serves them through an authenticated proxy.
+      /* await fetch(`${GATEWAY}/google_drive/drive/v3/files/${file.id}/permissions`, {
         method: "POST",
         headers: { ...headers("GOOGLE_DRIVE_API_KEY"), "Content-Type": "application/json" },
         body: JSON.stringify({ role: "reader", type: "anyone" }),
-      }).catch((e) => console.error("Drive share failed", e));
+      }).catch((e) => console.error("Drive share failed", e)); */
 
-      return file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`;
+      return `/receipt/${file.id}`;
     } catch (err) {
-      console.warn("Google Drive upload via gateway failed, using data URI fallback:", err);
+      if (process.env["NODE_ENV"] === "production") throw err;
+      console.warn("Google Drive upload failed; using development-only data URI fallback:", err);
     }
   }
 
-  // Return base64 data URI when drive upload credentials are not available
+  if (process.env["NODE_ENV"] === "production")
+    throw new Error("Google Drive upload failed in production.");
   return `data:${mimeType};base64,${base64}`;
 }
 
@@ -505,23 +575,31 @@ export async function driveUpload(name: string, mimeType: string, base64: string
 export async function ocrDriveReceipt(fileId: string, language = "hi") {
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(fileId)) throw new Error("Invalid Google Drive file ID.");
   if (!hasCredentials("GOOGLE_DRIVE_API_KEY")) {
-    throw new Error("Google Drive connector credentials are not configured (GOOGLE_DRIVE_API_KEY).");
+    throw new Error(
+      "Google Drive connector credentials are not configured (GOOGLE_DRIVE_API_KEY).",
+    );
   }
   const auth = headers("GOOGLE_DRIVE_API_KEY");
   const base = GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(fileId);
   const metaRes = await fetch(base + "?fields=id,name,mimeType,size,trashed", { headers: auth });
   const meta = (await ok(metaRes, "Drive receipt metadata")) as {
-    id: string; name?: string; mimeType?: string; size?: string; trashed?: boolean;
+    id: string;
+    name?: string;
+    mimeType?: string;
+    size?: string;
+    trashed?: boolean;
   };
   if (meta.trashed) throw new Error("Receipt file is in the Drive trash.");
   if (!meta.mimeType?.startsWith("image/")) throw new Error("Receipt must be an image.");
-  if (Number(meta.size ?? 0) > 12 * 1024 * 1024) throw new Error("Receipt image exceeds the 12 MB OCR limit.");
+  if (Number(meta.size ?? 0) > 12 * 1024 * 1024)
+    throw new Error("Receipt image exceeds the 12 MB OCR limit.");
 
   const imageRes = await fetch(base + "?alt=media", { headers: auth });
   if (!imageRes.ok) throw new Error("Could not download receipt image (" + imageRes.status + ").");
   const imageBytes = new Uint8Array(await imageRes.arrayBuffer());
   if (!imageBytes.length) throw new Error("Google Drive returned an empty receipt image.");
-  if (imageBytes.length > 12 * 1024 * 1024) throw new Error("Receipt image exceeds the 12 MB OCR limit.");
+  if (imageBytes.length > 12 * 1024 * 1024)
+    throw new Error("Receipt image exceeds the 12 MB OCR limit.");
 
   const boundary = "mahaOcr" + Math.random().toString(36).slice(2);
   const metadata = JSON.stringify({
@@ -530,8 +608,16 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
   });
   const encoder = new TextEncoder();
   const prefix = encoder.encode(
-    "--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + metadata + "\r\n" +
-    "--" + boundary + "\r\nContent-Type: " + meta.mimeType + "\r\n\r\n",
+    "--" +
+      boundary +
+      "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" +
+      metadata +
+      "\r\n" +
+      "--" +
+      boundary +
+      "\r\nContent-Type: " +
+      meta.mimeType +
+      "\r\n\r\n",
   );
   const suffix = encoder.encode("\r\n--" + boundary + "--\r\n");
   const multipart = new Uint8Array(prefix.length + imageBytes.length + suffix.length);
@@ -542,8 +628,10 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
   let temporaryDocId: string | undefined;
   try {
     const convertRes = await fetch(
-      GATEWAY + "/google_drive/upload/drive/v3/files?uploadType=multipart&ocrLanguage=" +
-        encodeURIComponent(language) + "&fields=id,name,mimeType",
+      GATEWAY +
+        "/google_drive/upload/drive/v3/files?uploadType=multipart&ocrLanguage=" +
+        encodeURIComponent(language) +
+        "&fields=id,name,mimeType",
       {
         method: "POST",
         headers: { ...auth, "Content-Type": "multipart/related; boundary=" + boundary },
@@ -552,16 +640,25 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
     );
     const converted = (await ok(convertRes, "Receipt OCR conversion")) as { id?: string };
     temporaryDocId = converted.id;
-    if (!temporaryDocId) throw new Error("Drive OCR conversion did not return a temporary document ID.");
+    if (!temporaryDocId)
+      throw new Error("Drive OCR conversion did not return a temporary document ID.");
 
     const exportRes = await fetch(
-      GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId) +
+      GATEWAY +
+        "/google_drive/drive/v3/files/" +
+        encodeURIComponent(temporaryDocId) +
         "/export?mimeType=text%2Fplain",
       { headers: auth },
     );
     if (!exportRes.ok) throw new Error("Could not export OCR text (" + exportRes.status + ").");
     const text = (await exportRes.text()).trim();
-    return { fileId, fileName: meta.name ?? "", mimeType: meta.mimeType, text, characterCount: text.length };
+    return {
+      fileId,
+      fileName: meta.name ?? "",
+      mimeType: meta.mimeType,
+      text,
+      characterCount: text.length,
+    };
   } finally {
     if (temporaryDocId) {
       await fetch(GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId), {
@@ -595,9 +692,10 @@ export async function ensureSheetStrict(title: string, header?: string[]) {
     await ok(createRes, "Strict create sheet");
     sheetIdCache = {};
     if (header?.length) {
-      const lastColumn = header.length <= 26
-        ? String.fromCharCode(64 + header.length)
-        : "A" + String.fromCharCode(64 + header.length - 26);
+      const lastColumn =
+        header.length <= 26
+          ? String.fromCharCode(64 + header.length)
+          : "A" + String.fromCharCode(64 + header.length - 26);
       await sheetsUpdateStrict(`${title}!A1:${lastColumn}1`, [header]);
     }
   }
@@ -618,13 +716,63 @@ export async function ensureSheet(title: string, header?: string[]) {
       await sheetsBatchUpdate([{ addSheet: { properties: { title } } }]);
       sheetIdCache = {};
       if (header && header.length > 0) {
-        const lastColumn = header.length <= 26
-          ? String.fromCharCode(64 + header.length)
-          : "A" + String.fromCharCode(64 + header.length - 26);
+        const lastColumn =
+          header.length <= 26
+            ? String.fromCharCode(64 + header.length)
+            : "A" + String.fromCharCode(64 + header.length - 26);
         await sheetsUpdate(`${title}!A1:${lastColumn}1`, [header]);
       }
     }
     return getSheetId(title);
   }
   return getSheetId(title);
+}
+
+export async function checkConnectorHealth() {
+  requireGoogleSheetsWriteAccess();
+  if (!hasCredentials("GOOGLE_DRIVE_API_KEY"))
+    throw new Error("Google Drive connector is not configured.");
+  await sheetsGet("Users!A1:E1");
+  const driveResponse = await fetch(
+    `${GATEWAY}/google_drive/drive/v3/files/${DRIVE_FOLDER_ID}?fields=id`,
+    { headers: headers("GOOGLE_DRIVE_API_KEY") },
+  );
+  await ok(driveResponse, "Drive health check");
+  return { sheets: true, drive: true };
+}
+
+export async function driveDownload(fileId: string) {
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(fileId)) throw new Error("Invalid Drive file ID.");
+  if (!hasCredentials("GOOGLE_DRIVE_API_KEY"))
+    throw new Error("Google Drive connector is not configured.");
+
+  const auth = headers("GOOGLE_DRIVE_API_KEY");
+  const fileUrl = `${GATEWAY}/google_drive/drive/v3/files/${encodeURIComponent(fileId)}`;
+  const metadataResponse = await fetch(
+    fileUrl + "?fields=id,name,mimeType,size,trashed",
+    { headers: auth },
+  );
+  const metadata = (await ok(metadataResponse, "Receipt metadata")) as {
+    id: string;
+    name?: string;
+    mimeType?: string;
+    size?: string;
+    trashed?: boolean;
+  };
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (metadata.trashed) throw new Error("Receipt file is in the Drive trash.");
+  if (!metadata.mimeType || !allowedTypes.has(metadata.mimeType.toLowerCase()))
+    throw new Error("Receipt must be a JPEG, PNG, or WebP image.");
+  const declaredSize = Number(metadata.size ?? 0);
+  if (Number.isFinite(declaredSize) && declaredSize > 12 * 1024 * 1024)
+    throw new Error("Receipt image exceeds the 12 MB limit.");
+
+  const response = await fetch(fileUrl + "?alt=media", { headers: auth });
+  if (!response.ok) throw new Error("Receipt download failed: " + response.status);
+  const body = await response.arrayBuffer();
+  if (!body.byteLength) throw new Error("Receipt download returned an empty file.");
+  if (body.byteLength > 12 * 1024 * 1024)
+    throw new Error("Receipt image exceeds the 12 MB limit.");
+
+  return { body, contentType: metadata.mimeType.toLowerCase() };
 }

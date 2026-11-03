@@ -11,18 +11,22 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedAdminLoanAuditRouteImport } from './routes/_authenticated/admin-loan-audit'
 import { Route as AuthenticatedAlreadyPaidRouteImport } from './routes/_authenticated/already-paid'
+import { Route as AuthenticatedConflictsRouteImport } from './routes/_authenticated/conflicts'
 import { Route as AuthenticatedEcsRouteImport } from './routes/_authenticated/ecs'
+import { Route as AuthenticatedExcludedLoansRouteImport } from './routes/_authenticated/excluded-loans'
 import { Route as AuthenticatedExecutiveCitiesRouteImport } from './routes/_authenticated/executive-cities'
 import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
-import { Route as AuthenticatedAdminLoanAuditRouteImport } from './routes/_authenticated/admin-loan-audit'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedPendingRouteImport } from './routes/_authenticated/pending'
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as ReceiptFileIdRouteImport } from './routes/receipt.$fileId'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -32,6 +36,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthzRoute = HealthzRouteImport.update({
+  id: '/healthz',
+  path: '/healthz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -50,17 +59,34 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminLoanAuditRoute =
+  AuthenticatedAdminLoanAuditRouteImport.update({
+    id: '/admin-loan-audit',
+    path: '/admin-loan-audit',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAlreadyPaidRoute =
   AuthenticatedAlreadyPaidRouteImport.update({
     id: '/already-paid',
     path: '/already-paid',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedConflictsRoute = AuthenticatedConflictsRouteImport.update({
+  id: '/conflicts',
+  path: '/conflicts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedEcsRoute = AuthenticatedEcsRouteImport.update({
   id: '/ecs',
   path: '/ecs',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedExcludedLoansRoute =
+  AuthenticatedExcludedLoansRouteImport.update({
+    id: '/excluded-loans',
+    path: '/excluded-loans',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedExecutiveCitiesRoute =
   AuthenticatedExecutiveCitiesRouteImport.update({
     id: '/executive-cities',
@@ -70,11 +96,6 @@ const AuthenticatedExecutiveCitiesRoute =
 const AuthenticatedLoansRoute = AuthenticatedLoansRouteImport.update({
   id: '/loans',
   path: '/loans',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAdminLoanAuditRoute = AuthenticatedAdminLoanAuditRouteImport.update({
-  id: '/_authenticated/admin-loan-audit',
-  path: '/admin-loan-audit',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -98,6 +119,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ReceiptFileIdRoute = ReceiptFileIdRouteImport.update({
+  id: '/receipt/$fileId',
+  path: '/receipt/$fileId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   id: '/.lovable/oauth/consent',
   path: '/.lovable/oauth/consent',
@@ -107,31 +133,40 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
+  '/healthz': typeof HealthzRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
+  '/excluded-loans': typeof AuthenticatedExcludedLoansRoute
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
-  '/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pending': typeof AuthenticatedPendingRoute
   '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/receipt/$fileId': typeof ReceiptFileIdRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
+  '/healthz': typeof HealthzRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
+  '/excluded-loans': typeof AuthenticatedExcludedLoansRoute
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pending': typeof AuthenticatedPendingRoute
   '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/receipt/$fileId': typeof ReceiptFileIdRoute
   '/': typeof AuthenticatedIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
 }
@@ -139,17 +174,21 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/healthz': typeof HealthzRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/_authenticated/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/_authenticated/conflicts': typeof AuthenticatedConflictsRoute
   '/_authenticated/ecs': typeof AuthenticatedEcsRoute
+  '/_authenticated/excluded-loans': typeof AuthenticatedExcludedLoansRoute
   '/_authenticated/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
-  '/_authenticated/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/pending': typeof AuthenticatedPendingRoute
   '/_authenticated/report': typeof AuthenticatedReportRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/receipt/$fileId': typeof ReceiptFileIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
 }
@@ -158,47 +197,61 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/healthz'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
+    | '/admin-loan-audit'
     | '/already-paid'
+    | '/conflicts'
     | '/ecs'
+    | '/excluded-loans'
     | '/executive-cities'
     | '/loans'
-    | '/admin-loan-audit'
     | '/notifications'
     | '/pending'
     | '/report'
     | '/settings'
+    | '/receipt/$fileId'
     | '/.lovable/oauth/consent'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/healthz'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
+    | '/admin-loan-audit'
     | '/already-paid'
+    | '/conflicts'
     | '/ecs'
+    | '/excluded-loans'
     | '/executive-cities'
     | '/loans'
     | '/notifications'
     | '/pending'
     | '/report'
     | '/settings'
+    | '/receipt/$fileId'
     | '/'
     | '/.lovable/oauth/consent'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
+    | '/healthz'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/admin-loan-audit'
     | '/_authenticated/already-paid'
+    | '/_authenticated/conflicts'
     | '/_authenticated/ecs'
+    | '/_authenticated/excluded-loans'
     | '/_authenticated/executive-cities'
     | '/_authenticated/loans'
     | '/_authenticated/notifications'
     | '/_authenticated/pending'
     | '/_authenticated/report'
     | '/_authenticated/settings'
+    | '/receipt/$fileId'
     | '/_authenticated/'
     | '/.lovable/oauth/consent'
   fileRoutesById: FileRoutesById
@@ -206,8 +259,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  HealthzRoute: typeof HealthzRoute
   McpRoute: typeof McpRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  ReceiptFileIdRoute: typeof ReceiptFileIdRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
 }
 
@@ -225,6 +280,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/healthz': {
+      id: '/healthz'
+      path: '/healthz'
+      fullPath: '/healthz'
+      preLoaderRoute: typeof HealthzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -248,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin-loan-audit': {
+      id: '/_authenticated/admin-loan-audit'
+      path: '/admin-loan-audit'
+      fullPath: '/admin-loan-audit'
+      preLoaderRoute: typeof AuthenticatedAdminLoanAuditRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/already-paid': {
       id: '/_authenticated/already-paid'
       path: '/already-paid'
@@ -255,11 +324,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAlreadyPaidRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/conflicts': {
+      id: '/_authenticated/conflicts'
+      path: '/conflicts'
+      fullPath: '/conflicts'
+      preLoaderRoute: typeof AuthenticatedConflictsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/ecs': {
       id: '/_authenticated/ecs'
       path: '/ecs'
       fullPath: '/ecs'
       preLoaderRoute: typeof AuthenticatedEcsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/excluded-loans': {
+      id: '/_authenticated/excluded-loans'
+      path: '/excluded-loans'
+      fullPath: '/excluded-loans'
+      preLoaderRoute: typeof AuthenticatedExcludedLoansRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/executive-cities': {
@@ -274,13 +357,6 @@ declare module '@tanstack/react-router' {
       path: '/loans'
       fullPath: '/loans'
       preLoaderRoute: typeof AuthenticatedLoansRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/admin-loan-audit': {
-      id: '/_authenticated/admin-loan-audit'
-      path: '/admin-loan-audit'
-      fullPath: '/admin-loan-audit'
-      preLoaderRoute: typeof AuthenticatedAdminLoanAuditRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/notifications': {
@@ -311,6 +387,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/receipt/$fileId': {
+      id: '/receipt/$fileId'
+      path: '/receipt/$fileId'
+      fullPath: '/receipt/$fileId'
+      preLoaderRoute: typeof ReceiptFileIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.lovable/oauth/consent': {
       id: '/.lovable/oauth/consent'
       path: '/.lovable/oauth/consent'
@@ -322,11 +405,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminLoanAuditRoute: typeof AuthenticatedAdminLoanAuditRoute
   AuthenticatedAlreadyPaidRoute: typeof AuthenticatedAlreadyPaidRoute
+  AuthenticatedConflictsRoute: typeof AuthenticatedConflictsRoute
   AuthenticatedEcsRoute: typeof AuthenticatedEcsRoute
+  AuthenticatedExcludedLoansRoute: typeof AuthenticatedExcludedLoansRoute
   AuthenticatedExecutiveCitiesRoute: typeof AuthenticatedExecutiveCitiesRoute
   AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
-  AuthenticatedAdminLoanAuditRoute: typeof AuthenticatedAdminLoanAuditRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPendingRoute: typeof AuthenticatedPendingRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
@@ -335,11 +420,13 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminLoanAuditRoute: AuthenticatedAdminLoanAuditRoute,
   AuthenticatedAlreadyPaidRoute: AuthenticatedAlreadyPaidRoute,
+  AuthenticatedConflictsRoute: AuthenticatedConflictsRoute,
   AuthenticatedEcsRoute: AuthenticatedEcsRoute,
+  AuthenticatedExcludedLoansRoute: AuthenticatedExcludedLoansRoute,
   AuthenticatedExecutiveCitiesRoute: AuthenticatedExecutiveCitiesRoute,
   AuthenticatedLoansRoute: AuthenticatedLoansRoute,
-  AuthenticatedAdminLoanAuditRoute: AuthenticatedAdminLoanAuditRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPendingRoute: AuthenticatedPendingRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,
@@ -353,9 +440,11 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  HealthzRoute: HealthzRoute,
   McpRoute: McpRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  ReceiptFileIdRoute: ReceiptFileIdRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
 }
 export const routeTree = rootRouteImport

@@ -27,7 +27,10 @@ type ActiveHoldCase = {
 };
 
 function normaliseLoanId(value: string) {
-  return value.replace(/^['’‘\x60]+/, "").trim().toUpperCase();
+  return value
+    .replace(/^['’‘\x60]+/, "")
+    .trim()
+    .toUpperCase();
 }
 
 export function HoldCasesPanel() {
@@ -44,7 +47,10 @@ export function HoldCasesPanel() {
   const removeCases = useServerFn(removeHoldCases);
 
   const loanIds = useMemo(() => {
-    const raw = loanIdsText.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean);
+    const raw = loanIdsText
+      .split(/[\s,;]+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
     const seen = new Set<string>();
     return raw.filter((value) => {
       const key = normaliseLoanId(value);
@@ -61,7 +67,9 @@ export function HoldCasesPanel() {
     }
     setLoadingCases(true);
     try {
-      const result = await loadCases({ data: { executive: executive as (typeof EXECUTIVES)[number] } });
+      const result = await loadCases({
+        data: { executive: executive as (typeof EXECUTIVES)[number] },
+      });
       setActiveCases(result as ActiveHoldCase[]);
       setSelectedToRemove([]);
       if (result.length === 0) toast.info("No active Hold Cases found for this executive.");
@@ -89,14 +97,40 @@ export function HoldCasesPanel() {
     setSaving(true);
     try {
       const result = await submit({
-        data: { executive: executive as (typeof EXECUTIVES)[number], loanIds, remarks: remarks.trim() },
+        data: {
+          executive: executive as (typeof EXECUTIVES)[number],
+          loanIds,
+          remarks: remarks.trim(),
+        },
       });
-      if (result.savedCount > 0) toast.success(result.savedCount + " Hold Case(s) submitted successfully.");
-      if (result.skippedPaidCount > 0) toast.warning(result.skippedPaidCount + " Loan ID(s) already Paid — skipped. Paid cases cannot be added to Hold.");
-      if (result.skippedHoldCount > 0) toast.info(result.skippedHoldCount + " Loan ID(s) already in Hold — skipped as already present.");
-      if (result.movedFromPTPCount > 0) toast.success(result.movedFromPTPCount + " active PTP(s) moved to Hold and removed from PTP.");
-      if (result.duplicateCount > 0 && result.skippedPaidCount === 0 && result.skippedHoldCount === 0) toast.info(result.duplicateCount + " duplicate Loan ID(s) skipped.");
-      if (result.savedCount === 0 && result.duplicateCount > 0 && result.skippedPaidCount === 0 && result.skippedHoldCount === 0) toast.info("No new Hold Cases were added.");
+      if (result.savedCount > 0)
+        toast.success(result.savedCount + " Hold Case(s) submitted successfully.");
+      if (result.skippedPaidCount > 0)
+        toast.warning(
+          result.skippedPaidCount +
+            " Loan ID(s) already Paid — skipped. Paid cases cannot be added to Hold.",
+        );
+      if (result.skippedHoldCount > 0)
+        toast.info(
+          result.skippedHoldCount + " Loan ID(s) already in Hold — skipped as already present.",
+        );
+      if (result.movedFromPTPCount > 0)
+        toast.success(
+          result.movedFromPTPCount + " active PTP(s) moved to Hold and removed from PTP.",
+        );
+      if (
+        result.duplicateCount > 0 &&
+        result.skippedPaidCount === 0 &&
+        result.skippedHoldCount === 0
+      )
+        toast.info(result.duplicateCount + " duplicate Loan ID(s) skipped.");
+      if (
+        result.savedCount === 0 &&
+        result.duplicateCount > 0 &&
+        result.skippedPaidCount === 0 &&
+        result.skippedHoldCount === 0
+      )
+        toast.info("No new Hold Cases were added.");
       setLoanIdsText("");
       setRemarks("");
       if (executive) await loadMyHoldCases();
@@ -122,7 +156,8 @@ export function HoldCasesPanel() {
         },
       });
       if (result.removedCount > 0) toast.success(result.removedCount + " Hold Case(s) removed.");
-      if (result.skippedPaidCount > 0) toast.warning(result.skippedPaidCount + " Paid Loan ID(s) were protected and not removed.");
+      if (result.skippedPaidCount > 0)
+        toast.warning(result.skippedPaidCount + " Paid Loan ID(s) were protected and not removed.");
       await loadMyHoldCases();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not remove Hold Cases.");
@@ -142,8 +177,12 @@ export function HoldCasesPanel() {
   return (
     <section className="mt-6 space-y-6 rounded-xl border p-4">
       {holdCasesLocked && (
-        <div role="alert" className="rounded-lg border border-amber-500 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
-          Hold Cases are locked by administrator. Nobody can add or remove Hold Cases until this lock is turned off in Settings.
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500 bg-amber-50 p-3 text-sm font-semibold text-amber-900"
+        >
+          Hold Cases are locked by administrator. Nobody can add or remove Hold Cases until this
+          lock is turned off in Settings.
         </div>
       )}
       <div className="space-y-2">
@@ -161,7 +200,9 @@ export function HoldCasesPanel() {
           </SelectTrigger>
           <SelectContent>
             {EXECUTIVES.map((name) => (
-              <SelectItem key={name} value={name} className="text-base">{name}</SelectItem>
+              <SelectItem key={name} value={name} className="text-base">
+                {name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -169,7 +210,9 @@ export function HoldCasesPanel() {
 
       <div className="space-y-2">
         <h3 className="text-lg font-semibold">Add Hold Cases</h3>
-        <Label className="text-base" htmlFor="holdLoanIds">Loan IDs (Bulk Entry)</Label>
+        <Label className="text-base" htmlFor="holdLoanIds">
+          Loan IDs (Bulk Entry)
+        </Label>
         <Textarea
           id="holdLoanIds"
           value={loanIdsText}
@@ -186,7 +229,9 @@ export function HoldCasesPanel() {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-base" htmlFor="holdRemarks">Hold Reason / Remarks (Optional)</Label>
+        <Label className="text-base" htmlFor="holdRemarks">
+          Hold Reason / Remarks (Optional)
+        </Label>
         <Input
           id="holdRemarks"
           value={remarks}
@@ -197,7 +242,11 @@ export function HoldCasesPanel() {
         />
       </div>
 
-      <Button className="h-14 w-full text-lg" onClick={handleSubmit} disabled={holdCasesLocked || saving || !executive || loanIds.length === 0}>
+      <Button
+        className="h-14 w-full text-lg"
+        onClick={handleSubmit}
+        disabled={holdCasesLocked || saving || !executive || loanIds.length === 0}
+      >
         {saving ? "Submitting..." : "Submit Hold Cases"}
       </Button>
 
@@ -205,10 +254,17 @@ export function HoldCasesPanel() {
         <div>
           <h3 className="text-lg font-semibold">Remove Hold Cases</h3>
           <p className="text-sm text-muted-foreground">
-            Select your executive name above, load your active cases, then choose the cases to remove.
+            Select your executive name above, load your active cases, then choose the cases to
+            remove.
           </p>
         </div>
-        <Button type="button" variant="outline" className="w-full h-11" onClick={loadMyHoldCases} disabled={holdCasesLocked || !executive || loadingCases || saving}>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full h-11"
+          onClick={loadMyHoldCases}
+          disabled={holdCasesLocked || !executive || loadingCases || saving}
+        >
           {loadingCases ? "Loading..." : "Load My Active Hold Cases"}
         </Button>
         {activeCases.length > 0 && (
@@ -218,7 +274,13 @@ export function HoldCasesPanel() {
               <button
                 type="button"
                 className="text-primary underline"
-                onClick={() => setSelectedToRemove(selectedToRemove.length === activeCases.length ? [] : activeCases.map((item) => item.loanId))}
+                onClick={() =>
+                  setSelectedToRemove(
+                    selectedToRemove.length === activeCases.length
+                      ? []
+                      : activeCases.map((item) => item.loanId),
+                  )
+                }
               >
                 {selectedToRemove.length === activeCases.length ? "Clear selection" : "Select all"}
               </button>
@@ -227,14 +289,20 @@ export function HoldCasesPanel() {
               {activeCases.map((item) => (
                 <li key={item.row} className="flex items-start gap-3 border-b pb-2 last:border-0">
                   <Checkbox
-                    checked={selectedToRemove.some((id) => normaliseLoanId(id) === normaliseLoanId(item.loanId))}
+                    checked={selectedToRemove.some(
+                      (id) => normaliseLoanId(id) === normaliseLoanId(item.loanId),
+                    )}
                     onCheckedChange={(checked) => toggleSelected(item.loanId, checked === true)}
                     aria-label={"Select Loan ID " + item.loanId + " for removal"}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold break-all">{item.loanId}</p>
-                    {item.remarks && <p className="text-sm text-muted-foreground">{item.remarks}</p>}
-                    <p className="text-xs text-muted-foreground">Added: {item.submittedAt || "—"}</p>
+                    {item.remarks && (
+                      <p className="text-sm text-muted-foreground">{item.remarks}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Added: {item.submittedAt || "—"}
+                    </p>
                   </div>
                 </li>
               ))}

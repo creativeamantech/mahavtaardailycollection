@@ -79,7 +79,12 @@ function LoansPage() {
     refetchOnWindowFocus: true,
   });
   const excludedLoanIds = useMemo(
-    () => new Set(excludedLoanRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => r.loanNumber.trim().toUpperCase())),
+    () =>
+      new Set(
+        excludedLoanRecords
+          .filter((r) => r.status.toLowerCase() === "active")
+          .map((r) => r.loanNumber.trim().toUpperCase()),
+      ),
     [excludedLoanRecords],
   );
   // One batch read of the whole dataset — search, EMI maths and every report
@@ -110,7 +115,17 @@ function LoansPage() {
   const [category, setCategory] = useCategoryFilter();
   const categories = useMemo(() => uniqueCategories(collections), [collections]);
   const allRows = useMemo(
-    () => collections.filter((r) => !r.alreadyPaid && !excludedLoanIds.has(String(r.loanId ?? "").trim().toUpperCase()) && categoryMatches(r.allocationCategory, category)),
+    () =>
+      collections.filter(
+        (r) =>
+          !r.alreadyPaid &&
+          !excludedLoanIds.has(
+            String(r.loanId ?? "")
+              .trim()
+              .toUpperCase(),
+          ) &&
+          categoryMatches(r.allocationCategory, category),
+      ),
     [collections, category, excludedLoanIds],
   );
   const [month, setMonth] = useState(currentMonthKey());

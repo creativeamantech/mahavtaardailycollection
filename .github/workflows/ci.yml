@@ -4,47 +4,34 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "hardening/**"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  lint:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref || github.sha }}
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.4.4"
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Lint changed application modules
-        run: >-
-          bunx eslint
-          src/components/PasswordGate.tsx
-          src/lib/admin-session.ts
-          src/components/ExcludedLoanManager.tsx
-          src/components/ExcludedLoanBulkManager.tsx
-          src/lib/app-config.functions.ts
-          src/lib/mahavtaar.functions.ts
-          src/lib/mahavtaar.server.ts
-          src/routes/__root.tsx
-          src/routes/_authenticated/admin-loan-audit.tsx
-          --rule 'prettier/prettier: off'
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Production build
+      - name: Regenerate MCP manifest
+        run: bunx lovable-mcp-extract-manifest
+      - name: Production build (regenerates TanStack route tree)
         run: bun run build
+      - name: TypeScript
+        run: bunx tsc --noEmit
+      - name: ESLint (entire repository)
+        run: >-
+          bunx eslint . --rule 'prettier/prettier: off'
+      - name: Server-function auth coverage
+        run: bun run check:server-auth

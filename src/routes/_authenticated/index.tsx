@@ -102,8 +102,14 @@ function EntryPage() {
   const yesterday = todayISO(new Date(Date.now() - 86400000));
   const [executive, setExecutive] = useState("");
   const getSession = useServerFn(getCurrentSession);
-  const { data: session } = useQuery({ queryKey: ["auth-session"], queryFn: () => getSession(), staleTime: 30_000 });
-  useEffect(() => { if (session?.role === "Executive") setExecutive(session.name); }, [session]);
+  const { data: session } = useQuery({
+    queryKey: ["auth-session"],
+    queryFn: () => getSession(),
+    staleTime: 30_000,
+  });
+  useEffect(() => {
+    if (session?.role === "Executive") setExecutive(session.name);
+  }, [session]);
   const [loanId, setLoanId] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
@@ -247,7 +253,12 @@ function EntryPage() {
 
   const normLoanId = normaliseLoanId(loanId);
   const excludedLoanIds = useMemo(
-    () => new Set(excludedLoanRecords.filter((r) => r.status.toLowerCase() === "active").map((r) => normaliseLoanId(r.loanNumber))),
+    () =>
+      new Set(
+        excludedLoanRecords
+          .filter((r) => r.status.toLowerCase() === "active")
+          .map((r) => normaliseLoanId(r.loanNumber)),
+      ),
     [excludedLoanRecords],
   );
   const isExcludedLoan = normLoanId !== "" && excludedLoanIds.has(normLoanId);
@@ -398,334 +409,355 @@ function EntryPage() {
 
       <Tabs defaultValue="collection" className="mt-6 w-full">
         <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3">
-          <TabsTrigger value="collection" className="shrink-0 whitespace-nowrap px-3 text-sm">Collection Entry</TabsTrigger>
-          <TabsTrigger value="hold" className="shrink-0 whitespace-nowrap px-3 text-sm">Hold Cases</TabsTrigger>
-          <TabsTrigger value="ptps" className="shrink-0 whitespace-nowrap px-3 text-sm">PTPs</TabsTrigger>
+          <TabsTrigger value="collection" className="shrink-0 whitespace-nowrap px-3 text-sm">
+            Collection Entry
+          </TabsTrigger>
+          <TabsTrigger value="hold" className="shrink-0 whitespace-nowrap px-3 text-sm">
+            Hold Cases
+          </TabsTrigger>
+          <TabsTrigger value="ptps" className="shrink-0 whitespace-nowrap px-3 text-sm">
+            PTPs
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="collection">
-      <div
-        className={`mt-6 space-y-5 rounded-xl border p-4 ${
-          conflicts.length > 0
-            ? "border-red-500 bg-red-50"
-            : duplicates.length > 0
-              ? "border-amber-500 bg-amber-50"
-              : ""
-        }`}
-      >
-        <div className="space-y-2">
-          <Label className="text-base">Executive Name</Label>
-          <Select value={executive} onValueChange={setExecutive} disabled={session?.role !== "Admin"}>
-            <SelectTrigger className="h-12 text-base">
-              <SelectValue placeholder="Select executive" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXECUTIVES.map((e) => (
-                <SelectItem key={e} value={e} className="text-base">
-                  {e}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-base" htmlFor="loanId">
-            Loan ID / Loan Number
-          </Label>
-          <Input
-            id="loanId"
-            className={`h-12 text-base ${isExcludedLoan ? "text-orange-600 font-semibold" : ""}`}
-            value={loanId}
-            maxLength={60}
-            onChange={(e) => setLoanId(e.target.value)}
-            placeholder="Enter loan number"
-          />
-          {isExcludedLoan && (
-            <div className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-medium text-amber-900" role="alert">
-              This loan number is on the Excluded Loan Numbers list. You may record the entry, but it will not count toward collection totals, executive performance, payment counts, averages, or reports.
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-base" htmlFor="amount">
-            Amount
-          </Label>
-          <Input
-            id="amount"
-            type="number"
-            inputMode="decimal"
-            min={1}
-            className="h-12 text-base"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0"
-          />
-        </div>
-
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
-          <Checkbox
-            checked={isPrevious}
-            onCheckedChange={(v) => {
-              const on = v === true;
-              setIsPrevious(on);
-              if (!on) {
-                setPrevDate("");
-                setPrevConfirmed(false);
-              }
-            }}
-            className="mt-1 size-5"
-          />
-          <span className="text-base leading-snug">
-            This payment belongs to a Previous Paid File (Next-Day Entry)
-          </span>
-        </label>
-
-        {isPrevious && (
-          <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
-            <p className="text-sm leading-snug text-amber-900">
-              This payment will be counted on the selected Original Payment Date, while today&apos;s
-              date will be stored as the Entry Date for audit purposes.
-            </p>
-            <div className="space-y-2">
-              <Label className="text-base" htmlFor="prevDate">
-                Original Payment Date
-              </Label>
-              <Input
-                id="prevDate"
-                type="date"
-                max={yesterday}
-                className="h-12 bg-white text-base"
-                value={prevDate}
-                onChange={(e) => setPrevDate(e.target.value)}
-              />
-              {prevDate !== "" && !prevDateValid && (
-                <p className="text-sm font-medium text-destructive">
-                  Select a date earlier than today. Today and future dates are not allowed.
-                </p>
-              )}
-            </div>
-            <label className="flex cursor-pointer items-start gap-3">
-              <Checkbox
-                checked={prevConfirmed}
-                onCheckedChange={(v) => setPrevConfirmed(v === true)}
-                className="mt-1 size-5"
-              />
-              <span className="text-sm leading-snug text-amber-900">
-                I confirm that this payment actually belongs to the selected previous payment date
-                and is being entered today because it was received in a later paid file.
-              </span>
-            </label>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label className="text-base" htmlFor="date">
-              {isPrevious ? "Payment Date" : "Date"}
-            </Label>
-            <Input id="date" type="date" className="h-12 text-base" value={paymentDate} readOnly />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-base" htmlFor="time">
-              Time
-            </Label>
-            <Input id="time" className="h-12 text-base" value={time} readOnly />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-base" htmlFor="receiptImage">
-            Payment Receipt Images (multiple allowed)
-          </Label>
           <div
-            role="button"
-            tabIndex={0}
-            aria-label="Receipt image drop zone"
-            onDragOver={(e) => {
-              e.preventDefault();
-              if (!uploading) setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => document.getElementById("receiptImage")?.click()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ")
-                document.getElementById("receiptImage")?.click();
-            }}
-            className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
-              dragOver ? "border-primary bg-primary/10" : "border-muted-foreground/30 bg-muted/30"
+            className={`mt-6 space-y-5 rounded-xl border p-4 ${
+              conflicts.length > 0
+                ? "border-red-500 bg-red-50"
+                : duplicates.length > 0
+                  ? "border-amber-500 bg-amber-50"
+                  : ""
             }`}
           >
-            <p className="text-base font-medium">
-              {dragOver ? "Drop receipt images here" : "Drag & drop receipt images here"}
-            </p>
-            <p className="text-sm text-muted-foreground">or tap to choose images</p>
-          </div>
-          <Input
-            id="receiptImage"
-            key={fileKey}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            disabled={uploading}
-            onChange={(e) => addPendingFiles(e.target.files)}
-          />
-          {pendingFiles.length > 0 && (
             <div className="space-y-2">
-              <ul className="grid grid-cols-3 gap-2">
-                {pendingFiles.map((p) => (
-                  <li key={p.preview} className="relative">
-                    <img
-                      src={p.preview}
-                      alt={p.file.name}
-                      className="h-20 w-full rounded-lg border object-cover"
-                    />
-                    <button
-                      type="button"
-                      aria-label={`Remove ${p.file.name}`}
-                      onClick={() => removePendingFile(p.preview)}
-                      className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground"
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full text-base"
-                disabled={uploading}
-                onClick={uploadPendingFiles}
+              <Label className="text-base">Executive Name</Label>
+              <Select
+                value={executive}
+                onValueChange={setExecutive}
+                disabled={session?.role !== "Admin"}
               >
-                {uploading
-                  ? "Uploading..."
-                  : `Upload ${pendingFiles.length} receipt image${pendingFiles.length > 1 ? "s" : ""}`}
-              </Button>
+                <SelectTrigger className="h-12 text-base">
+                  <SelectValue placeholder="Select executive" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXECUTIVES.map((e) => (
+                    <SelectItem key={e} value={e} className="text-base">
+                      {e}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
-          {receipts.length > 0 && (
-            <ul className="space-y-1 text-sm font-medium text-green-700">
-              {receipts.map((r) => (
-                <li key={r.link} className="flex items-center justify-between gap-2">
-                  <span>
-                    Uploaded: {r.name} ·{" "}
-                    <a href={r.link} target="_blank" rel="noreferrer" className="underline">
-                      View on Drive
-                    </a>
+
+            <div className="space-y-2">
+              <Label className="text-base" htmlFor="loanId">
+                Loan ID / Loan Number
+              </Label>
+              <Input
+                id="loanId"
+                className={`h-12 text-base ${isExcludedLoan ? "text-orange-600 font-semibold" : ""}`}
+                value={loanId}
+                maxLength={60}
+                onChange={(e) => setLoanId(e.target.value)}
+                placeholder="Enter loan number"
+              />
+              {isExcludedLoan && (
+                <div
+                  className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-medium text-amber-900"
+                  role="alert"
+                >
+                  This loan number is on the Excluded Loan Numbers list. You may record the entry,
+                  but it will not count toward collection totals, executive performance, payment
+                  counts, averages, or reports.
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-base" htmlFor="amount">
+                Amount
+              </Label>
+              <Input
+                id="amount"
+                type="number"
+                inputMode="decimal"
+                min={1}
+                className="h-12 text-base"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+              <Checkbox
+                checked={isPrevious}
+                onCheckedChange={(v) => {
+                  const on = v === true;
+                  setIsPrevious(on);
+                  if (!on) {
+                    setPrevDate("");
+                    setPrevConfirmed(false);
+                  }
+                }}
+                className="mt-1 size-5"
+              />
+              <span className="text-base leading-snug">
+                This payment belongs to a Previous Paid File (Next-Day Entry)
+              </span>
+            </label>
+
+            {isPrevious && (
+              <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <p className="text-sm leading-snug text-amber-900">
+                  This payment will be counted on the selected Original Payment Date, while
+                  today&apos;s date will be stored as the Entry Date for audit purposes.
+                </p>
+                <div className="space-y-2">
+                  <Label className="text-base" htmlFor="prevDate">
+                    Original Payment Date
+                  </Label>
+                  <Input
+                    id="prevDate"
+                    type="date"
+                    max={yesterday}
+                    className="h-12 bg-white text-base"
+                    value={prevDate}
+                    onChange={(e) => setPrevDate(e.target.value)}
+                  />
+                  {prevDate !== "" && !prevDateValid && (
+                    <p className="text-sm font-medium text-destructive">
+                      Select a date earlier than today. Today and future dates are not allowed.
+                    </p>
+                  )}
+                </div>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <Checkbox
+                    checked={prevConfirmed}
+                    onCheckedChange={(v) => setPrevConfirmed(v === true)}
+                    className="mt-1 size-5"
+                  />
+                  <span className="text-sm leading-snug text-amber-900">
+                    I confirm that this payment actually belongs to the selected previous payment
+                    date and is being entered today because it was received in a later paid file.
                   </span>
-                  <button
+                </label>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-base" htmlFor="date">
+                  {isPrevious ? "Payment Date" : "Date"}
+                </Label>
+                <Input
+                  id="date"
+                  type="date"
+                  className="h-12 text-base"
+                  value={paymentDate}
+                  readOnly
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-base" htmlFor="time">
+                  Time
+                </Label>
+                <Input id="time" className="h-12 text-base" value={time} readOnly />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-base" htmlFor="receiptImage">
+                Payment Receipt Images (multiple allowed)
+              </Label>
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label="Receipt image drop zone"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!uploading) setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById("receiptImage")?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ")
+                    document.getElementById("receiptImage")?.click();
+                }}
+                className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+                  dragOver
+                    ? "border-primary bg-primary/10"
+                    : "border-muted-foreground/30 bg-muted/30"
+                }`}
+              >
+                <p className="text-base font-medium">
+                  {dragOver ? "Drop receipt images here" : "Drag & drop receipt images here"}
+                </p>
+                <p className="text-sm text-muted-foreground">or tap to choose images</p>
+              </div>
+              <Input
+                id="receiptImage"
+                key={fileKey}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => addPendingFiles(e.target.files)}
+              />
+              {pendingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <ul className="grid grid-cols-3 gap-2">
+                    {pendingFiles.map((p) => (
+                      <li key={p.preview} className="relative">
+                        <img
+                          src={p.preview}
+                          alt={p.file.name}
+                          className="h-20 w-full rounded-lg border object-cover"
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Remove ${p.file.name}`}
+                          onClick={() => removePendingFile(p.preview)}
+                          className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
                     type="button"
-                    aria-label={`Remove uploaded ${r.name}`}
-                    onClick={() => removeUploadedReceipt(r.link)}
-                    className="text-destructive underline"
+                    variant="outline"
+                    className="h-11 w-full text-base"
+                    disabled={uploading}
+                    onClick={uploadPendingFiles}
                   >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {uploadError !== "" && (
-            <p className="text-sm font-medium text-destructive">{uploadError}</p>
-          )}
+                    {uploading
+                      ? "Uploading..."
+                      : `Upload ${pendingFiles.length} receipt image${pendingFiles.length > 1 ? "s" : ""}`}
+                  </Button>
+                </div>
+              )}
+              {receipts.length > 0 && (
+                <ul className="space-y-1 text-sm font-medium text-green-700">
+                  {receipts.map((r) => (
+                    <li key={r.link} className="flex items-center justify-between gap-2">
+                      <span>
+                        Uploaded: {r.name} ·{" "}
+                        <a href={r.link} target="_blank" rel="noreferrer" className="underline">
+                          View on Drive
+                        </a>
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Remove uploaded ${r.name}`}
+                        onClick={() => removeUploadedReceipt(r.link)}
+                        className="text-destructive underline"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {uploadError !== "" && (
+                <p className="text-sm font-medium text-destructive">{uploadError}</p>
+              )}
+            </div>
 
+            {remarksOn && (
+              <div className="space-y-2">
+                <Label className="text-base" htmlFor="remark">
+                  Remark (only if receipt image is not available)
+                </Label>
+                <Input
+                  id="remark"
+                  className="h-12 text-base"
+                  maxLength={200}
+                  value={remark}
+                  onChange={(e) => setRemark(e.target.value)}
+                  placeholder="e.g. Receipt not received from customer"
+                  disabled={receiptLink !== ""}
+                />
+                {receiptLink === "" && remark.trim() !== "" && !remarkValid && (
+                  <p className="text-sm font-medium text-destructive">
+                    Remark must have more than 3 words.
+                  </p>
+                )}
+              </div>
+            )}
 
-        </div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+              <Checkbox
+                checked={confirmed}
+                onCheckedChange={(v) => setConfirmed(v === true)}
+                className="mt-1 size-5"
+              />
+              <span className="text-base leading-snug">
+                I confirm this is not ECS or Special payment, and this is the payment brought by the
+                selected executive, and amount is correct.
+              </span>
+            </label>
 
-        {remarksOn && (
-          <div className="space-y-2">
-            <Label className="text-base" htmlFor="remark">
-              Remark (only if receipt image is not available)
-            </Label>
-            <Input
-              id="remark"
-              className="h-12 text-base"
-              maxLength={200}
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="e.g. Receipt not received from customer"
-              disabled={receiptLink !== ""}
-            />
-            {receiptLink === "" && remark.trim() !== "" && !remarkValid && (
-              <p className="text-sm font-medium text-destructive">
-                Remark must have more than 3 words.
+            {conflicts.length > 0 && (
+              <div className="space-y-2 rounded-lg border-2 border-red-500 bg-red-50 p-3">
+                <p className="text-base font-bold text-red-700">
+                  PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by
+                  another Executive.
+                </p>
+                <ul className="space-y-2 text-sm text-red-900">
+                  {conflicts.map((c, idx) => (
+                    <li key={`${c.row}-${idx}`} className="rounded-md bg-white/70 p-2">
+                      <div>Loan ID: {c.loanId}</div>
+                      <div>Existing Executive: {c.executive}</div>
+                      <div>Existing Amount: {formatAmount(c.amount)}</div>
+                      <div>
+                        Existing Date/Time: {c.date} {c.time}
+                      </div>
+                      <div>Current Executive: {executive || "-"}</div>
+                      <div>Current Amount: {formatAmount(amountNum || 0)}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {conflicts.length === 0 && duplicates.length > 0 && (
+              <div className="rounded-lg border-2 border-amber-500 bg-amber-50 p-3">
+                <p className="text-base font-bold text-amber-800">
+                  Warning: This payment is already entered for this Loan ID with the same amount.
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-amber-900">
+                  {duplicates.map((d, idx) => (
+                    <li key={`${d.row}-${idx}`}>
+                      {d.executive} · {formatAmount(d.amount)} · {d.date} {d.time}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <Button className="h-14 w-full text-lg" disabled={!valid} onClick={startSubmitFlow}>
+              Submit
+            </Button>
+            {!proofValid && (
+              <p className="text-center text-sm text-muted-foreground">
+                Upload a receipt image or write a remark of more than 3 words to enable Submit.
+              </p>
+            )}
+            {!confirmed && (
+              <p className="text-center text-sm text-muted-foreground">
+                Tick the confirmation to enable Submit.
               </p>
             )}
           </div>
-        )}
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
-          <Checkbox
-            checked={confirmed}
-            onCheckedChange={(v) => setConfirmed(v === true)}
-            className="mt-1 size-5"
-          />
-          <span className="text-base leading-snug">
-            I confirm this is not ECS or Special payment, and this is the payment brought by the
-            selected executive, and amount is correct.
-          </span>
-        </label>
-
-        {conflicts.length > 0 && (
-          <div className="space-y-2 rounded-lg border-2 border-red-500 bg-red-50 p-3">
-            <p className="text-base font-bold text-red-700">
-              PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by another
-              Executive.
-            </p>
-            <ul className="space-y-2 text-sm text-red-900">
-              {conflicts.map((c, idx) => (
-                <li key={`${c.row}-${idx}`} className="rounded-md bg-white/70 p-2">
-                  <div>Loan ID: {c.loanId}</div>
-                  <div>Existing Executive: {c.executive}</div>
-                  <div>Existing Amount: {formatAmount(c.amount)}</div>
-                  <div>
-                    Existing Date/Time: {c.date} {c.time}
-                  </div>
-                  <div>Current Executive: {executive || "-"}</div>
-                  <div>Current Amount: {formatAmount(amountNum || 0)}</div>
-                </li>
-              ))}
-            </ul>
+          <div className="mt-4 text-center">
+            <Link to="/report" className="text-base font-medium text-primary underline">
+              View reports
+            </Link>
           </div>
-        )}
-        {conflicts.length === 0 && duplicates.length > 0 && (
-          <div className="rounded-lg border-2 border-amber-500 bg-amber-50 p-3">
-            <p className="text-base font-bold text-amber-800">
-              Warning: This payment is already entered for this Loan ID with the same amount.
-            </p>
-            <ul className="mt-2 space-y-1 text-sm text-amber-900">
-              {duplicates.map((d, idx) => (
-                <li key={`${d.row}-${idx}`}>
-                  {d.executive} · {formatAmount(d.amount)} · {d.date} {d.time}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <Button className="h-14 w-full text-lg" disabled={!valid} onClick={startSubmitFlow}>
-          Submit
-        </Button>
-        {!proofValid && (
-          <p className="text-center text-sm text-muted-foreground">
-            Upload a receipt image or write a remark of more than 3 words to enable Submit.
-          </p>
-        )}
-        {!confirmed && (
-          <p className="text-center text-sm text-muted-foreground">
-            Tick the confirmation to enable Submit.
-          </p>
-        )}
-      </div>
-
-      <div className="mt-4 text-center">
-        <Link to="/report" className="text-base font-medium text-primary underline">
-          View reports
-        </Link>
-      </div>
         </TabsContent>
         <TabsContent value="hold">
           <HoldCasesPanel />
