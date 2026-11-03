@@ -181,6 +181,8 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
 }
 
 async function fetchRange(range: string): Promise<string[][]> {
+  const production = process.env["NODE_ENV"] === "production";
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY") && production) throw new Error("Google Sheets connector is not configured in production.");
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     let lastBody = "";
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -204,11 +206,11 @@ async function fetchRange(range: string): Promise<string[][]> {
         break;
       }
     }
-    console.warn(
-      `Gateway fetch failed for ${range} (${lastBody}). Falling back to public sheet reader.`,
-    );
+    if (production) throw new Error("Google Sheets gateway read failed in production: " + lastBody);
+    console.warn("Gateway fetch failed for " + range + " (" + lastBody + "). Using development-only public reader.");
   }
 
+  if (production) throw new Error("Google Sheets public fallback is disabled in production.");
   return fetchFromPublicSheet(range);
 }
 
