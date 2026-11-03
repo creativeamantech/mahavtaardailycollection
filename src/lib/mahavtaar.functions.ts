@@ -466,7 +466,7 @@ export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
 
 export const updateCollectionRow = createServerFn({ method: "POST" })
   .validator((d: unknown) => updateCollectionRowSchema.parse(d))
-  .handler(async ({ data }) => { const session = await requireSession(); if (session.role !== "Admin" && session.name !== data.executive) throw new Error("You can only edit your own collection entries."); return persistCollectionRow(data); });
+  .handler(async ({ data }) => { await requireSession("Admin"); return persistCollectionRow(data); });
 
 export const updateAmansRemarks = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
