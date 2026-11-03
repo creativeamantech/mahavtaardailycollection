@@ -51,7 +51,12 @@ function cookieToken() {
     .split(";")
     .map((s) => s.trim())
     .find((s) => s.startsWith(COOKIE + "="));
-  return item ? decodeURIComponent(item.slice(COOKIE.length + 1)) : "";
+  if (!item) return "";
+  try {
+    return decodeURIComponent(item.slice(COOKIE.length + 1));
+  } catch {
+    return "";
+  }
 }
 
 function setSessionCookie(value: string, maxAge: number) {
@@ -62,10 +67,10 @@ function setSessionCookie(value: string, maxAge: number) {
       ? COOKIE +
           "=" +
           encodeURIComponent(value) +
-          "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" +
+          "; HttpOnly; SameSite=Strict; Path=/; Max-Age=" +
           maxAge +
           secure
-      : COOKIE + "=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0" + secure,
+      : COOKIE + "=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" + secure,
   );
 }
 
