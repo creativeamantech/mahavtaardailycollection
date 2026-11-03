@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -13,7 +13,6 @@ import {
   saveHoldCasesLock,
 } from "@/lib/app-config.functions";
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
-import { PasswordGate, ADMIN_SESSION_KEY as SESSION_KEY } from "@/components/PasswordGate";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { ALL_CATEGORIES, uniqueCategories } from "@/components/AllocationFilters";
 import { getCollections } from "@/lib/mahavtaar.functions";
@@ -49,23 +48,10 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 function SettingsPage() {
-  const [unlocked, setUnlocked] = useState(false);
-  useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY) === "1") setUnlocked(true);
-  }, []);
-
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-      {unlocked ? (
-        <SettingsContent />
-      ) : (
-        <PasswordGate
-          onUnlock={() => {
-            setUnlocked(true);
-          }}
-        />
-      )}
+      <SettingsContent />
     </main>
   );
 }
