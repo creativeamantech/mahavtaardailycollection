@@ -176,10 +176,7 @@ function RootComponent() {
 }
 
 function AppShell() {
-  const { flags } = useAppConfig();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const current = FEATURES.find((f) => f.path === pathname);
-  const disabled = current ? flags[current.key] === false : false;
   const qc = useQueryClient();
   const loadSession = useServerFn(getCurrentSession);
   const logout = useServerFn(logoutCurrentSession);
@@ -189,6 +186,9 @@ function AppShell() {
     retry: false,
     staleTime: 30_000,
   });
+  const { flags } = useAppConfig({ enabled: !isLoading && Boolean(session) });
+  const current = FEATURES.find((f) => f.path === pathname);
+  const disabled = current ? flags[current.key] === false : false;
   const [adminOpen, setAdminOpen] = useState(false);
 
   if (isLoading) {
