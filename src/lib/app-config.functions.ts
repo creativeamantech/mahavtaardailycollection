@@ -101,7 +101,7 @@ export function isSettingsPasswordValid(input: string): boolean {
 
 export const verifySettingsPassword = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ password: z.string().max(200) }).parse(d))
-  .handler(async ({ data }) => ({ ok: isSettingsPasswordValid(data.password) }));
+  .handler(async () => { await requireSession("Admin"); return { ok: true as const }; });
 
 export const saveFeatureFlags = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -186,9 +186,9 @@ export const addNotification = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
-    const { sheetsAppend, driveUpload, ensureSheet } = await import("./mahavtaar.server");
-    await ensureSheet(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
+    await requireSession("Admin");
+    const { sheetsAppendStrict, driveUpload, ensureSheetStrict } = await import("./mahavtaar.server");
+    await ensureSheetStrict(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
     let imageUrl = "";
     if (data.image) {
       imageUrl = await driveUpload(
@@ -198,7 +198,7 @@ export const addNotification = createServerFn({ method: "POST" })
       );
     }
     const id = `NTF-${Date.now()}`;
-    await sheetsAppend(`${NOTIF_TAB}!A:E`, [
+    await sheetsAppendStrict(`${NOTIF_TAB}!A:E`, [
       [data.text, imageUrl, "Active", new Date().toISOString(), id],
     ]);
     return { ok: true as const, id, imageUrl };
@@ -207,11 +207,11 @@ export const addNotification = createServerFn({ method: "POST" })
 export const removeNotification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(60) }).parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
-    const { sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
+    await requireSession("Admin");
+    const { sheetsGet, sheetsUpdateStrict } = await import("./mahavtaar.server");
     const rows = await sheetsGet(`${NOTIF_TAB}!A2:E`);
     const idx = rows.findIndex((r, i) => ((r[4] ?? "").trim() || `row-${i + 2}`) === data.id);
     if (idx === -1) throw new Error("Notification not found.");
-    await sheetsUpdate(`${NOTIF_TAB}!C${idx + 2}`, [["Removed"]]);
+    await sheetsUpdateStrict(`${NOTIF_TAB}!C${idx + 2}`, [["Removed"]]);
     return { ok: true as const };
   });
