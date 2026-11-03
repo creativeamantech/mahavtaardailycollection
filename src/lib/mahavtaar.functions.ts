@@ -70,7 +70,8 @@ export const uploadReceiptImage = createServerFn({ method: "POST" })
 export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const executive = session.role === "Admin" ? data.executive : session.name;
     const { sheetsAppend } = await import("./mahavtaar.server");
     const { todayISO } = await import("./executives");
     const entryDate = data.entryDate ?? todayISO();
@@ -97,7 +98,7 @@ export const saveCollection = createServerFn({ method: "POST" })
     }
     const appended = (await sheetsAppend("Collections!A:J", [
       [
-        data.executive,
+        executive,
         data.loanId,
         data.amount,
         data.date,
