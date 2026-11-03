@@ -27,3 +27,5 @@ jobs:
         run: bunx tsc --noEmit
       - name: ESLint (entire repository)
         run: bunx eslint .
+      - name: Server-function auth coverage
+        run: bun run check:server-auth
