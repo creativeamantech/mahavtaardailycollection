@@ -119,7 +119,7 @@ function extractDriveFileId(url: string): string | null {
 function getReceiptImageUrl(url: string): string | null {
   const id = extractDriveFileId(url);
   if (id) {
-    return `https://lh3.googleusercontent.com/d/${id}=w800`;
+    return `/receipt/${id}`;
   }
   if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
     return url;
@@ -131,7 +131,7 @@ function getReceiptViewUrl(url: string): string {
   if (!url) return "#";
   const id = extractDriveFileId(url);
   if (id) {
-    return `https://drive.google.com/file/d/${id}/view?usp=sharing`;
+    return `/receipt/${id}`;
   }
   return url;
 }
@@ -139,7 +139,7 @@ function getReceiptViewUrl(url: string): string {
 function getReceiptPreviewUrl(url: string): string | null {
   const id = extractDriveFileId(url);
   if (id) {
-    return `https://drive.google.com/file/d/${id}/preview`;
+    return `/receipt/${id}`;
   }
   return null;
 }
