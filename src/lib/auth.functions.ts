@@ -9,12 +9,18 @@ type User = { name: string; role: "Admin" | "Executive"; pin: string; status: st
 async function readUsers(): Promise<User[]> {
   const { sheetsGet } = await import("./mahavtaar.server");
   const rows = await sheetsGet("Users!A2:E");
-  return rows.map((r) => ({
-    name: String(r[1] ?? "").trim(),
-    pin: String(r[2] ?? "").trim(),
-    role: String(r[3] ?? "").trim().toLowerCase() === "admin" ? "Admin" : "Executive",
-    status: String(r[4] ?? "").trim().toLowerCase(),
-  })).filter((u) => u.name && u.status === "active");
+  return rows
+    .map((r): User | null => {
+      const roleText = String(r[3] ?? "").trim().toLowerCase();
+      if (roleText !== "admin" && roleText !== "executive") return null;
+      return {
+        name: String(r[1] ?? "").trim(),
+        pin: String(r[2] ?? "").trim(),
+        role: roleText === "admin" ? "Admin" : "Executive",
+        status: String(r[4] ?? "").trim().toLowerCase(),
+      };
+    })
+    .filter((u): u is User => Boolean(u?.name && u.status === "active"));
 }
 
 function cookieToken() {
