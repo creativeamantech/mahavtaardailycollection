@@ -551,7 +551,7 @@ export const updateCollectionAmount = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const { sheetsUpdate, invalidateSheetsCache } = await import("./mahavtaar.server");
+    const { sheetsUpdateStrict, invalidateSheetsCache } = await import("./mahavtaar.server");
     await sheetsUpdateStrict(`Collections!C${data.row}`, [[data.amount]]);
     invalidateSheetsCache();
     return { ok: true as const, row: data.row, amount: data.amount };
