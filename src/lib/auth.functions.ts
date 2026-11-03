@@ -236,7 +236,7 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(async
   if (!token) return null;
   const hash = await digest(token);
   await refreshSessionCache();
-  let session = sessionCache.get(hash);
+  const session = sessionCache.get(hash);
   if (!session || session.expiresAt <= Date.now()) {
     if (session) sessionCache.delete(hash);
     return null;
