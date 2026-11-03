@@ -23,7 +23,7 @@ function cookieToken() {
   return item ? decodeURIComponent(item.slice(COOKIE.length + 1)) : "";
 }
 function setSessionCookie(value: string, maxAge: number) {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const secure = process.env["NODE_ENV"] === "production" ? "; Secure" : "";
   setResponseHeader("Set-Cookie", value
     ? COOKIE + "=" + encodeURIComponent(value) + "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + maxAge + secure
     : COOKIE + "=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0" + secure);
