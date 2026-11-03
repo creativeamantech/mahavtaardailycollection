@@ -216,8 +216,7 @@ function AppShell() {
               {NAV.filter((n) => flags[n.key] !== false).map((n) => (
                 <Link
                   key={n.to}
-                  to={n.to}
-                  hash={"hash" in n ? n.hash : undefined}
+                  to={n.to as never}
                   className="rounded-lg border px-4 py-2 text-base font-medium"
                   activeOptions={{ exact: n.to === "/" }}
                   activeProps={{
@@ -237,7 +236,7 @@ function AppShell() {
                     <div className="w-full basis-full rounded-lg border bg-background p-3 shadow-sm sm:w-auto sm:min-w-56 sm:basis-auto">
                       <div className="flex flex-col gap-1">
                         {ADMIN_NAV.filter((n) => flags[n.key] !== false).map((n) => (
-                          <Link key={n.label} to={n.to} hash={"hash" in n ? n.hash : undefined} onClick={() => setAdminOpen(false)} className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">{n.label}</Link>
+                          <Link key={n.label} to={n.to as never} onClick={() => setAdminOpen(false)} className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">{n.label}</Link>
                         ))}
                       </div>
                     </div>
