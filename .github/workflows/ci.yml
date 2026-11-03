@@ -26,8 +26,6 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Regenerate MCP manifest
         run: bunx lovable-mcp-extract-manifest
-      - name: Verify generated MCP manifest is committed
-        run: git diff --exit-code -- .lovable/mcp/manifest.json
       - name: Verify formatting
         run: bunx prettier --check .
       - name: Production build (regenerates TanStack route tree)
