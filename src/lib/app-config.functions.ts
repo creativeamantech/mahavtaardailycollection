@@ -108,7 +108,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     z.object({ flags: z.record(z.string().max(40), z.boolean()) }).parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
+    await requireSession("Admin");
     const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     // Preserve the default-category row so flag saves never wipe it.
@@ -136,7 +136,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
 export const saveHoldCasesLock = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ locked: z.boolean() }).parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
+    await requireSession("Admin");
     const { sheetsGet, sheetsUpdateStrict, ensureSheetStrict } = await import("./mahavtaar.server");
     await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
     const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
@@ -149,7 +149,7 @@ export const saveHoldCasesLock = createServerFn({ method: "POST" })
 export const saveDefaultCategory = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ category: z.string().trim().max(80) }).parse(d))
   .handler(async ({ data }) => {
-    await requireSession();
+    await requireSession("Admin");
     const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     let rows: string[][] = [];
