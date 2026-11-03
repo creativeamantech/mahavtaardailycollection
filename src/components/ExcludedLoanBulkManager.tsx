@@ -21,7 +21,7 @@ export function ExcludedLoanBulkManager() {
         <h3 className="font-semibold">Bulk Paste Loan Numbers</h3>
         <p className="mt-1 text-sm text-muted-foreground">Excel या Google Sheets से loan numbers सीधे paste करें। हर line में एक number या comma/space/semicolon-separated list भी मान्य है। Duplicate और पहले से active numbers skip होंगे; अधिकतम 5,000 unique numbers प्रति batch।</p>
       </div>
-      {true ? (
+      
         <form className="space-y-3" onSubmit={async (e) => {
           e.preventDefault();
           if (!loanNumbers.trim()) return;
@@ -48,7 +48,7 @@ export function ExcludedLoanBulkManager() {
             <Button type="submit" disabled={busy || !loanNumbers.trim()}>{busy ? "Processing…" : "Bulk Add to Exclusion List"}</Button>
           </div>
         </form>
-      ) : null}
+
     </section>
   );
 }
