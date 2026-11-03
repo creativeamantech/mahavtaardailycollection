@@ -123,7 +123,7 @@ export const removePTPs = createServerFn({ method: "POST" })
     for (let i = 0; i < (rows ?? []).length; i++) {
       const r = rows[i]!;
       const id = normaliseLoanId(String(r[2] ?? ""));
-      if (String(r[1] ?? "").trim() === data.executive && requested.has(id) && !caseIndex.paid.has(id) && (String(r[6] ?? "").trim() || "Active").toLowerCase() === "active") {
+      if (String(r[1] ?? "").trim() === targetExecutive && requested.has(id) && !caseIndex.paid.has(id) && (String(r[6] ?? "").trim() || "Active").toLowerCase() === "active") {
         const row = i + 2;
         updates.push({ range: `PTPs!G${row}:H${row}`, values: [["Removed", new Date().toISOString()]] });
       }
