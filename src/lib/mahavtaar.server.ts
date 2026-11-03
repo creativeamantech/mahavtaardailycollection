@@ -55,11 +55,17 @@ const sheetLocks = new Map<string, Promise<void>>();
 export async function withSheetMutex<T>(key: string, operation: () => Promise<T>): Promise<T> {
   const previous = sheetLocks.get(key) ?? Promise.resolve();
   let release!: () => void;
-  const current = new Promise<void>((resolve) => { release = resolve; });
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   sheetLocks.set(key, current);
   await previous;
-  try { return await operation(); }
-  finally { release(); if (sheetLocks.get(key) === current) sheetLocks.delete(key); }
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (sheetLocks.get(key) === current) sheetLocks.delete(key);
+  }
 }
 async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -73,9 +79,8 @@ async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit): Prom
       await sleep(500 * 2 ** attempt + Math.random() * 250);
     }
   }
-  throw new Error('Sheets request retry limit exceeded.');
+  throw new Error("Sheets request retry limit exceeded.");
 }
-
 
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
