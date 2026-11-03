@@ -59,7 +59,8 @@ const submitSchema = z.object({
 export const submitPTPs = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submitSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const executive = session.role === "Admin" ? data.executive : session.name;
     const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsAppendStrict, invalidateSheetsCache } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await ensurePTPTab();
@@ -80,7 +81,7 @@ export const submitPTPs = createServerFn({ method: "POST" })
     }
     if (fresh.length) {
       const stamp = new Date().toISOString();
-      await sheetsAppendStrict("PTPs!A:H", fresh.map(loanId => [stamp, data.executive, loanId, "", "", data.remarks, "Active", ""]));
+      await sheetsAppendStrict("PTPs!A:H", fresh.map(loanId => [stamp, executive, loanId, "", "", data.remarks, "Active", ""]));
       invalidateSheetsCache();
     }
     return { ok: true as const, savedCount: fresh.length, duplicateCount, skippedPaidCount, skippedHoldCount };
@@ -91,7 +92,8 @@ const executiveSchema = z.object({ executive: z.enum(executives) });
 export const listActivePTPs = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => executiveSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const targetExecutive = session.role === "Admin" ? data.executive : session.name;
     const { sheetsGet } = await import("./mahavtaar.server");
     await ensurePTPTab();
     const rows = await sheetsGet("PTPs!A2:H");
@@ -100,7 +102,7 @@ export const listActivePTPs = createServerFn({ method: "POST" })
       loanId: String(r[2] ?? "").trim(), promiseDate: String(r[3] ?? ""),
       promiseAmount: Number(r[4] ?? 0) || 0, remarks: String(r[5] ?? "").trim(),
       status: String(r[6] ?? "").trim() || "Active",
-    })).filter(r => r.executive === data.executive && r.loanId && r.status.toLowerCase() === "active").reverse();
+    })).filter(r => r.executive === targetExecutive && r.loanId && r.status.toLowerCase() === "active").reverse();
   });
 
 const removeSchema = z.object({ executive: z.enum(executives), loanIds: z.array(z.string().trim().min(1).max(60)).min(1).max(1000) });
@@ -108,7 +110,8 @@ const removeSchema = z.object({ executive: z.enum(executives), loanIds: z.array(
 export const removePTPs = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => removeSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const targetExecutive = session.role === "Admin" ? data.executive : session.name;
     const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsBatchUpdateValuesStrict, invalidateSheetsCache } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await ensurePTPTab();
