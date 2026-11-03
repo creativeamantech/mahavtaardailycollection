@@ -83,3 +83,10 @@ export const logoutCurrentSession = createServerFn({ method: "POST" }).handler(a
   setSessionCookie("", 0);
   return { ok: true as const };
 });
+
+export async function requireSession(requiredRole?: "Admin" | "Executive") {
+  const session = await getCurrentSession();
+  if (!session) throw new Error("Authentication required. Please log in again.");
+  if (requiredRole && session.role !== requiredRole) throw new Error("Administrator access required.");
+  return session;
+}
