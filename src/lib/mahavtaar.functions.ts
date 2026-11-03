@@ -344,7 +344,7 @@ export async function readCollections() {
     return mapped;
   } catch (err) {
     console.error("Failed to read collections from Google Sheets:", err);
-    return [];
+    throw new Error("Unable to load collection data. Please retry.");
   }
 }
 
