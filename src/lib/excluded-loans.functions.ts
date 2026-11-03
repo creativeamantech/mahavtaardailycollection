@@ -53,7 +53,7 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
   });
 
 export const removeExcludedLoanNumber = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ loanNumber: z.string().trim().min(1).max(60), adminPassword: z.string().max(200) }).parse(d))
+  .inputValidator((d: unknown) => z.object({ loanNumber: z.string().trim().min(1).max(60), }).parse(d))
   .handler(async ({ data }) => {
     await requireSession("Admin");
     const { ensureSheet, sheetsGet, sheetsUpdateStrict } = await import("./mahavtaar.server");
