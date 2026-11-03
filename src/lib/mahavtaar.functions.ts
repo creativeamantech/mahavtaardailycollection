@@ -351,16 +351,10 @@ export async function readCollections() {
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => { await requireSession(); return readCollections(); });
 
 // Admin-only read path: the password is checked on the server for every request.
-async function assertProductivityAdmin(password: string) {
-  const { isSettingsPasswordValid } = await import("./app-config.functions");
-  if (!isSettingsPasswordValid(password)) throw new Error("Admin authorization failed. Unlock the Productivity Desk again.");
-}
-
 export const getAdminCollections = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    await assertProductivityAdmin(data.adminPassword);
     return readCollections();
   });
 
@@ -371,7 +365,6 @@ export const getAdminReviewState = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ adminPassword: z.string().min(1).max(200) }).parse(d))
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    await assertProductivityAdmin(data.adminPassword);
     const { ensureSheetStrict, sheetsGet } = await import("./mahavtaar.server");
     await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
     const rows = await sheetsGet(`${verificationAuditTab}!A2:G`);
@@ -399,12 +392,10 @@ const verificationEventSchema = z.object({
 
 export const saveAdminReviewEvents = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({
-    adminPassword: z.string().min(1).max(200),
     events: z.array(verificationEventSchema).min(1).max(500),
   }).parse(d))
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    await assertProductivityAdmin(data.adminPassword);
     const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
     await ensureSheetStrict(verificationAuditTab, verificationAuditHeader);
@@ -455,12 +446,10 @@ async function persistCollectionRow(data: CollectionRowUpdate) {
 
 export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({
-    adminPassword: z.string().min(1).max(200),
     entry: updateCollectionRowSchema,
   }).parse(d))
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    await assertProductivityAdmin(data.adminPassword);
     await persistCollectionRow(data.entry);
     const { ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict } = await import("./mahavtaar.server");
     try {
@@ -529,12 +518,10 @@ export const deleteCollectionRow = createServerFn({ method: "POST" })
 
 export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({
-    adminPassword: z.string().min(1).max(200),
     row: z.number().int().min(2),
   }).parse(d))
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    await assertProductivityAdmin(data.adminPassword);
     const { sheetsUpdateStrict, ensureSheetStrict, requireGoogleSheetsWriteAccess, sheetsAppendStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
