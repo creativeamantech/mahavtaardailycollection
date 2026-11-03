@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -30,10 +30,9 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PasswordGate, ADMIN_SESSION_KEY } from "@/components/PasswordGate";
 import {
   deleteCollectionRow,
-  getCollections,
+  getAdminCollections,
   markConflictAsValid,
   markConflictGroupAsValid,
   revertConflictValidation,
@@ -148,53 +147,11 @@ function getReceiptPreviewUrl(url: string): string | null {
 }
 
 export function ConflictsPage() {
-  const [unlocked, setUnlocked] = useState(false);
-
-  useEffect(() => {
-    if (sessionStorage.getItem(ADMIN_SESSION_KEY) === "1") {
-      setUnlocked(true);
-    }
-  }, []);
-
-  if (!unlocked) {
-    return (
-      <main className="mx-auto w-full max-w-md px-4 py-16">
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <ShieldAlert className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Conflict Resolution</h1>
-              <p className="text-xs text-muted-foreground">
-                Settings &amp; Already Paid पासवर्ड से सुरक्षित
-              </p>
-            </div>
-          </div>
-          <PasswordGate
-            label="Unlock Conflict Resolution"
-            onUnlock={() => {
-              setUnlocked(true);
-            }}
-          />
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <ConflictsContent
-      onLock={() => {
-        sessionStorage.removeItem(ADMIN_SESSION_KEY);
-        sessionStorage.removeItem("mahavtaar-admin-credential");
-        setUnlocked(false);
-      }}
-    />
-  );
+  return <ConflictsContent />;
 }
 
-function ConflictsContent({ onLock }: { onLock?: () => void }) {
-  const fetchCollections = useServerFn(getCollections);
+function ConflictsContent() {
+  const fetchCollections = useServerFn(getAdminCollections);
   const updateRow = useServerFn(updateCollectionRow);
   const deleteRow = useServerFn(deleteCollectionRow);
   const markValid = useServerFn(markConflictAsValid);
