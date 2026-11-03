@@ -51,6 +51,32 @@ export function invalidateSheetsCache() {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const sheetLocks = new Map<string, Promise<void>>();
+export async function withSheetMutex<T>(key: string, operation: () => Promise<T>): Promise<T> {
+  const previous = sheetLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  sheetLocks.set(key, current);
+  await previous;
+  try { return await operation(); }
+  finally { release(); if (sheetLocks.get(key) === current) sheetLocks.delete(key); }
+}
+async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const response = await fetch(input, init);
+      if (response.status !== 429 && response.status < 500) return response;
+      if (attempt === 3) return response;
+      await sleep(500 * 2 ** attempt + Math.random() * 250);
+    } catch (error) {
+      if (attempt === 3) throw error;
+      await sleep(500 * 2 ** attempt + Math.random() * 250);
+    }
+  }
+  throw new Error('Sheets request retry limit exceeded.');
+}
+
+
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
