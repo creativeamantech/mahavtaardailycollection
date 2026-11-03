@@ -348,7 +348,7 @@ export async function readCollections() {
   }
 }
 
-export const getCollections = createServerFn({ method: "GET" }).handler(() => readCollections());
+export const getCollections = createServerFn({ method: "GET" }).handler(async () => { await requireSession(); return readCollections(); });
 
 // Admin-only read path: the password is checked on the server for every request.
 async function assertProductivityAdmin(password: string) {
@@ -479,7 +479,7 @@ export const adminUpdateCollectionRow = createServerFn({ method: "POST" })
 
 export const updateCollectionRow = createServerFn({ method: "POST" })
   .validator((d: unknown) => updateCollectionRowSchema.parse(d))
-  .handler(async ({ data }) => persistCollectionRow(data));
+  .handler(async ({ data }) => { const session = await requireSession(); if (session.role !== "Admin" && session.name !== data.executive) throw new Error("You can only edit your own collection entries."); return persistCollectionRow(data); });
 
 export const updateAmansRemarks = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
@@ -525,7 +525,7 @@ async function persistDeleteCollectionRow(row: number) {
 
 export const deleteCollectionRow = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ row: z.number().int().min(2) }).parse(d))
-  .handler(async ({ data }) => persistDeleteCollectionRow(data.row));
+  .handler(async ({ data }) => { await requireSession("Admin"); return persistDeleteCollectionRow(data.row); });
 
 export const adminDeleteCollectionRow = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({
@@ -670,15 +670,17 @@ export const savePending = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => pendingSchema.parse(d))
   .handler(async ({ data }) => {
     await requireSession();
-    const { sheetsAppend, driveUpload } = await import("./mahavtaar.server");
+    const session = await requireSession();
+    const executive = session.role === "Admin" ? data.executive : session.name;
+    const { sheetsAppendStrict, driveUpload } = await import("./mahavtaar.server");
     const links: string[] = [];
     for (const p of data.photos) {
       links.push(await driveUpload(`${data.loanNumber}-${p.name}`, p.mimeType, p.base64));
     }
     const id = `PND-${Date.now()}`;
-    await sheetsAppend("Pending!A:H", [
+    await sheetsAppendStrict("Pending!A:H", [
       [
-        data.executive,
+        executive,
         data.loanNumber,
         data.amount,
         links.join(", "),
@@ -716,24 +718,26 @@ export async function readPending() {
   }
 }
 
-export const getPending = createServerFn({ method: "GET" }).handler(() => readPending());
+export const getPending = createServerFn({ method: "GET" }).handler(async () => { const session = await requireSession(); const rows = await readPending(); return session.role === "Admin" ? rows : rows.filter((row) => row.executive === session.name); });
 
 export const markPendingDone = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
   .handler(async ({ data }) => {
     await requireSession();
-    const { sheetsGet, sheetsUpdate, sheetsAppend } = await import("./mahavtaar.server");
+    const session = await requireSession();
+    const { sheetsGet, sheetsUpdateStrict, sheetsAppendStrict } = await import("./mahavtaar.server");
     const rows = await sheetsGet("Pending!A2:H");
     const idx = rows.findIndex((r) => (r[6] ?? "") === data.id && (r[4] ?? "") === "Pending");
     if (idx === -1) throw new Error("Pending entry not found or already completed.");
     const r = rows[idx]!;
+    if (session.role !== "Admin" && String(r[0] ?? "").trim() !== session.name) throw new Error("You can only complete your own pending entries.");
     const rowNumber = idx + 2;
 
-    await sheetsUpdate(`Pending!E${rowNumber}`, [["Done"]]);
+    await sheetsUpdateStrict(`Pending!E${rowNumber}`, [["Done"]]);
 
     const { todayISO, nowTime } = await import("./executives");
     const now = new Date();
-    await sheetsAppend("Collections!A:J", [
+    await sheetsAppendStrict("Collections!A:J", [
       [
         r[0] ?? "",
         r[1] ?? "",
