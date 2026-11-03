@@ -73,7 +73,7 @@ export const getEcsEntries = createServerFn({ method: "GET" }).handler(async () 
       }));
   } catch (err) {
     console.error("Failed to read ECS entries from Google Sheets:", err);
-    return [];
+    throw new Error("Unable to load ECS entries. Please retry.");
   }
 });
 
