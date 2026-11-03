@@ -15,9 +15,11 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { FEATURES } from "@/lib/app-config.functions";
-import { PasswordGate } from "@/components/PasswordGate";
-import { getAdminPasswordInMemory } from "@/lib/admin-session";
 import { useRouterState } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getCurrentSession, logoutCurrentSession } from "@/lib/auth.functions";
+import { LoginScreen } from "@/components/LoginScreen";
 
 function NotFoundComponent() {
   return (
@@ -178,17 +180,31 @@ function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const current = FEATURES.find((f) => f.path === pathname);
   const disabled = current ? flags[current.key] === false : false;
+  const qc = useQueryClient();
+  const loadSession = useServerFn(getCurrentSession);
+  const logout = useServerFn(logoutCurrentSession);
+  const { data: session, isLoading } = useQuery({
+    queryKey: ["auth-session"],
+    queryFn: () => loadSession(),
+    retry: false,
+    staleTime: 30_000,
+  });
   const [adminOpen, setAdminOpen] = useState(false);
-  const [adminUnlocked, setAdminUnlocked] = useState(() => Boolean(getAdminPasswordInMemory()));
 
-  const openAdmin = () => {
-    if (!adminUnlocked && !getAdminPasswordInMemory()) {
-      setAdminOpen(true);
-      return;
+  if (isLoading) {
+    return <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading session...</main>;
+  }
+  if (!session) return <LoginScreen />;
+
+  async function signOut() {
+    try {
+      await logout();
+      await qc.invalidateQueries();
+    } catch {
+      // Expired sessions are also cleared by the server on the next login.
+      await qc.invalidateQueries({ queryKey: ["auth-session"] });
     }
-    setAdminUnlocked(true);
-    setAdminOpen((open) => !open);
-  };
+  }
 
   return (
     <>
@@ -212,46 +228,26 @@ function AppShell() {
                   {n.label}
                 </Link>
               ))}
-              {ADMIN_NAV.some((n) => flags[n.key] !== false) && (
+              {session.role === "Admin" && ADMIN_NAV.some((n) => flags[n.key] !== false) && (
                 <div className="flex min-w-0 flex-wrap items-start gap-2">
-                  <button
-                    type="button"
-                    aria-expanded={adminOpen}
-                    aria-controls="admin-navigation-panel"
-                    onClick={openAdmin}
-                    className="rounded-lg border px-4 py-2 text-base font-semibold"
-                  >
+                  <button type="button" aria-expanded={adminOpen} onClick={() => setAdminOpen((v) => !v)} className="rounded-lg border px-4 py-2 text-base font-semibold">
                     Admin {adminOpen ? "▴" : "▾"}
                   </button>
                   {adminOpen && (
-                    <div
-                      id="admin-navigation-panel"
-                      className="w-full basis-full rounded-lg border bg-background p-3 shadow-sm sm:w-auto sm:min-w-56 sm:basis-auto"
-                    >
-                      {!adminUnlocked ? (
-                        <PasswordGate
-                          label="Unlock Admin"
-                          onUnlock={() => setAdminUnlocked(true)}
-                        />
-                      ) : (
-                        <div className="flex flex-col gap-1">
-                          {ADMIN_NAV.filter((n) => flags[n.key] !== false).map((n) => (
-                            <Link
-                              key={n.label}
-                              to={n.to}
-                              hash={"hash" in n ? n.hash : undefined}
-                              onClick={() => setAdminOpen(false)}
-                              className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
-                            >
-                              {n.label}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
+                    <div className="w-full basis-full rounded-lg border bg-background p-3 shadow-sm sm:w-auto sm:min-w-56 sm:basis-auto">
+                      <div className="flex flex-col gap-1">
+                        {ADMIN_NAV.filter((n) => flags[n.key] !== false).map((n) => (
+                          <Link key={n.label} to={n.to} hash={"hash" in n ? n.hash : undefined} onClick={() => setAdminOpen(false)} className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">{n.label}</Link>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
+              <div className="ml-auto flex items-center gap-2 text-sm">
+                <span className="font-medium">{session.name} · {session.role}</span>
+                <button type="button" onClick={signOut} className="rounded-lg border px-3 py-2">Logout</button>
+              </div>
             </nav>
           </div>
         </header>
