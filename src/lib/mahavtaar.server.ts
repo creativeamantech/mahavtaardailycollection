@@ -521,7 +521,7 @@ export async function driveUpload(name: string, mimeType: string, base64: string
         body: JSON.stringify({ role: "reader", type: "anyone" }),
       }).catch((e) => console.error("Drive share failed", e)); */
 
-      return file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`;
+      return `/receipt/${file.id}`;
     } catch (err) {
       if (process.env["NODE_ENV"] === "production") throw err;
       console.warn("Google Drive upload failed; using development-only data URI fallback:", err);
@@ -668,4 +668,12 @@ export async function checkConnectorHealth() {
   const driveResponse = await fetch(`${GATEWAY}/google_drive/drive/v3/files/${DRIVE_FOLDER_ID}?fields=id`, { headers: headers('GOOGLE_DRIVE_API_KEY') });
   await ok(driveResponse, 'Drive health check');
   return { sheets: true, drive: true };
+}
+
+export async function driveDownload(fileId: string) {
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(fileId)) throw new Error('Invalid Drive file ID.');
+  if (!hasCredentials('GOOGLE_DRIVE_API_KEY')) throw new Error('Google Drive connector is not configured.');
+  const response = await fetch(`${GATEWAY}/google_drive/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, { headers: headers('GOOGLE_DRIVE_API_KEY') });
+  if (!response.ok) throw new Error('Receipt download failed: ' + response.status);
+  return { body: await response.arrayBuffer(), contentType: response.headers.get('content-type') ?? 'application/octet-stream' };
 }
