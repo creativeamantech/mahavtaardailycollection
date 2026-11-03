@@ -36,7 +36,8 @@ const holdCasesSchema = z.object({
 export const submitHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => holdCasesSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const executive = session.role === "Admin" ? data.executive : session.name;
     const { requireGoogleSheetsWriteAccess, sheetsGet, sheetsAppendStrict, sheetsBatchUpdateValuesStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
     requireGoogleSheetsWriteAccess();
@@ -94,7 +95,7 @@ export const submitHoldCases = createServerFn({ method: "POST" })
       }
       const submittedAt = new Date().toISOString();
       await sheetsAppendStrict("Hold_Cases!A:F", uniqueIds.map((loanId) => [
-        submittedAt, data.executive, loanId, data.remarks, "Active", "",
+        submittedAt, executive, loanId, data.remarks, "Active", "",
       ]));
       invalidateSheetsCache();
     }
@@ -137,7 +138,8 @@ const executiveSchema = z.object({ executive: z.enum(executives) });
 export const listActiveHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => executiveSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const targetExecutive = session.role === "Admin" ? data.executive : session.name;
     const { sheetsGet } = await import("./mahavtaar.server");
     await ensureHoldTab();
     const rows = await sheetsGet("Hold_Cases!A2:F");
@@ -151,7 +153,7 @@ export const listActiveHoldCases = createServerFn({ method: "POST" })
         status: String(row[4] ?? "").trim() || "Active",
       }))
       .filter((item) =>
-        item.executive === data.executive &&
+        item.executive === targetExecutive &&
         item.loanId !== "" &&
         item.status.toLowerCase() === "active",
       )
@@ -166,7 +168,8 @@ const removeHoldCasesSchema = z.object({
 export const removeHoldCases = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => removeHoldCasesSchema.parse(data))
   .handler(async ({ data }) => {
-    await requireSession();
+    const session = await requireSession();
+    const targetExecutive = session.role === "Admin" ? data.executive : session.name;
     const {
       requireGoogleSheetsWriteAccess,
       sheetsGet,
@@ -189,7 +192,7 @@ export const removeHoldCases = createServerFn({ method: "POST" })
       const executive = String(row[1] ?? "").trim();
       const loanId = String(row[2] ?? "").trim();
       const status = String(row[4] ?? "").trim() || "Active";
-      if (executive === data.executive && loanId && requested.has(normaliseLoanId(loanId)) && !caseIndex.paid.has(normaliseLoanId(loanId)) && status.toLowerCase() === "active") {
+      if (executive === targetExecutive && loanId && requested.has(normaliseLoanId(loanId)) && !caseIndex.paid.has(normaliseLoanId(loanId)) && status.toLowerCase() === "active") {
         const sheetRow = index + 2;
         updates.push({
           range: "Hold_Cases!E" + sheetRow + ":F" + sheetRow,
