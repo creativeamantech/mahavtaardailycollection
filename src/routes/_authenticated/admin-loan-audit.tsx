@@ -25,7 +25,7 @@ type Entry = {
 
 function receiptImage(url: string) {
   const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
-  return match ? `https://lh3.googleusercontent.com/d/${match[1]}=w900` : url;
+  return match?.[1] ? `/receipt/${match[1]}` : url;
 }
 
 function parseLoanNumbers(value: string) {
