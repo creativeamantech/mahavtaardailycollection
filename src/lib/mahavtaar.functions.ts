@@ -699,7 +699,7 @@ export async function readPending() {
       .filter((r) => r.loanNumber && r.status === "Pending");
   } catch (err) {
     console.error("Failed to read pending from Google Sheets:", err);
-    return [];
+    throw new Error("Unable to load pending receipts. Please retry.");
   }
 }
 
