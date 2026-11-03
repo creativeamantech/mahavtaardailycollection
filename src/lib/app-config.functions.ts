@@ -94,8 +94,8 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
-    await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
+    const { sheetsGet, sheetsUpdateStrict, ensureSheetStrict } = await import("./mahavtaar.server");
+    await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
     // Preserve the default-category row so flag saves never wipe it.
     let defaultCategory = "";
     let holdCasesLocked = false;
@@ -116,7 +116,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     values.push([HOLD_CASES_LOCK_KEY, holdCasesLocked ? "ON" : "OFF"]);
     // Pad so removed keys never leave stale rows behind.
     while (values.length < 40) values.push(["", ""]);
-    await sheetsUpdate(`${SETTINGS_TAB}!A2:B41`, values);
+    await sheetsUpdateStrict(`${SETTINGS_TAB}!A2:B41`, values);
     return { ok: true as const };
   });
 
@@ -139,7 +139,7 @@ export const saveDefaultCategory = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ category: z.string().trim().max(80) }).parse(d))
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const { sheetsGet, sheetsUpdate, ensureSheet } = await import("./mahavtaar.server");
+    const { sheetsGet, sheetsUpdateStrict, ensureSheetStrict } = await import("./mahavtaar.server");
     await ensureSheet(SETTINGS_TAB, ["Key", "Value"]);
     let rows: string[][] = [];
     try {
@@ -149,10 +149,10 @@ export const saveDefaultCategory = createServerFn({ method: "POST" })
     }
     const idx = rows.findIndex((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY);
     if (idx >= 0) {
-      await sheetsUpdate(`${SETTINGS_TAB}!B${idx + 2}`, [[data.category]]);
+      await sheetsUpdateStrict(`${SETTINGS_TAB}!B${idx + 2}`, [[data.category]]);
     } else {
       const row = rows.length + 2;
-      await sheetsUpdate(`${SETTINGS_TAB}!A${row}:B${row}`, [
+      await sheetsUpdateStrict(`${SETTINGS_TAB}!A${row}:B${row}`, [
         [DEFAULT_CATEGORY_KEY, data.category],
       ]);
     }
