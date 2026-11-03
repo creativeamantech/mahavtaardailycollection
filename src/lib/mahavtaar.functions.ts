@@ -634,9 +634,9 @@ export const markConflictAsValid = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const { getSheetId, sheetsBatchUpdate, sheetsUpdate, invalidateSheetsCache } =
+    const { getSheetId, sheetsBatchUpdate, sheetsUpdateStrict, invalidateSheetsCache } =
       await import("./mahavtaar.server");
-    await sheetsUpdate(`Collections!V${data.row}`, [["VALIDATED"]]);
+    await sheetsUpdateStrict(`Collections!V${data.row}`, [["VALIDATED"]]);
     try {
       const sheetId = await getSheetId("Collections");
       const white = { red: 1, green: 1, blue: 1 };
