@@ -115,10 +115,16 @@ function verifyPin(pin: string, stored: string) {
 }
 
 function rateLimitKeys(userName: string) {
+  // Prefer the edge-provided client address. If unavailable, use the final
+  // proxy-added X-Forwarded-For hop rather than a client-supplied first value.
+  const forwarded = (getRequestHeader("x-forwarded-for") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   const ip =
-    (getRequestHeader("x-forwarded-for") ?? getRequestHeader("cf-connecting-ip") ?? "unknown")
-      .split(",")[0]
-      ?.trim() || "unknown";
+    getRequestHeader("cf-connecting-ip")?.trim() ||
+    forwarded.at(-1) ||
+    "unknown";
   return ["user:" + userName.toLowerCase(), "ip:" + ip];
 }
 
