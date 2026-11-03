@@ -1,3 +1,4 @@
+import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -22,6 +23,7 @@ export type ExcludedLoan = {
 };
 
 export const getExcludedLoanNumbers = createServerFn({ method: "GET" }).handler(async () => {
+    await requireSession();
   const { ensureSheet, sheetsGet } = await import("./mahavtaar.server");
   await ensureSheet(TAB, header);
   const rows = await sheetsGet(`${TAB}!A2:D`);
@@ -44,6 +46,7 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     await assertAdminPassword(data.adminPassword);
     const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
@@ -60,6 +63,7 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
 export const removeExcludedLoanNumber = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ loanNumber: z.string().trim().min(1).max(60), adminPassword: z.string().max(200) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     await assertAdminPassword(data.adminPassword);
     const { ensureSheet, sheetsGet, sheetsUpdate } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
@@ -83,6 +87,7 @@ export const addExcludedLoanNumbersBulk = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data }) => {
+    await requireSession();
     await assertAdminPassword(data.adminPassword);
     const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
