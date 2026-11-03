@@ -23,7 +23,7 @@ export type ExcludedLoan = {
 };
 
 export const getExcludedLoanNumbers = createServerFn({ method: "GET" }).handler(async () => {
-    await requireSession();
+    await requireSession("Admin");
   const { ensureSheet, sheetsGet } = await import("./mahavtaar.server");
   await ensureSheet(TAB, header);
   const rows = await sheetsGet(`${TAB}!A2:D`);
@@ -46,8 +46,7 @@ export const addExcludedLoanNumber = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data }) => {
-    await requireSession();
-    await assertAdminPassword(data.adminPassword);
+    await requireSession("Admin");
     const { ensureSheet, sheetsGet, sheetsAppend } = await import("./mahavtaar.server");
     await ensureSheet(TAB, header);
     const loanNumber = normaliseLoanId(data.loanNumber);
