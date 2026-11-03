@@ -35,7 +35,7 @@ export default defineTool({
 
       conflictGroups.push({
         groupKey: key,
-        loanId: entries[0].loanId,
+        loanId: entries[0]!.loanId,
         amount: entries[0].amount,
         count: entries.length,
         isFullyValidated: !hasUnresolved,
