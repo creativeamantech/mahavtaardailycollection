@@ -10,6 +10,10 @@ type ServerEntry = {
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 async function getServerEntry(): Promise<ServerEntry> {
+  if (process.env['NODE_ENV'] === 'production') {
+    const missing = ['LOVABLE_API_KEY', 'GOOGLE_SHEETS_API_KEY', 'GOOGLE_DRIVE_API_KEY'].filter((key) => !process.env[key]);
+    if (missing.length) throw new Error('Missing production connector configuration: ' + missing.join(', '));
+  }
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(
       (m) => (m.default ?? m) as ServerEntry,
