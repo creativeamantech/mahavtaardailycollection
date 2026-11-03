@@ -796,13 +796,15 @@ export const markPendingDone = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().trim().min(1).max(40) }).parse(d))
   .handler(async ({ data }) => {
     const session = await requireSession();
-    const { sheetsGet, sheetsUpdateStrict, sheetsAppendStrict, withSheetMutex } = await import("./mahavtaar.server");
+    const { sheetsGet, sheetsUpdateStrict, sheetsAppendStrict, withSheetMutex } =
+      await import("./mahavtaar.server");
     return withSheetMutex("pending-completion:" + data.id, async () => {
       const rows = await sheetsGet("Pending!A2:H");
       const idx = rows.findIndex((row) => String(row[6] ?? "") === data.id);
       if (idx < 0) throw new Error("Pending entry not found.");
       const pending = rows[idx]!;
-      if (session.role !== "Admin" && String(pending[0] ?? "").trim() !== session.name) throw new Error("You can only complete your own pending entries.");
+      if (session.role !== "Admin" && String(pending[0] ?? "").trim() !== session.name)
+        throw new Error("You can only complete your own pending entries.");
       const rowNumber = idx + 2;
       const { todayISO, nowTime } = await import("./executives");
       const now = new Date();
@@ -810,31 +812,55 @@ export const markPendingDone = createServerFn({ method: "POST" })
       const loanId = String(pending[1] ?? "").trim();
       const amount = Number(String(pending[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0;
       const marker = (await sheetsGet("Collections!W1"))[0]?.[0] ?? "";
-      if (marker && marker !== "Pending_Entry_ID") throw new Error("Collections column W is already in use; pending idempotency migration needs review.");
+      if (marker && marker !== "Pending_Entry_ID")
+        throw new Error(
+          "Collections column W is already in use; pending idempotency migration needs review.",
+        );
       if (!marker) await sheetsUpdateStrict("Collections!W1", [["Pending_Entry_ID"]]);
       const collections = await sheetsGet("Collections!A2:W");
-      const existingIndex = collections.findIndex((row) => String(row[22] ?? "") === data.id || (pendingTimestamp && String(row[5] ?? "") === pendingTimestamp && String(row[1] ?? "").trim() === loanId && (Number(row[2] ?? 0) || 0) === amount));
+      const existingIndex = collections.findIndex(
+        (row) =>
+          String(row[22] ?? "") === data.id ||
+          (pendingTimestamp &&
+            String(row[5] ?? "") === pendingTimestamp &&
+            String(row[1] ?? "").trim() === loanId &&
+            (Number(row[2] ?? 0) || 0) === amount),
+      );
       if (existingIndex >= 0) {
         const existingRowNumber = existingIndex + 2;
-        if (String(collections[existingIndex]?.[22] ?? "") !== data.id) await sheetsUpdateStrict("Collections!W" + existingRowNumber, [[data.id]]);
-        if (String(pending[4] ?? "") !== "Done") await sheetsUpdateStrict("Pending!E" + rowNumber, [["Done"]]);
+        if (String(collections[existingIndex]?.[22] ?? "") !== data.id)
+          await sheetsUpdateStrict("Collections!W" + existingRowNumber, [[data.id]]);
+        if (String(pending[4] ?? "") !== "Done")
+          await sheetsUpdateStrict("Pending!E" + rowNumber, [["Done"]]);
         return { ok: true as const, alreadyCompleted: true as const };
       }
-      if (String(pending[4] ?? "") === "Done") return { ok: true as const, alreadyCompleted: true as const };
-      const appended = (await sheetsAppendStrict("Collections!A:J", [[
-        pending[0] ?? "",
-        loanId,
-        amount,
-        todayISO(now),
-        nowTime(now),
-        pendingTimestamp || now.toISOString(),
-        "Confirmed",
-        todayISO(now),
-        "Normal",
-        String(pending[7] ?? "").trim().toLowerCase() === "yes" ? "Yes" : "No",
-      ]])) as { updates?: { updatedRange?: string } };
-      const collectionRow = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
-      if (!collectionRow) throw new Error("Collection was appended but its row could not be confirmed. Retry completion to reconcile it safely.");
+      if (String(pending[4] ?? "") === "Done")
+        return { ok: true as const, alreadyCompleted: true as const };
+      const appended = (await sheetsAppendStrict("Collections!A:J", [
+        [
+          pending[0] ?? "",
+          loanId,
+          amount,
+          todayISO(now),
+          nowTime(now),
+          pendingTimestamp || now.toISOString(),
+          "Confirmed",
+          todayISO(now),
+          "Normal",
+          String(pending[7] ?? "")
+            .trim()
+            .toLowerCase() === "yes"
+            ? "Yes"
+            : "No",
+        ],
+      ])) as { updates?: { updatedRange?: string } };
+      const collectionRow = Number(
+        /![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0",
+      );
+      if (!collectionRow)
+        throw new Error(
+          "Collection was appended but its row could not be confirmed. Retry completion to reconcile it safely.",
+        );
       await sheetsUpdateStrict("Collections!W" + collectionRow, [[data.id]]);
       await sheetsUpdateStrict("Pending!E" + rowNumber, [["Done"]]);
       return { ok: true as const, alreadyCompleted: false as const };
