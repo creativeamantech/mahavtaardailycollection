@@ -425,28 +425,39 @@ let sheetIdCache: Record<string, number> = {};
 
 export async function getSheetId(title: string): Promise<number> {
   const cached = sheetIdCache[title];
-  if (typeof cached === 'number') return cached;
-  if (!hasCredentials('GOOGLE_SHEETS_API_KEY')) throw new Error('Google Sheets connector is not configured.');
-  const res = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`, { headers: headers('GOOGLE_SHEETS_API_KEY') });
-  const json = (await ok(res, 'Sheets metadata')) as { sheets?: { properties?: { sheetId?: number; title?: string } }[] };
+  if (typeof cached === "number") return cached;
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY"))
+    throw new Error("Google Sheets connector is not configured.");
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
+    { headers: headers("GOOGLE_SHEETS_API_KEY") },
+  );
+  const json = (await ok(res, "Sheets metadata")) as {
+    sheets?: { properties?: { sheetId?: number; title?: string } }[];
+  };
   sheetIdCache = {};
   for (const sheet of json.sheets ?? []) {
     const properties = sheet.properties;
-    if (properties && typeof properties.sheetId === 'number' && properties.title) sheetIdCache[properties.title] = properties.sheetId;
+    if (properties && typeof properties.sheetId === "number" && properties.title)
+      sheetIdCache[properties.title] = properties.sheetId;
   }
   const id = sheetIdCache[title];
-  if (typeof id !== 'number') throw new Error('Google Sheets tab not found: ' + title);
+  if (typeof id !== "number") throw new Error("Google Sheets tab not found: " + title);
   return id;
 }
 
 export async function sheetsBatchUpdate(requests: unknown[]) {
-  if (!hasCredentials('GOOGLE_SHEETS_API_KEY')) throw new Error('Google Sheets connector is not configured.');
-  const res = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
-    method: 'POST',
-    headers: { ...headers('GOOGLE_SHEETS_API_KEY'), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requests }),
-  });
-  const result = await ok(res, 'Sheets batchUpdate');
+  if (!hasCredentials("GOOGLE_SHEETS_API_KEY"))
+    throw new Error("Google Sheets connector is not configured.");
+  const res = await fetch(
+    `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
+    {
+      method: "POST",
+      headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
+      body: JSON.stringify({ requests }),
+    },
+  );
+  const result = await ok(res, "Sheets batchUpdate");
   invalidateSheetsCache();
   return result;
 }
