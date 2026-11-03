@@ -743,13 +743,34 @@ export async function driveDownload(fileId: string) {
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(fileId)) throw new Error("Invalid Drive file ID.");
   if (!hasCredentials("GOOGLE_DRIVE_API_KEY"))
     throw new Error("Google Drive connector is not configured.");
-  const response = await fetch(
-    `${GATEWAY}/google_drive/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
-    { headers: headers("GOOGLE_DRIVE_API_KEY") },
+
+  const auth = headers("GOOGLE_DRIVE_API_KEY");
+  const fileUrl = `${GATEWAY}/google_drive/drive/v3/files/${encodeURIComponent(fileId)}`;
+  const metadataResponse = await fetch(
+    fileUrl + "?fields=id,name,mimeType,size,trashed",
+    { headers: auth },
   );
-  if (!response.ok) throw new Error("Receipt download failed: " + response.status);
-  return {
-    body: await response.arrayBuffer(),
-    contentType: response.headers.get("content-type") ?? "application/octet-stream",
+  const metadata = (await ok(metadataResponse, "Receipt metadata")) as {
+    id: string;
+    name?: string;
+    mimeType?: string;
+    size?: string;
+    trashed?: boolean;
   };
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (metadata.trashed) throw new Error("Receipt file is in the Drive trash.");
+  if (!metadata.mimeType || !allowedTypes.has(metadata.mimeType.toLowerCase()))
+    throw new Error("Receipt must be a JPEG, PNG, or WebP image.");
+  const declaredSize = Number(metadata.size ?? 0);
+  if (Number.isFinite(declaredSize) && declaredSize > 12 * 1024 * 1024)
+    throw new Error("Receipt image exceeds the 12 MB limit.");
+
+  const response = await fetch(fileUrl + "?alt=media", { headers: auth });
+  if (!response.ok) throw new Error("Receipt download failed: " + response.status);
+  const body = await response.arrayBuffer();
+  if (!body.byteLength) throw new Error("Receipt download returned an empty file.");
+  if (body.byteLength > 12 * 1024 * 1024)
+    throw new Error("Receipt image exceeds the 12 MB limit.");
+
+  return { body, contentType: metadata.mimeType.toLowerCase() };
 }
