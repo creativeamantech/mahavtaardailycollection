@@ -368,7 +368,9 @@ export async function sheetsAppend(range: string, values: (string | number)[][])
 
 export async function sheetsAppendStrict(range: string, values: (string | number)[][]) {
   requireGoogleSheetsWriteAccess();
-  const res = await fetchWithRetry(
+  // Appends are non-idempotent: never retry automatically, or a timeout after a
+  // successful write could create duplicate collection/payment rows.
+  const res = await fetch(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
