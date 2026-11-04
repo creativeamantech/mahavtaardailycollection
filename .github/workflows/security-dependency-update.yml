@@ -1,0 +1,113 @@
+name: Security dependency verification
+
+on:
+  push:
+    branches: ["security/**"]
+    paths:
+      - "package.json"
+      - ".github/workflows/security-dependency-update.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "bun.lock"
+      - ".lovable/mcp/manifest.json"
+      - "src/lib/mcp/index.ts"
+      - ".github/workflows/security-dependency-update.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-dependency-update-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout pull request merge ref or security branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Install dependencies
+        if: github.event_name == 'pull_request'
+        run: bun install --frozen-lockfile
+
+      - name: Resolve dependencies and regenerate lockfile
+        if: github.event_name != 'pull_request'
+        run: bun install
+
+      - name: Regenerate MCP manifest
+        run: bunx lovable-mcp-extract-manifest
+
+      - name: Verify committed generated files are reproducible
+        if: github.event_name == 'pull_request'
+        run: git diff --exit-code -- bun.lock .lovable/mcp/manifest.json
+
+      - name: Production build
+        run: bun run build
+
+      - name: TypeScript
+        run: bunx tsc --noEmit
+
+      - name: ESLint
+        run: bunx eslint . --rule 'prettier/prettier: off'
+
+      - name: Server-function auth coverage
+        run: bun run check:server-auth
+
+      - name: Upload generated dependency files
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-generated
+          path: |
+            bun.lock
+            .lovable/mcp/manifest.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  commit-generated-files:
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout security branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: true
+
+      - name: Download generated dependency files
+        uses: actions/download-artifact@v4
+        with:
+          name: security-generated
+          path: security-generated
+
+      - name: Commit verified generated files
+        run: |
+          cp security-generated/bun.lock bun.lock
+          mkdir -p .lovable/mcp
+          cp security-generated/.lovable/mcp/manifest.json .lovable/mcp/manifest.json
+          if git diff --quiet -- bun.lock .lovable/mcp/manifest.json; then
+            echo "Dependency lockfile and MCP manifest are already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bun.lock .lovable/mcp/manifest.json
+          git commit -m "chore(security): update lockfile and MCP manifest"
+          git push
