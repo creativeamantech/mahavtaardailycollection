@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
+import { deleteCookie, getCookie, getRequestHeader, setCookie } from "@tanstack/react-start/server";
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from "node:crypto";
 import { z } from "zod";
 
