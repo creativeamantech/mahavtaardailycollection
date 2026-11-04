@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeader, setResponseHeader } from "@tanstack/react-start/server";
+import { deleteCookie, getCookie, getRequestHeader, setCookie } from "@tanstack/react-start/server";
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from "node:crypto";
 import { z } from "zod";
 
@@ -46,32 +46,21 @@ async function readUsers(): Promise<User[]> {
 }
 
 function cookieToken() {
-  const cookie = getRequestHeader("cookie") ?? "";
-  const item = cookie
-    .split(";")
-    .map((s) => s.trim())
-    .find((s) => s.startsWith(COOKIE + "="));
-  if (!item) return "";
-  try {
-    return decodeURIComponent(item.slice(COOKIE.length + 1));
-  } catch {
-    return "";
-  }
+  return getCookie(COOKIE) ?? "";
 }
 
 function setSessionCookie(value: string, maxAge: number) {
-  const secure = process.env["NODE_ENV"] === "production" ? "; Secure" : "";
-  setResponseHeader(
-    "Set-Cookie",
-    value
-      ? COOKIE +
-          "=" +
-          encodeURIComponent(value) +
-          "; HttpOnly; SameSite=Strict; Path=/; Max-Age=" +
-          maxAge +
-          secure
-      : COOKIE + "=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" + secure,
-  );
+  const options = {
+    httpOnly: true,
+    secure: process.env["NODE_ENV"] === "production",
+    sameSite: "strict" as const,
+    path: "/",
+  };
+  if (value) {
+    setCookie(COOKIE, value, { ...options, maxAge });
+  } else {
+    deleteCookie(COOKIE, options);
+  }
 }
 
 async function digest(value: string) {
