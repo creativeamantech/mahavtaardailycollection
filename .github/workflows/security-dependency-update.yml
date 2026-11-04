@@ -43,7 +43,8 @@ jobs:
         run: bunx tsc --noEmit
 
       - name: ESLint
-        run: bunx eslint . --rule 'prettier/prettier: off'
+        run: >-
+          bunx eslint . --rule 'prettier/prettier: off'
 
       - name: Server-function auth coverage
         run: bun run check:server-auth
