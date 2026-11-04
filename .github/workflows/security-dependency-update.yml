@@ -1,4 +1,4 @@
-name: Security dependency update
+name: Security dependency verification
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
     paths:
       - "package.json"
       - "bun.lock"
+      - ".lovable/mcp/manifest.json"
       - "src/lib/mcp/index.ts"
       - ".github/workflows/security-dependency-update.yml"
   workflow_dispatch:
@@ -28,7 +29,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout security branch
+      - name: Checkout pull request merge ref or security branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
@@ -39,11 +40,20 @@ jobs:
         with:
           bun-version: "1.4.4"
 
+      - name: Install dependencies
+        if: github.event_name == 'pull_request'
+        run: bun install --frozen-lockfile
+
       - name: Resolve dependencies and regenerate lockfile
+        if: github.event_name != 'pull_request'
         run: bun install
 
       - name: Regenerate MCP manifest
         run: bunx lovable-mcp-extract-manifest
+
+      - name: Verify committed generated files are reproducible
+        if: github.event_name == 'pull_request'
+        run: git diff --exit-code -- bun.lock .lovable/mcp/manifest.json
 
       - name: Production build
         run: bun run build
@@ -52,13 +62,13 @@ jobs:
         run: bunx tsc --noEmit
 
       - name: ESLint
-        run: >-
-          bunx eslint . --rule 'prettier/prettier: off'
+        run: bunx eslint . --rule 'prettier/prettier: off'
 
       - name: Server-function auth coverage
         run: bun run check:server-auth
 
       - name: Upload generated dependency files
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: security-generated
