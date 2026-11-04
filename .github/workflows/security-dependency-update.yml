@@ -6,6 +6,13 @@ on:
     paths:
       - "package.json"
       - ".github/workflows/security-dependency-update.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "bun.lock"
+      - "src/lib/mcp/index.ts"
+      - ".github/workflows/security-dependency-update.yml"
   workflow_dispatch:
 
 permissions:
@@ -62,6 +69,7 @@ jobs:
           if-no-files-found: error
 
   commit-generated-files:
+    if: github.event_name != 'pull_request'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
