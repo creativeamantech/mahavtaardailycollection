@@ -20,6 +20,10 @@ export default defineMcp({
   name: "daily-collection-hub",
   title: "Mahavtaar Daily Collection Hub",
   version: "0.5.0",
+  limits: {
+    maxRequestBodySize: 1024 * 1024,
+    maxToolInputElements: 10_000,
+  },
   auth: auth.oauth.issuer({
     issuer: "https://ydgexnboxazquiiqcrup.supabase.co/auth/v1",
     acceptedAudiences: "authenticated",
