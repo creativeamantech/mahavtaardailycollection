@@ -5,7 +5,6 @@ import { z } from "zod";
 
 const COOKIE = "mahavtaar_session";
 const SESSION_TTL = 8 * 60 * 60 * 1000;
-const SESSION_CACHE_TTL = 15_000;
 const SCRYPT_N = 16_384;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
@@ -20,7 +19,6 @@ type Session = { name: string; role: "Admin" | "Executive"; expiresAt: number; r
 type Attempt = { count: number; lockedUntil: number };
 
 const sessionCache = new Map<string, Session>();
-let sessionCacheLoadedAt = 0;
 const loginAttempts = new Map<string, Attempt>();
 
 async function readUsers(): Promise<User[]> {
@@ -140,10 +138,11 @@ function clearLoginFailures(keys: string[]) {
   for (const key of keys) loginAttempts.delete(key);
 }
 
-async function refreshSessionCache(force = false) {
-  if (!force && Date.now() - sessionCacheLoadedAt < SESSION_CACHE_TTL) return;
-  const { sheetsGet } = await import("./mahavtaar.server");
-  const rows = await sheetsGet("AppSessions!A2:F");
+async function refreshSessionCache() {
+  // Never trust an isolate-local session cache for authentication. A login
+  // and the next request can execute on different Cloudflare instances.
+  const { sheetsGetFresh } = await import("./mahavtaar.server");
+  const rows = await sheetsGetFresh("AppSessions!A2:F");
   const next = new Map<string, Session>();
   const now = Date.now();
   rows.forEach((row, index) => {
@@ -167,7 +166,6 @@ async function refreshSessionCache(force = false) {
   });
   sessionCache.clear();
   for (const [key, value] of next) sessionCache.set(key, value);
-  sessionCacheLoadedAt = now;
 }
 
 async function revokeSessionHash(tokenHash: string) {
@@ -221,7 +219,7 @@ export const loginWithPin = createServerFn({ method: "POST" })
     await sheetsAppendStrict("AppSessions!A:F", [
       [tokenHash, user.name, user.role, now.toISOString(), expires.toISOString(), "No"],
     ]);
-    await refreshSessionCache(true);
+    await refreshSessionCache();
     setSessionCookie(token, SESSION_TTL / 1000);
     return { name: user.name, role: user.role };
   });
