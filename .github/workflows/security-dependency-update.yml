@@ -9,21 +9,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: security-dependency-update-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  update-and-verify:
+  verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout security branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -49,8 +51,39 @@ jobs:
       - name: Server-function auth coverage
         run: bun run check:server-auth
 
-      - name: Commit verified lockfile
+      - name: Upload generated dependency files
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-generated
+          path: |
+            bun.lock
+            .lovable/mcp/manifest.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  commit-generated-files:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout security branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: true
+
+      - name: Download generated dependency files
+        uses: actions/download-artifact@v4
+        with:
+          name: security-generated
+          path: security-generated
+
+      - name: Commit verified generated files
         run: |
+          cp security-generated/bun.lock bun.lock
+          mkdir -p .lovable/mcp
+          cp security-generated/.lovable/mcp/manifest.json .lovable/mcp/manifest.json
           if git diff --quiet -- bun.lock .lovable/mcp/manifest.json; then
             echo "Dependency lockfile and MCP manifest are already up to date."
             exit 0
