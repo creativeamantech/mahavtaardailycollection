@@ -5,7 +5,6 @@ import { z } from "zod";
 
 const COOKIE = "mahavtaar_session";
 const SESSION_TTL = 8 * 60 * 60 * 1000;
-const SESSION_CACHE_TTL = 15_000;
 const SCRYPT_N = 16_384;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
@@ -141,9 +140,10 @@ function clearLoginFailures(keys: string[]) {
 }
 
 async function refreshSessionCache(force = false) {
-  if (!force && Date.now() - sessionCacheLoadedAt < SESSION_CACHE_TTL) return;
-  const { sheetsGet } = await import("./mahavtaar.server");
-  const rows = await sheetsGet("AppSessions!A2:F");
+  // Never trust an isolate-local session cache for authentication. A login
+  // and the next request can execute on different Cloudflare instances.
+  const { sheetsGetFresh } = await import("./mahavtaar.server");
+  const rows = await sheetsGetFresh("AppSessions!A2:F");
   const next = new Map<string, Session>();
   const now = Date.now();
   rows.forEach((row, index) => {
