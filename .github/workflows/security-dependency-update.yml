@@ -1,0 +1,61 @@
+name: Security dependency update
+
+on:
+  push:
+    branches: ["security/**"]
+    paths:
+      - "package.json"
+      - ".github/workflows/security-dependency-update.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: security-dependency-update-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout security branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: true
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Resolve dependencies and regenerate lockfile
+        run: bun install
+
+      - name: Regenerate MCP manifest
+        run: bunx lovable-mcp-extract-manifest
+
+      - name: Production build
+        run: bun run build
+
+      - name: TypeScript
+        run: bunx tsc --noEmit
+
+      - name: ESLint
+        run: bunx eslint . --rule 'prettier/prettier: off'
+
+      - name: Server-function auth coverage
+        run: bun run check:server-auth
+
+      - name: Commit verified lockfile
+        run: |
+          if git diff --quiet -- bun.lock; then
+            echo "bun.lock is already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bun.lock
+          git commit -m "chore(security): regenerate Bun lockfile"
+          git push
