@@ -324,6 +324,14 @@ export async function sheetsGet(range: string): Promise<string[][]> {
   return p;
 }
 
+// Authentication reads bypass isolate-local caches so sessions written by one
+// Cloudflare instance are immediately visible to another instance.
+export async function sheetsGetFresh(range: string): Promise<string[][]> {
+  const rows = await fetchRange(range);
+  readCache.set(range, { at: Date.now(), rows });
+  return rows;
+}
+
 export async function sheetsAppend(range: string, values: (string | number)[][]) {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
