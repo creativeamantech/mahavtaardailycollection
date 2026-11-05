@@ -1,13 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
-import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 const COOKIE = "mahavtaar_auth";
 const AUTH_TTL_SECONDS = 8 * 60 * 60;
-const SCRYPT_N = 16_384;
-const SCRYPT_R = 8;
-const SCRYPT_P = 1;
 
 type User = {
   name: string;
