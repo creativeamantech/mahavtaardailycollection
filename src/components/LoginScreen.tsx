@@ -16,16 +16,16 @@ import { toast } from "sonner";
 
 // Keep the login dropdown independent of Google Sheets API reads.
 const EXECUTIVE_NAMES = [
-  "Pooja",
-  "Ankita",
   "Aarti",
-  "Vinita",
+  "Admin",
+  "Ankita",
   "Bharti",
   "Julee",
-  "Sunanda",
+  "Pooja",
   "Shikha",
   "Sona",
-  "Admin",
+  "Sunanda",
+  "Vinita",
 ] as const;
 
 export function LoginScreen() {
