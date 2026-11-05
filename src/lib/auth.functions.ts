@@ -25,7 +25,9 @@ function readUsers(): User[] {
   if (!raw?.trim()) throw new Error("LOGIN_CREDENTIALS secret is not configured.");
   const users: User[] = [];
   const seen = new Set<string>();
-  for (const [index, line] of raw.split(/\r?\n/).entries()) {
+  // Supports both one-line semicolon-separated credentials and legacy multiline entries.
+  const entries = raw.split(/[;\r\n]+/);
+  for (const [index, line] of entries.entries()) {
     const entry = line.trim();
     if (!entry) continue;
     const parts = entry.split("_");
