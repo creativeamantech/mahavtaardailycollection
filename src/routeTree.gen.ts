@@ -145,7 +145,6 @@ export interface FileRoutesByFullPath {
   '/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
   '/collection-sheet': typeof AuthenticatedCollectionSheetRoute
-  '/collection-sheet': typeof AuthenticatedCollectionSheetRoute
   '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
   '/excluded-loans': typeof AuthenticatedExcludedLoansRoute
@@ -165,6 +164,8 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/collection-sheet': typeof AuthenticatedCollectionSheetRoute
+  '/conflicts': typeof AuthenticatedConflictsRoute
   '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
   '/excluded-loans': typeof AuthenticatedExcludedLoansRoute
