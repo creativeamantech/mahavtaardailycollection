@@ -18,6 +18,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAdminLoanAuditRouteImport } from './routes/_authenticated/admin-loan-audit'
 import { Route as AuthenticatedAlreadyPaidRouteImport } from './routes/_authenticated/already-paid'
 import { Route as AuthenticatedConflictsRouteImport } from './routes/_authenticated/conflicts'
+import { Route as AuthenticatedCollectionSheetRouteImport } from './routes/_authenticated/collection-sheet'
 import { Route as AuthenticatedEcsRouteImport } from './routes/_authenticated/ecs'
 import { Route as AuthenticatedExcludedLoansRouteImport } from './routes/_authenticated/excluded-loans'
 import { Route as AuthenticatedExecutiveCitiesRouteImport } from './routes/_authenticated/executive-cities'
@@ -71,6 +72,11 @@ const AuthenticatedAlreadyPaidRoute =
     path: '/already-paid',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCollectionSheetRoute = AuthenticatedCollectionSheetRouteImport.update({
+  id: '/collection-sheet',
+  path: '/collection-sheet',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConflictsRoute = AuthenticatedConflictsRouteImport.update({
   id: '/conflicts',
   path: '/conflicts',
@@ -138,6 +144,8 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/collection-sheet': typeof AuthenticatedCollectionSheetRoute
+  '/collection-sheet': typeof AuthenticatedCollectionSheetRoute
   '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
   '/excluded-loans': typeof AuthenticatedExcludedLoansRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/admin-loan-audit': typeof AuthenticatedAdminLoanAuditRoute
   '/_authenticated/already-paid': typeof AuthenticatedAlreadyPaidRoute
+  '/_authenticated/collection-sheet': typeof AuthenticatedCollectionSheetRoute
   '/_authenticated/conflicts': typeof AuthenticatedConflictsRoute
   '/_authenticated/ecs': typeof AuthenticatedEcsRoute
   '/_authenticated/excluded-loans': typeof AuthenticatedExcludedLoansRoute
@@ -202,6 +211,8 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/admin-loan-audit'
     | '/already-paid'
+    | '/collection-sheet'
+    | '/collection-sheet'
     | '/conflicts'
     | '/ecs'
     | '/excluded-loans'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/admin-loan-audit'
     | '/_authenticated/already-paid'
+    | '/_authenticated/collection-sheet'
     | '/_authenticated/conflicts'
     | '/_authenticated/ecs'
     | '/_authenticated/excluded-loans'
@@ -322,6 +334,13 @@ declare module '@tanstack/react-router' {
       path: '/already-paid'
       fullPath: '/already-paid'
       preLoaderRoute: typeof AuthenticatedAlreadyPaidRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/collection-sheet': {
+      id: '/_authenticated/collection-sheet'
+      path: '/collection-sheet'
+      fullPath: '/collection-sheet'
+      preLoaderRoute: typeof AuthenticatedCollectionSheetRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/conflicts': {
@@ -407,6 +426,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminLoanAuditRoute: typeof AuthenticatedAdminLoanAuditRoute
   AuthenticatedAlreadyPaidRoute: typeof AuthenticatedAlreadyPaidRoute
+  AuthenticatedCollectionSheetRoute: typeof AuthenticatedCollectionSheetRoute
   AuthenticatedConflictsRoute: typeof AuthenticatedConflictsRoute
   AuthenticatedEcsRoute: typeof AuthenticatedEcsRoute
   AuthenticatedExcludedLoansRoute: typeof AuthenticatedExcludedLoansRoute
@@ -422,6 +442,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminLoanAuditRoute: AuthenticatedAdminLoanAuditRoute,
   AuthenticatedAlreadyPaidRoute: AuthenticatedAlreadyPaidRoute,
+  AuthenticatedCollectionSheetRoute: AuthenticatedCollectionSheetRoute,
   AuthenticatedConflictsRoute: AuthenticatedConflictsRoute,
   AuthenticatedEcsRoute: AuthenticatedEcsRoute,
   AuthenticatedExcludedLoansRoute: AuthenticatedExcludedLoansRoute,
