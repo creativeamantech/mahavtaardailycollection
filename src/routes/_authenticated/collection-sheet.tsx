@@ -84,10 +84,25 @@ function displayValue(row: Collection, column: (typeof columns)[number]) {
   return value == null ? "" : String(value);
 }
 
+function dateFilterKey(value: string | undefined): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  const dmy = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? "" : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+}
+
 function CollectionSheetPage() {
   const fetchCollections = useServerFn(getCollections);
   const [search, setSearch] = useState("");
   const [executiveFilter, setExecutiveFilter] = useState("__all__");
+  const [paymentDateFrom, setPaymentDateFrom] = useState("");
+  const [paymentDateTo, setPaymentDateTo] = useState("");
+  const [entryDateFrom, setEntryDateFrom] = useState("");
+  const [entryDateTo, setEntryDateTo] = useState("");
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
     queryFn: async () => {
@@ -116,8 +131,14 @@ function CollectionSheetPage() {
     const matchesLoan = !search.trim()
       || (isBulkSearch ? requestedLoanIds.includes(rowLoanId) : rowLoanId.includes(normalizedQuery));
     const matchesExecutive = executiveFilter === "__all__" || String(row.executive ?? "").trim() === executiveFilter;
-    return matchesLoan && matchesExecutive;
-  }), [allRows, search, isBulkSearch, requestedLoanIds, normalizedQuery, executiveFilter]);
+    const paymentDate = dateFilterKey(row.date);
+    const entryDate = dateFilterKey(row.entryDate);
+    const matchesPaymentDate = (!paymentDateFrom || (paymentDate && paymentDate >= paymentDateFrom))
+      && (!paymentDateTo || (paymentDate && paymentDate <= paymentDateTo));
+    const matchesEntryDate = (!entryDateFrom || (entryDate && entryDate >= entryDateFrom))
+      && (!entryDateTo || (entryDate && entryDate <= entryDateTo));
+    return matchesLoan && matchesExecutive && matchesPaymentDate && matchesEntryDate;
+  }), [allRows, search, isBulkSearch, requestedLoanIds, normalizedQuery, executiveFilter, paymentDateFrom, paymentDateTo, entryDateFrom, entryDateTo]);
 
   const notFoundLoanIds = useMemo(() => {
     if (!isBulkSearch) return [];
@@ -208,6 +229,38 @@ function CollectionSheetPage() {
           {rows.length} of {allRows.length} rows
         </div>
       </div>
+
+      <section className="mt-3 grid grid-cols-1 gap-3 rounded-xl border p-3 sm:grid-cols-2" aria-label="Date range filters">
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold">Payment Date Range</h2>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1 text-xs text-muted-foreground">From
+              <Input type="date" value={paymentDateFrom} max={paymentDateTo || undefined} onChange={(event) => setPaymentDateFrom(event.target.value)} className="h-10" aria-label="Payment date from" />
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground">To
+              <Input type="date" value={paymentDateTo} min={paymentDateFrom || undefined} onChange={(event) => setPaymentDateTo(event.target.value)} className="h-10" aria-label="Payment date to" />
+            </label>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold">Entry Date Range</h2>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1 text-xs text-muted-foreground">From
+              <Input type="date" value={entryDateFrom} max={entryDateTo || undefined} onChange={(event) => setEntryDateFrom(event.target.value)} className="h-10" aria-label="Entry date from" />
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground">To
+              <Input type="date" value={entryDateTo} min={entryDateFrom || undefined} onChange={(event) => setEntryDateTo(event.target.value)} className="h-10" aria-label="Entry date to" />
+            </label>
+          </div>
+        </div>
+        {(paymentDateFrom || paymentDateTo || entryDateFrom || entryDateTo) && (
+          <div className="sm:col-span-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => {
+              setPaymentDateFrom(""); setPaymentDateTo(""); setEntryDateFrom(""); setEntryDateTo("");
+            }}>Clear date filters</Button>
+          </div>
+        )}
+      </section>
 
       {isLoading && <p className="py-8 text-center text-sm text-muted-foreground">Loading complete Collection Sheet...</p>}
       {error && (
