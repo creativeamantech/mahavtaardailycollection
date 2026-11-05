@@ -47,14 +47,6 @@ async function readUsers(): Promise<User[]> {
     .filter((u): u is User => Boolean(u?.name && u.status === "active"));
 }
 
-function authSecret(): string {
-  const secret = process.env["AUTH_TOKEN_SECRET"]?.trim();
-  if (!secret || Buffer.byteLength(secret, "utf8") < 32) {
-    throw new Error("Server authentication is not configured. Set AUTH_TOKEN_SECRET to a random secret of at least 32 characters.");
-  }
-  return secret;
-}
-
 function cookieToken() {
   return getCookie(COOKIE) ?? "";
 }
@@ -75,11 +67,13 @@ function encodePart(value: unknown): string {
   return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
 }
 
-function sign(value: string): string {
-  return createHmac("sha256", authSecret()).update(value).digest("base64url");
+function sign(value: string, pinHash: string): string {
+  // Use the user's existing PIN hash from the private Users sheet as the
+  // per-user signing key. This avoids introducing another deployment secret.
+  return createHmac("sha256", pinHash).update(value).digest("base64url");
 }
 
-function issueSignedToken(user: Pick<User, "name" | "role">): string {
+function issueSignedToken(user: Pick<User, "name" | "role" | "pin">): string {
   const now = Math.floor(Date.now() / 1000);
   const claims: AuthClaims = {
     sub: user.name,
@@ -91,19 +85,14 @@ function issueSignedToken(user: Pick<User, "name" | "role">): string {
     ver: 1,
   };
   const unsigned = encodePart({ alg: "HS256", typ: "JWT" }) + "." + encodePart(claims);
-  return unsigned + "." + sign(unsigned);
+  return unsigned + "." + sign(unsigned, user.pin);
 }
 
-function verifySignedToken(token: string): AuthClaims | null {
+function verifySignedToken(token: string, users: User[]): { claims: AuthClaims; user: User } | null {
   try {
     if (token.length > 4096) return null;
     const parts = token.split(".");
     if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return null;
-    const unsigned = parts[0] + "." + parts[1];
-    const expected = Buffer.from(sign(unsigned), "base64url");
-    const supplied = Buffer.from(parts[2], "base64url");
-    if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) return null;
-
     const header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8")) as {
       alg?: string;
       typ?: string;
@@ -125,7 +114,13 @@ function verifySignedToken(token: string): AuthClaims | null {
       claims.exp <= now ||
       claims.exp - claims.iat > AUTH_TTL_SECONDS
     ) return null;
-    return claims as AuthClaims;
+    const user = users.find((candidate) => candidate.name === claims.sub && candidate.role === claims.role);
+    if (!user?.pin) return null;
+    const unsigned = parts[0] + "." + parts[1];
+    const expected = Buffer.from(sign(unsigned, user.pin), "base64url");
+    const supplied = Buffer.from(parts[2], "base64url");
+    if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) return null;
+    return { claims: claims as AuthClaims, user };
   } catch {
     return null;
   }
@@ -205,8 +200,6 @@ export const loginWithPin = createServerFn({ method: "POST" })
     }).parse(v),
   )
   .handler(async ({ data }) => {
-    // Fail closed before authenticating if the signing secret is missing or weak.
-    authSecret();
     const keys = rateLimitKeys(data.executiveName);
     assertNotRateLimited(keys);
     const users = await readUsers();
@@ -218,7 +211,8 @@ export const loginWithPin = createServerFn({ method: "POST" })
     clearLoginFailures(keys);
     if (!user.pin.startsWith("scrypt$")) {
       const { sheetsUpdateStrict } = await import("./mahavtaar.server");
-      await sheetsUpdateStrict("Users!C" + user.rowNumber, [[hashPin(data.pin)]]);
+      user.pin = hashPin(data.pin);
+      await sheetsUpdateStrict("Users!C" + user.rowNumber, [[user.pin]]);
     }
     const token = issueSignedToken(user);
     setAuthCookie(token, AUTH_TTL_SECONDS);
@@ -228,21 +222,14 @@ export const loginWithPin = createServerFn({ method: "POST" })
 export const getCurrentSession = createServerFn({ method: "GET" }).handler(async () => {
   const token = cookieToken();
   if (!token) return null;
-  const claims = verifySignedToken(token);
-  if (!claims) {
+  // The active user's current PIN hash in the private Users sheet verifies
+  // the token signature. No AppSessions row or additional secret is needed.
+  const verified = verifySignedToken(token, await readUsers());
+  if (!verified) {
     setAuthCookie("", 0);
     return null;
   }
-  // Re-check the Users sheet so disabled users or changed roles lose access
-  // without storing or looking up a server-side session record.
-  const user = (await readUsers()).find(
-    (candidate) => candidate.name === claims.sub && candidate.role === claims.role,
-  );
-  if (!user) {
-    setAuthCookie("", 0);
-    return null;
-  }
-  return { name: user.name, role: user.role };
+  return { name: verified.user.name, role: verified.user.role };
 });
 
 export const logoutCurrentSession = createServerFn({ method: "POST" }).handler(async () => {
