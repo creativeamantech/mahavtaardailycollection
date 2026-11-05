@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Search, RefreshCw, X, Download } from "lucide-react";
 
 import { getCollections } from "@/lib/mahavtaar.functions";
+import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 import { normaliseLoanId } from "@/lib/loans";
 import { formatAmount } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ type Collection = {
   allocationDate?: string;
   alreadyPaid?: boolean;
   isValidated?: boolean;
+  isConflict?: boolean;
   linkedName?: string;
   portalUrl?: string;
 };
@@ -97,6 +99,7 @@ function dateFilterKey(value: string | undefined): string {
 
 function CollectionSheetPage() {
   const fetchCollections = useServerFn(getCollections);
+  const fetchExcludedLoanNumbers = useServerFn(getExcludedLoanNumbers);
   const [search, setSearch] = useState("");
   const [executiveFilter, setExecutiveFilter] = useState("__all__");
   const [paymentDateFrom, setPaymentDateFrom] = useState("");
@@ -115,6 +118,26 @@ function CollectionSheetPage() {
   });
 
   const allRows = useMemo(() => data ?? [], [data]);
+  const { data: excludedRecords = [], isLoading: isExcludedLoading, error: excludedError } = useQuery({
+    queryKey: ["excluded-loan-numbers"],
+    queryFn: async () => {
+      const records = await fetchExcludedLoanNumbers();
+      return Array.isArray(records) ? records : [];
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  // Active Excluded Loan Numbers are the sole source of truth for Small Cases.
+  // Never infer exclusion from either EMI amount or the collection payment amount.
+  const activeExcludedIds = useMemo(
+    () => new Set(
+      excludedRecords
+        .filter((record) => String(record.status ?? "Active").trim().toLowerCase() === "active")
+        .map((record) => normaliseLoanId(record.loanNumber))
+        .filter(Boolean),
+    ),
+    [excludedRecords],
+  );
   // Bulk IDs may be separated by newlines, commas, semicolons, or spaces.
   const requestedLoanIds = useMemo(
     () => [...new Set(search.split(/[\s,;]+/).map(normaliseLoanId).filter(Boolean))],
@@ -139,6 +162,36 @@ function CollectionSheetPage() {
       && (!entryDateTo || (entryDate && entryDate <= entryDateTo));
     return matchesLoan && matchesExecutive && matchesPaymentDate && matchesEntryDate;
   }), [allRows, search, isBulkSearch, requestedLoanIds, normalizedQuery, executiveFilter, paymentDateFrom, paymentDateTo, entryDateFrom, entryDateTo]);
+
+  // Apply the existing reporting rules to the currently visible/search-filtered rows.
+  // Category priority avoids double-counting excluded rows in the summary.
+  const summary = useMemo(() => {
+    const alreadyPaidRows = rows.filter((row) => !!row.alreadyPaid);
+    const smallCaseRows = rows.filter((row) =>
+      !row.alreadyPaid && activeExcludedIds.has(normaliseLoanId(row.loanId)),
+    );
+    const duplicateRows = rows.filter((row) =>
+      !row.alreadyPaid &&
+      !activeExcludedIds.has(normaliseLoanId(row.loanId)) &&
+      !!row.isConflict,
+    );
+    const eligibleRows = rows.filter((row) =>
+      !row.alreadyPaid &&
+      !activeExcludedIds.has(normaliseLoanId(row.loanId)) &&
+      !row.isConflict,
+    );
+    return {
+      eligibleRows,
+      eligibleAmount: eligibleRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0),
+      uniqueLoans: new Set(eligibleRows.map((row) => normaliseLoanId(row.loanId)).filter(Boolean)).size,
+      alreadyPaidCount: alreadyPaidRows.length,
+      alreadyPaidAmount: alreadyPaidRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0),
+      smallCaseCount: smallCaseRows.length,
+      smallCaseAmount: smallCaseRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0),
+      duplicateCount: duplicateRows.length,
+      duplicateAmount: duplicateRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0),
+    };
+  }, [rows, activeExcludedIds]);
 
   const notFoundLoanIds = useMemo(() => {
     if (!isBulkSearch) return [];
@@ -322,6 +375,50 @@ function CollectionSheetPage() {
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">All pasted Loan Numbers were found.</p>
           )}
+        </section>
+      )}
+      {rows.length > 0 && (
+        <section className="mt-5 rounded-xl border p-4" aria-label="Filtered collection totals">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Filtered Collection Summary</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Totals apply Already Paid, Active Excluded Loan Numbers (Small Cases), and unvalidated duplicate/conflict exclusions.
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Eligible Collection Amount</p>
+              <p className="text-xl font-bold tabular-nums">{formatAmount(summary.eligibleAmount)}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Eligible Entries</p>
+              <p className="text-lg font-semibold tabular-nums">{summary.eligibleRows.length}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Unique Loan Numbers</p>
+              <p className="text-lg font-semibold tabular-nums">{summary.uniqueLoans}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Already Paid Excluded</p>
+              <p className="text-lg font-semibold tabular-nums">{summary.alreadyPaidCount} · {formatAmount(summary.alreadyPaidAmount)}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Small Cases Excluded</p>
+              <p className="text-lg font-semibold tabular-nums">{summary.smallCaseCount} · {formatAmount(summary.smallCaseAmount)}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Duplicate / Conflict Excluded</p>
+              <p className="text-lg font-semibold tabular-nums">{summary.duplicateCount} · {formatAmount(summary.duplicateAmount)}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Total Visible Rows</p>
+              <p className="text-lg font-semibold tabular-nums">{rows.length}</p>
+            </div>
+          </div>
+          {isExcludedLoading && <p className="mt-2 text-xs text-muted-foreground">Loading Small Case exclusion list…</p>}
+          {excludedError && <p className="mt-2 text-xs text-destructive">Small Case exclusion list could not be loaded. Refresh before relying on totals.</p>}
         </section>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
