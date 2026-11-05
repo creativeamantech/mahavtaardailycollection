@@ -4,7 +4,6 @@ import ts from "typescript";
 
 const root = path.resolve("src");
 const exempt = new Set([
-  "getLoginUsers",
   "loginWithPin",
   "getCurrentSession",
   "logoutCurrentSession",
