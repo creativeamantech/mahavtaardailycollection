@@ -113,16 +113,17 @@ function CollectionSheetPage() {
 
   function downloadCsv() {
     const headers = ["#", ...columns.map((column) => column.label), "Paid Flag"];
-    const csvValue = (row: Collection, key: keyof Collection): string => {
+    const csvValue = (row: Collection, key: keyof Collection): string | number => {
       const value = row[key];
       if (value == null) return "";
       if (key === "receiptLinks") return (row.receiptLinks ?? []).join(" | ");
       if (key === "isValidated") return row.isValidated ? "VALIDATED" : "";
+      if (typeof value === "number") return value;
       return String(value);
     };
     const escapeCsv = (value: unknown) => {
       let text = String(value ?? "");
-      if (/^[=+@\- \t\r]/.test(text)) text = "'" + text;
+      if (typeof value === "string" && /^[=+@\-\t\r]/.test(text)) text = "'" + text;
       return '"' + text.replace(/"/g, '""') + '"';
     };
     const lines = [
@@ -202,8 +203,8 @@ function CollectionSheetPage() {
       )}
       {!isLoading && !error && normalizedQuery && rows.length === 0 && (
         <div className="mt-4 rounded-lg border p-8 text-center">
-          <p className="font-semibold">Loan Number Not Found</p>
-          <p className="mt-1 text-sm text-muted-foreground">No matching Loan Number exists in the complete Collection Sheet.</p>
+          <p className="font-semibold">{normalizedQuery ? "Loan Number Not Found" : "No matching rows"}</p>
+          <p className="mt-1 text-sm text-muted-foreground">No rows match the current Loan Number and Executive filters.</p>
         </div>
       )}
       {!isLoading && !error && rows.length > 0 && (
