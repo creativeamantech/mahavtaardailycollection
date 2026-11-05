@@ -2,6 +2,7 @@ import { useFeatureEnabled } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
+import { CollectionApprovalsPanel } from "@/components/CollectionApprovalsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -408,7 +409,7 @@ function EntryPage() {
       </p>
 
       <Tabs defaultValue="collection" className="mt-6 w-full">
-        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3">
+        <TabsList className={`flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${session?.role === "Admin" ? "sm:grid sm:grid-cols-4" : "sm:grid sm:grid-cols-3"}`}>
           <TabsTrigger value="collection" className="shrink-0 whitespace-nowrap px-3 text-sm">
             Collection Entry
           </TabsTrigger>
