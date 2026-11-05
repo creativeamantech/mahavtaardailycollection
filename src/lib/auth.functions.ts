@@ -30,8 +30,8 @@ type Attempt = { count: number; lockedUntil: number };
 const loginAttempts = new Map<string, Attempt>();
 
 async function readUsers(): Promise<User[]> {
-  const { sheetsGet } = await import("./mahavtaar.server");
-  const rows = await sheetsGet("Users!A2:E");
+  const { sheetsGetFresh } = await import("./mahavtaar.server");
+  const rows = await sheetsGetFresh("Users!A2:E");
   return rows
     .map((r, index): User | null => {
       const roleText = String(r[3] ?? "").trim().toLowerCase();
@@ -66,6 +66,7 @@ function setAuthCookie(value: string, maxAge: number) {
     sameSite: "strict" as const,
     path: "/",
   };
+  deleteCookie("mahavtaar_session", options); // Remove the legacy database-session cookie.
   if (value) setCookie(COOKIE, value, { ...options, maxAge });
   else deleteCookie(COOKIE, options);
 }
