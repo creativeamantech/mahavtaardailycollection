@@ -135,7 +135,7 @@ export const saveCollection = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requireSession();
     const executive = session.role === "Admin" ? data.executive : session.name;
-    const { ensureSheetStrict, sheetsAppendStrict } = await import("./mahavtaar.server");
+    const { ensureSheetStrict } = await import("./mahavtaar.server");
     const allocation = await getLoanAllocation(data.loanId);
     if (canonicalExecutive(executive) !== allocation.allocated) {
       if (session.role === "Admin") {
