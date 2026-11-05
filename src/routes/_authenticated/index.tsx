@@ -322,6 +322,27 @@ function EntryPage() {
         } as never,
       })) as { row?: number };
 
+      if ((saved as { status?: string }).status === "PENDING_APPROVAL") {
+        toast.success("Approval request Admin को भेज दी गई है। Collection अभी save नहीं हुई है।");
+        setShowConfirm(false);
+        setExecutive(session?.role === "Executive" ? session.name : "");
+        setLoanId("");
+        setAmount("");
+        setConfirmed(false);
+        setDate(today);
+        setIsPrevious(false);
+        setSettlementType("No");
+        setPrevConfirmed(false);
+        setPrevDate("");
+        pendingFiles.forEach((p) => URL.revokeObjectURL(p.preview));
+        setPendingFiles([]);
+        setReceipts([]);
+        setRemark("");
+        setUploadError("");
+        setFileKey((k) => k + 1);
+        return;
+      }
+
       if (conflicts.length > 0) {
         const rows = [
           ...conflicts.map((c) => c.row).filter((r) => r > 1),
