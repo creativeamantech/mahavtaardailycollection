@@ -4,7 +4,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { z } from "zod";
 
 const COOKIE = "mahavtaar_auth";
-const AUTH_TTL_SECONDS = 8 * 60 * 60;
+// Keep users signed in across browser restarts; users can end the session with Logout.
+const AUTH_TTL_SECONDS = 365 * 24 * 60 * 60;
 
 type User = {
   name: string;
