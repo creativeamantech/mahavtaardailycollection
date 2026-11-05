@@ -1,13 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { deleteCookie, getCookie, getRequestHeader, setCookie } from "@tanstack/react-start/server";
-import { randomBytes, scryptSync, timingSafeEqual, createHash } from "node:crypto";
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
-const COOKIE = "mahavtaar_session";
-const SESSION_TTL = 8 * 60 * 60 * 1000;
+const COOKIE = "mahavtaar_auth";
+const AUTH_TTL_SECONDS = 8 * 60 * 60;
 const SCRYPT_N = 16_384;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
+
 type User = {
   name: string;
   role: "Admin" | "Executive";
@@ -15,10 +16,17 @@ type User = {
   status: string;
   rowNumber: number;
 };
-type Session = { name: string; role: "Admin" | "Executive"; expiresAt: number; rowNumber: number };
+type AuthClaims = {
+  sub: string;
+  role: "Admin" | "Executive";
+  iat: number;
+  exp: number;
+  jti: string;
+  iss: "mahavtaar-daily-collection";
+  ver: 1;
+};
 type Attempt = { count: number; lockedUntil: number };
 
-const sessionCache = new Map<string, Session>();
 const loginAttempts = new Map<string, Attempt>();
 
 async function readUsers(): Promise<User[]> {
@@ -26,47 +34,100 @@ async function readUsers(): Promise<User[]> {
   const rows = await sheetsGet("Users!A2:E");
   return rows
     .map((r, index): User | null => {
-      const roleText = String(r[3] ?? "")
-        .trim()
-        .toLowerCase();
+      const roleText = String(r[3] ?? "").trim().toLowerCase();
       if (roleText !== "admin" && roleText !== "executive") return null;
       return {
         name: String(r[1] ?? "").trim(),
         pin: String(r[2] ?? "").trim(),
         role: roleText === "admin" ? "Admin" : "Executive",
-        status: String(r[4] ?? "")
-          .trim()
-          .toLowerCase(),
+        status: String(r[4] ?? "").trim().toLowerCase(),
         rowNumber: index + 2,
       };
     })
     .filter((u): u is User => Boolean(u?.name && u.status === "active"));
 }
 
+function authSecret(): string {
+  const secret = process.env["AUTH_TOKEN_SECRET"]?.trim();
+  if (!secret || Buffer.byteLength(secret, "utf8") < 32) {
+    throw new Error("Server authentication is not configured. Set AUTH_TOKEN_SECRET to a random secret of at least 32 characters.");
+  }
+  return secret;
+}
+
 function cookieToken() {
   return getCookie(COOKIE) ?? "";
 }
 
-function setSessionCookie(value: string, maxAge: number) {
+function setAuthCookie(value: string, maxAge: number) {
   const options = {
     httpOnly: true,
     secure: process.env["NODE_ENV"] === "production",
     sameSite: "strict" as const,
     path: "/",
   };
-  if (value) {
-    setCookie(COOKIE, value, { ...options, maxAge });
-  } else {
-    deleteCookie(COOKIE, options);
+  if (value) setCookie(COOKIE, value, { ...options, maxAge });
+  else deleteCookie(COOKIE, options);
+}
+
+function encodePart(value: unknown): string {
+  return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+}
+
+function sign(value: string): string {
+  return createHmac("sha256", authSecret()).update(value).digest("base64url");
+}
+
+function issueSignedToken(user: Pick<User, "name" | "role">): string {
+  const now = Math.floor(Date.now() / 1000);
+  const claims: AuthClaims = {
+    sub: user.name,
+    role: user.role,
+    iat: now,
+    exp: now + AUTH_TTL_SECONDS,
+    jti: randomBytes(16).toString("hex"),
+    iss: "mahavtaar-daily-collection",
+    ver: 1,
+  };
+  const unsigned = encodePart({ alg: "HS256", typ: "JWT" }) + "." + encodePart(claims);
+  return unsigned + "." + sign(unsigned);
+}
+
+function verifySignedToken(token: string): AuthClaims | null {
+  try {
+    if (token.length > 4096) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return null;
+    const unsigned = parts[0] + "." + parts[1];
+    const expected = Buffer.from(sign(unsigned), "base64url");
+    const supplied = Buffer.from(parts[2], "base64url");
+    if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) return null;
+
+    const header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8")) as {
+      alg?: string;
+      typ?: string;
+    };
+    const claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as Partial<AuthClaims>;
+    const now = Math.floor(Date.now() / 1000);
+    if (
+      header.alg !== "HS256" ||
+      header.typ !== "JWT" ||
+      claims.iss !== "mahavtaar-daily-collection" ||
+      claims.ver !== 1 ||
+      typeof claims.sub !== "string" ||
+      !claims.sub.trim() ||
+      (claims.role !== "Admin" && claims.role !== "Executive") ||
+      typeof claims.iat !== "number" ||
+      typeof claims.exp !== "number" ||
+      typeof claims.jti !== "string" ||
+      claims.iat > now + 60 ||
+      claims.exp <= now ||
+      claims.exp - claims.iat > AUTH_TTL_SECONDS
+    ) return null;
+    return claims as AuthClaims;
+  } catch {
+    return null;
   }
-}
-
-async function digest(value: string) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function randomToken() {
-  return randomBytes(32).toString("hex");
 }
 
 function hashPin(pin: string) {
@@ -77,9 +138,7 @@ function hashPin(pin: string) {
     p: SCRYPT_P,
     maxmem: 64 * 1024 * 1024,
   });
-  return ["scrypt", SCRYPT_N, SCRYPT_R, SCRYPT_P, salt.toString("hex"), hash.toString("hex")].join(
-    "$",
-  );
+  return ["scrypt", SCRYPT_N, SCRYPT_R, SCRYPT_P, salt.toString("hex"), hash.toString("hex")].join("$");
 }
 
 function verifyPin(pin: string, stored: string) {
@@ -102,16 +161,11 @@ function verifyPin(pin: string, stored: string) {
 }
 
 function rateLimitKeys(userName: string) {
-  // Prefer the edge-provided client address. If unavailable, use the final
-  // proxy-added X-Forwarded-For hop rather than a client-supplied first value.
   const forwarded = (getRequestHeader("x-forwarded-for") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  const ip =
-    getRequestHeader("cf-connecting-ip")?.trim() ||
-    forwarded.at(-1) ||
-    "unknown";
+  const ip = getRequestHeader("cf-connecting-ip")?.trim() || forwarded.at(-1) || "unknown";
   return ["user:" + userName.toLowerCase(), "ip:" + ip];
 }
 
@@ -138,56 +192,20 @@ function clearLoginFailures(keys: string[]) {
   for (const key of keys) loginAttempts.delete(key);
 }
 
-async function refreshSessionCache() {
-  // Never trust an isolate-local session cache for authentication. A login
-  // and the next request can execute on different Cloudflare instances.
-  const { sheetsGetFresh } = await import("./mahavtaar.server");
-  const rows = await sheetsGetFresh("AppSessions!A2:F");
-  const next = new Map<string, Session>();
-  const now = Date.now();
-  rows.forEach((row, index) => {
-    const tokenHash = String(row[0] ?? "");
-    const name = String(row[1] ?? "").trim();
-    const role = String(row[2] ?? "").trim();
-    const expiresAt = Date.parse(String(row[4] ?? ""));
-    const revoked =
-      String(row[5] ?? "")
-        .trim()
-        .toLowerCase() === "yes";
-    if (
-      tokenHash &&
-      name &&
-      (role === "Admin" || role === "Executive") &&
-      !revoked &&
-      expiresAt > now
-    ) {
-      next.set(tokenHash, { name, role, expiresAt, rowNumber: index + 2 });
-    }
-  });
-  sessionCache.clear();
-  for (const [key, value] of next) sessionCache.set(key, value);
-}
-
-async function revokeSessionHash(tokenHash: string) {
-  await refreshSessionCache();
-  const session = sessionCache.get(tokenHash);
-  if (!session) return;
-  const { sheetsUpdateStrict } = await import("./mahavtaar.server");
-  await sheetsUpdateStrict("AppSessions!F" + session.rowNumber, [["Yes"]]);
-  sessionCache.delete(tokenHash);
-}
-
 export const getLoginUsers = createServerFn({ method: "GET" }).handler(async () => {
   return (await readUsers()).map(({ name }) => name).sort((a, b) => a.localeCompare(b));
 });
 
 export const loginWithPin = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) =>
-    z
-      .object({ executiveName: z.string().trim().min(1).max(100), pin: z.string().min(1).max(100) })
-      .parse(v),
+    z.object({
+      executiveName: z.string().trim().min(1).max(100),
+      pin: z.string().min(1).max(100),
+    }).parse(v),
   )
   .handler(async ({ data }) => {
+    // Fail closed before authenticating if the signing secret is missing or weak.
+    authSecret();
     const keys = rateLimitKeys(data.executiveName);
     assertNotRateLimited(keys);
     const users = await readUsers();
@@ -201,53 +219,35 @@ export const loginWithPin = createServerFn({ method: "POST" })
       const { sheetsUpdateStrict } = await import("./mahavtaar.server");
       await sheetsUpdateStrict("Users!C" + user.rowNumber, [[hashPin(data.pin)]]);
     }
-    const existingToken = cookieToken();
-    if (existingToken) await revokeSessionHash(await digest(existingToken));
-    const token = randomToken();
-    const tokenHash = await digest(token);
-    const now = new Date();
-    const expires = new Date(now.getTime() + SESSION_TTL);
-    const { ensureSheetStrict, sheetsAppendStrict } = await import("./mahavtaar.server");
-    await ensureSheetStrict("AppSessions", [
-      "Token_Hash",
-      "Executive_Name",
-      "Role",
-      "Created_At",
-      "Expires_At",
-      "Revoked",
-    ]);
-    await sheetsAppendStrict("AppSessions!A:F", [
-      [tokenHash, user.name, user.role, now.toISOString(), expires.toISOString(), "No"],
-    ]);
-    await refreshSessionCache();
-    setSessionCookie(token, SESSION_TTL / 1000);
+    const token = issueSignedToken(user);
+    setAuthCookie(token, AUTH_TTL_SECONDS);
     return { name: user.name, role: user.role };
   });
 
 export const getCurrentSession = createServerFn({ method: "GET" }).handler(async () => {
   const token = cookieToken();
   if (!token) return null;
-  const hash = await digest(token);
-  await refreshSessionCache();
-  const session = sessionCache.get(hash);
-  if (!session || session.expiresAt <= Date.now()) {
-    if (session) sessionCache.delete(hash);
+  const claims = verifySignedToken(token);
+  if (!claims) {
+    setAuthCookie("", 0);
     return null;
   }
+  // Re-check the Users sheet so disabled users or changed roles lose access
+  // without storing or looking up a server-side session record.
   const user = (await readUsers()).find(
-    (candidate) => candidate.name === session.name && candidate.role === session.role,
+    (candidate) => candidate.name === claims.sub && candidate.role === claims.role,
   );
   if (!user) {
-    sessionCache.delete(hash);
+    setAuthCookie("", 0);
     return null;
   }
   return { name: user.name, role: user.role };
 });
 
 export const logoutCurrentSession = createServerFn({ method: "POST" }).handler(async () => {
-  const token = cookieToken();
-  if (token) await revokeSessionHash(await digest(token));
-  setSessionCookie("", 0);
+  // Stateless tokens cannot be individually revoked. Logout removes this
+  // browser's HttpOnly cookie; any copied token expires within eight hours.
+  setAuthCookie("", 0);
   return { ok: true as const };
 });
 
