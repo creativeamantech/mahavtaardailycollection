@@ -141,8 +141,16 @@ export async function readCashierLinkActivities(): Promise<{
 }
 
 export const getCashierLinkData = createServerFn({ method: "GET" }).handler(async () => {
-  await requireSession();
-  return await readCashierLinkActivities();
+  const session = await requireSession();
+  const data = await readCashierLinkActivities();
+  if (session.role === "Admin") return data;
+  const ownActivities = data.activities.filter((activity) => activity.executive === session.name);
+  const ownStatus = data.executiveStatuses[session.name];
+  return {
+    activities: ownActivities,
+    executiveStatuses: ownStatus ? { [session.name]: ownStatus } : {},
+    activeCount: ownStatus?.isOnline ? 1 : 0,
+  };
 });
 
 const actionSchema = z.object({
