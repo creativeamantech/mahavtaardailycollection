@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EXECUTIVES, formatAmount, nowTime, todayISO } from "@/lib/executives";
 import { getEcsEntries, saveEcsEntry, updateEcsEntry } from "@/lib/ecs.functions";
+import { getCurrentSession } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,6 +92,16 @@ function EcsForm() {
   const today = todayISO();
   const yesterday = todayISO(new Date(Date.now() - 86400000));
   const [executive, setExecutive] = useState("");
+  const getSession = useServerFn(getCurrentSession);
+  const { data: session, isLoading: sessionLoading } = useQuery({
+    queryKey: ["auth-session"],
+    queryFn: () => getSession(),
+    staleTime: 30_000,
+  });
+  useEffect(() => {
+    if (session?.role === "Executive") setExecutive(session.name);
+    else if (session?.role === "Admin") setExecutive("");
+  }, [session]);
   const [loanId, setLoanId] = useState("");
   const [amount, setAmount] = useState("");
   const [paymentType, setPaymentType] = useState<"ECS" | "Special">("ECS");
@@ -138,7 +149,7 @@ function EcsForm() {
       await save({ data: entry as never });
       setSlip(entry);
       setShowConfirm(false);
-      setExecutive("");
+      setExecutive(session?.role === "Executive" ? session.name : "");
       setLoanId("");
       setAmount("");
       setPaymentType("ECS");
@@ -190,18 +201,24 @@ function EcsForm() {
       <div className="space-y-5 rounded-xl border p-4">
         <div className="space-y-2">
           <Label className="text-base">Executive Name</Label>
-          <Select value={executive} onValueChange={setExecutive}>
-            <SelectTrigger className="h-12 text-base">
-              <SelectValue placeholder="Select executive" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXECUTIVES.map((e) => (
-                <SelectItem key={e} value={e} className="text-base">
-                  {e}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {session?.role === "Admin" ? (
+            <Select value={executive} onValueChange={setExecutive}>
+              <SelectTrigger className="h-12 text-base">
+                <SelectValue placeholder="Select executive" />
+              </SelectTrigger>
+              <SelectContent>
+                {EXECUTIVES.map((e) => (
+                  <SelectItem key={e} value={e} className="text-base">
+                    {e}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex h-12 items-center rounded-md border bg-muted px-3 text-base">
+              {sessionLoading ? "Loading logged-in executive..." : executive || session?.name || "Executive not available"}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
