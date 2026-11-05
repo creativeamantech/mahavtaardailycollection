@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getLoginUsers, loginWithPin } from "@/lib/auth.functions";
+import { loginWithPin } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,18 +14,26 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+// Keep the login dropdown independent of Google Sheets API reads.
+const EXECUTIVE_NAMES = [
+  "Pooja",
+  "Ankita",
+  "Aarti",
+  "Vinita",
+  "Bharti",
+  "Julee",
+  "Sunanda",
+  "Shikha",
+  "Sona",
+  "Admin",
+] as const;
+
 export function LoginScreen() {
   const [executiveName, setExecutiveName] = useState("");
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const qc = useQueryClient();
-  const loadUsers = useServerFn(getLoginUsers);
   const login = useServerFn(loginWithPin);
-  const { data: users = [], isLoading } = useQuery({
-    queryKey: ["login-users"],
-    queryFn: () => loadUsers(),
-    staleTime: 30_000,
-  });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,13 +66,13 @@ export function LoginScreen() {
           <Select
             value={executiveName}
             onValueChange={setExecutiveName}
-            disabled={isLoading || busy}
+            disabled={busy}
           >
             <SelectTrigger>
-              <SelectValue placeholder={isLoading ? "Loading users..." : "Select executive"} />
+              <SelectValue placeholder="Select executive" />
             </SelectTrigger>
             <SelectContent>
-              {users.map((name) => (
+              {EXECUTIVE_NAMES.map((name) => (
                 <SelectItem key={name} value={name}>
                   {name}
                 </SelectItem>
@@ -87,7 +95,7 @@ export function LoginScreen() {
         <Button
           type="submit"
           className="w-full"
-          disabled={!executiveName || !pin || busy || isLoading}
+          disabled={!executiveName || !pin || busy}
         >
           {busy ? "Signing in..." : "Login"}
         </Button>
