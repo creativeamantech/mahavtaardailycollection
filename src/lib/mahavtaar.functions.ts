@@ -84,12 +84,12 @@ const allocationApprovalHeaders = [
 ];
 
 function canonicalExecutive(value: unknown) {
-  return String(value ?? "").trim().replace(/^mahavtaar\\s*-\\s*/i, "").trim().toLowerCase();
+  return String(value ?? "").trim().replace(/^mahavtaar\s*-\s*/i, "").trim().toLowerCase();
 }
 
 async function getLoanAllocation(loanId: string) {
-  const { sheetsGet } = await import("./mahavtaar.server");
-  const rows = await sheetsGet("Sheet1!A2:P");
+  const { sheetsGetFresh } = await import("./mahavtaar.server");
+  const rows = await sheetsGetFresh("Sheet1!A2:P");
   const target = loanId.trim().toUpperCase();
   const row = rows.find((r) => String(r[0] ?? "").trim().replace(/^['`]+/, "").toUpperCase() === target);
   if (!row) throw new Error("Loan ID Sheet1 में नहीं मिला। Entry नहीं की जा सकती।");
@@ -122,7 +122,7 @@ async function appendApprovedCollection(payload: z.infer<typeof entrySchema>, ex
     executive, payload.loanId, payload.amount, payload.date, payload.time,
     new Date().toISOString(), "Confirmed", entryDate, payload.entryType, settlementValue,
   ]]) as { updates?: { updatedRange?: string } };
-  const rowNum = Number(/![A-Z]+(\\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+  const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
   if (rowNum > 0 && (payload.receiptLinks.length || payload.remark || payload.amansRemarks)) {
     await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [[payload.receiptLinks.join(" | "), payload.remark]]);
     if (payload.amansRemarks) await sheetsUpdateStrict(`Collections!S${rowNum}`, [[payload.amansRemarks]]);
@@ -147,7 +147,7 @@ export const saveCollection = createServerFn({ method: "POST" })
         new Date().toISOString(), "PENDING", session.name, allocation.allocatedRaw,
         data.loanId, allocation.emi, allocation.pos, data.amount, JSON.stringify(payload), "", "", "",
       ]]) as { updates?: { updatedRange?: string } };
-      const row = Number(/![A-Z]+(\\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+      const row = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
       return { ok: true as const, status: "PENDING_APPROVAL" as const, requestRow: row, allocatedExecutive: allocation.allocatedRaw };
     }
     const rowNum = await appendApprovedCollection(data, executive);
@@ -248,7 +248,7 @@ const allocationApprovalHeaders = [
 ];
 
 function canonicalExecutive(value: unknown) {
-  return String(value ?? "").trim().replace(/^mahavtaar\\s*-\\s*/i, "").trim().toLowerCase();
+  return String(value ?? "").trim().replace(/^mahavtaar\s*-\s*/i, "").trim().toLowerCase();
 }
 
 async function getLoanAllocation(loanId: string) {
@@ -286,7 +286,7 @@ async function appendApprovedCollection(payload: z.infer<typeof entrySchema>, ex
     executive, payload.loanId, payload.amount, payload.date, payload.time,
     new Date().toISOString(), "Confirmed", entryDate, payload.entryType, settlementValue,
   ]]) as { updates?: { updatedRange?: string } };
-  const rowNum = Number(/![A-Z]+(\\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+  const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
   if (rowNum > 0 && (payload.receiptLinks.length || payload.remark || payload.amansRemarks)) {
     await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [[payload.receiptLinks.join(" | "), payload.remark]]);
     if (payload.amansRemarks) await sheetsUpdateStrict(`Collections!S${rowNum}`, [[payload.amansRemarks]]);
