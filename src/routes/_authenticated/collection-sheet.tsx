@@ -388,9 +388,16 @@ function CollectionSheetPage() {
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Eligible Collection Amount</p>
-              <p className="text-xl font-bold tabular-nums">{formatAmount(summary.eligibleAmount)}</p>
+              <p className="text-xl font-bold tabular-nums">
+                {isExcludedLoading ? "Loading…" : excludedError ? "Unavailable" : formatAmount(summary.eligibleAmount)}
+              </p>
             </div>
           </div>
+          {isExcludedLoading ? (
+            <p className="mt-3 text-sm text-muted-foreground">Loading the active Small Case exclusion list before calculating totals…</p>
+          ) : excludedError ? (
+            <p className="mt-3 text-sm text-destructive">The exclusion list could not be loaded. Totals are withheld to avoid counting Small Cases incorrectly. Refresh and try again.</p>
+          ) : (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Eligible Entries</p>
@@ -417,8 +424,7 @@ function CollectionSheetPage() {
               <p className="text-lg font-semibold tabular-nums">{rows.length}</p>
             </div>
           </div>
-          {isExcludedLoading && <p className="mt-2 text-xs text-muted-foreground">Loading Small Case exclusion list…</p>}
-          {excludedError && <p className="mt-2 text-xs text-destructive">Small Case exclusion list could not be loaded. Refresh before relying on totals.</p>}
+          )}
         </section>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
