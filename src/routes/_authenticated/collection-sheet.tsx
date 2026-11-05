@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Search, RefreshCw, X } from "lucide-react";
+import { Search, RefreshCw, X, Download } from "lucide-react";
 
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { normaliseLoanId } from "@/lib/loans";
@@ -87,6 +87,7 @@ function displayValue(row: Collection, column: (typeof columns)[number]) {
 function CollectionSheetPage() {
   const fetchCollections = useServerFn(getCollections);
   const [search, setSearch] = useState("");
+  const [executiveFilter, setExecutiveFilter] = useState("__all__");
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["collections"],
     queryFn: async () => {
@@ -100,10 +101,49 @@ function CollectionSheetPage() {
 
   const allRows = useMemo(() => data ?? [], [data]);
   const normalizedQuery = normaliseLoanId(search);
-  const rows = useMemo(() => {
-    if (!normalizedQuery) return allRows;
-    return allRows.filter((row) => normaliseLoanId(row.loanId).includes(normalizedQuery));
-  }, [allRows, normalizedQuery]);
+  const executives = useMemo(
+    () => [...new Set(allRows.map((row) => String(row.executive ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [allRows],
+  );
+  const rows = useMemo(() => allRows.filter((row) => {
+    const matchesLoan = !normalizedQuery || normaliseLoanId(row.loanId).includes(normalizedQuery);
+    const matchesExecutive = executiveFilter === "__all__" || String(row.executive ?? "").trim() === executiveFilter;
+    return matchesLoan && matchesExecutive;
+  }), [allRows, normalizedQuery, executiveFilter]);
+
+  function downloadCsv() {
+    const headers = ["#", ...columns.map((column) => column.label), "Paid Flag"];
+    const csvValue = (row: Collection, key: keyof Collection): string | number => {
+      const value = row[key];
+      if (value == null) return "";
+      if (key === "receiptLinks") return (row.receiptLinks ?? []).join(" | ");
+      if (key === "isValidated") return row.isValidated ? "VALIDATED" : "";
+      if (typeof value === "number") return value;
+      return String(value);
+    };
+    const escapeCsv = (value: unknown) => {
+      let text = String(value ?? "");
+      if (typeof value === "string" && /^[=+@\-\t\r]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const lines = [
+      headers.map(escapeCsv).join(","),
+      ...rows.map((row, index) => [
+        row.row ?? index + 1,
+        ...columns.map((column) => csvValue(row, column.key)),
+        row.alreadyPaid ? "Already Paid" : "",
+      ].map(escapeCsv).join(",")),
+    ];
+    const blob = new Blob(["\uFEFF", lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "collection-sheet.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <main className="mx-auto w-full max-w-[1600px] px-3 pb-16 pt-6 sm:px-4">
@@ -137,10 +177,21 @@ function CollectionSheetPage() {
             </button>
           )}
         </div>
+        <select
+          value={executiveFilter}
+          onChange={(event) => setExecutiveFilter(event.target.value)}
+          aria-label="Filter by Executive"
+          className="h-11 min-w-[190px] rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="__all__">All Executives</option>
+          {executives.map((executive) => <option key={executive} value={executive}>{executive}</option>)}
+        </select>
+        <Button variant="outline" className="h-11" onClick={downloadCsv} disabled={rows.length === 0}>
+          <Download className="mr-2 h-4 w-4" />
+          Download CSV
+        </Button>
         <div className="flex items-center text-sm text-muted-foreground" aria-live="polite">
-          {normalizedQuery
-            ? `${rows.length} match(es) in ${allRows.length} total rows`
-            : `${allRows.length} total rows`}
+          {rows.length} of {allRows.length} rows
         </div>
       </div>
 
@@ -152,8 +203,8 @@ function CollectionSheetPage() {
       )}
       {!isLoading && !error && normalizedQuery && rows.length === 0 && (
         <div className="mt-4 rounded-lg border p-8 text-center">
-          <p className="font-semibold">Loan Number Not Found</p>
-          <p className="mt-1 text-sm text-muted-foreground">No matching Loan Number exists in the complete Collection Sheet.</p>
+          <p className="font-semibold">{normalizedQuery ? "Loan Number Not Found" : "No matching rows"}</p>
+          <p className="mt-1 text-sm text-muted-foreground">No rows match the current Loan Number and Executive filters.</p>
         </div>
       )}
       {!isLoading && !error && rows.length > 0 && (
