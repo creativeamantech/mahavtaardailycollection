@@ -147,7 +147,7 @@ export const saveCollection = createServerFn({ method: "POST" })
         new Date().toISOString(), "PENDING", session.name, allocation.allocatedRaw,
         data.loanId, allocation.emi, allocation.pos, data.amount, JSON.stringify(payload), "", "", "",
       ]]) as { updates?: { updatedRange?: string } };
-      const row = Number(/![A-Z]+(\\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+      const row = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
       return { ok: true as const, status: "PENDING_APPROVAL" as const, requestRow: row, allocatedExecutive: allocation.allocatedRaw };
     }
     const rowNum = await appendApprovedCollection(data, executive);
