@@ -1497,6 +1497,7 @@ function ReportPage() {
       rawRows.filter(
         (r) =>
           !r.alreadyPaid &&
+          !r.isConflict &&
           !excludedLoanIds.has(
             String(r.loanId ?? "")
               .trim()
@@ -1578,6 +1579,8 @@ function ReportPage() {
     () =>
       rawRows.filter(
         (r) =>
+          !r.alreadyPaid &&
+          !r.isConflict &&
           !excludedLoanIds.has(
             String(r.loanId ?? "")
               .trim()
@@ -1595,6 +1598,8 @@ function ReportPage() {
     () =>
       rawRows.filter(
         (r) =>
+          !r.alreadyPaid &&
+          !r.isConflict &&
           !excludedLoanIds.has(
             String(r.loanId ?? "")
               .trim()
@@ -1738,6 +1743,43 @@ function ReportPage() {
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} />
+          <details className="overflow-hidden rounded-xl border">
+            <summary className="cursor-pointer bg-muted/40 px-4 py-3 font-semibold">
+              Loan-wise Details ({overallRows.length} eligible entries · {new Set(overallRows.map((r) => String(r.loanId ?? "").trim().toUpperCase()).filter(Boolean)).size} unique loans)
+            </summary>
+            <div className="max-h-[600px] overflow-auto">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="sticky top-0 bg-muted">
+                  <tr>
+                    <th className="p-2 text-left">Loan Number</th>
+                    <th className="p-2 text-left">Executive</th>
+                    <th className="p-2 text-right">Amount</th>
+                    <th className="p-2 text-left">Payment Date</th>
+                    <th className="p-2 text-left">Bucket</th>
+                    <th className="p-2 text-left">City</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overallRows.map((r, index) => (
+                    <tr key={`${r.row ?? index}-${r.loanId ?? ""}`} className="border-t">
+                      <td className="p-2 font-medium">{r.loanId || "—"}</td>
+                      <td className="p-2">{r.executive}</td>
+                      <td className="p-2 text-right tabular-nums">{formatAmount(r.amount)}</td>
+                      <td className="p-2">{r.date}</td>
+                      <td className="p-2">{r.bucket || "—"}</td>
+                      <td className="p-2">{r.city || "—"}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 bg-muted/50 font-bold">
+                    <td className="p-2">TOTAL</td>
+                    <td className="p-2" />
+                    <td className="p-2 text-right">{formatAmount(overallRows.reduce((sum, r) => sum + Number(r.amount || 0), 0))}</td>
+                    <td className="p-2" colSpan={3}>{overallRows.length} entries</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
           <ExportButton
             rows={overallExportRows}
             fullRows={rawRows}
