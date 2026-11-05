@@ -195,7 +195,7 @@ function AppShell() {
   if (isLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Loading session...
+        Verifying authentication...
       </main>
     );
   }
@@ -206,7 +206,7 @@ function AppShell() {
       await logout();
       await qc.invalidateQueries();
     } catch {
-      // Expired sessions are also cleared by the server on the next login.
+      // The browser cookie is cleared by the server; stateless tokens expire automatically.
       await qc.invalidateQueries({ queryKey: ["auth-session"] });
     }
   }

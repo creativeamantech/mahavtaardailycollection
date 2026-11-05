@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EXECUTIVES, formatAmount } from "@/lib/executives";
+import { getCurrentSession } from "@/lib/auth.functions";
 
 import { getPending, markPendingDone, savePending } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,16 @@ function PendingPage() {
   const done = useServerFn(markPendingDone);
 
   const [executive, setExecutive] = useState("");
+  const getSession = useServerFn(getCurrentSession);
+  const { data: session, isLoading: sessionLoading } = useQuery({
+    queryKey: ["auth-session"],
+    queryFn: () => getSession(),
+    staleTime: 30_000,
+  });
+  useEffect(() => {
+    if (session?.role === "Executive") setExecutive(session.name);
+    else if (session?.role === "Admin") setExecutive("");
+  }, [session]);
   const [loanNumber, setLoanNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -102,7 +113,7 @@ function PendingPage() {
     onSuccess: () => {
       toast.success("Pending receipt saved");
       setShowConfirm(false);
-      setExecutive("");
+      setExecutive(session?.role === "Executive" ? session.name : "");
       setLoanNumber("");
       setAmount("");
       setFiles([]);
@@ -138,18 +149,24 @@ function PendingPage() {
       <div className="mt-6 space-y-5 rounded-xl border p-4">
         <div className="space-y-2">
           <Label className="text-base">Executive Name</Label>
-          <Select value={executive} onValueChange={setExecutive}>
-            <SelectTrigger className="h-12 text-base">
-              <SelectValue placeholder="Select executive" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXECUTIVES.map((e) => (
-                <SelectItem key={e} value={e} className="text-base">
-                  {e}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {session?.role === "Admin" ? (
+            <Select value={executive} onValueChange={setExecutive}>
+              <SelectTrigger className="h-12 text-base">
+                <SelectValue placeholder="Select executive" />
+              </SelectTrigger>
+              <SelectContent>
+                {EXECUTIVES.map((e) => (
+                  <SelectItem key={e} value={e} className="text-base">
+                    {e}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex h-12 items-center rounded-md border bg-muted px-3 text-base">
+              {sessionLoading ? "Loading logged-in executive..." : executive || session?.name || "Executive not available"}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
