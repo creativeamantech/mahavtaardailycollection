@@ -300,8 +300,8 @@ export function CashierLinkPanel({
           </Button>
         </div>
 
-        {/* Quick Executive Status Avatars/Pills */}
-        <div className="pt-1 border-t">
+        {/* Admin-only executive switching controls */}
+        {session?.role === "Admin" && <div className="pt-1 border-t">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
             <span className="font-medium flex items-center gap-1">
               <Users className="h-3.5 w-3.5" />
@@ -343,7 +343,7 @@ export function CashierLinkPanel({
               );
             })}
           </div>
-        </div>
+        </div>}
 
         {/* Recent Activity History Feed */}
         <div className="pt-2 border-t space-y-2">
@@ -353,7 +353,7 @@ export function CashierLinkPanel({
               Activity History
             </span>
 
-            <Select value={historyFilter} onValueChange={setHistoryFilter}>
+            {session?.role === "Admin" && <Select value={historyFilter} onValueChange={setHistoryFilter}>
               <SelectTrigger className="h-7 w-28 text-[11px]">
                 <SelectValue />
               </SelectTrigger>
@@ -367,7 +367,7 @@ export function CashierLinkPanel({
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
+            </Select>}
           </div>
 
           {isLoading ? (
