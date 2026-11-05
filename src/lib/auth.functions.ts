@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { deleteCookie, getCookie, getRequestHeader, setCookie } from "@tanstack/react-start/server";
+import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
 import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
@@ -13,8 +13,6 @@ type User = {
   name: string;
   role: "Admin" | "Executive";
   pin: string;
-  status: string;
-  rowNumber: number;
 };
 type AuthClaims = {
   sub: string;
@@ -25,28 +23,27 @@ type AuthClaims = {
   iss: "mahavtaar-daily-collection";
   ver: 1;
 };
-type Attempt = { count: number; lockedUntil: number };
-
-const loginAttempts = new Map<string, Attempt>();
-
-async function readUsers(): Promise<User[]> {
-  const { sheetsGetFresh } = await import("./mahavtaar.server");
-  const rows = await sheetsGetFresh("Users!A2:E");
-  return rows
-    .map((r, index): User | null => {
-      const roleText = String(r[3] ?? "").trim().toLowerCase();
-      if (roleText !== "admin" && roleText !== "executive") return null;
-      return {
-        name: String(r[1] ?? "").trim(),
-        pin: String(r[2] ?? "").trim(),
-        role: roleText === "admin" ? "Admin" : "Executive",
-        status: String(r[4] ?? "").trim().toLowerCase(),
-        rowNumber: index + 2,
-      };
-    })
-    .filter((u): u is User => Boolean(u?.name && u.status === "active"));
+function readUsers(): User[] {
+  const raw = process.env["LOGIN_CREDENTIALS"];
+  if (!raw?.trim()) throw new Error("LOGIN_CREDENTIALS secret is not configured.");
+  const users: User[] = [];
+  const seen = new Set<string>();
+  for (const [index, line] of raw.split(/\r?\n/).entries()) {
+    const entry = line.trim();
+    if (!entry) continue;
+    const parts = entry.split("_");
+    if (parts.length !== 3) throw new Error("Invalid LOGIN_CREDENTIALS entry on line " + (index + 1) + ".");
+    const [name, roleText, pin] = parts.map((part) => part.trim());
+    const role = roleText?.toLowerCase();
+    if (!name || !pin || (role !== "admin" && role !== "executive")) throw new Error("Invalid LOGIN_CREDENTIALS entry on line " + (index + 1) + ".");
+    const key = name.toLowerCase();
+    if (seen.has(key)) throw new Error("Duplicate user in LOGIN_CREDENTIALS: " + name + ".");
+    seen.add(key);
+    users.push({ name, role: role === "admin" ? "Admin" : "Executive", pin });
+  }
+  if (!users.length) throw new Error("LOGIN_CREDENTIALS contains no users.");
+  return users;
 }
-
 function cookieToken() {
   return getCookie(COOKIE) ?? "";
 }
@@ -67,10 +64,8 @@ function encodePart(value: unknown): string {
   return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
 }
 
-function sign(value: string, pinHash: string): string {
-  // Use the user's existing PIN hash from the private Users sheet as the
-  // per-user signing key. This avoids introducing another deployment secret.
-  return createHmac("sha256", pinHash).update(value).digest("base64url");
+function sign(value: string, pin: string): string {
+  return createHmac("sha256", pin).update(value).digest("base64url");
 }
 
 function issueSignedToken(user: Pick<User, "name" | "role" | "pin">): string {
@@ -126,66 +121,10 @@ function verifySignedToken(token: string, users: User[]): { claims: AuthClaims; 
   }
 }
 
-function hashPin(pin: string) {
-  const salt = randomBytes(16);
-  const hash = scryptSync(pin, salt, 64, {
-    N: SCRYPT_N,
-    r: SCRYPT_R,
-    p: SCRYPT_P,
-    maxmem: 64 * 1024 * 1024,
-  });
-  return ["scrypt", SCRYPT_N, SCRYPT_R, SCRYPT_P, salt.toString("hex"), hash.toString("hex")].join("$");
-}
-
 function verifyPin(pin: string, stored: string) {
-  if (stored.startsWith("scrypt$")) {
-    const [, n, r, p, saltHex, hashHex] = stored.split("$");
-    if (!n || !r || !p || !saltHex || !hashHex) return false;
-    const expected = Buffer.from(hashHex, "hex");
-    if (expected.length !== 64) return false;
-    const actual = scryptSync(pin, Buffer.from(saltHex, "hex"), 64, {
-      N: Number(n),
-      r: Number(r),
-      p: Number(p),
-      maxmem: 64 * 1024 * 1024,
-    });
-    return timingSafeEqual(actual, expected);
-  }
   const expected = createHash("sha256").update(stored).digest();
   const actual = createHash("sha256").update(pin).digest();
   return timingSafeEqual(actual, expected);
-}
-
-function rateLimitKeys(userName: string) {
-  const forwarded = (getRequestHeader("x-forwarded-for") ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const ip = getRequestHeader("cf-connecting-ip")?.trim() || forwarded.at(-1) || "unknown";
-  return ["user:" + userName.toLowerCase(), "ip:" + ip];
-}
-
-function assertNotRateLimited(keys: string[]) {
-  const now = Date.now();
-  for (const key of keys) {
-    const attempt = loginAttempts.get(key);
-    if (attempt && attempt.lockedUntil > now)
-      throw new Error("Too many login attempts. Please wait before trying again.");
-  }
-}
-
-function recordFailedLogin(keys: string[]) {
-  const now = Date.now();
-  for (const key of keys) {
-    const previous = loginAttempts.get(key) ?? { count: 0, lockedUntil: 0 };
-    const count = previous.count + 1;
-    const delay = count < 5 ? 0 : Math.min(15 * 60_000, 30_000 * 2 ** (count - 5));
-    loginAttempts.set(key, { count, lockedUntil: now + delay });
-  }
-}
-
-function clearLoginFailures(keys: string[]) {
-  for (const key of keys) loginAttempts.delete(key);
 }
 
 export const loginWithPin = createServerFn({ method: "POST" })
@@ -196,20 +135,10 @@ export const loginWithPin = createServerFn({ method: "POST" })
     }).parse(v),
   )
   .handler(async ({ data }) => {
-    const keys = rateLimitKeys(data.executiveName);
-    assertNotRateLimited(keys);
-    const users = await readUsers();
+    const users = readUsers();
     const user = users.find((candidate) => candidate.name === data.executiveName);
-    if (!user || !user.pin || !verifyPin(data.pin, user.pin)) {
-      recordFailedLogin(keys);
+    if (!user || !verifyPin(data.pin, user.pin))
       throw new Error("Executive name or PIN is incorrect.");
-    }
-    clearLoginFailures(keys);
-    if (!user.pin.startsWith("scrypt$")) {
-      const { sheetsUpdateStrict } = await import("./mahavtaar.server");
-      user.pin = hashPin(data.pin);
-      await sheetsUpdateStrict("Users!C" + user.rowNumber, [[user.pin]]);
-    }
     const token = issueSignedToken(user);
     setAuthCookie(token, AUTH_TTL_SECONDS);
     return { name: user.name, role: user.role };
@@ -218,9 +147,8 @@ export const loginWithPin = createServerFn({ method: "POST" })
 export const getCurrentSession = createServerFn({ method: "GET" }).handler(async () => {
   const token = cookieToken();
   if (!token) return null;
-  // The active user's current PIN hash in the private Users sheet verifies
-  // the token signature. No AppSessions row or additional secret is needed.
-  const verified = verifySignedToken(token, await readUsers());
+  // Re-read deployment credentials so PIN or role changes invalidate old sessions.
+  const verified = verifySignedToken(token, readUsers());
   if (!verified) {
     setAuthCookie("", 0);
     return null;
