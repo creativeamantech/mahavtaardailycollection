@@ -20,7 +20,7 @@ export type ExcludedLoan = {
 };
 
 export const getExcludedLoanNumbers = createServerFn({ method: "GET" }).handler(async () => {
-  await requireSession("Admin");
+  await requireSession();
   const { ensureSheet, sheetsGet } = await import("./mahavtaar.server");
   await ensureSheet(TAB, header);
   const rows = await sheetsGet(`${TAB}!A2:D`);
