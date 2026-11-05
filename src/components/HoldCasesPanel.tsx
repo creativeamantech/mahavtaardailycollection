@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EXECUTIVES } from "@/lib/executives";
+import { getCurrentSession } from "@/lib/auth.functions";
+import { useQuery } from "@tanstack/react-query";
 import { listActiveHoldCases, removeHoldCases, submitHoldCases } from "@/lib/hold-cases.functions";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { Button } from "@/components/ui/button";
@@ -36,6 +38,16 @@ function normaliseLoanId(value: string) {
 export function HoldCasesPanel() {
   const { holdCasesLocked } = useAppConfig();
   const [executive, setExecutive] = useState("");
+  const getSession = useServerFn(getCurrentSession);
+  const { data: session, isLoading: sessionLoading } = useQuery({
+    queryKey: ["auth-session"],
+    queryFn: () => getSession(),
+    staleTime: 30_000,
+  });
+  useEffect(() => {
+    if (session?.role === "Executive") setExecutive(session.name);
+    else if (session?.role === "Admin") setExecutive("");
+  }, [session]);
   const [loanIdsText, setLoanIdsText] = useState("");
   const [remarks, setRemarks] = useState("");
   const [saving, setSaving] = useState(false);
@@ -187,25 +199,31 @@ export function HoldCasesPanel() {
       )}
       <div className="space-y-2">
         <Label className="text-base">Executive Name</Label>
-        <Select
-          value={executive}
-          onValueChange={(value) => {
-            setExecutive(value);
-            setActiveCases([]);
-            setSelectedToRemove([]);
-          }}
-        >
-          <SelectTrigger className="h-12 text-base">
-            <SelectValue placeholder="Select executive" />
-          </SelectTrigger>
-          <SelectContent>
-            {EXECUTIVES.map((name) => (
-              <SelectItem key={name} value={name} className="text-base">
-                {name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {session?.role === "Admin" ? (
+          <Select
+            value={executive}
+            onValueChange={(value) => {
+              setExecutive(value);
+              setActiveCases([]);
+              setSelectedToRemove([]);
+            }}
+          >
+            <SelectTrigger className="h-12 text-base">
+              <SelectValue placeholder="Select executive" />
+            </SelectTrigger>
+            <SelectContent>
+              {EXECUTIVES.map((name) => (
+                <SelectItem key={name} value={name} className="text-base">
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="flex h-12 items-center rounded-md border bg-muted px-3 text-base">
+            {sessionLoading ? "Loading logged-in executive..." : executive || session?.name || "Executive not available"}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
