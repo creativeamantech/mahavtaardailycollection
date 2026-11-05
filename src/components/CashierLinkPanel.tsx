@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Activity, CheckCircle2, Clock, History, Power, RotateCw, User, Users } from "lucide-react";
 import { EXECUTIVES, type Executive } from "@/lib/executives";
+import { getCurrentSession } from "@/lib/auth.functions";
 import {
   formatDuration,
   getCashierLinkData,
@@ -36,10 +37,18 @@ export function CashierLinkPanel({
   compact = false,
 }: CashierLinkPanelProps) {
   const [internalExec, setInternalExec] = useState<string>(EXECUTIVES[0]);
-  const exec =
-    parentExec && EXECUTIVES.includes(parentExec as Executive) ? parentExec : internalExec;
+  const getSession = useServerFn(getCurrentSession);
+  const { data: session } = useQuery({
+    queryKey: ["auth-session"],
+    queryFn: () => getSession(),
+    staleTime: 30_000,
+  });
+  const exec = session?.role === "Executive"
+    ? session.name
+    : parentExec && EXECUTIVES.includes(parentExec as Executive) ? parentExec : internalExec;
 
   const handleSelectExec = (val: string) => {
+    if (session?.role !== "Admin") return;
     setInternalExec(val);
     if (onExecutiveChange) {
       onExecutiveChange(val);
@@ -188,31 +197,37 @@ export function CashierLinkPanel({
             )}
           </div>
 
-          <Select value={exec} onValueChange={handleSelectExec}>
-            <SelectTrigger className="h-11 text-sm font-medium">
-              <SelectValue placeholder="Select executive" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXECUTIVES.map((e) => {
-                const s = statuses?.[e];
-                const on = Boolean(s?.isOnline);
-                return (
-                  <SelectItem key={e} value={e} className="text-sm">
-                    <div className="flex items-center justify-between gap-4 w-full">
-                      <span>{e}</span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                          on ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {on ? "ON" : "OFF"}
-                      </span>
-                    </div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          {session?.role === "Admin" ? (
+            <Select value={exec} onValueChange={handleSelectExec}>
+              <SelectTrigger className="h-11 text-sm font-medium">
+                <SelectValue placeholder="Select executive" />
+              </SelectTrigger>
+              <SelectContent>
+                {EXECUTIVES.map((e) => {
+                  const s = statuses?.[e];
+                  const on = Boolean(s?.isOnline);
+                  return (
+                    <SelectItem key={e} value={e} className="text-sm">
+                      <div className="flex items-center justify-between gap-4 w-full">
+                        <span>{e}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                            on ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {on ? "ON" : "OFF"}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex h-11 items-center rounded-md border bg-muted px-3 text-sm font-medium">
+              {exec || "Loading logged-in executive..."}
+            </div>
+          )}
         </div>
 
         {/* Current Selected Executive Status Card */}
