@@ -100,16 +100,30 @@ function CollectionSheetPage() {
   });
 
   const allRows = useMemo(() => data ?? [], [data]);
+  // Bulk IDs may be separated by newlines, commas, semicolons, or spaces.
+  const requestedLoanIds = useMemo(
+    () => [...new Set(search.split(/[\s,;]+/).map(normaliseLoanId).filter(Boolean))],
+    [search],
+  );
+  const isBulkSearch = requestedLoanIds.length > 1;
   const normalizedQuery = normaliseLoanId(search);
   const executives = useMemo(
     () => [...new Set(allRows.map((row) => String(row.executive ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     [allRows],
   );
   const rows = useMemo(() => allRows.filter((row) => {
-    const matchesLoan = !normalizedQuery || normaliseLoanId(row.loanId).includes(normalizedQuery);
+    const rowLoanId = normaliseLoanId(row.loanId);
+    const matchesLoan = !search.trim()
+      || (isBulkSearch ? requestedLoanIds.includes(rowLoanId) : rowLoanId.includes(normalizedQuery));
     const matchesExecutive = executiveFilter === "__all__" || String(row.executive ?? "").trim() === executiveFilter;
     return matchesLoan && matchesExecutive;
-  }), [allRows, normalizedQuery, executiveFilter]);
+  }), [allRows, search, isBulkSearch, requestedLoanIds, normalizedQuery, executiveFilter]);
+
+  const notFoundLoanIds = useMemo(() => {
+    if (!isBulkSearch) return [];
+    const found = new Set(allRows.map((row) => normaliseLoanId(row.loanId)));
+    return requestedLoanIds.filter((id) => !found.has(id));
+  }, [allRows, isBulkSearch, requestedLoanIds]);
 
   function downloadCsv() {
     const headers = ["#", ...columns.map((column) => column.label), "Paid Flag"];
@@ -167,7 +181,7 @@ function CollectionSheetPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Escape") setSearch(""); }}
-            placeholder="Search by Loan Number (full or partial)"
+            placeholder="Search loan numbers — paste multiple IDs separated by lines, commas or spaces"
             aria-label="Search by Loan Number"
             className="h-11 pl-9 pr-10"
           />
@@ -201,9 +215,9 @@ function CollectionSheetPage() {
           {error instanceof Error ? error.message : "Could not load the Collection Sheet. Please refresh."}
         </div>
       )}
-      {!isLoading && !error && normalizedQuery && rows.length === 0 && (
+      {!isLoading && !error && search.trim() && rows.length === 0 && !isBulkSearch && (
         <div className="mt-4 rounded-lg border p-8 text-center">
-          <p className="font-semibold">{normalizedQuery ? "Loan Number Not Found" : "No matching rows"}</p>
+          <p className="font-semibold">Loan Number Not Found</p>
           <p className="mt-1 text-sm text-muted-foreground">No rows match the current Loan Number and Executive filters.</p>
         </div>
       )}
@@ -234,6 +248,28 @@ function CollectionSheetPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {!isLoading && !error && isBulkSearch && (
+        <section className="mt-5 rounded-xl border p-4" aria-live="polite">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">Bulk Search Results</h2>
+            <span className="text-sm text-muted-foreground">
+              {requestedLoanIds.length - notFoundLoanIds.length} found · {notFoundLoanIds.length} not found
+            </span>
+          </div>
+          {notFoundLoanIds.length > 0 ? (
+            <>
+              <p className="mt-2 text-sm font-medium text-destructive">These Loan Numbers are not present in the Collection Sheet:</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {notFoundLoanIds.map((loanId) => (
+                  <span key={loanId} className="rounded-md bg-destructive/10 px-2 py-1 font-mono text-sm text-destructive">{loanId}</span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">All pasted Loan Numbers were found.</p>
+          )}
+        </section>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
         This page does not edit the Google Sheet. Red highlighting uses the existing Already Paid flag from the app's collection-data parser.
