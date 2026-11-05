@@ -24,3 +24,14 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+
+## Authentication configuration
+
+PIN login uses stateless HMAC-SHA256 signed authentication tokens. Set `AUTH_TOKEN_SECRET` in the server/deployment environment before deploying; it must be a random secret of at least 32 characters. Generate one with:
+
+```sh
+openssl rand -base64 48
+```
+
+Add the generated value as a server-side secret in the deployment platform (do not commit the real value or expose it as a `VITE_*` variable). Tokens expire after eight hours. Logout clears the current browser cookie; because tokens are stateless, a copied token cannot be individually revoked and remains valid until expiry. Rotating `AUTH_TOKEN_SECRET` invalidates all outstanding tokens. The legacy `AppSessions` sheet is no longer read or written by the application.
