@@ -188,10 +188,6 @@ function clearLoginFailures(keys: string[]) {
   for (const key of keys) loginAttempts.delete(key);
 }
 
-export const getLoginUsers = createServerFn({ method: "GET" }).handler(async () => {
-  return (await readUsers()).map(({ name }) => name).sort((a, b) => a.localeCompare(b));
-});
-
 export const loginWithPin = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) =>
     z.object({
