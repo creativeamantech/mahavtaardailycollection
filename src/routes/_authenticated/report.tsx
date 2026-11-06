@@ -18,7 +18,7 @@ import {
 } from "recharts";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
-import { getCollections, highlightAlreadyPaidInSheet } from "@/lib/mahavtaar.functions";
+import { getReportBundle, highlightAlreadyPaidInSheet } from "@/lib/mahavtaar.functions";
 import { formatAmount, todayISO } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,9 +37,7 @@ import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
-import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
-import { listActiveHoldCasesForReport } from "@/lib/hold-cases.functions";
-import { listActivePTPsForReport } from "@/lib/ptp.functions";
+");
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
 function ExportButton({
@@ -124,6 +122,12 @@ export const Route = createFileRoute("/_authenticated/report")({
       },
     ],
   }),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData({
+      queryKey: ["report-bundle"],
+      queryFn: () => getReportBundle(),
+      staleTime: 30_000,
+    }),
   component: ReportPage,
 });
 
@@ -1397,16 +1401,27 @@ function PTPReport({
 }
 
 function ReportPage() {
-  const fetchCollections = useServerFn(getCollections);
-  const fetchActiveHoldCases = useServerFn(listActiveHoldCasesForReport);
-  const fetchPTPs = useServerFn(listActivePTPsForReport);
-  const fetchExcludedLoans = useServerFn(getExcludedLoanNumbers);
-  const { data: excludedLoanRecords = [] } = useQuery({
-    queryKey: ["excluded-loan-numbers"],
-    queryFn: () => fetchExcludedLoans(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+  const fetchReportBundle = useServerFn(getReportBundle);
+  const { data: bundle, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ["report-bundle"],
+    queryFn: async () => {
+      const result = await fetchReportBundle();
+      if (!result || !Array.isArray(result.collections)) {
+        throw new Error("Unable to load report data from server");
+      }
+      return result;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
+  const data = bundle?.collections ?? [];
+  const excludedLoanRecords = bundle?.excludedLoans ?? [];
+  const holdCaseRows = (bundle?.holdCases ?? []) as HoldReportRow[];
+  const ptpRows = (bundle?.ptps ?? []) as PTPReportRow[];
+  const holdCasesLoading = isLoading;
+  const ptpsLoading = isLoading;
+  const holdCasesError = error;
+  const ptpsError = error;
   const excludedLoanIds = useMemo(
     () =>
       new Set(
@@ -1418,60 +1433,6 @@ function ReportPage() {
   );
   const highlightAlreadyPaid = useServerFn(highlightAlreadyPaidInSheet);
   const [highlighting, setHighlighting] = useState(false);
-
-  const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ["collections"],
-    queryFn: async () => {
-      const res = await fetchCollections();
-      if (!Array.isArray(res)) {
-        if (res && typeof res === "object" && "message" in res) {
-          throw new Error(
-            String((res as { message?: unknown }).message || "Failed to load collections"),
-          );
-        }
-        if (res && typeof res === "object" && "error" in res) {
-          throw new Error(
-            String((res as { error?: unknown }).error || "Failed to load collections"),
-          );
-        }
-        throw new Error("Unable to load collections from server");
-      }
-      return res;
-    },
-    refetchOnWindowFocus: true,
-  });
-
-  const {
-    data: holdCaseRows = [],
-    isLoading: holdCasesLoading,
-    error: holdCasesError,
-    refetch: refetchHoldCases,
-  } = useQuery({
-    queryKey: ["active-hold-cases-report"],
-    queryFn: async () => {
-      const result = await fetchActiveHoldCases();
-      if (!Array.isArray(result)) throw new Error("Unable to load Hold Cases");
-      return result as HoldReportRow[];
-    },
-    refetchOnWindowFocus: true,
-    staleTime: 0,
-  });
-
-  const {
-    data: ptpRows = [],
-    isLoading: ptpsLoading,
-    error: ptpsError,
-    refetch: refetchPTPs,
-  } = useQuery({
-    queryKey: ["ptps-report"],
-    queryFn: async () => {
-      const result = await fetchPTPs();
-      if (!Array.isArray(result)) throw new Error("Unable to load PTPs");
-      return result as PTPReportRow[];
-    },
-    refetchOnWindowFocus: true,
-    staleTime: 0,
-  });
 
   const [from, setFrom] = useState(todayISO());
   const [to, setTo] = useState(todayISO());
@@ -1749,7 +1710,7 @@ function ReportPage() {
           <div className="flex justify-end">
             <Button
               variant="outline"
-              onClick={() => refetchHoldCases()}
+              onClick={() => refetch()}
               disabled={holdCasesLoading}
             >
               Refresh Hold Cases
@@ -1764,7 +1725,7 @@ function ReportPage() {
         <TabsContent value="ptps" className="mt-4 space-y-4">
           \n{" "}
           <div className="flex justify-end">
-            <Button variant="outline" onClick={() => void refetchPTPs()} disabled={ptpsLoading}>
+            <Button variant="outline" onClick={() => void refetch()} disabled={ptpsLoading}>
               Refresh PTPs
             </Button>
           </div>
@@ -1778,8 +1739,8 @@ function ReportPage() {
               variant="outline"
               onClick={() => {
                 void refetch();
-                void refetchHoldCases();
-                void refetchPTPs();
+                void refetch();
+                void refetch();
               }}
               disabled={isFetching || holdCasesLoading || ptpsLoading}
             >
