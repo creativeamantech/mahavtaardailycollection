@@ -84,112 +84,134 @@ export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
     const session = await requireSession();
-    const executive = session.role === "Admin" ? data.executive : session.name;
-    const { sheetsAppendStrict, sheetsGet, withSheetMutex } = await import("./mahavtaar.server");
-    const { todayISO } = await import("./executives");
-    const entryDate = data.entryDate ?? todayISO();
-    if (data.entryType === "Previous Paid File") {
-      if (data.date >= entryDate) {
-        throw new Error("Original payment date must be earlier than today.");
+    try {
+
+  
+      const executive = session.role === "Admin" ? data.executive : session.name;
+      const { sheetsAppendStrict, sheetsGet, withSheetMutex } = await import("./mahavtaar.server");
+      const { todayISO } = await import("./executives");
+      const entryDate = data.entryDate ?? todayISO();
+      if (data.entryType === "Previous Paid File") {
+        if (data.date >= entryDate) {
+          throw new Error("Original payment date must be earlier than today.");
+        }
+      } else if (data.date !== entryDate) {
+        throw new Error("Normal entries must use today's date.");
       }
-    } else if (data.date !== entryDate) {
-      throw new Error("Normal entries must use today's date.");
-    }
-    let settlementValue = "No";
-    if (data.settlementType) {
-      settlementValue = data.settlementType;
-    } else if (typeof data.settlement === "string") {
-      const s = data.settlement.trim().toLowerCase();
-      if (s === "settlement") settlementValue = "Settlement";
-      else if (s === "foreclosure") settlementValue = "Foreclosure";
-      else if (s === "yes") settlementValue = "Settlement";
-      else settlementValue = "No";
-    } else if (data.settlement === true) {
-      settlementValue = "Settlement";
-    } else {
-      settlementValue = "No";
-    }
-    const appended = (await withSheetMutex("collection-duplicate-window", async () => {
-      const now = Date.now();
-      const recentRows = await sheetsGet("Collections!A2:G");
-      const normalizeLoan = (value: unknown) =>
-        String(value ?? "").replace(/^['\u0060\u2018\u2019]+/, "").trim().toUpperCase();
-      const duplicate = recentRows.find((row) => {
-        if (normalizeLoan(row[1]) !== normalizeLoan(data.loanId)) return false;
-        const existingAmount = Number(String(row[2] ?? "").replace(/,/g, ""));
-        if (!Number.isFinite(existingAmount) || existingAmount !== data.amount) return false;
-        const savedAt = Date.parse(String(row[5] ?? ""));
-        return Number.isFinite(savedAt) && savedAt <= now && now - savedAt < 5 * 60 * 1000;
-      });
-      if (duplicate) {
-        const savedAt = Date.parse(String(duplicate[5] ?? ""));
-        const remainingSeconds = Math.max(1, Math.ceil((5 * 60 * 1000 - (now - savedAt)) / 1000));
-        throw new Error(
-          `Duplicate payment blocked: this loan number and amount were already entered. Try again after ${remainingSeconds} seconds.`,
-        );
+      let settlementValue = "No";
+      if (data.settlementType) {
+        settlementValue = data.settlementType;
+      } else if (typeof data.settlement === "string") {
+        const s = data.settlement.trim().toLowerCase();
+        if (s === "settlement") settlementValue = "Settlement";
+        else if (s === "foreclosure") settlementValue = "Foreclosure";
+        else if (s === "yes") settlementValue = "Settlement";
+        else settlementValue = "No";
+      } else if (data.settlement === true) {
+        settlementValue = "Settlement";
+      } else {
+        settlementValue = "No";
       }
-      return sheetsAppendStrict("Collections!A:J", [
-        [
-          executive,
+      const appended = (await withSheetMutex("collection-duplicate-window", async () => {
+        const now = Date.now();
+        const recentRows = await sheetsGet("Collections!A2:G");
+        const normalizeLoan = (value: unknown) =>
+          String(value ?? "").replace(/^['\u0060\u2018\u2019]+/, "").trim().toUpperCase();
+        const duplicate = recentRows.find((row) => {
+          if (normalizeLoan(row[1]) !== normalizeLoan(data.loanId)) return false;
+          const existingAmount = Number(String(row[2] ?? "").replace(/,/g, ""));
+          if (!Number.isFinite(existingAmount) || existingAmount !== data.amount) return false;
+          const savedAt = Date.parse(String(row[5] ?? ""));
+          return Number.isFinite(savedAt) && savedAt <= now && now - savedAt < 5 * 60 * 1000;
+        });
+        if (duplicate) {
+          const savedAt = Date.parse(String(duplicate[5] ?? ""));
+          const remainingSeconds = Math.max(1, Math.ceil((5 * 60 * 1000 - (now - savedAt)) / 1000));
+          throw new Error(
+            `Duplicate payment blocked: this loan number and amount were already entered. Try again after ${remainingSeconds} seconds.`,
+          );
+        }
+        return sheetsAppendStrict("Collections!A:J", [
+          [
+            executive,
+            data.loanId,
+            data.amount,
+            data.date,
+            data.time,
+            new Date(now).toISOString(),
+            "Confirmed",
+            entryDate,
+            data.entryType,
+            settlementValue,
+          ],
+        ]);
+      })) as { updates?: { updatedRange?: string } };
+  
+      // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
+      // so they are written to the exact row the append landed on.
+      const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+      // The append above is the payment commit point. Follow-up metadata writes
+      // must never turn a committed payment into a client-visible failure, because
+      // the executive could retry and create a duplicate payment row.
+      let metadataWarning = false;
+      if (rowNum > 0) {
+        try {
+          const { sheetsUpdateStrict } = await import("./mahavtaar.server");
+          if (data.receiptLinks.length > 0 || data.remark !== "") {
+            await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [
+              [data.receiptLinks.join(" | "), data.remark],
+            ]);
+          }
+          if (data.amansRemarks) {
+            await sheetsUpdateStrict(`Collections!S${rowNum}`, [[data.amansRemarks]]);
+          }
+        } catch (error) {
+          metadataWarning = true;
+          console.error(
+            `Collection row ${rowNum} was saved, but receipt/remark metadata could not be written:`,
+            error,
+          );
+        }
+      }
+      // Once the collection row is safely saved, close any matching active Hold Case.
+      // This is intentionally best-effort: a Hold tab issue must not report a saved
+      // collection as failed or encourage the executive to submit the payment twice.
+      let holdCasesRemoved = 0;
+      try {
+        const { removeMatchingHoldCasesAfterCollection } = await import("./hold-cases.functions");
+        const result = await removeMatchingHoldCasesAfterCollection(data.loanId);
+        holdCasesRemoved = result.collectedCount;
+      } catch (error) {
+        console.error("Collection saved, but matching Hold Case could not be closed:", error);
+      }
+      let ptpsKept = 0;
+      try {
+        const { markMatchingPTPsKept } = await import("./ptp.functions");
+        const result = await markMatchingPTPsKept(data.loanId);
+        ptpsKept = result.keptCount;
+      } catch (error) {
+        console.error("Collection saved, but matching PTP could not be marked Kept:", error);
+      }
+      return { ok: true as const, row: rowNum, metadataWarning, holdCasesRemoved, ptpsKept };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Unknown save failure";
+      try {
+        const { ensureSheetStrict, sheetsAppendStrict } = await import("./mahavtaar.server");
+        const tab = "CollectionAttempts";
+        await ensureSheetStrict(tab, ["Timestamp", "Executive", "Loan Number", "Amount", "Reason", "Status"]);
+        await sheetsAppendStrict(`${tab}!A:F`, [[
+          new Date().toISOString(),
+          session.name,
           data.loanId,
           data.amount,
-          data.date,
-          data.time,
-          new Date(now).toISOString(),
-          "Confirmed",
-          entryDate,
-          data.entryType,
-          settlementValue,
-        ],
-      ]);
-    })) as { updates?: { updatedRange?: string } };
-
-    // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
-    // so they are written to the exact row the append landed on.
-    const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
-    // The append above is the payment commit point. Follow-up metadata writes
-    // must never turn a committed payment into a client-visible failure, because
-    // the executive could retry and create a duplicate payment row.
-    let metadataWarning = false;
-    if (rowNum > 0) {
-      try {
-        const { sheetsUpdateStrict } = await import("./mahavtaar.server");
-        if (data.receiptLinks.length > 0 || data.remark !== "") {
-          await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [
-            [data.receiptLinks.join(" | "), data.remark],
-          ]);
-        }
-        if (data.amansRemarks) {
-          await sheetsUpdateStrict(`Collections!S${rowNum}`, [[data.amansRemarks]]);
-        }
-      } catch (error) {
-        metadataWarning = true;
-        console.error(
-          `Collection row ${rowNum} was saved, but receipt/remark metadata could not be written:`,
-          error,
-        );
+          reason.slice(0, 1000),
+          "NOT SAVED",
+        ]]);
+      } catch (auditError) {
+        console.error("Could not record failed collection attempt:", auditError);
       }
+      throw error;
     }
-    // Once the collection row is safely saved, close any matching active Hold Case.
-    // This is intentionally best-effort: a Hold tab issue must not report a saved
-    // collection as failed or encourage the executive to submit the payment twice.
-    let holdCasesRemoved = 0;
-    try {
-      const { removeMatchingHoldCasesAfterCollection } = await import("./hold-cases.functions");
-      const result = await removeMatchingHoldCasesAfterCollection(data.loanId);
-      holdCasesRemoved = result.collectedCount;
-    } catch (error) {
-      console.error("Collection saved, but matching Hold Case could not be closed:", error);
-    }
-    let ptpsKept = 0;
-    try {
-      const { markMatchingPTPsKept } = await import("./ptp.functions");
-      const result = await markMatchingPTPsKept(data.loanId);
-      ptpsKept = result.keptCount;
-    } catch (error) {
-      console.error("Collection saved, but matching PTP could not be marked Kept:", error);
-    }
-    return { ok: true as const, row: rowNum, metadataWarning, holdCasesRemoved, ptpsKept };
   });
 
 // Marks conflicting Collections rows with a red background so the conflict is
@@ -400,13 +422,24 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
 
 export const getReportBundle = createServerFn({ method: "GET" }).handler(async () => {
   await requireSession();
-  const [collections, excludedLoans, holdCases, ptps] = await Promise.all([
+  const { sheetsGet } = await import("./mahavtaar.server");
+  const [collections, excludedLoans, holdCases, ptps, attemptRows] = await Promise.all([
     readCollections(),
     readExcludedLoanNumbers(),
     readActiveHoldCasesForReport(),
     readActivePTPsForReport(),
+    sheetsGet("CollectionAttempts!A2:F"),
   ]);
-  return { collections, excludedLoans, holdCases, ptps };
+  const failedAttempts = (attemptRows ?? []).map((row, index) => ({
+    row: index + 2,
+    timestamp: String(row[0] ?? ""),
+    executive: String(row[1] ?? ""),
+    loanNumber: String(row[2] ?? ""),
+    amount: Number(String(row[3] ?? "0").replace(/,/g, "")) || 0,
+    reason: String(row[4] ?? ""),
+    status: String(row[5] ?? "NOT SAVED"),
+  })).filter((item) => item.status === "NOT SAVED").reverse();
+  return { collections, excludedLoans, holdCases, ptps, failedAttempts };
 });
 
 // Admin-only read path: the password is checked on the server for every request.
