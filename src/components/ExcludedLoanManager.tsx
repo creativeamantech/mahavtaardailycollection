@@ -27,8 +27,8 @@ export function ExcludedLoanManager() {
   } = useQuery({
     queryKey: ["excluded-loan-numbers"],
     queryFn: () => getList(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   const active = useMemo(() => data.filter((r) => r.status.toLowerCase() === "active"), [data]);
 
