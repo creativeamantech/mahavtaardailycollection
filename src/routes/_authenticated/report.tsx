@@ -1420,6 +1420,7 @@ function ReportPage() {
     },
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
   });
   const data = bundle?.collections ?? [];
   const excludedLoanRecords = bundle?.excludedLoans ?? [];
@@ -1531,6 +1532,28 @@ function ReportPage() {
           bucketMatches(r.bucket, overallBucket) && catOk(r.allocationCategory, overallCategory),
       ),
     [rows, overallBucket, overallCategory],
+  );
+  // Activity uses the complete persisted report bundle, including Already Paid and Excluded rows.
+  const dateActivityRows = useMemo(
+    () =>
+      rawRows.filter(
+        (r) =>
+          monthKey(r.date) === month &&
+          bucketMatches(r.bucket, dateBucket) &&
+          catOk(r.allocationCategory, dateCategory) &&
+          inRange(r, from, to),
+      ),
+    [rawRows, month, dateBucket, dateCategory, from, to],
+  );
+  const overallActivityRows = useMemo(
+    () =>
+      rawRows.filter(
+        (r) =>
+          monthKey(r.date) === month &&
+          bucketMatches(r.bucket, overallBucket) &&
+          catOk(r.allocationCategory, overallCategory),
+      ),
+    [rawRows, month, overallBucket, overallCategory],
   );
   const dateScoped = useMemo(
     () => dateRows.filter((r) => inRange(r, from, to)),
@@ -1693,7 +1716,7 @@ function ReportPage() {
           <BucketFilter value={dateBucket} onChange={setDateBucket} />
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
-          <ReportBlock rows={dateWise} />
+          <ReportBlock rows={dateWise} activityRows={dateActivityRows} excludedLoanIds={excludedLoanIds} />
           <ExportButton
             rows={dateScopedExportRows}
             fullRows={rawRows}
@@ -1705,7 +1728,7 @@ function ReportPage() {
           <BucketFilter value={overallBucket} onChange={setOverallBucket} />
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
-          <ReportBlock rows={overall} />
+          <ReportBlock rows={overall} activityRows={overallActivityRows} excludedLoanIds={excludedLoanIds} />
           <ExportButton
             rows={overallExportRows}
             fullRows={rawRows}
@@ -1772,8 +1795,27 @@ function ReportPage() {
   );
 }
 
-function ReportBlock({ rows }: { rows: Row[] }) {
+function ReportBlock({
+  rows,
+  activityRows,
+  excludedLoanIds,
+}: {
+  rows: Row[];
+  activityRows: Collection[];
+  excludedLoanIds: Set<string>;
+}) {
   const [mounted, setMounted] = useState(false);
+  const latestActivityByExecutive = useMemo(() => {
+    const latest = new Map<string, Collection>();
+    const timestamp = (r: Collection) => r.createdAt || `${r.date || ""}T${r.time || "00:00:00"}`;
+    for (const item of activityRows) {
+      const current = latest.get(item.executive);
+      if (!current || timestamp(item).localeCompare(timestamp(current)) > 0) {
+        latest.set(item.executive, item);
+      }
+    }
+    return latest;
+  }, [activityRows]);
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -1800,7 +1842,32 @@ function ReportBlock({ rows }: { rows: Row[] }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.executive} className="border-t">
-                <td className="px-2 py-2 sm:p-3">{r.executive}</td>
+                <td className="px-2 py-2 sm:p-3">
+                  <div className="font-medium">{r.executive}</div>
+                  {(() => {
+                    const activity = latestActivityByExecutive.get(r.executive);
+                    if (!activity) return <div className="mt-1 text-[10px] text-muted-foreground">No recent payment activity</div>;
+                    const loanKey = String(activity.loanId ?? "").trim().toUpperCase();
+                    const status = activity.alreadyPaid
+                      ? { label: "ALREADY PAID", className: "text-amber-700 dark:text-amber-400" }
+                      : excludedLoanIds.has(loanKey)
+                        ? { label: "EXCLUDED", className: "text-orange-700 dark:text-orange-400" }
+                        : { label: "ADDED", className: "text-emerald-700 dark:text-emerald-400" };
+                    return (
+                      <div className="mt-1 space-y-0.5 text-[10px] leading-tight sm:text-xs">
+                        <div className={`font-semibold ${status.className}`}>● {status.label}</div>
+                        <div className="text-muted-foreground tabular-nums">
+                          {activity.loanId || "—"} · {formatAmount(activity.amount)}
+                        </div>
+                        {activity.createdAt ? (
+                          <div className="text-muted-foreground/80">
+                            {new Date(activity.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
+                </td>
                 <td className="px-2 py-2 text-right font-semibold tabular-nums sm:p-3">
                   {formatAmount(r.total)}
                 </td>
