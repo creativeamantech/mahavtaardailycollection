@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getCurrentSession } from "@/lib/auth.functions";
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -36,8 +37,14 @@ import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 
 export const Route = createFileRoute("/_authenticated/loans")({
-  loader: ({ context }) =>
-    Promise.all([
+  loader: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData({
+      queryKey: ["auth-session"],
+      queryFn: () => getCurrentSession(),
+      staleTime: 30_000,
+    });
+    if (!session) return null;
+    return Promise.all([
       context.queryClient.ensureQueryData({
         queryKey: ["collections"],
         queryFn: () => getCollections(),
@@ -48,7 +55,8 @@ export const Route = createFileRoute("/_authenticated/loans")({
         queryFn: () => getExcludedLoanNumbers(),
         staleTime: 30_000,
       }),
-    ]),
+    ]);
+  },
   head: () => ({
     meta: [
       { title: "Loan Search & EMI Status — Mahavtaar Daily Collection" },
