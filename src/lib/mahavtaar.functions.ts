@@ -85,7 +85,7 @@ export const saveCollection = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requireSession();
     const executive = session.role === "Admin" ? data.executive : session.name;
-    const { sheetsAppendStrict } = await import("./mahavtaar.server");
+    const { sheetsAppendStrict, sheetsGet, withSheetMutex } = await import("./mahavtaar.server");
     const { todayISO } = await import("./executives");
     const entryDate = data.entryDate ?? todayISO();
     if (data.entryType === "Previous Paid File") {
@@ -109,20 +109,40 @@ export const saveCollection = createServerFn({ method: "POST" })
     } else {
       settlementValue = "No";
     }
-    const appended = (await sheetsAppendStrict("Collections!A:J", [
-      [
-        executive,
-        data.loanId,
-        data.amount,
-        data.date,
-        data.time,
-        new Date().toISOString(),
-        "Confirmed",
-        entryDate,
-        data.entryType,
-        settlementValue,
-      ],
-    ])) as { updates?: { updatedRange?: string } };
+    const appended = (await withSheetMutex("collection-duplicate-window", async () => {
+      const now = Date.now();
+      const recentRows = await sheetsGet("Collections!A2:G");
+      const normalizeLoan = (value: unknown) =>
+        String(value ?? "").replace(/^['\u0060\u2018\u2019]+/, "").trim().toUpperCase();
+      const duplicate = recentRows.find((row) => {
+        if (normalizeLoan(row[1]) !== normalizeLoan(data.loanId)) return false;
+        const existingAmount = Number(String(row[2] ?? "").replace(/,/g, ""));
+        if (!Number.isFinite(existingAmount) || existingAmount !== data.amount) return false;
+        const savedAt = Date.parse(String(row[5] ?? ""));
+        return Number.isFinite(savedAt) && savedAt <= now && now - savedAt < 5 * 60 * 1000;
+      });
+      if (duplicate) {
+        const savedAt = Date.parse(String(duplicate[5] ?? ""));
+        const remainingSeconds = Math.max(1, Math.ceil((5 * 60 * 1000 - (now - savedAt)) / 1000));
+        throw new Error(
+          `Duplicate payment blocked: this loan number and amount were already entered. Try again after ${remainingSeconds} seconds.`,
+        );
+      }
+      return sheetsAppendStrict("Collections!A:J", [
+        [
+          executive,
+          data.loanId,
+          data.amount,
+          data.date,
+          data.time,
+          new Date(now).toISOString(),
+          "Confirmed",
+          entryDate,
+          data.entryType,
+          settlementValue,
+        ],
+      ]);
+    })) as { updates?: { updatedRange?: string } };
 
     // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
     // so they are written to the exact row the append landed on.
