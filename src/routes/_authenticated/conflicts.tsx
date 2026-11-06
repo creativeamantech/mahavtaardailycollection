@@ -340,6 +340,7 @@ function ConflictsContent() {
       toast.success(`Entry for row ${editingItem.row} updated successfully!`);
       setEditingItem(null);
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update entry.");
@@ -359,6 +360,7 @@ function ConflictsContent() {
       toast.success(`Duplicate entry for row ${deletingItem.row} deleted!`);
       setDeletingItem(null);
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete entry.");
@@ -380,6 +382,7 @@ function ConflictsContent() {
         `Row ${item.row} (${item.executive} · ${formatAmount(item.amount)}) को "Conflict नहीं है, सही है" मार्क कर दिया गया! अब यह कलेक्शन में शामिल होगा।`,
       );
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to mark as valid.");
@@ -402,6 +405,7 @@ function ConflictsContent() {
         `लोन ${group.loanId} की दोनों/सभी ${rows.length} एंट्रीज को वैध (No Conflict) मार्क कर दिया गया! दोनों अब कलेक्शन में शामिल हैं।`,
       );
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to mark group as valid.");
@@ -418,6 +422,7 @@ function ConflictsContent() {
       });
       toast.success(`Row ${item.row} को वापस Conflicted स्थिति में डाल दिया गया।`);
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to revert validation.");
