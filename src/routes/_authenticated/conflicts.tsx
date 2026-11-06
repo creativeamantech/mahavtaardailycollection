@@ -857,6 +857,8 @@ function ConflictsContent() {
                                     {receiptImg ? (
                                       <img
                                         src={receiptImg}
+                                        loading="lazy"
+                                        decoding="async"
                                         alt={`Receipt Row ${item.row}`}
                                         className="h-full w-full object-contain transition-transform group-hover:scale-105"
                                         loading="lazy"
@@ -1276,6 +1278,7 @@ function ConflictsContent() {
                 {getReceiptImageUrl(previewReceipt.url) ? (
                   <img
                     src={getReceiptImageUrl(previewReceipt.url)!}
+                    decoding="async"
                     alt="Payment Receipt Preview"
                     className="max-h-[70vh] w-auto max-w-full rounded object-contain shadow-sm"
                   />
