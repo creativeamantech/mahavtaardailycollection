@@ -1407,6 +1407,47 @@ function PTPReport({
   );
 }
 
+
+type FailedAttempt = {
+  row: number;
+  timestamp: string;
+  executive: string;
+  loanNumber: string;
+  amount: number;
+  reason: string;
+  status: string;
+};
+
+function FailedAttemptsReport({ rows, isLoading }: { rows: FailedAttempt[]; isLoading: boolean }) {
+  if (isLoading) return <p className="rounded-xl border p-6 text-center">Loading failed attempts…</p>;
+  return (
+    <section className="space-y-3">
+      <div className="rounded-xl border p-4">
+        <p className="text-sm text-muted-foreground">Unsuccessful collection save attempts</p>
+        <p className="text-2xl font-bold">{rows.length}</p>
+      </div>
+      {rows.length === 0 ? (
+        <p className="rounded-xl border p-6 text-center">No failed collection attempts recorded.</p>
+      ) : (
+        <div className="space-y-3">
+          {rows.map((item) => (
+            <article key={item.row} className="rounded-xl border border-red-200 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold">{item.loanNumber || "Loan number unavailable"}</p>
+                  <p className="text-sm text-muted-foreground">{item.executive || "Unknown executive"} · {item.timestamp ? new Date(item.timestamp).toLocaleString("en-IN") : "Time unavailable"}</p>
+                </div>
+                <p className="font-semibold tabular-nums">{formatAmount(item.amount)}</p>
+              </div>
+              <p className="mt-3 text-sm font-medium text-red-700 dark:text-red-400">Not saved: {item.reason}</p>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ReportPage() {
   const fetchReportBundle = useServerFn(getReportBundle);
   const { data: bundle, isLoading, isFetching, error, refetch } = useQuery({
@@ -1425,6 +1466,7 @@ function ReportPage() {
   const excludedLoanRecords = bundle?.excludedLoans ?? [];
   const holdCaseRows = (bundle?.holdCases ?? []) as HoldReportRow[];
   const ptpRows = (bundle?.ptps ?? []) as PTPReportRow[];
+  const failedAttempts = (bundle?.failedAttempts ?? []) as FailedAttempt[];
   const holdCasesLoading = isLoading;
   const ptpsLoading = isLoading;
   const holdCasesError = error;
@@ -1653,7 +1695,7 @@ function ReportPage() {
       )}
 
       <Tabs defaultValue="datewise" className="mt-6 w-full min-w-0">
-        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-5">
+        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6">
           <TabsTrigger
             value="datewise"
             className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base"
@@ -1684,7 +1726,21 @@ function ReportPage() {
           >
             PTPs
           </TabsTrigger>
+          <TabsTrigger
+            value="failed-attempts"
+            className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base"
+          >
+            Failed Attempts
+          </TabsTrigger>
         </TabsList>
+        <TabsContent value="failed-attempts" className="mt-4 space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>
+              Refresh Failed Attempts
+            </Button>
+          </div>
+          <FailedAttemptsReport rows={failedAttempts} isLoading={isLoading} />
+        </TabsContent>
         <TabsContent value="datewise" className="mt-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
