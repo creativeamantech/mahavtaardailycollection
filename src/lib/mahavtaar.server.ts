@@ -5,6 +5,46 @@ export const SPREADSHEET_ID = "1AXLakW3subO9H-O9iWIpXJyjT4JLXRTG5uiL3dWsY5g";
 export const DRIVE_FOLDER_ID = "1iBlXqe09aG5kA_hHf3WtFILnA1RibCf7";
 const GATEWAY = "https://connector-gateway.lovable.dev";
 
+// Per-provider circuit breaker: after a transient API failure, do not send
+// another request to that provider for five full minutes.
+const API_COOLDOWN_MS = 5 * 60 * 1000;
+const apiCooldownUntil = new Map<"google_sheets" | "google_drive", number>();
+
+function connectorProvider(input: RequestInfo | URL): "google_sheets" | "google_drive" | null {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  if (!url.startsWith(GATEWAY)) return null;
+  if (url.includes("/google_sheets/")) return "google_sheets";
+  if (url.includes("/google_drive/")) return "google_drive";
+  return null;
+}
+
+async function connectorFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const provider = connectorProvider(input);
+  if (!provider) return fetch(input, init);
+
+  const now = Date.now();
+  const blockedUntil = apiCooldownUntil.get(provider) ?? 0;
+  if (now < blockedUntil) {
+    const remainingSeconds = Math.ceil((blockedUntil - now) / 1000);
+    throw new Error(`${provider} API is paused after a temporary failure. Retry in ${remainingSeconds} seconds.`);
+  }
+
+  try {
+    const response = await fetch(input, init);
+    // Quota, timeout, and server-side failures indicate a transient outage.
+    // Ordinary 4xx validation/permission responses do not trip the breaker.
+    if (response.status === 408 || response.status === 429 || response.status >= 500) {
+      apiCooldownUntil.set(provider, Date.now() + API_COOLDOWN_MS);
+      console.error(`${provider} API circuit opened for five minutes (HTTP ${response.status}).`);
+    }
+    return response;
+  } catch (error) {
+    apiCooldownUntil.set(provider, Date.now() + API_COOLDOWN_MS);
+    console.error(`${provider} API circuit opened for five minutes after network failure.`);
+    throw error;
+  }
+}
+
 function hasCredentials(connectorKey: string): boolean {
   return Boolean(process.env["LOVABLE_API_KEY"] && process.env[connectorKey]);
 }
@@ -70,7 +110,7 @@ export async function withSheetMutex<T>(key: string, operation: () => Promise<T>
 async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const response = await fetch(input, init);
+      const response = await connectorFetch(input, init);
       if (response.status !== 429 && response.status < 500) return response;
       if (attempt === 3) return response;
       await sleep(500 * 2 ** attempt + Math.random() * 250);
@@ -162,7 +202,7 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
 
   let baseRows: string[][] = [];
   try {
-    const res = await fetch(url);
+    const res = await connectorFetch(url);
     if (res.ok) {
       const text = await res.text();
       baseRows = parseCsv(text);
@@ -219,7 +259,7 @@ async function fetchRange(range: string): Promise<string[][]> {
     let lastBody = "";
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const res = await fetch(
+        const res = await connectorFetch(
           `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`,
           { headers: headers("GOOGLE_SHEETS_API_KEY") },
         );
@@ -262,7 +302,7 @@ export async function sheetsGetCellLinks(range: string): Promise<Record<number, 
       "fields",
       "sheets(data(startRow,startColumn,rowData(values(hyperlink,userEnteredValue,textFormatRuns,effectiveFormat(textFormat(link))))))",
     );
-    const res = await fetch(url, { headers: headers("GOOGLE_SHEETS_API_KEY") });
+    const res = await connectorFetch(url, { headers: headers("GOOGLE_SHEETS_API_KEY") });
     const json = (await ok(res, "Sheets hyperlink metadata")) as {
       sheets?: Array<{
         data?: Array<{
@@ -335,7 +375,7 @@ export async function sheetsGetFresh(range: string): Promise<string[][]> {
 export async function sheetsAppend(range: string, values: (string | number)[][]) {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
-      const res = await fetch(
+      const res = await connectorFetch(
         `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
         {
           method: "POST",
@@ -378,7 +418,7 @@ export async function sheetsAppendStrict(range: string, values: (string | number
   requireGoogleSheetsWriteAccess();
   // Appends are non-idempotent: never retry automatically, or a timeout after a
   // successful write could create duplicate collection/payment rows.
-  const res = await fetch(
+  const res = await connectorFetch(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
@@ -426,7 +466,7 @@ export async function sheetsBatchUpdateValuesStrict(
 export async function sheetsUpdate(range: string, values: (string | number)[][]) {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     try {
-      const res = await fetch(
+      const res = await connectorFetch(
         `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
         {
           method: "PUT",
@@ -469,7 +509,7 @@ export async function getSheetId(title: string): Promise<number> {
   if (typeof cached === "number") return cached;
   if (!hasCredentials("GOOGLE_SHEETS_API_KEY"))
     throw new Error("Google Sheets connector is not configured.");
-  const res = await fetch(
+  const res = await connectorFetch(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
     { headers: headers("GOOGLE_SHEETS_API_KEY") },
   );
@@ -546,7 +586,7 @@ export async function driveUpload(name: string, mimeType: string, base64: string
         `--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n` +
         `--${boundary}--`;
 
-      const res = await fetch(
+      const res = await connectorFetch(
         `${GATEWAY}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink`,
         {
           method: "POST",
@@ -560,7 +600,7 @@ export async function driveUpload(name: string, mimeType: string, base64: string
       const file = (await ok(res, "Drive upload")) as { id: string; webViewLink?: string };
 
       // Receipt files remain private; the application serves them through an authenticated proxy.
-      /* await fetch(`${GATEWAY}/google_drive/drive/v3/files/${file.id}/permissions`, {
+      /* await connectorFetch(`${GATEWAY}/google_drive/drive/v3/files/${file.id}/permissions`, {
         method: "POST",
         headers: { ...headers("GOOGLE_DRIVE_API_KEY"), "Content-Type": "application/json" },
         body: JSON.stringify({ role: "reader", type: "anyone" }),
@@ -589,7 +629,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
   }
   const auth = headers("GOOGLE_DRIVE_API_KEY");
   const base = GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(fileId);
-  const metaRes = await fetch(base + "?fields=id,name,mimeType,size,trashed", { headers: auth });
+  const metaRes = await connectorFetch(base + "?fields=id,name,mimeType,size,trashed", { headers: auth });
   const meta = (await ok(metaRes, "Drive receipt metadata")) as {
     id: string;
     name?: string;
@@ -602,7 +642,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
   if (Number(meta.size ?? 0) > 12 * 1024 * 1024)
     throw new Error("Receipt image exceeds the 12 MB OCR limit.");
 
-  const imageRes = await fetch(base + "?alt=media", { headers: auth });
+  const imageRes = await connectorFetch(base + "?alt=media", { headers: auth });
   if (!imageRes.ok) throw new Error("Could not download receipt image (" + imageRes.status + ").");
   const imageBytes = new Uint8Array(await imageRes.arrayBuffer());
   if (!imageBytes.length) throw new Error("Google Drive returned an empty receipt image.");
@@ -635,7 +675,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
 
   let temporaryDocId: string | undefined;
   try {
-    const convertRes = await fetch(
+    const convertRes = await connectorFetch(
       GATEWAY +
         "/google_drive/upload/drive/v3/files?uploadType=multipart&ocrLanguage=" +
         encodeURIComponent(language) +
@@ -651,7 +691,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
     if (!temporaryDocId)
       throw new Error("Drive OCR conversion did not return a temporary document ID.");
 
-    const exportRes = await fetch(
+    const exportRes = await connectorFetch(
       GATEWAY +
         "/google_drive/drive/v3/files/" +
         encodeURIComponent(temporaryDocId) +
@@ -669,7 +709,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
     };
   } finally {
     if (temporaryDocId) {
-      await fetch(GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId), {
+      await connectorFetch(GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(temporaryDocId), {
         method: "DELETE",
         headers: auth,
       }).catch((err) => console.warn("Temporary OCR document cleanup failed:", err));
@@ -680,7 +720,7 @@ export async function ocrDriveReceipt(fileId: string, language = "hi") {
 // Creates a tab (with optional header row) when it does not exist yet.
 export async function ensureSheetStrict(title: string, header?: string[]) {
   requireGoogleSheetsWriteAccess();
-  const metadataRes = await fetch(
+  const metadataRes = await connectorFetch(
     `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
     { headers: headers("GOOGLE_SHEETS_API_KEY") },
   );
@@ -689,7 +729,7 @@ export async function ensureSheetStrict(title: string, header?: string[]) {
   };
   const found = (metadata.sheets ?? []).some((sheet) => sheet.properties?.title === title);
   if (!found) {
-    const createRes = await fetch(
+    const createRes = await connectorFetch(
       `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
       {
         method: "POST",
@@ -712,7 +752,7 @@ export async function ensureSheetStrict(title: string, header?: string[]) {
 
 export async function ensureSheet(title: string, header?: string[]) {
   if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    const res = await fetch(
+    const res = await connectorFetch(
       `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`,
       { headers: headers("GOOGLE_SHEETS_API_KEY") },
     );
@@ -741,7 +781,7 @@ export async function checkConnectorHealth() {
   if (!hasCredentials("GOOGLE_DRIVE_API_KEY"))
     throw new Error("Google Drive connector is not configured.");
   await sheetsGet("Users!A1:E1");
-  const driveResponse = await fetch(
+  const driveResponse = await connectorFetch(
     `${GATEWAY}/google_drive/drive/v3/files/${DRIVE_FOLDER_ID}?fields=id`,
     { headers: headers("GOOGLE_DRIVE_API_KEY") },
   );
@@ -756,7 +796,7 @@ export async function driveDownload(fileId: string) {
 
   const auth = headers("GOOGLE_DRIVE_API_KEY");
   const fileUrl = `${GATEWAY}/google_drive/drive/v3/files/${encodeURIComponent(fileId)}`;
-  const metadataResponse = await fetch(
+  const metadataResponse = await connectorFetch(
     fileUrl + "?fields=id,name,mimeType,size,trashed",
     { headers: auth },
   );
@@ -775,7 +815,7 @@ export async function driveDownload(fileId: string) {
   if (Number.isFinite(declaredSize) && declaredSize > 12 * 1024 * 1024)
     throw new Error("Receipt image exceeds the 12 MB limit.");
 
-  const response = await fetch(fileUrl + "?alt=media", { headers: auth });
+  const response = await connectorFetch(fileUrl + "?alt=media", { headers: auth });
   if (!response.ok) throw new Error("Receipt download failed: " + response.status);
   const body = await response.arrayBuffer();
   if (!body.byteLength) throw new Error("Receipt download returned an empty file.");
