@@ -259,6 +259,7 @@ function AdminLoanAuditPage() {
         },
       });
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       setDrafts((old) => {
         const next = { ...old };
         delete next[entry.row];
@@ -287,6 +288,7 @@ function AdminLoanAuditPage() {
         return next;
       });
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       toast.success(`Loan ${entry.loanId} की entry soft-delete हो गई।`);
       if (!result.auditSaved)
         toast.error(
