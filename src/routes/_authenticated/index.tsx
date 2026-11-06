@@ -2,6 +2,7 @@ import { useFeatureEnabled } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
+import { CollectionApprovalsPanel } from "@/components/CollectionApprovalsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -321,6 +322,27 @@ function EntryPage() {
         } as never,
       })) as { row?: number };
 
+      if ((saved as { status?: string }).status === "PENDING_APPROVAL") {
+        toast.success("Approval request Admin को भेज दी गई है। Collection अभी save नहीं हुई है।");
+        setShowConfirm(false);
+        setExecutive(session?.role === "Executive" ? session.name : "");
+        setLoanId("");
+        setAmount("");
+        setConfirmed(false);
+        setDate(today);
+        setIsPrevious(false);
+        setSettlementType("No");
+        setPrevConfirmed(false);
+        setPrevDate("");
+        pendingFiles.forEach((p) => URL.revokeObjectURL(p.preview));
+        setPendingFiles([]);
+        setReceipts([]);
+        setRemark("");
+        setUploadError("");
+        setFileKey((k) => k + 1);
+        return;
+      }
+
       if (conflicts.length > 0) {
         const rows = [
           ...conflicts.map((c) => c.row).filter((r) => r > 1),
@@ -408,7 +430,7 @@ function EntryPage() {
       </p>
 
       <Tabs defaultValue="collection" className="mt-6 w-full">
-        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3">
+        <TabsList className={`flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${session?.role === "Admin" ? "sm:grid sm:grid-cols-4" : "sm:grid sm:grid-cols-3"}`}>
           <TabsTrigger value="collection" className="shrink-0 whitespace-nowrap px-3 text-sm">
             Collection Entry
           </TabsTrigger>

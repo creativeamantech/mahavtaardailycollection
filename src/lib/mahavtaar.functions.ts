@@ -77,84 +77,143 @@ export const uploadReceiptImage = createServerFn({ method: "POST" })
     return { ok: true as const, link };
   });
 
+const allocationApprovalTab = "Collection_Approval_Requests";
+const allocationApprovalHeaders = [
+  "Created At", "Status", "Requested By", "Allocated Executive", "Loan ID",
+  "EMI", "POS", "Collection Amount", "Payload JSON", "Decision By", "Decision At", "Decision Note",
+];
+
+function canonicalExecutive(value: unknown) {
+  return String(value ?? "").trim().replace(/^mahavtaar\s*-\s*/i, "").trim().toLowerCase();
+}
+
+async function getLoanAllocation(loanId: string) {
+  const { sheetsGetFresh } = await import("./mahavtaar.server");
+  const rows = await sheetsGetFresh("Sheet1!A2:P");
+  const target = loanId.trim().toUpperCase();
+  const row = rows.find((r) => String(r[0] ?? "").trim().replace(/^['`]+/, "").toUpperCase() === target);
+  if (!row) throw new Error("Loan ID Sheet1 में नहीं मिला। Entry नहीं की जा सकती।");
+  const allocatedRaw = String(row[4] ?? "").trim();
+  const allocated = canonicalExecutive(allocatedRaw);
+  const emi = Number(String(row[14] ?? "").replace(/[^0-9.-]/g, "")) || 0;
+  const pos = Number(String(row[15] ?? "").replace(/[^0-9.-]/g, "")) || 0;
+  if (emi < 700 || pos < 1000) {
+    throw new Error("यह छोटा केस है (EMI ₹700 से कम या POS ₹1,000 से कम)। इस Loan ID की collection entry allowed नहीं है।");
+  }
+  if (!allocated) throw new Error("इस Loan ID का Executive allocation Sheet1 में नहीं है। Admin से allocation ठीक करवाएँ।");
+  return { allocatedRaw, allocated, emi, pos };
+}
+
+async function appendApprovedCollection(payload: z.infer<typeof entrySchema>, executive: string) {
+  const { sheetsAppendStrict, sheetsUpdateStrict } = await import("./mahavtaar.server");
+  const { todayISO } = await import("./executives");
+  const entryDate = payload.entryDate ?? todayISO();
+  if (payload.entryType === "Previous Paid File") {
+    if (payload.date >= entryDate) throw new Error("Original payment date must be earlier than today.");
+  } else if (payload.date !== entryDate) throw new Error("Normal entries must use today's date.");
+  let settlementValue: "No" | "Settlement" | "Foreclosure" = payload.settlementType ?? "No";
+  if (!payload.settlementType) {
+    if (typeof payload.settlement === "string") {
+      const s = payload.settlement.trim().toLowerCase();
+      settlementValue = s === "foreclosure" ? "Foreclosure" : s === "settlement" || s === "yes" ? "Settlement" : "No";
+    } else settlementValue = payload.settlement ? "Settlement" : "No";
+  }
+  const appended = await sheetsAppendStrict("Collections!A:J", [[
+    executive, payload.loanId, payload.amount, payload.date, payload.time,
+    new Date().toISOString(), "Confirmed", entryDate, payload.entryType, settlementValue,
+  ]]) as { updates?: { updatedRange?: string } };
+  const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+  if (rowNum > 0 && (payload.receiptLinks.length || payload.remark || payload.amansRemarks)) {
+    await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [[payload.receiptLinks.join(" | "), payload.remark]]);
+    if (payload.amansRemarks) await sheetsUpdateStrict(`Collections!S${rowNum}`, [[payload.amansRemarks]]);
+  }
+  return rowNum;
+}
+
 export const saveCollection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => entrySchema.parse(d))
   .handler(async ({ data }) => {
     const session = await requireSession();
     const executive = session.role === "Admin" ? data.executive : session.name;
-    const { sheetsAppendStrict } = await import("./mahavtaar.server");
-    const { todayISO } = await import("./executives");
-    const entryDate = data.entryDate ?? todayISO();
-    if (data.entryType === "Previous Paid File") {
-      if (data.date >= entryDate) {
-        throw new Error("Original payment date must be earlier than today.");
+    const { ensureSheetStrict, sheetsAppendStrict } = await import("./mahavtaar.server");
+    const allocation = await getLoanAllocation(data.loanId);
+    if (canonicalExecutive(executive) !== allocation.allocated) {
+      if (session.role === "Admin") {
+        throw new Error("Admin direct entry भी तभी हो सकती है जब चुना गया Executive इस Loan ID का allocated owner हो। अन्यथा Executive से approval request submit करवाएँ।");
       }
-    } else if (data.date !== entryDate) {
-      throw new Error("Normal entries must use today's date.");
+      await ensureSheetStrict(allocationApprovalTab, allocationApprovalHeaders);
+      const payload = { ...data, executive };
+      const appended = await sheetsAppendStrict(`${allocationApprovalTab}!A:L`, [[
+        new Date().toISOString(), "PENDING", session.name, allocation.allocatedRaw,
+        data.loanId, allocation.emi, allocation.pos, data.amount, JSON.stringify(payload), "", "", "",
+      ]]) as { updates?: { updatedRange?: string } };
+      const row = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+      return { ok: true as const, status: "PENDING_APPROVAL" as const, requestRow: row, allocatedExecutive: allocation.allocatedRaw };
     }
-    let settlementValue = "No";
-    if (data.settlementType) {
-      settlementValue = data.settlementType;
-    } else if (typeof data.settlement === "string") {
-      const s = data.settlement.trim().toLowerCase();
-      if (s === "settlement") settlementValue = "Settlement";
-      else if (s === "foreclosure") settlementValue = "Foreclosure";
-      else if (s === "yes") settlementValue = "Settlement";
-      else settlementValue = "No";
-    } else if (data.settlement === true) {
-      settlementValue = "Settlement";
-    } else {
-      settlementValue = "No";
-    }
-    const appended = (await sheetsAppendStrict("Collections!A:J", [
-      [
-        executive,
-        data.loanId,
-        data.amount,
-        data.date,
-        data.time,
-        new Date().toISOString(),
-        "Confirmed",
-        entryDate,
-        data.entryType,
-        settlementValue,
-      ],
-    ])) as { updates?: { updatedRange?: string } };
-
-    // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
-    // so they are written to the exact row the append landed on.
-    const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
-    if (rowNum > 0) {
-      const { sheetsUpdateStrict } = await import("./mahavtaar.server");
-      if (data.receiptLinks.length > 0 || data.remark !== "") {
-        await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [
-          [data.receiptLinks.join(" | "), data.remark],
-        ]);
-      }
-      if (data.amansRemarks) {
-        await sheetsUpdateStrict(`Collections!S${rowNum}`, [[data.amansRemarks]]);
-      }
-    }
-    // Once the collection row is safely saved, close any matching active Hold Case.
-    // This is intentionally best-effort: a Hold tab issue must not report a saved
-    // collection as failed or encourage the executive to submit the payment twice.
+    const rowNum = await appendApprovedCollection(data, executive);
     let holdCasesRemoved = 0;
     try {
       const { removeMatchingHoldCasesAfterCollection } = await import("./hold-cases.functions");
-      const result = await removeMatchingHoldCasesAfterCollection(data.loanId);
-      holdCasesRemoved = result.collectedCount;
+      holdCasesRemoved = (await removeMatchingHoldCasesAfterCollection(data.loanId)).collectedCount;
     } catch (error) {
       console.error("Collection saved, but matching Hold Case could not be closed:", error);
     }
     let ptpsKept = 0;
     try {
       const { markMatchingPTPsKept } = await import("./ptp.functions");
-      const result = await markMatchingPTPsKept(data.loanId);
-      ptpsKept = result.keptCount;
+      ptpsKept = (await markMatchingPTPsKept(data.loanId)).keptCount;
     } catch (error) {
       console.error("Collection saved, but matching PTP could not be marked Kept:", error);
     }
-    return { ok: true as const, row: rowNum, holdCasesRemoved, ptpsKept };
+    return { ok: true as const, status: "SAVED" as const, row: rowNum, holdCasesRemoved, ptpsKept };
+  });
+
+
+export const getCollectionApprovalRequests = createServerFn({ method: "POST" }).handler(async () => {
+  await requireSession("Admin");
+  const { ensureSheetStrict, sheetsGet } = await import("./mahavtaar.server");
+  await ensureSheetStrict(allocationApprovalTab, allocationApprovalHeaders);
+  const rows = await sheetsGet(`${allocationApprovalTab}!A2:L`);
+  return rows.map((r, i) => ({
+    row: i + 2, createdAt: r[0] ?? "", status: r[1] ?? "",
+    requestedBy: r[2] ?? "", allocatedExecutive: r[3] ?? "", loanId: r[4] ?? "",
+    emi: Number(r[5] ?? 0), pos: Number(r[6] ?? 0), amount: Number(r[7] ?? 0),
+  })).filter((r) => r.status.trim().toUpperCase() === "PENDING");
+});
+
+export const decideCollectionApproval = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({
+    row: z.number().int().min(2), decision: z.enum(["APPROVE", "REJECT"]),
+    note: z.string().max(300).optional().default(""),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    const admin = await requireSession("Admin");
+    const { ensureSheetStrict, sheetsGetFresh, sheetsUpdateStrict, withSheetMutex } = await import("./mahavtaar.server");
+    await ensureSheetStrict(allocationApprovalTab, allocationApprovalHeaders);
+    return withSheetMutex("collection-approval-" + data.row, async () => {
+      const rows = await sheetsGetFresh(`${allocationApprovalTab}!A${data.row}:L${data.row}`);
+      const r = rows[0];
+      if (!r || String(r[1] ?? "").toUpperCase() !== "PENDING") throw new Error("यह request पहले ही process हो चुकी है।");
+      if (data.decision === "REJECT") {
+        await sheetsUpdateStrict(`${allocationApprovalTab}!B${data.row}:L${data.row}`, [[
+          "REJECTED", r[2] ?? "", r[3] ?? "", r[4] ?? "", r[5] ?? "", r[6] ?? "", r[7] ?? "", r[8] ?? "",
+          admin.name, new Date().toISOString(), data.note,
+        ]]);
+        return { ok: true as const, decision: "REJECTED" as const };
+      }
+      let payload: z.infer<typeof entrySchema>;
+      try { payload = entrySchema.parse(JSON.parse(String(r[8] ?? ""))); }
+      catch { throw new Error("Approval request का saved data invalid है।"); }
+      const allocation = await getLoanAllocation(payload.loanId);
+      if (canonicalExecutive(r[3]) !== allocation.allocated) throw new Error("Loan allocation बदल चुका है। Request approve नहीं की जा सकती।");
+      if (canonicalExecutive(r[2]) === allocation.allocated) throw new Error("अब यह request unnecessary है; Executive सीधे entry कर सकता है।");
+      const collectionRow = await appendApprovedCollection(payload, payload.executive);
+      await sheetsUpdateStrict(`${allocationApprovalTab}!B${data.row}:L${data.row}`, [[
+        "APPROVED", r[2] ?? "", r[3] ?? "", r[4] ?? "", r[5] ?? "", r[6] ?? "", r[7] ?? "", r[8] ?? "",
+        admin.name, new Date().toISOString(), data.note || `Collection row ${collectionRow}`,
+      ]]);
+      return { ok: true as const, decision: "APPROVED" as const, collectionRow };
+    });
   });
 
 // Marks conflicting Collections rows with a red background so the conflict is
