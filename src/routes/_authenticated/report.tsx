@@ -1420,7 +1420,6 @@ function ReportPage() {
     },
     staleTime: 30_000,
     refetchOnWindowFocus: false,
-    refetchInterval: 30_000,
   });
   const data = bundle?.collections ?? [];
   const excludedLoanRecords = bundle?.excludedLoans ?? [];
