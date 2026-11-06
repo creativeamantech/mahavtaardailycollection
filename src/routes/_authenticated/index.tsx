@@ -615,6 +615,8 @@ function EntryPage() {
                         <img
                           src={p.preview}
                           alt={p.file.name}
+                          loading="lazy"
+                          decoding="async"
                           className="h-20 w-full rounded-lg border object-cover"
                         />
                         <button
