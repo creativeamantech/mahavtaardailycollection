@@ -122,11 +122,11 @@ export const saveCollection = createServerFn({ method: "POST" })
           const existingAmount = Number(String(row[2] ?? "").replace(/,/g, ""));
           if (!Number.isFinite(existingAmount) || existingAmount !== data.amount) return false;
           const savedAt = Date.parse(String(row[5] ?? ""));
-          return Number.isFinite(savedAt) && savedAt <= now && now - savedAt < 5 * 60 * 1000;
+          return Number.isFinite(savedAt) && savedAt <= now && now - savedAt < 10 * 60 * 1000;
         });
         if (duplicate) {
           const savedAt = Date.parse(String(duplicate[5] ?? ""));
-          const remainingSeconds = Math.max(1, Math.ceil((5 * 60 * 1000 - (now - savedAt)) / 1000));
+          const remainingSeconds = Math.max(1, Math.ceil((10 * 60 * 1000 - (now - savedAt)) / 1000));
           throw new Error(
             `Duplicate payment blocked: this loan number and amount were already entered. Try again after ${remainingSeconds} seconds.`,
           );
