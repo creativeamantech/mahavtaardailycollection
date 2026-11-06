@@ -1,5 +1,6 @@
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { createFileRoute } from "@tanstack/react-router";
+import { getCurrentSession } from "@/lib/auth.functions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -121,12 +122,19 @@ export const Route = createFileRoute("/_authenticated/report")({
       },
     ],
   }),
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData({
+  loader: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData({
+      queryKey: ["auth-session"],
+      queryFn: () => getCurrentSession(),
+      staleTime: 30_000,
+    });
+    if (!session) return null;
+    return context.queryClient.ensureQueryData({
       queryKey: ["report-bundle"],
       queryFn: () => getReportBundle(),
       staleTime: 30_000,
-    }),
+    });
+  },
   component: ReportPage,
 });
 
