@@ -127,15 +127,27 @@ export const saveCollection = createServerFn({ method: "POST" })
     // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
     // so they are written to the exact row the append landed on.
     const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
+    // The append above is the payment commit point. Follow-up metadata writes
+    // must never turn a committed payment into a client-visible failure, because
+    // the executive could retry and create a duplicate payment row.
+    let metadataWarning = false;
     if (rowNum > 0) {
-      const { sheetsUpdateStrict } = await import("./mahavtaar.server");
-      if (data.receiptLinks.length > 0 || data.remark !== "") {
-        await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [
-          [data.receiptLinks.join(" | "), data.remark],
-        ]);
-      }
-      if (data.amansRemarks) {
-        await sheetsUpdateStrict(`Collections!S${rowNum}`, [[data.amansRemarks]]);
+      try {
+        const { sheetsUpdateStrict } = await import("./mahavtaar.server");
+        if (data.receiptLinks.length > 0 || data.remark !== "") {
+          await sheetsUpdateStrict(`Collections!P${rowNum}:Q${rowNum}`, [
+            [data.receiptLinks.join(" | "), data.remark],
+          ]);
+        }
+        if (data.amansRemarks) {
+          await sheetsUpdateStrict(`Collections!S${rowNum}`, [[data.amansRemarks]]);
+        }
+      } catch (error) {
+        metadataWarning = true;
+        console.error(
+          `Collection row ${rowNum} was saved, but receipt/remark metadata could not be written:`,
+          error,
+        );
       }
     }
     // Once the collection row is safely saved, close any matching active Hold Case.
@@ -157,7 +169,7 @@ export const saveCollection = createServerFn({ method: "POST" })
     } catch (error) {
       console.error("Collection saved, but matching PTP could not be marked Kept:", error);
     }
-    return { ok: true as const, row: rowNum, holdCasesRemoved, ptpsKept };
+    return { ok: true as const, row: rowNum, metadataWarning, holdCasesRemoved, ptpsKept };
   });
 
 // Marks conflicting Collections rows with a red background so the conflict is
