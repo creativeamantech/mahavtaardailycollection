@@ -41,7 +41,6 @@ export function ExcludedLoanManager() {
       setLoanNumber("");
       setReason("");
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
-      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       toast.success("Loan number excluded from collection reports.");
@@ -63,7 +62,6 @@ export function ExcludedLoanManager() {
     try {
       await removeLoan({ data: { loanNumber: loan } });
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
-      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       await qc.invalidateQueries({ queryKey: ["collections"] });
       await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       toast.success("Loan number removed from the active exclusion list.");
