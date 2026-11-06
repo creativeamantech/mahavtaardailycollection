@@ -815,6 +815,7 @@ function AdminLoanAuditPage() {
                                       src={receiptImage(url)}
                                       alt={`Receipt ${i + 1} for loan ${entry.loanId}`}
                                       loading="lazy"
+                                      decoding="async"
                                       className="h-40 w-full rounded object-contain bg-muted"
                                       onError={(e) => {
                                         e.currentTarget.style.display = "none";
