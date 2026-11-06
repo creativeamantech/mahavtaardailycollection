@@ -151,8 +151,7 @@ export const submitHoldCases = createServerFn({ method: "POST" })
     };
   });
 
-export const listActiveHoldCasesForReport = createServerFn({ method: "POST" }).handler(async () => {
-  await requireSession();
+export async function readActiveHoldCasesForReport() {
   const { sheetsGet } = await import("./mahavtaar.server");
   await ensureHoldTab();
   const rows = await sheetsGet("Hold_Cases!A2:I");
@@ -170,6 +169,11 @@ export const listActiveHoldCasesForReport = createServerFn({ method: "POST" }).h
       principalOutstanding: Number(String(row[8] ?? "").replace(/[,₹\\s]/g, "")) || 0,
     }))
     .filter((item) => item.loanId !== "" && item.status.toLowerCase() === "active");
+}
+
+export const listActiveHoldCasesForReport = createServerFn({ method: "POST" }).handler(async () => {
+  await requireSession();
+  return readActiveHoldCasesForReport();
 });
 
 const executiveSchema = z.object({ executive: z.enum(executives) });
