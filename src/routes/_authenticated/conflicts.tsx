@@ -861,7 +861,6 @@ function ConflictsContent() {
                                         decoding="async"
                                         alt={`Receipt Row ${item.row}`}
                                         className="h-full w-full object-contain transition-transform group-hover:scale-105"
-                                        loading="lazy"
                                         onError={(e) => {
                                           // fallback if image fails to render
                                           (e.target as HTMLElement).style.display = "none";
