@@ -113,8 +113,8 @@ function CollectionSheetPage() {
       if (!Array.isArray(rows)) throw new Error("Unable to load the complete Collections sheet.");
       return rows as Collection[];
     },
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
   });
 
   const allRows = useMemo(() => data ?? [], [data]);
@@ -125,7 +125,7 @@ function CollectionSheetPage() {
       return Array.isArray(records) ? records : [];
     },
     staleTime: 60_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
   // Active Excluded Loan Numbers are the sole source of truth for Small Cases.
   // Never infer exclusion from either EMI amount or the collection payment amount.
