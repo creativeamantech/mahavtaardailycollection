@@ -1,6 +1,9 @@
 import { requireSession } from "./auth.functions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { readExcludedLoanNumbers } from "./excluded-loans.functions";
+import { readActiveHoldCasesForReport } from "./hold-cases.functions";
+import { readActivePTPsForReport } from "./ptp.functions";
 
 const executives = [
   "Aarti",
@@ -361,6 +364,17 @@ export async function readCollections() {
 export const getCollections = createServerFn({ method: "GET" }).handler(async () => {
   await requireSession();
   return readCollections();
+});
+
+export const getReportBundle = createServerFn({ method: "GET" }).handler(async () => {
+  await requireSession();
+  const [collections, excludedLoans, holdCases, ptps] = await Promise.all([
+    readCollections(),
+    readExcludedLoanNumbers(),
+    readActiveHoldCasesForReport(),
+    readActivePTPsForReport(),
+  ]);
+  return { collections, excludedLoans, holdCases, ptps };
 });
 
 // Admin-only read path: the password is checked on the server for every request.
