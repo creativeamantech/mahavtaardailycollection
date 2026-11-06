@@ -1738,8 +1738,6 @@ function ReportPage() {
               variant="outline"
               onClick={() => {
                 void refetch();
-                void refetch();
-                void refetch();
               }}
               disabled={isFetching || holdCasesLoading || ptpsLoading}
             >
