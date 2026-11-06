@@ -422,7 +422,8 @@ export const getCollections = createServerFn({ method: "GET" }).handler(async ()
 
 export const getReportBundle = createServerFn({ method: "GET" }).handler(async () => {
   await requireSession();
-  const { sheetsGet } = await import("./mahavtaar.server");
+  const { sheetsGet, ensureSheetStrict } = await import("./mahavtaar.server");
+  await ensureSheetStrict("CollectionAttempts", ["Timestamp", "Executive", "Loan Number", "Amount", "Reason", "Status"]);
   const [collections, excludedLoans, holdCases, ptps, attemptRows] = await Promise.all([
     readCollections(),
     readExcludedLoanNumbers(),
