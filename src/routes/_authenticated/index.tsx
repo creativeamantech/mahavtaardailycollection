@@ -319,7 +319,7 @@ function EntryPage() {
           receiptLinks: receipts.map((r) => r.link),
           remark: receiptLink === "" ? remark.trim() : "",
         } as never,
-      })) as { row?: number };
+      })) as { row?: number; metadataWarning?: boolean };
 
       if (conflicts.length > 0) {
         const rows = [
@@ -355,7 +355,12 @@ function EntryPage() {
       setRemark("");
       setUploadError("");
       setFileKey((k) => k + 1);
-      if (isExcludedLoan) {
+      if (saved?.metadataWarning) {
+        toast.warning(
+          `Payment saved in Collections row ${saved.row ?? "unknown"}, but receipt/remark details could not be linked. Do not submit this payment again; contact Admin to repair the receipt link.`,
+          { duration: 10000 },
+        );
+      } else if (isExcludedLoan) {
         toast.warning("Entry saved, but this loan number is excluded from all collection reports.");
       } else {
         toast.success("Entry saved");
