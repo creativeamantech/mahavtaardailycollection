@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EXECUTIVES } from "@/lib/executives";
 import { getCurrentSession } from "@/lib/auth.functions";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listActiveHoldCases, removeHoldCases, submitHoldCases } from "@/lib/hold-cases.functions";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ function normaliseLoanId(value: string) {
 }
 
 export function HoldCasesPanel() {
+  const queryClient = useQueryClient();
   const { holdCasesLocked } = useAppConfig();
   const [executive, setExecutive] = useState("");
   const getSession = useServerFn(getCurrentSession);
@@ -115,6 +116,7 @@ export function HoldCasesPanel() {
           remarks: remarks.trim(),
         },
       });
+      await queryClient.invalidateQueries({ queryKey: ["report-bundle"] });
       if (result.savedCount > 0)
         toast.success(result.savedCount + " Hold Case(s) submitted successfully.");
       if (result.skippedPaidCount > 0)
@@ -167,6 +169,7 @@ export function HoldCasesPanel() {
           loanIds: selectedToRemove,
         },
       });
+      await queryClient.invalidateQueries({ queryKey: ["report-bundle"] });
       if (result.removedCount > 0) toast.success(result.removedCount + " Hold Case(s) removed.");
       if (result.skippedPaidCount > 0)
         toast.warning(result.skippedPaidCount + " Paid Loan ID(s) were protected and not removed.");
