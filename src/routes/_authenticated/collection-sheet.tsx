@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getCurrentSession } from "@/lib/auth.functions";
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -12,8 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/collection-sheet")({
-  loader: ({ context }) =>
-    Promise.all([
+  loader: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData({
+      queryKey: ["auth-session"],
+      queryFn: () => getCurrentSession(),
+      staleTime: 30_000,
+    });
+    if (!session) return null;
+    return Promise.all([
       context.queryClient.ensureQueryData({
         queryKey: ["collections"],
         queryFn: () => getCollections(),
@@ -24,7 +31,8 @@ export const Route = createFileRoute("/_authenticated/collection-sheet")({
         queryFn: () => getExcludedLoanNumbers(),
         staleTime: 30_000,
       }),
-    ]),
+    ]);
+  },
   head: () => ({
     meta: [
       { title: "Collection Sheet — Mahavtaar Daily Collection" },
