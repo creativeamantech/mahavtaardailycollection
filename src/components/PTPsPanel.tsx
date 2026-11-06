@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EXECUTIVES } from "@/lib/executives";
 import { getCurrentSession } from "@/lib/auth.functions";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listActivePTPs, removePTPs, submitPTPs } from "@/lib/ptp.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ function normaliseLoanId(value: string) {
 }
 
 export function PTPsPanel() {
+  const queryClient = useQueryClient();
   const [executive, setExecutive] = useState("");
   const getSession = useServerFn(getCurrentSession);
   const { data: session, isLoading: sessionLoading } = useQuery({
@@ -109,6 +110,7 @@ export function PTPsPanel() {
           remarks: remarks.trim(),
         },
       });
+      await queryClient.invalidateQueries({ queryKey: ["report-bundle"] });
       if (result.savedCount > 0)
         toast.success(result.savedCount + " PTP(s) submitted successfully.");
       if (result.skippedPaidCount > 0)
@@ -150,6 +152,7 @@ export function PTPsPanel() {
           loanIds: selectedToRemove,
         },
       });
+      await queryClient.invalidateQueries({ queryKey: ["report-bundle"] });
       if (result.removedCount > 0) toast.success(result.removedCount + " PTP(s) removed.");
       if (result.skippedPaidCount > 0)
         toast.warning(result.skippedPaidCount + " Paid Loan ID(s) were protected and not removed.");
