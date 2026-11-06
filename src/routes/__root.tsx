@@ -223,6 +223,7 @@ function AppShell() {
                 <Link
                   key={n.to}
                   to={n.to as never}
+                  preload="intent"
                   className="rounded-lg border px-4 py-2 text-base font-medium"
                   activeOptions={{ exact: n.to === "/" }}
                   activeProps={{
@@ -250,6 +251,7 @@ function AppShell() {
                           <Link
                             key={n.label}
                             to={n.to as never}
+                            preload="intent"
                             onClick={() => setAdminOpen(false)}
                             className="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
                           >

@@ -259,6 +259,7 @@ function AdminLoanAuditPage() {
         },
       });
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       setDrafts((old) => {
         const next = { ...old };
         delete next[entry.row];
@@ -287,6 +288,7 @@ function AdminLoanAuditPage() {
         return next;
       });
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       toast.success(`Loan ${entry.loanId} की entry soft-delete हो गई।`);
       if (!result.auditSaved)
         toast.error(
@@ -813,6 +815,7 @@ function AdminLoanAuditPage() {
                                       src={receiptImage(url)}
                                       alt={`Receipt ${i + 1} for loan ${entry.loanId}`}
                                       loading="lazy"
+                                      decoding="async"
                                       className="h-40 w-full rounded object-contain bg-muted"
                                       onError={(e) => {
                                         e.currentTarget.style.display = "none";

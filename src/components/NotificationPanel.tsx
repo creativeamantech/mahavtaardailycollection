@@ -27,6 +27,7 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
             src={toDirectDriveUrl(activeNotification.imageUrl)}
             alt="Notification attachment"
             loading="lazy"
+            decoding="async"
             className="max-h-48 w-full max-w-xs rounded-md border object-contain"
             onError={(e) => {
               e.currentTarget.style.display = "none";

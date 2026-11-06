@@ -27,8 +27,8 @@ export function ExcludedLoanManager() {
   } = useQuery({
     queryKey: ["excluded-loan-numbers"],
     queryFn: () => getList(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   const active = useMemo(() => data.filter((r) => r.status.toLowerCase() === "active"), [data]);
 
@@ -42,6 +42,7 @@ export function ExcludedLoanManager() {
       setReason("");
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       toast.success("Loan number excluded from collection reports.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not add excluded loan number.");
@@ -62,6 +63,7 @@ export function ExcludedLoanManager() {
       await removeLoan({ data: { loanNumber: loan } });
       await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
       await qc.invalidateQueries({ queryKey: ["collections"] });
+      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
       toast.success("Loan number removed from the active exclusion list.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not remove excluded loan number.");

@@ -138,8 +138,8 @@ function EntryPage() {
   const { data: excludedLoanRecords = [] } = useQuery({
     queryKey: ["excluded-loan-numbers"],
     queryFn: () => fetchExcludedLoans(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   const flagConflicts = useServerFn(markConflictRows);
   const { data: rawExisting = [], refetch: refetchCollections } = useQuery({
@@ -319,7 +319,7 @@ function EntryPage() {
           receiptLinks: receipts.map((r) => r.link),
           remark: receiptLink === "" ? remark.trim() : "",
         } as never,
-      })) as { row?: number };
+      })) as { row?: number; metadataWarning?: boolean };
 
       if (conflicts.length > 0) {
         const rows = [
@@ -337,6 +337,7 @@ function EntryPage() {
       }
       setReceipt({ ...entry, receiptLink });
       qc.invalidateQueries({ queryKey: ["collections"] });
+      qc.invalidateQueries({ queryKey: ["report-bundle"] });
       setShowConfirm(false);
 
       setExecutive(session?.role === "Executive" ? session.name : "");
@@ -354,7 +355,12 @@ function EntryPage() {
       setRemark("");
       setUploadError("");
       setFileKey((k) => k + 1);
-      if (isExcludedLoan) {
+      if (saved?.metadataWarning) {
+        toast.warning(
+          `Payment saved in Collections row ${saved.row ?? "unknown"}, but receipt/remark details could not be linked. Do not submit this payment again; contact Admin to repair the receipt link.`,
+          { duration: 10000 },
+        );
+      } else if (isExcludedLoan) {
         toast.warning("Entry saved, but this loan number is excluded from all collection reports.");
       } else {
         toast.success("Entry saved");
@@ -614,6 +620,8 @@ function EntryPage() {
                         <img
                           src={p.preview}
                           alt={p.file.name}
+                          loading="lazy"
+                          decoding="async"
                           className="h-20 w-full rounded-lg border object-cover"
                         />
                         <button

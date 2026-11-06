@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { getCurrentSession } from "@/lib/auth.functions";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Search, RefreshCw, X, Download } from "lucide-react";
@@ -12,6 +13,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/collection-sheet")({
+  loader: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData({
+      queryKey: ["auth-session"],
+      queryFn: () => getCurrentSession(),
+      staleTime: 30_000,
+    });
+    if (!session) return null;
+    return Promise.all([
+      context.queryClient.ensureQueryData({
+        queryKey: ["collections"],
+        queryFn: () => getCollections(),
+        staleTime: 30_000,
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["excluded-loan-numbers"],
+        queryFn: () => getExcludedLoanNumbers(),
+        staleTime: 30_000,
+      }),
+    ]);
+  },
   head: () => ({
     meta: [
       { title: "Collection Sheet — Mahavtaar Daily Collection" },
@@ -90,9 +111,9 @@ function dateFilterKey(value: string | undefined): string {
   const raw = String(value ?? "").trim();
   if (!raw) return "";
   const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (iso) return iso[1];
+  if (iso) return iso[1] ?? "";
   const dmy = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+  if (dmy) return `${dmy[3] ?? ""}-${(dmy[2] ?? "").padStart(2, "0")}-${(dmy[1] ?? "").padStart(2, "0")}`;
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? "" : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
 }
@@ -101,6 +122,8 @@ function CollectionSheetPage() {
   const fetchCollections = useServerFn(getCollections);
   const fetchExcludedLoanNumbers = useServerFn(getExcludedLoanNumbers);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const [visibleCount, setVisibleCount] = useState(50);
   const [executiveFilter, setExecutiveFilter] = useState("__all__");
   const [paymentDateFrom, setPaymentDateFrom] = useState("");
   const [paymentDateTo, setPaymentDateTo] = useState("");
@@ -113,8 +136,8 @@ function CollectionSheetPage() {
       if (!Array.isArray(rows)) throw new Error("Unable to load the complete Collections sheet.");
       return rows as Collection[];
     },
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
   });
 
   const allRows = useMemo(() => data ?? [], [data]);
@@ -125,7 +148,7 @@ function CollectionSheetPage() {
       return Array.isArray(records) ? records : [];
     },
     staleTime: 60_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
   // Active Excluded Loan Numbers are the sole source of truth for Small Cases.
   // Never infer exclusion from either EMI amount or the collection payment amount.
@@ -144,14 +167,14 @@ function CollectionSheetPage() {
     [search],
   );
   const isBulkSearch = requestedLoanIds.length > 1;
-  const normalizedQuery = normaliseLoanId(search);
+  const normalizedQuery = normaliseLoanId(deferredSearch);
   const executives = useMemo(
     () => [...new Set(allRows.map((row) => String(row.executive ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     [allRows],
   );
   const rows = useMemo(() => allRows.filter((row) => {
     const rowLoanId = normaliseLoanId(row.loanId);
-    const matchesLoan = !search.trim()
+    const matchesLoan = !deferredSearch.trim()
       || (isBulkSearch ? requestedLoanIds.includes(rowLoanId) : rowLoanId.includes(normalizedQuery));
     const matchesExecutive = executiveFilter === "__all__" || String(row.executive ?? "").trim() === executiveFilter;
     const paymentDate = dateFilterKey(row.date);
@@ -161,7 +184,8 @@ function CollectionSheetPage() {
     const matchesEntryDate = (!entryDateFrom || (entryDate && entryDate >= entryDateFrom))
       && (!entryDateTo || (entryDate && entryDate <= entryDateTo));
     return matchesLoan && matchesExecutive && matchesPaymentDate && matchesEntryDate;
-  }), [allRows, search, isBulkSearch, requestedLoanIds, normalizedQuery, executiveFilter, paymentDateFrom, paymentDateTo, entryDateFrom, entryDateTo]);
+  }), [allRows, deferredSearch, isBulkSearch, requestedLoanIds, normalizedQuery, executiveFilter, paymentDateFrom, paymentDateTo, entryDateFrom, entryDateTo]);
+  const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount]);
 
   // Apply the existing reporting rules to the currently visible/search-filtered rows.
   // Category priority avoids double-counting excluded rows in the summary.
@@ -340,7 +364,7 @@ function CollectionSheetPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, index) => (
+              {visibleRows.map((row, index) => (
                 <tr key={row.row ?? `${row.loanId ?? "row"}-${index}`} className={row.alreadyPaid ? "border-b bg-red-100 text-red-950 hover:bg-red-200" : "border-b hover:bg-muted/50"}>
                   <td className="whitespace-nowrap px-3 py-2">{row.row ?? index + 1}</td>
                   {columns.map((column) => (
@@ -353,6 +377,13 @@ function CollectionSheetPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {!isLoading && !error && rows.length > visibleRows.length && (
+        <div className="mt-3 flex justify-center">
+          <Button type="button" variant="outline" onClick={() => setVisibleCount((count) => count + 50)}>
+            Load 50 more ({rows.length - visibleRows.length} remaining)
+          </Button>
         </div>
       )}
       {!isLoading && !error && isBulkSearch && (

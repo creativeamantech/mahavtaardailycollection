@@ -219,8 +219,7 @@ export const removePTPs = createServerFn({ method: "POST" })
     };
   });
 
-export const listActivePTPsForReport = createServerFn({ method: "POST" }).handler(async () => {
-  await requireSession();
+export async function readActivePTPsForReport() {
   const { sheetsGet } = await import("./mahavtaar.server");
   await ensurePTPTab();
   const rows = await sheetsGet("PTPs!A2:K");
@@ -239,6 +238,11 @@ export const listActivePTPsForReport = createServerFn({ method: "POST" }).handle
       principalOutstanding: Number(String(r[10] ?? "").replace(/[,₹\\s]/g, "")) || 0,
     }))
     .filter((r) => r.loanId);
+}
+
+export const listActivePTPsForReport = createServerFn({ method: "POST" }).handler(async () => {
+  await requireSession();
+  return readActivePTPsForReport();
 });
 
 // A successfully recorded payment fulfils the matching active PTP, retaining its history.

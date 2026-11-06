@@ -86,6 +86,7 @@ function NotificationsPage() {
                         src={toDirectDriveUrl(n.imageUrl)}
                         alt="Notification attachment"
                         loading="lazy"
+                        decoding="async"
                         className="max-h-48 w-full max-w-xs rounded-md border object-contain"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";

@@ -19,8 +19,7 @@ export type ExcludedLoan = {
   status: string;
 };
 
-export const getExcludedLoanNumbers = createServerFn({ method: "GET" }).handler(async () => {
-  await requireSession();
+export async function readExcludedLoanNumbers() {
   const { ensureSheet, sheetsGet } = await import("./mahavtaar.server");
   await ensureSheet(TAB, header);
   const rows = await sheetsGet(`${TAB}!A2:D`);
@@ -32,6 +31,11 @@ export const getExcludedLoanNumbers = createServerFn({ method: "GET" }).handler(
       status: (r[3] ?? "Active").trim() || "Active",
     }))
     .filter((r) => r.loanNumber !== "");
+}
+
+export const getExcludedLoanNumbers = createServerFn({ method: "GET" }).handler(async () => {
+  await requireSession();
+  return readExcludedLoanNumbers();
 });
 
 export const addExcludedLoanNumber = createServerFn({ method: "POST" })

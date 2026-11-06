@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { getCurrentSession } from "@/lib/auth.functions";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -36,6 +37,26 @@ import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 
 export const Route = createFileRoute("/_authenticated/loans")({
+  loader: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData({
+      queryKey: ["auth-session"],
+      queryFn: () => getCurrentSession(),
+      staleTime: 30_000,
+    });
+    if (!session) return null;
+    return Promise.all([
+      context.queryClient.ensureQueryData({
+        queryKey: ["collections"],
+        queryFn: () => getCollections(),
+        staleTime: 30_000,
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["excluded-loan-numbers"],
+        queryFn: () => getExcludedLoanNumbers(),
+        staleTime: 30_000,
+      }),
+    ]);
+  },
   head: () => ({
     meta: [
       { title: "Loan Search & EMI Status — Mahavtaar Daily Collection" },
@@ -75,8 +96,8 @@ function LoansPage() {
   const { data: excludedLoanRecords = [] } = useQuery({
     queryKey: ["excluded-loan-numbers"],
     queryFn: () => fetchExcludedLoans(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   const excludedLoanIds = useMemo(
     () =>
@@ -108,6 +129,8 @@ function LoansPage() {
       }
       return res;
     },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const collections = useMemo(() => (Array.isArray(data) ? data : []), [data]);
@@ -136,9 +159,10 @@ function LoansPage() {
 
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
 
   const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     if (!q) return [];
     const filtered = loans.filter((l) => l.loanId.toLowerCase().includes(q));
     const seen = new Set<string>();
@@ -147,7 +171,7 @@ function LoansPage() {
       seen.add(l.loanId);
       return true;
     });
-  }, [loans, query]);
+  }, [loans, deferredQuery]);
 
   const [showShort, setShowShort] = useState(false);
   const shorts = useMemo(() => shortEmiRows(loans), [loans]);
