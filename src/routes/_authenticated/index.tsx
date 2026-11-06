@@ -138,8 +138,8 @@ function EntryPage() {
   const { data: excludedLoanRecords = [] } = useQuery({
     queryKey: ["excluded-loan-numbers"],
     queryFn: () => fetchExcludedLoans(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   const flagConflicts = useServerFn(markConflictRows);
   const { data: rawExisting = [], refetch: refetchCollections } = useQuery({
@@ -337,6 +337,7 @@ function EntryPage() {
       }
       setReceipt({ ...entry, receiptLink });
       qc.invalidateQueries({ queryKey: ["collections"] });
+      qc.invalidateQueries({ queryKey: ["report-bundle"] });
       setShowConfirm(false);
 
       setExecutive(session?.role === "Executive" ? session.name : "");
