@@ -31,7 +31,7 @@ async function ok(res: Response, label: string) {
 }
 
 // --- read cache + retry to stay under the Sheets read-requests-per-minute quota ---
-const CACHE_TTL_MS = 20_000;
+const CACHE_TTL_MS = 60_000;
 const readCache = new Map<string, { at: number; rows: string[][] }>();
 const inFlight = new Map<string, Promise<string[][]>>();
 
