@@ -1,5 +1,6 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
+import { TeamMeter } from "@/components/TeamMeter";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -408,6 +409,7 @@ function EntryPage() {
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6">
       <NotificationPanel className="mb-4" />
+      <TeamMeter />
       <h1 className="text-3xl font-bold tracking-tight">Collection Entry</h1>
       <p className="mt-1 text-base text-muted-foreground">
         Record a payment collected by an executive.
