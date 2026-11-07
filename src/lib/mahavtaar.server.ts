@@ -332,7 +332,7 @@ export async function sheetsGetOptional(range: string): Promise<string[][]> {
   } catch (error) {
     const message = String(error);
     const isMissingTab =
-      /\\[400\\]/i.test(message) &&
+      /\[400\]/i.test(message) &&
       /(unable to parse range|range.*not found|sheet.*not found|does not exist)/i.test(message);
     if (isMissingTab) {
       console.warn(`Optional Google Sheets tab is missing; treating ${range} as empty.`);
