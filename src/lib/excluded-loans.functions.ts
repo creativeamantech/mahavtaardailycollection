@@ -20,9 +20,8 @@ export type ExcludedLoan = {
 };
 
 export async function readExcludedLoanNumbers() {
-  const { ensureSheet, sheetsGet } = await import("./mahavtaar.server");
-  await ensureSheet(TAB, header);
-  const rows = await sheetsGet(`${TAB}!A2:D`);
+  const { sheetsGetOptional } = await import("./mahavtaar.server");
+  const rows = await sheetsGetOptional(`${TAB}!A2:D`);
   return rows
     .map((r) => ({
       loanNumber: (r[0] ?? "").trim(),
