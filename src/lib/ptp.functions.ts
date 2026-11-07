@@ -220,9 +220,8 @@ export const removePTPs = createServerFn({ method: "POST" })
   });
 
 export async function readActivePTPsForReport() {
-  const { sheetsGet } = await import("./mahavtaar.server");
-  await ensurePTPTab();
-  const rows = await sheetsGet("PTPs!A2:K");
+  const { sheetsGetOptional } = await import("./mahavtaar.server");
+  const rows = await sheetsGetOptional("PTPs!A2:K");
   return (rows ?? [])
     .map((r, i) => ({
       row: i + 2,
