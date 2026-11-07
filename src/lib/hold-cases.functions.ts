@@ -152,9 +152,8 @@ export const submitHoldCases = createServerFn({ method: "POST" })
   });
 
 export async function readActiveHoldCasesForReport() {
-  const { sheetsGet } = await import("./mahavtaar.server");
-  await ensureHoldTab();
-  const rows = await sheetsGet("Hold_Cases!A2:I");
+  const { sheetsGetOptional } = await import("./mahavtaar.server");
+  const rows = await sheetsGetOptional("Hold_Cases!A2:I");
   return (rows ?? [])
     .map((row, index) => ({
       row: index + 2,
