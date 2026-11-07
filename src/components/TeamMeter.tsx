@@ -18,8 +18,9 @@ import {
 type Category = "Loud Voice" | "Bad Words";
 
 export function TeamMeter() {
-  const [target, setTarget] = useState("Pooja");
-  const [category, setCategory] = useState<Category>("Loud Voice");
+  const [target, setTarget] = useState("");
+  const [viewExecutive, setViewExecutive] = useState("");
+  const [category, setCategory] = useState<Category | "">("");
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
   const loadMeter = useServerFn(getTeamMeter);
@@ -39,13 +40,14 @@ export function TeamMeter() {
   });
 
   const selectedTotals = useMemo(
-    () => data?.executiveTotals.find((item) => item.name === target),
+    () => data?.executiveTotals.find((item) => item.name === viewExecutive),
     [data?.executiveTotals, target],
   );
 
   async function vote() {
     setSaving(true);
     try {
+      if (!target || !category) return;
       await submitVote({ data: { target, category } });
       toast.success(`Vote recorded for ${target} — ${category}.`);
       await queryClient.invalidateQueries({ queryKey: ["team-meter"] });
@@ -75,12 +77,12 @@ export function TeamMeter() {
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-xl bg-amber-50 p-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
           <div className="flex items-center gap-2 text-sm font-semibold"><Volume2 className="h-4 w-4" /> Loud Voice</div>
-          <p className="mt-1 text-2xl font-bold">{selectedTotals?.loudVoice ?? 0}</p>
-          <p className="text-xs opacity-75">Votes for {target}</p>
+          <p className="mt-1 text-2xl font-bold">{selectedTotals?.loudVoice ?? "—"}</p>
+          <p className="text-xs opacity-75">{viewExecutive ? "Votes for " + viewExecutive : "Select an executive below"}</p>
         </div>
         <div className="rounded-xl bg-rose-50 p-3 text-rose-950 dark:bg-rose-950/30 dark:text-rose-100">
           <div className="flex items-center gap-2 text-sm font-semibold"><MessageSquareWarning className="h-4 w-4" /> Bad Words</div>
-          <p className="mt-1 text-2xl font-bold">{selectedTotals?.badWords ?? 0}</p>
+          <p className="mt-1 text-2xl font-bold">{selectedTotals?.badWords ?? "—"}</p>
           <p className="text-xs opacity-75">Votes for {target}</p>
         </div>
       </div>
@@ -88,8 +90,8 @@ export function TeamMeter() {
       <div className="mt-4 rounded-xl border p-3">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold">Hourly meter</h3>
-          <Select value={target} onValueChange={setTarget}>
-            <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+          <Select value={viewExecutive} onValueChange={setViewExecutive}>
+            <SelectTrigger className="h-9 w-40"><SelectValue placeholder="Select executive" /></SelectTrigger>
             <SelectContent>
               {EXECUTIVES.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
             </SelectContent>
@@ -101,10 +103,10 @@ export function TeamMeter() {
           <p className="py-5 text-center text-sm text-destructive">Could not load the team meter. Please refresh.</p>
         ) : (
           <div className="divide-y">
-            {(data?.hourly ?? []).map((slot) => {
-              const count = data?.executiveTotals.find((item) => item.name === target);
-              // Hourly values are filtered for the selected executive by the server response below.
-              const selectedHour = data?.hourlyByExecutive?.[target]?.[slot.hour];
+            {!viewExecutive ? (
+              <p className="py-5 text-center text-sm text-muted-foreground">Select an executive to view hourly votes.</p>
+            ) : (data?.hourly ?? []).map((slot) => {
+              const selectedHour = data?.hourlyByExecutive?.[viewExecutive]?.[slot.hour];
               return (
                 <div key={slot.hour} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 py-2 text-sm">
                   <span className="font-medium">{slot.label}</span>
@@ -128,13 +130,13 @@ export function TeamMeter() {
             </SelectContent>
           </Select>
           <Select value={category} onValueChange={(value) => setCategory(value as Category)}>
-            <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-11"><SelectValue placeholder="Select category" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Loud Voice">Loud Voice</SelectItem>
               <SelectItem value="Bad Words">Bad Words</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="button" className="h-11" onClick={vote} disabled={saving || !data?.canVote || (session?.role !== "Admin" && session?.name === target)}>
+          <Button type="button" className="h-11" onClick={vote} disabled={saving || !data?.canVote || !target || !category || (session?.role !== "Admin" && session?.name === target)}>
             {saving ? "Saving…" : "Vote"}
           </Button>
         </div>
