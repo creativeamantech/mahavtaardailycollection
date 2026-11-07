@@ -64,12 +64,24 @@ export const getTeamMeter = createServerFn({ method: "GET" }).handler(async () =
     loudVoice: votes.filter((vote) => vote.target === name && vote.category === "Loud Voice").length,
     badWords: votes.filter((vote) => vote.target === name && vote.category === "Bad Words").length,
   }));
+  const hourlyByExecutive = Object.fromEntries(EXECUTIVES.map((name) => [
+    name,
+    Object.fromEntries(Array.from({ length: 12 }, (_, index) => {
+      const hour = index + 9;
+      const matching = votes.filter((vote) => vote.target === name && vote.hour === hour);
+      return [hour, {
+        loudVoice: matching.filter((vote) => vote.category === "Loud Voice").length,
+        badWords: matching.filter((vote) => vote.category === "Bad Words").length,
+      }];
+    })),
+  ]));
 
   return {
     date,
     canVote: indiaNow().hour >= 9 && indiaNow().hour < 21,
     hourly,
     executiveTotals,
+    hourlyByExecutive,
     // Voter identities are never sent to executive sessions.
     adminRecords: session.role === "Admin"
       ? votes.map(({ voter, target, category, hour, timestamp }) => ({ voter, target, category, hour, timestamp }))
