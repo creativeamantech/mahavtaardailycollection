@@ -324,6 +324,24 @@ export async function sheetsGet(range: string): Promise<string[][]> {
   return p;
 }
 
+// Read-only access for optional report tabs. A missing tab is treated as an
+// empty dataset; permission, authentication, and gateway failures still surface.
+export async function sheetsGetOptional(range: string): Promise<string[][]> {
+  try {
+    return await sheetsGet(range);
+  } catch (error) {
+    const message = String(error);
+    const isMissingTab =
+      /\[400\]/i.test(message) &&
+      /(unable to parse range|range.*not found|sheet.*not found|does not exist)/i.test(message);
+    if (isMissingTab) {
+      console.warn(`Optional Google Sheets tab is missing; treating ${range} as empty.`);
+      return [];
+    }
+    throw error;
+  }
+}
+
 // Authentication reads bypass isolate-local caches so sessions written by one
 // Cloudflare instance are immediately visible to another instance.
 export async function sheetsGetFresh(range: string): Promise<string[][]> {
