@@ -1,7 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAppConfig } from "@/hooks/useAppConfig";
-import { useNotificationReads } from "@/hooks/useNotificationReads";
+
+const VIEWED_KEY = "mdc-notifications-viewed-v1";
+const VIEWED_EVENT = "mdc-notifications-viewed";
+
+function readViewedIds(): string[] {
+  try {
+    return JSON.parse(window.localStorage.getItem(VIEWED_KEY) || "[]") as string[];
+  } catch {
+    return [];
+  }
+}
+
+export function markNotificationsViewed(ids: string[]) {
+  try {
+    const viewed = new Set(readViewedIds());
+    ids.forEach((id) => viewed.add(id));
+    window.localStorage.setItem(VIEWED_KEY, JSON.stringify([...viewed]));
+    window.dispatchEvent(new Event(VIEWED_EVENT));
+  } catch {
+    // The inbox remains usable when browser storage is unavailable.
+  }
+}
 
 function formatNotificationTime(value: string) {
   const date = new Date(value);
@@ -15,47 +36,52 @@ function formatNotificationTime(value: string) {
   });
 }
 
-// Shared all-page ticker. Passing through a message never marks it as read;
-// each executive's ticker only clears after they mark the full notice as seen.
+// Previews rotate until the executive opens the full Notifications inbox.
 export function NotificationPanel({ className = "" }: { className?: string }) {
   const { notifications } = useAppConfig();
-  const { currentUser, reads } = useNotificationReads();
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [viewedIds, setViewedIds] = useState<string[] | null>(null);
 
-  const seenIds = useMemo(
-    () =>
-      new Set(
-        reads
-          .filter((read) => read.executive.toLowerCase() === currentUser.toLowerCase())
-          .map((read) => read.notificationId),
-      ),
-    [reads, currentUser],
-  );
-  const unread = useMemo(
+  useEffect(() => {
+    const sync = () => setViewedIds(readViewedIds());
+    sync();
+    window.addEventListener("storage", sync);
+    window.addEventListener(VIEWED_EVENT, sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener(VIEWED_EVENT, sync);
+    };
+  }, []);
+
+  const previews = useMemo(
     () =>
       [...notifications]
-        .filter((notification) => notification.status.toLowerCase() !== "removed")
-        .filter((notification) => !seenIds.has(notification.id))
+        .filter((item) => item.status.toLowerCase() !== "removed")
+        .filter((item) => !viewedIds?.includes(item.id))
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    [notifications, seenIds],
+    [notifications, viewedIds],
   );
 
   useEffect(() => {
-    if (paused || unread.length < 2) return;
+    setIndex(0);
+  }, [previews.length]);
+
+  useEffect(() => {
+    if (paused || previews.length < 2) return;
     const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % unread.length);
+      setIndex((current) => (current + 1) % previews.length);
     }, 4500);
     return () => window.clearInterval(timer);
-  }, [paused, unread.length]);
+  }, [paused, previews.length]);
 
-  if (unread.length === 0) return null;
-  const active = unread[index % unread.length];
+  if (viewedIds === null || previews.length === 0) return null;
+  const active = previews[index % previews.length];
   if (!active) return null;
 
   return (
     <section
-      aria-label="Unread notifications"
+      aria-label="Notification previews"
       aria-live="polite"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -65,50 +91,35 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
     >
       <div className="flex items-center gap-3">
         <span className="shrink-0 rounded-md bg-[#facc15] px-2 py-1 text-[10px] font-extrabold tracking-wide text-[#292820]">
-          NEW · {unread.length}
+          NOTICE · {previews.length}
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-[#292820]">
             {active.text || "New notification"}
           </p>
           <p className="mt-0.5 text-[11px] text-[#786a3c]">
-            {formatNotificationTime(active.createdAt)} · {index + 1}/{unread.length} unread
+            {formatNotificationTime(active.createdAt)} · Preview {index + 1}/{previews.length}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {unread.length > 1 && (
+          {previews.length > 1 && (
             <>
-              <button
-                type="button"
-                aria-label="Previous notification"
-                onClick={() => setIndex((current) => (current - 1 + unread.length) % unread.length)}
-                className="rounded-lg border border-[#e8d98f] bg-white px-2.5 py-1.5 text-sm font-bold text-[#51451d]"
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                aria-label={paused ? "Resume notification slider" : "Pause notification slider"}
+              <button type="button" aria-label="Previous notification preview"
+                onClick={() => setIndex((current) => (current - 1 + previews.length) % previews.length)}
+                className="rounded-lg border border-[#e8d98f] bg-white px-2.5 py-1.5 text-sm font-bold text-[#51451d]">‹</button>
+              <button type="button" aria-label={paused ? "Resume previews" : "Pause previews"}
                 onClick={() => setPaused((value) => !value)}
-                className="rounded-lg border border-[#e8d98f] bg-white px-2.5 py-1.5 text-xs font-bold text-[#51451d]"
-              >
+                className="rounded-lg border border-[#e8d98f] bg-white px-2.5 py-1.5 text-xs font-bold text-[#51451d]">
                 {paused ? "▶" : "Ⅱ"}
               </button>
-              <button
-                type="button"
-                aria-label="Next notification"
-                onClick={() => setIndex((current) => (current + 1) % unread.length)}
-                className="rounded-lg border border-[#e8d98f] bg-white px-2.5 py-1.5 text-sm font-bold text-[#51451d]"
-              >
-                ›
-              </button>
+              <button type="button" aria-label="Next notification preview"
+                onClick={() => setIndex((current) => (current + 1) % previews.length)}
+                className="rounded-lg border border-[#e8d98f] bg-white px-2.5 py-1.5 text-sm font-bold text-[#51451d]">›</button>
             </>
           )}
-          <Link
-            to="/notifications"
-            className="ml-1 whitespace-nowrap rounded-lg bg-[#292820] px-3 py-2 text-[11px] font-semibold text-white"
-          >
-            View
+          <Link to="/notifications"
+            className="ml-1 whitespace-nowrap rounded-lg bg-[#292820] px-3 py-2 text-[11px] font-semibold text-white">
+            View all
           </Link>
         </div>
       </div>
