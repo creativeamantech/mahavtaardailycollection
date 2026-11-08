@@ -855,6 +855,7 @@ function ExecutiveCityTableCard({ section }: { section: ExecutiveCitySection }) 
           No city records for {section.executive} under current filters.
         </div>
       ) : (
+        <>
         <div className="space-y-2 p-3 md:hidden">
           {section.rows.map((r, idx) => (
             <div key={`${r.city}-mobile-${idx}`} className="rounded-lg border border-border p-3">
@@ -925,6 +926,7 @@ function ExecutiveCityTableCard({ section }: { section: ExecutiveCitySection }) 
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* Footnote */}
