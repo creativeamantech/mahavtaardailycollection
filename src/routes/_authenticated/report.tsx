@@ -1709,25 +1709,25 @@ function ReportPage() {
           </TabsTrigger>
           <TabsTrigger
             value="holdcases"
-            className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
           >
             Hold Cases
           </TabsTrigger>
           <TabsTrigger
             value="paid-hold"
-            className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
           >
             Paid &amp; Hold
           </TabsTrigger>
           <TabsTrigger
             value="ptps"
-            className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
           >
             PTPs
           </TabsTrigger>
           <TabsTrigger
             value="failed-attempts"
-            className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
           >
             Failed Attempts
           </TabsTrigger>
@@ -1741,33 +1741,33 @@ function ReportPage() {
           <FailedAttemptsReport rows={failedAttempts} isLoading={isLoading} />
         </TabsContent>
         <TabsContent value="datewise" className="mt-4 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 lg:p-4">
             <div className="space-y-2">
-              <Label className="text-base" htmlFor="from">
-                From
+              <Label className="text-sm font-semibold text-[#737b84]" htmlFor="from">
+                From date
               </Label>
               <Input
                 id="from"
                 type="date"
-                className="h-12 text-base"
+                className="h-10 border-[#e3e5e7] text-sm focus-visible:ring-[#f2c94c]"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-base" htmlFor="to">
-                To
+              <Label className="text-sm font-semibold text-[#737b84]" htmlFor="to">
+                To date
               </Label>
               <Input
                 id="to"
                 type="date"
-                className="h-12 text-base"
+                className="h-10 border-[#e3e5e7] text-sm focus-visible:ring-[#f2c94c]"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
               />
             </div>
+            <BucketFilter value={dateBucket} onChange={setDateBucket} />
           </div>
-          <BucketFilter value={dateBucket} onChange={setDateBucket} />
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
           <ReportBlock rows={dateWise} activityRows={dateActivityRows} excludedLoanIds={excludedLoanIds} />
@@ -1779,7 +1779,7 @@ function ReportPage() {
           />
         </TabsContent>
         <TabsContent value="overall" className="mt-4 space-y-4">
-          <BucketFilter value={overallBucket} onChange={setOverallBucket} />
+          <div className="rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:max-w-sm lg:p-4"><BucketFilter value={overallBucket} onChange={setOverallBucket} /></div>
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
           <ReportBlock rows={overall} activityRows={overallActivityRows} excludedLoanIds={excludedLoanIds} />
@@ -1882,8 +1882,20 @@ function ReportBlock({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="hidden overflow-hidden rounded-xl border sm:block">
+    <div className="space-y-5 lg:space-y-4">
+      <div className="hidden grid-cols-2 gap-3 lg:grid">
+        <div className="rounded-xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">Total Collection</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-[#252525]">{formatAmount(total)}</p>
+          <p className="mt-1 text-[11px] text-[#8a9097]">For the selected report period</p>
+        </div>
+        <div className="rounded-xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">Total Cases</p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-[#252525]">{cases}</p>
+          <p className="mt-1 text-[11px] text-[#8a9097]">Recorded collection entries</p>
+        </div>
+      </div>
+      <div className="hidden overflow-hidden rounded-xl border border-[#e8e9eb] bg-white shadow-sm sm:block lg:col-span-1">
         <table className="w-full text-xs sm:text-base">
           <thead className="bg-muted">
             <tr>
@@ -1999,7 +2011,7 @@ function ReportBlock({
         })}
       </div>
 
-      <div className="h-72 rounded-xl border p-3">
+      <div className="h-72 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:sticky lg:top-24">
         {mounted ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
