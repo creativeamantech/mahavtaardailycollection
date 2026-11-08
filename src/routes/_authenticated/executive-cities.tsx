@@ -391,56 +391,87 @@ function SummaryCard({ icon, label, value, detail }: { icon: React.ReactNode; la
 }
 
 function BucketComparisonTable({ table, executives, metric }: { table: BucketTable; executives: string[]; metric: MetricKey }) {
-  const cellClass = "whitespace-nowrap border-b px-3 py-2.5 text-right tabular-nums";
+  const cellClass = "whitespace-nowrap border-b px-1.5 py-1.5 text-right text-[10px] tabular-nums sm:px-2 sm:text-xs";
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b bg-amber-50 px-4 py-3">
-        <div>
-          <h3 className="font-bold text-amber-950">{table.bucket === "Unassigned" ? table.bucket : `Bucket ${table.bucket}`}</h3>
-          <p className="text-[11px] text-amber-900/75">{table.rows.length} cities · comparing {metric === "posPaidNotMain" ? "POS*" : METRICS.find((item) => item.key === metric)?.label}</p>
+    <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="flex items-center justify-between gap-2 border-b bg-amber-50 px-3 py-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-amber-950">{table.bucket === "Unassigned" ? table.bucket : \`Bucket \${table.bucket}\`}</h3>
+          <p className="text-[10px] text-amber-900/75">{table.rows.length} cities · {METRICS.find((item) => item.key === metric)?.label}</p>
         </div>
-        <span className="text-xs font-semibold text-amber-950">{metricText(table.total, metric)} total</span>
+        <span className="shrink-0 text-xs font-bold tabular-nums text-amber-950">{metricText(table.total, metric)}</span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max border-collapse text-xs sm:text-sm">
+
+      {/* Mobile: compact two-column executive tiles, avoiding a wide scrolling table. */}
+      <div className="space-y-2 p-2 md:hidden">
+        {table.rows.map((row) => (
+          <div key={row.city} className="overflow-hidden rounded-md border">
+            <div className="flex items-center justify-between gap-2 bg-muted/40 px-2.5 py-2">
+              <span className="min-w-0 truncate text-xs font-bold">{row.city}</span>
+              <span className="shrink-0 text-xs font-bold tabular-nums text-amber-950">{metricText(row.total, metric)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-border">
+              {executives.map((executive) => {
+                const value = row.executives[executive];
+                return (
+                  <div key={executive} className="flex min-w-0 items-center justify-between gap-1 bg-background px-2 py-1.5">
+                    <span className="truncate text-[10px] text-muted-foreground" title={executive}>{executive}</span>
+                    <span className="shrink-0 text-[11px] font-semibold tabular-nums">{value ? metricText(value, metric) : "—"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2">
+          <div className="flex items-center justify-between text-xs font-bold text-amber-950"><span>BUCKET TOTAL</span><span className="tabular-nums">{metricText(table.total, metric)}</span></div>
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-amber-200 pt-2">
+            {executives.map((executive) => (
+              <div key={executive} className="flex min-w-0 items-center justify-between gap-1 text-[10px]">
+                <span className="truncate text-amber-900/80">{executive}</span>
+                <span className="shrink-0 font-semibold tabular-nums text-amber-950">{metricText(table.executiveTotals[executive] ?? emptyMetrics(), metric)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop: tighter side-by-side matrix with wrapped executive headings. */}
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full border-collapse text-[11px]">
           <thead>
             <tr className="bg-muted/50 text-muted-foreground">
-              <th className="sticky left-0 z-20 min-w-[125px] border-b bg-muted/90 px-3 py-3 text-left font-bold">City</th>
+              <th className="sticky left-0 z-20 min-w-[92px] border-b bg-muted/90 px-2 py-2 text-left font-bold">City</th>
               {executives.map((executive) => (
-                <th key={executive} className="min-w-[112px] border-b px-3 py-3 text-right font-bold">{executive}</th>
+                <th key={executive} title={executive} className="min-w-[76px] max-w-[100px] border-b px-1.5 py-2 text-center font-bold leading-tight">{executive}</th>
               ))}
-              <th className="min-w-[112px] border-b bg-amber-50 px-3 py-3 text-right font-bold text-amber-950">City Total</th>
+              <th className="min-w-[78px] border-b bg-amber-50 px-1.5 py-2 text-right font-bold text-amber-950">Total</th>
             </tr>
           </thead>
           <tbody>
             {table.rows.map((row) => (
               <tr key={row.city} className="hover:bg-muted/30">
-                <th className="sticky left-0 z-10 border-b bg-background px-3 py-3 text-left font-semibold">{row.city}</th>
+                <th className="sticky left-0 z-10 max-w-[120px] truncate border-b bg-background px-2 py-1.5 text-left font-semibold" title={row.city}>{row.city}</th>
                 {executives.map((executive) => {
                   const value = row.executives[executive];
-                  return (
-                    <td key={executive} className={cellClass}>
-                      {value ? <><span className="font-semibold text-foreground">{metricText(value, metric)}</span><span className="mt-0.5 block text-[10px] text-muted-foreground">{value.cases} cases</span></> : <span className="text-muted-foreground">—</span>}
-                    </td>
-                  );
+                  return <td key={executive} className={cellClass}>{value ? metricText(value, metric) : <span className="text-muted-foreground">—</span>}</td>;
                 })}
-                <td className="border-b bg-amber-50/60 px-3 py-2.5 text-right font-bold tabular-nums text-amber-950">{metricText(row.total, metric)}<span className="mt-0.5 block text-[10px] font-normal text-amber-900/70">{row.total.cases} cases</span></td>
+                <td className="border-b bg-amber-50/60 px-1.5 py-1.5 text-right text-[10px] font-bold tabular-nums text-amber-950 sm:text-xs">{metricText(row.total, metric)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="bg-muted/60 font-bold">
-              <th className="sticky left-0 z-10 bg-muted/90 px-3 py-3 text-left">BUCKET TOTAL</th>
-              {executives.map((executive) => {
-                const value = table.executiveTotals[executive];
-                return <td key={executive} className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{value ? metricText(value, metric) : "—"}<span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">{value?.cases ?? 0} cases</span></td>;
-              })}
-              <td className="bg-amber-100 px-3 py-3 text-right tabular-nums text-amber-950">{metricText(table.total, metric)}<span className="mt-0.5 block text-[10px] font-normal">{table.total.cases} cases</span></td>
+              <th className="sticky left-0 z-10 bg-muted/90 px-2 py-2 text-left">TOTAL</th>
+              {executives.map((executive) => (
+                <td key={executive} className="whitespace-nowrap px-1.5 py-2 text-right text-[10px] tabular-nums">{metricText(table.executiveTotals[executive] ?? emptyMetrics(), metric)}</td>
+              ))}
+              <td className="bg-amber-100 px-1.5 py-2 text-right text-[10px] font-bold tabular-nums text-amber-950">{metricText(table.total, metric)}</td>
             </tr>
           </tfoot>
         </table>
       </div>
-      <div className="border-t bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">Swipe horizontally to compare all executives. POS* = POS Paid but not Main Paid.</div>
+      <div className="border-t bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">POS* = POS Paid but not Main Paid.</div>
     </div>
   );
 }
