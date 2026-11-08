@@ -192,14 +192,19 @@ function LoansPage() {
 
   // The two report views reuse the same already-fetched month dataset.
   const [reportTab, setReportTab] = useState<"date" | "overall">("date");
+  const [overallBucket, setOverallBucket] = useState(ALL);
   const overallSections = useMemo(
     () =>
       reportTab === "overall"
-        ? [...executiveSections(loans)].sort(
+        ? [
+            ...executiveSections(
+              overallBucket === ALL ? loans : loans.filter((loan) => loan.bucket === overallBucket),
+            ),
+          ].sort(
             (a, b) => a.bucket.localeCompare(b.bucket) || a.city.localeCompare(b.city),
           )
         : [],
-    [loans, reportTab],
+    [loans, reportTab, overallBucket],
   );
 
   return (
@@ -420,6 +425,29 @@ function LoansPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               All dates in {month} for the selected allocation category.
             </p>
+            <div className="mt-3 max-w-sm space-y-2">
+              <Label className="text-base" htmlFor="overall-bucket-filter">
+                Bucket
+              </Label>
+              <Select value={overallBucket} onValueChange={setOverallBucket}>
+                <SelectTrigger
+                  id="overall-bucket-filter"
+                  className="h-12 border-amber-200 bg-white text-base focus:ring-amber-300"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL} className="text-base">
+                    All Buckets
+                  </SelectItem>
+                  {buckets.map((b) => (
+                    <SelectItem key={b} value={b} className="text-base">
+                      {b}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {overallSections.length === 0 ? (
               <p className="mt-3 rounded-xl border p-6 text-center text-base">No data yet.</p>
             ) : (
