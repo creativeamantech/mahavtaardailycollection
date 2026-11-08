@@ -269,32 +269,32 @@ export function ExecutiveCitiesPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-[1600px] px-3 pb-20 pt-4 sm:px-6 sm:pt-6">
+    <main className="mx-auto w-full max-w-[1720px] px-3 pb-16 pt-3 sm:px-5 sm:pt-4 lg:px-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Executive City Report</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Bucket-wise city comparison across all executives</p>
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Executive City Report</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">Bucket-wise city comparison across all executives</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-10" onClick={() => refetch()} disabled={isFetching}>
+          <Button variant="outline" size="sm" className="h-9" onClick={() => refetch()} disabled={isFetching}>
             <RotateCw className={`mr-1.5 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
             {isFetching ? "Syncing..." : "Refresh"}
           </Button>
-          <Button size="sm" className="h-10" onClick={handleExportCsv} disabled={bucketTables.length === 0}>
+          <Button size="sm" className="h-9 bg-amber-300 text-amber-950 hover:bg-amber-400" onClick={handleExportCsv} disabled={bucketTables.length === 0}>
             <Download className="mr-1.5 h-4 w-4" /> Export CSV
           </Button>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <SummaryCard icon={<TrendingUp className="h-4 w-4" />} label="Total Collection" value={formatAmount(overall.collection)} detail={`${overall.cases} cases`} />
         <SummaryCard icon={<Receipt className="h-4 w-4" />} label="Main Paid" value={String(overall.mainPaid)} detail={`${overall.paidEmi} EMI count`} />
         <SummaryCard icon={<MapPin className="h-4 w-4" />} label="Active Cities" value={String(overall.cityCount)} detail="Across selected buckets" />
         <SummaryCard icon={<Users className="h-4 w-4" />} label="Executives" value={String(executiveNames.length)} detail="Side-by-side comparison" />
       </div>
 
-      <section className="mt-5 rounded-xl border bg-card p-3 sm:p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-3 rounded-lg border bg-card p-3">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Period</Label>
             <div className="flex rounded-lg border bg-muted/40 p-1">
@@ -308,20 +308,20 @@ export function ExecutiveCitiesPage() {
           {dateMode === "date" && (
             <div className="space-y-1.5">
               <Label htmlFor="exec-city-date">Date</Label>
-              <Input id="exec-city-date" type="date" className="h-11" value={selectedDate} onChange={(event) => { userChangedDate.current = true; setSelectedDate(event.target.value); }} />
+              <Input id="exec-city-date" type="date" className="h-9" value={selectedDate} onChange={(event) => { userChangedDate.current = true; setSelectedDate(event.target.value); }} />
             </div>
           )}
           {dateMode === "month" && <div className="space-y-1.5"><MonthSelect value={month} onChange={setMonth} options={months} /></div>}
           {dateMode === "all" && (
             <div className="space-y-1.5">
               <Label>Scope</Label>
-              <div className="flex h-11 items-center rounded-md border bg-muted/20 px-3 text-sm text-muted-foreground"><Calendar className="mr-2 h-4 w-4" />All dates recorded</div>
+              <div className="flex h-9 items-center rounded-md border bg-muted/20 px-3 text-xs text-muted-foreground"><Calendar className="mr-2 h-4 w-4" />All dates recorded</div>
             </div>
           )}
           <div className="space-y-1.5">
             <Label>Bucket</Label>
             <Select value={bucket} onValueChange={setBucket}>
-              <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>All Buckets</SelectItem>
                 {buckets.map((value) => <SelectItem key={value} value={value}>Bucket {value}</SelectItem>)}
@@ -331,36 +331,36 @@ export function ExecutiveCitiesPage() {
           <div className="space-y-1.5">
             <Label>Allocation Category</Label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_CATEGORIES}>All Categories</SelectItem>
                 {categories.map((value) => <SelectItem key={value} value={value}>Category {value}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
+          <div className="space-y-1.5 sm:col-span-2 xl:col-span-1">
             <Label>Search City</Label>
             <div className="relative">
               <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-              <Input value={citySearch} onChange={(event) => setCitySearch(event.target.value)} placeholder="Type a city name..." className="h-11 pl-9" />
+              <Input value={citySearch} onChange={(event) => setCitySearch(event.target.value)} placeholder="Type a city name..." className="h-9 pl-9" />
             </div>
           </div>
         </div>
-        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">Already Paid cases are always excluded from this report.</p>
+        <p className="mt-2 rounded-md bg-amber-50 px-3 py-1.5 text-[11px] font-medium text-amber-950">Already Paid cases and active excluded loan numbers are always excluded from this report.</p>
       </section>
 
-      <section className="mt-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <section className="mt-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold">City-wise Executive Comparison</h2>
+            <h2 className="text-base font-bold">City-wise Executive Comparison</h2>
             <p className="text-xs text-muted-foreground">हर Bucket की अलग टेबल — City की एक row में सभी executives का comparison</p>
           </div>
           <span className="text-xs text-muted-foreground">{executiveNames.length} executives · {bucketTables.reduce((sum, table) => sum + table.rows.length, 0)} city rows</span>
         </div>
 
-        <div className="mb-3 flex flex-wrap gap-1.5">
+        <div className="mb-2 flex flex-wrap gap-1">
           {METRICS.map((item) => (
-            <button key={item.key} type="button" onClick={() => setSelectedMetric(item.key)} className={`rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${selectedMetric === item.key ? "border-amber-400 bg-amber-100 text-amber-950" : "bg-background text-muted-foreground hover:bg-muted"}`}>
+            <button key={item.key} type="button" onClick={() => setSelectedMetric(item.key)} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${selectedMetric === item.key ? "border-amber-400 bg-amber-100 text-amber-950" : "bg-background text-muted-foreground hover:bg-muted"}`}>
               {item.label}
             </button>
           ))}
@@ -370,7 +370,7 @@ export function ExecutiveCitiesPage() {
         {error && <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-center text-sm text-destructive"><p className="font-semibold">Could not load collection data</p><p className="mt-1">{error instanceof Error ? error.message : "An error occurred while fetching data."}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>Try Again</Button></div>}
         {!isLoading && !error && bucketTables.length === 0 && <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">No city records found for the selected filters.</div>}
 
-        <div className="space-y-5">
+        <div className="space-y-3">
           {bucketTables.map((table) => (
             <BucketComparisonTable key={table.bucket} table={table} executives={executiveNames} metric={selectedMetric} />
           ))}
@@ -382,9 +382,9 @@ export function ExecutiveCitiesPage() {
 
 function SummaryCard({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-lg border bg-card p-3">
+    <div className="rounded-lg border bg-card px-3 py-2.5">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">{icon}<span>{label}</span></div>
-      <p className="mt-1 text-lg font-bold tabular-nums sm:text-xl">{value}</p>
+      <p className="mt-0.5 text-lg font-bold tabular-nums sm:text-xl">{value}</p>
       <p className="text-[11px] text-muted-foreground">{detail}</p>
     </div>
   );
@@ -393,8 +393,8 @@ function SummaryCard({ icon, label, value, detail }: { icon: React.ReactNode; la
 function BucketComparisonTable({ table, executives, metric }: { table: BucketTable; executives: string[]; metric: MetricKey }) {
   const cellClass = "whitespace-nowrap border-b px-1.5 py-1.5 text-right text-[10px] tabular-nums sm:px-2 sm:text-xs";
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <div className="flex items-center justify-between gap-2 border-b bg-amber-50 px-3 py-2">
+    <div className="overflow-hidden rounded-lg border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+      <div className="flex items-center justify-between gap-2 border-b bg-amber-50 px-3 py-1.5">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-amber-950">{table.bucket === "Unassigned" ? table.bucket : `Bucket ${table.bucket}`}</h3>
           <p className="text-[10px] text-amber-900/75">{table.rows.length} cities · {METRICS.find((item) => item.key === metric)?.label}</p>
@@ -438,35 +438,35 @@ function BucketComparisonTable({ table, executives, metric }: { table: BucketTab
 
       {/* Desktop: tighter side-by-side matrix with wrapped executive headings. */}
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full border-collapse text-[11px]">
+        <table className="w-full min-w-[960px] table-fixed border-collapse text-[10px]">
           <thead>
             <tr className="bg-muted/50 text-muted-foreground">
-              <th className="sticky left-0 z-20 min-w-[92px] border-b bg-muted/90 px-2 py-2 text-left font-bold">City</th>
+              <th className="sticky left-0 z-20 w-[13%] border-b bg-amber-50 px-2 py-2 text-left font-bold text-amber-950">City</th>
               {executives.map((executive) => (
-                <th key={executive} title={executive} className="min-w-[76px] max-w-[100px] border-b px-1.5 py-2 text-center font-bold leading-tight">{executive}</th>
+                <th key={executive} title={executive} className="w-[8.3%] border-b px-1 py-2 text-center font-bold leading-tight">{executive}</th>
               ))}
-              <th className="min-w-[78px] border-b bg-amber-50 px-1.5 py-2 text-right font-bold text-amber-950">Total</th>
+              <th className="w-[12.3%] border-b bg-amber-100 px-1 py-2 text-right font-bold text-amber-950">Total</th>
             </tr>
           </thead>
           <tbody>
             {table.rows.map((row) => (
               <tr key={row.city} className="hover:bg-muted/30">
-                <th className="sticky left-0 z-10 max-w-[120px] truncate border-b bg-background px-2 py-1.5 text-left font-semibold" title={row.city}>{row.city}</th>
+                <th className="sticky left-0 z-10 w-[13%] truncate border-b bg-background px-2 py-1.5 text-left font-semibold" title={row.city}>{row.city}</th>
                 {executives.map((executive) => {
                   const value = row.executives[executive];
-                  return <td key={executive} className={cellClass}>{value ? metricText(value, metric) : <span className="text-muted-foreground">—</span>}</td>;
+                  return <td key={executive} className="whitespace-nowrap border-b px-1 py-1.5 text-right text-[10px] tabular-nums">{value ? metricText(value, metric) : <span className="text-muted-foreground">—</span>}</td>;
                 })}
-                <td className="border-b bg-amber-50/60 px-1.5 py-1.5 text-right text-[10px] font-bold tabular-nums text-amber-950 sm:text-xs">{metricText(row.total, metric)}</td>
+                <td className="border-b bg-amber-50/60 px-1 py-1.5 text-right text-[10px] font-bold tabular-nums text-amber-950">{metricText(row.total, metric)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-muted/60 font-bold">
-              <th className="sticky left-0 z-10 bg-muted/90 px-2 py-2 text-left">TOTAL</th>
+            <tr className="bg-amber-50 font-bold">
+              <th className="sticky left-0 z-10 bg-amber-100 px-2 py-2 text-left text-amber-950">TOTAL</th>
               {executives.map((executive) => (
-                <td key={executive} className="whitespace-nowrap px-1.5 py-2 text-right text-[10px] tabular-nums">{metricText(table.executiveTotals[executive] ?? emptyMetrics(), metric)}</td>
+                <td key={executive} className="whitespace-nowrap px-1 py-2 text-right text-[10px] tabular-nums">{metricText(table.executiveTotals[executive] ?? emptyMetrics(), metric)}</td>
               ))}
-              <td className="bg-amber-100 px-1.5 py-2 text-right text-[10px] font-bold tabular-nums text-amber-950">{metricText(table.total, metric)}</td>
+              <td className="bg-amber-200/70 px-1 py-2 text-right text-[10px] font-bold tabular-nums text-amber-950">{metricText(table.total, metric)}</td>
             </tr>
           </tfoot>
         </table>
