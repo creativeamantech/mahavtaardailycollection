@@ -215,20 +215,20 @@ function AppShell() {
   return (
     <>
       <div className="min-h-screen bg-background">
-        <header className="border-b print:hidden">
-          <div className="mx-auto w-full max-w-3xl px-4 py-3">
-            <p className="text-lg font-bold tracking-tight">Mahavtaar Daily Collection</p>
-            <nav className="mt-2 flex flex-wrap items-start gap-2">
+        <header className="sticky top-0 z-40 border-b border-[#e8e2d4] bg-white/95 shadow-sm backdrop-blur print:hidden">
+          <div className="mx-auto w-full max-w-7xl px-3 py-3 sm:px-5 lg:px-8">
+            <div className="flex items-center gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#29271f] text-sm font-black text-[#f4c542]">M</div><div><p className="text-base font-extrabold tracking-tight text-[#29271f] sm:text-lg">Mahavtaar Daily Collection</p><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a47a12]">Collection workspace</p></div></div>
+            <nav className="mt-3 flex flex-wrap items-center gap-2">
               {NAV.filter((n) => flags[n.key] !== false).map((n) => (
                 <Link
                   key={n.to}
                   to={n.to as never}
                   preload="intent"
-                  className="rounded-lg border px-4 py-2 text-base font-medium"
+                  className="rounded-xl border border-[#e8e2d4] bg-white px-3 py-2 text-sm font-semibold text-[#555248] transition hover:border-[#d6b64d] hover:bg-[#fffaf0]"
                   activeOptions={{ exact: n.to === "/" }}
                   activeProps={{
                     className:
-                      "rounded-lg border border-primary bg-primary px-4 py-2 text-base font-medium text-primary-foreground",
+                      "rounded-xl border border-[#29271f] bg-[#29271f] px-3 py-2 text-sm font-semibold text-white shadow-sm",
                   }}
                 >
                   {n.label}
@@ -263,11 +263,11 @@ function AppShell() {
                   )}
                 </div>
               )}
-              <div className="ml-auto flex items-center gap-2 text-sm">
+              <div className="ml-auto flex w-full items-center justify-between gap-2 border-t border-[#eee9dd] pt-2 text-xs sm:w-auto sm:justify-end sm:border-0 sm:pt-0 sm:text-sm">
                 <span className="font-medium">
                   {session.name} · {session.role}
                 </span>
-                <button type="button" onClick={signOut} className="rounded-lg border px-3 py-2">
+                <button type="button" onClick={signOut} className="rounded-xl border border-[#e8e2d4] px-3 py-2 text-xs font-semibold transition hover:bg-[#fff7df] sm:text-sm">
                   Logout
                 </button>
               </div>

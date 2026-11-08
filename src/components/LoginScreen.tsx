@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-// Keep the login dropdown independent of Google Sheets API reads.
 const EXECUTIVE_NAMES = [
   "Aarti",
   "Admin",
@@ -52,44 +51,47 @@ export function LoginScreen() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#fffdf7] px-4 py-10 text-[#28251d]">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#ffdf75]/45 blur-3xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-24 h-72 w-72 rounded-full bg-[#ffe9ad]/55 blur-3xl" />
-      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-[#f1e4bd] bg-white shadow-[0_24px_80px_rgba(90,67,15,0.12)] md:grid-cols-[1.05fr_0.95fr]">
-        <section className="flex min-h-52 flex-col justify-between bg-[#f6c944] p-7 sm:p-10 md:min-h-[540px]">
-          <div>
-            <div className="grid size-14 place-items-center rounded-2xl border border-black/10 bg-white/75 text-xl font-black text-[#33270b]">M</div>
-            <p className="mt-7 text-xs font-bold uppercase tracking-[0.22em] text-[#60480d]">Mahavtaar Enterprises</p>
-            <h1 className="mt-3 max-w-sm text-3xl font-black leading-tight tracking-tight text-[#28210f] sm:text-4xl">Daily Collection</h1>
-            <p className="mt-3 max-w-sm text-sm leading-6 text-[#5d4b22]">A simple, secure workspace for your team's daily collection operations.</p>
+    <main className="relative flex min-h-[100svh] items-center justify-center overflow-hidden bg-[#f7f6f1] px-4 py-8 text-[#25251f] sm:px-6">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-[#f5c542]/25 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-24 size-80 rounded-full bg-[#e9dfc7]/55 blur-3xl" />
+
+      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-[#e8e2d4] bg-white shadow-[0_28px_90px_rgba(38,35,25,0.12)] md:min-h-[590px] md:grid-cols-[1.02fr_0.98fr]">
+        <section className="relative flex min-h-56 flex-col justify-between overflow-hidden bg-[#f4c542] p-7 sm:p-10 md:min-h-full">
+          <div aria-hidden="true" className="absolute -bottom-24 -right-16 size-72 rounded-full border-[36px] border-white/15" />
+          <div className="relative">
+            <div className="grid size-14 place-items-center rounded-2xl bg-[#29271f] text-2xl font-black text-[#f7ca4c] shadow-lg">M</div>
+            <p className="mt-8 text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#5c4712]">Mahavtaar Enterprises</p>
+            <h1 className="mt-3 max-w-sm text-4xl font-black leading-[1.05] tracking-tight text-[#282419] sm:text-5xl">Daily<br className="hidden sm:block" /> Collection</h1>
+            <p className="mt-4 max-w-sm text-sm leading-6 text-[#55451e] sm:text-base">A clear, reliable workspace for your team's daily collection operations.</p>
           </div>
-          <div className="mt-8 hidden rounded-2xl border border-black/10 bg-white/35 p-4 text-sm text-[#554318] md:block">
-            <p className="font-bold">One workspace. Clear daily progress.</p>
-            <p className="mt-1 text-xs">Sign in with your registered executive PIN to continue.</p>
+          <div className="relative mt-8 hidden max-w-sm rounded-2xl border border-black/10 bg-white/35 p-4 md:block">
+            <p className="text-sm font-bold text-[#3c3218]">One workspace. Clear daily progress.</p>
+            <p className="mt-1 text-xs leading-5 text-[#65552e]">Use your registered executive PIN to securely access the collection desk.</p>
           </div>
         </section>
-        <section className="flex items-center justify-center p-6 sm:p-10">
+
+        <section className="flex items-center justify-center px-6 py-9 sm:px-10 sm:py-12">
           <form onSubmit={submit} className="w-full max-w-sm space-y-6">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a5790c]">Welcome back</p>
-              <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#28251d]">Sign in to continue</h2>
-              <p className="mt-2 text-sm text-[#777267]">Select your name and enter your PIN.</p>
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#a47a12]">Welcome back</p>
+              <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#25251f] sm:text-3xl">Sign in to continue</h2>
+              <p className="mt-2 text-sm leading-6 text-[#77766f]">Choose your name and enter your secure PIN.</p>
             </div>
+
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-[#39352c]">Executive Name</Label>
+              <Label className="text-sm font-bold text-[#38372f]">Executive Name</Label>
               <Select value={executiveName} onValueChange={setExecutiveName} disabled={busy}>
-                <SelectTrigger className="h-12 rounded-xl border-[#e9dfc8] bg-white text-base focus:ring-[#e8b82e]">
+                <SelectTrigger className="h-12 rounded-xl border-[#e5e0d4] bg-[#fcfbf8] px-4 text-base shadow-none focus:ring-2 focus:ring-[#e8b82e]/40">
                   <SelectValue placeholder="Select executive" />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXECUTIVE_NAMES.map((name) => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
+                  {EXECUTIVE_NAMES.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="login-pin" className="text-sm font-semibold text-[#39352c]">PIN</Label>
+              <Label htmlFor="login-pin" className="text-sm font-bold text-[#38372f]">PIN</Label>
               <Input
                 id="login-pin"
                 type="password"
@@ -98,13 +100,15 @@ export function LoginScreen() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="Enter your PIN"
-                className="h-12 rounded-xl border-[#e9dfc8] bg-white text-base tracking-[0.2em] focus-visible:ring-[#e8b82e]"
+                disabled={busy}
+                className="h-12 rounded-xl border-[#e5e0d4] bg-[#fcfbf8] px-4 text-base tracking-[0.22em] shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/40"
               />
             </div>
-            <Button type="submit" className="h-12 w-full rounded-xl bg-[#f2bd2e] text-base font-bold text-[#2c230d] shadow-sm hover:bg-[#e6ad17] focus-visible:ring-[#d79e0b]" disabled={!executiveName || !pin || busy}>
+
+            <Button type="submit" className="h-12 w-full rounded-xl bg-[#29271f] text-base font-bold text-white shadow-md transition hover:bg-[#403b2c] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2" disabled={!executiveName || !pin || busy}>
               {busy ? "Signing in..." : "Login"}
             </Button>
-            <p className="text-center text-xs text-[#918b7d]">Secure access for authorized team members</p>
+            <p className="text-center text-xs leading-5 text-[#929087]">Secure access for authorised team members</p>
           </form>
         </section>
       </div>
