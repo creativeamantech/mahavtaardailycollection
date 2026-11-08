@@ -16,10 +16,10 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
 
   return (
     <div
-      className={`rounded-lg border border-primary/30 bg-primary/5 p-3 print:hidden ${className}`}
+      className={`rounded-xl border border-[#ead17a] bg-[#fff9e5] p-3 text-[#292820] shadow-sm print:hidden ${className}`}
     >
       <div className="flex items-center gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Notification</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6b00]">Notification</p>
         {isPriority && <span className="rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>}
       </div>
       {activeNotification.text !== "" && (
@@ -32,14 +32,14 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
           href={activeNotification.imageUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-block max-w-full text-sm font-medium underline"
+          className="mt-2 inline-block max-w-full text-sm font-semibold text-[#765b00] underline"
         >
           <img
             src={toDirectDriveUrl(activeNotification.imageUrl)}
             alt="Notification attachment"
             loading="lazy"
             decoding="async"
-            className="max-h-48 w-full max-w-xs rounded-md border object-contain"
+            className="max-h-48 w-full max-w-xs rounded-lg border border-[#e8d98f] bg-white object-contain"
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}
