@@ -151,6 +151,24 @@ function EntryPage() {
     staleTime: 60_000,
   });
   const existing = useMemo(() => (Array.isArray(rawExisting) ? rawExisting : []), [rawExisting]);
+
+  // Show the latest saved Collections rows directly on the entry screen.
+  const recentEntries = useMemo(
+    () =>
+      (existing as (ExistingEntry & {
+        createdAt?: string;
+        entryType?: string;
+        status?: string;
+      })[])
+        .filter((entry) => entry.executive && entry.loanId && Number(entry.amount) > 0)
+        .sort((a, b) => {
+          const timeDiff =
+            (Date.parse(b.createdAt ?? "") || 0) - (Date.parse(a.createdAt ?? "") || 0);
+          return timeDiff || b.row - a.row;
+        })
+        .slice(0, 8),
+    [existing],
+  );
   const [receipts, setReceipts] = useState<{ name: string; link: string }[]>([]);
   const [pendingFiles, setPendingFiles] = useState<{ file: File; preview: string }[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -791,6 +809,49 @@ function EntryPage() {
             </div>
           </aside>
           </div>
+          <section className="mt-6 overflow-hidden rounded-xl border border-[#e1e5eb] bg-white shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#edf0f2] px-4 py-4 sm:px-5">
+              <div>
+                <h2 className="text-base font-extrabold text-[#303640]">Recent Entries</h2>
+                <p className="mt-0.5 text-xs text-[#7d8590]">Latest 8 saved collection payments</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 border-[#e1e5eb] text-xs"
+                onClick={() => refetchCollections()}
+              >
+                Refresh
+              </Button>
+            </div>
+            {recentEntries.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-[#7d8590]">
+                No collection entries found yet.
+              </p>
+            ) : (
+              <div className="divide-y divide-[#edf0f2]">
+                {recentEntries.map((entry) => (
+                  <div
+                    key={entry.row}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-[#303640]">{entry.loanId}</p>
+                      <p className="mt-0.5 truncate text-xs text-[#7d8590]">
+                        {entry.executive} · {entry.date} {entry.time}
+                      </p>
+                    </div>
+                    <p className="text-right text-sm font-extrabold tabular-nums text-[#174d3b]">
+                      {formatAmount(Number(entry.amount) || 0)}
+                    </p>
+                    <span className="col-span-2 justify-self-start rounded-md bg-[#fff8dc] px-2 py-1 text-[10px] font-semibold text-[#806500] sm:col-span-1 sm:justify-self-end">
+                      {entry.entryType || "Normal"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
           <div className="mt-4 text-center">
             <Link to="/report" className="text-sm font-semibold text-[#8a6a00] underline underline-offset-4">
               View reports
