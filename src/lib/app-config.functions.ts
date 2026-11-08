@@ -239,7 +239,7 @@ export const getNotificationReadState = createServerFn({ method: "GET" }).handle
     session.role === "Admin"
       ? [...new Set(
           (process.env["LOGIN_CREDENTIALS"] ?? "")
-            .split(/[;\\r\\n]+/)
+            .split(/[;\r\n]+/)
             .map((entry) => entry.trim().split("_"))
             .filter((parts) => parts.length === 3 && parts[1]?.trim().toLowerCase() === "executive")
             .map((parts) => parts[0]?.trim() ?? "")
@@ -258,6 +258,15 @@ export const markNotificationSeen = createServerFn({ method: "POST" })
     const session = await requireSession();
     const { sheetsGetFresh, sheetsAppendStrict, ensureSheetStrict } =
       await import("./mahavtaar.server");
+    await ensureSheetStrict(NOTIF_TAB, ["Notification", "Image URL", "Status", "Created At", "ID"]);
+    const notificationRows = await sheetsGetFresh(`${NOTIF_TAB}!A2:E`);
+    const existsAndActive = notificationRows.some(
+      (row, index) =>
+        ((row[4] ?? "").trim() || `row-${index + 2}`) === data.notificationId &&
+        (row[2] ?? "").trim().toLowerCase() !== "removed",
+    );
+    if (!existsAndActive) throw new Error("Active notification not found.");
+
     await ensureSheetStrict(NOTIFICATION_READS_TAB, ["Notification ID", "Executive", "Seen At"]);
     const rows = await sheetsGetFresh(`${NOTIFICATION_READS_TAB}!A2:C`);
     const alreadySeen = rows.some(
