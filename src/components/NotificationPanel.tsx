@@ -38,7 +38,14 @@ function formatNotificationTime(value: string) {
 
 // Previews rotate until the executive opens the full Notifications inbox.
 export function NotificationPanel({ className = "" }: { className?: string }) {
-  const { notifications } = useAppConfig();
+  const { notifications, session } = useAppConfig();
+  const executiveName = session?.role === "Executive" ? session.name : "";
+  const isPriorityForCurrentExecutive = (text: string) => {
+    if (!executiveName) return false;
+    const normalizedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
+    const normalizedName = executiveName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
+  };
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [viewedIds, setViewedIds] = useState<string[] | null>(null);
@@ -59,8 +66,11 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
       [...notifications]
         .filter((item) => item.status.toLowerCase() !== "removed")
         .filter((item) => !viewedIds?.includes(item.id))
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    [notifications, viewedIds],
+        .sort((a, b) => {
+          const priorityDifference = Number(isPriorityForCurrentExecutive(b.text)) - Number(isPriorityForCurrentExecutive(a.text));
+          return priorityDifference || a.createdAt.localeCompare(b.createdAt);
+        }),
+    [notifications, viewedIds, executiveName],
   );
 
   useEffect(() => {
@@ -91,14 +101,39 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
     >
       <div className="flex items-center gap-3">
         <span className="shrink-0 rounded-md bg-[#facc15] px-2 py-1 text-[10px] font-extrabold tracking-wide text-[#292820]">
-          NOTICE · {previews.length}
+          NOTICE
         </span>
+        {isPriorityForCurrentExecutive(active.text) && (
+          <span className="shrink-0 rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">
+            YOUR PRIORITY
+          </span>
+        )}
+        {active.imageUrl !== "" && (
+          <a
+            href={active.imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open notification image"
+            className="block shrink-0"
+          >
+            <img
+              src={toDirectDriveUrl(active.imageUrl)}
+              alt="Notification image preview"
+              loading="lazy"
+              decoding="async"
+              className="h-16 w-16 rounded-lg border border-[#e8d98f] bg-white object-cover"
+              onError={(event) => {
+                event.currentTarget.style.display = "none";
+              }}
+            />
+          </a>
+        )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-[#292820]">
+          <p className="whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-[#292820]">
             {active.text || "New notification"}
           </p>
-          <p className="mt-0.5 text-[11px] text-[#786a3c]">
-            {formatNotificationTime(active.createdAt)} · Preview {index + 1}/{previews.length}
+          <p className="mt-1 text-[11px] text-[#786a3c]">
+            {formatNotificationTime(active.createdAt)}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">

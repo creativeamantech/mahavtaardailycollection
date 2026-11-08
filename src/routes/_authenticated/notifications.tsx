@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { markNotificationsViewed, toDirectDriveUrl } from "@/components/NotificationPanel";
 
@@ -23,23 +23,32 @@ function formatDateTime(iso: string) {
 }
 
 function NotificationsPage() {
-  const { notifications, isLoading } = useAppConfig();
+  const { notifications, isLoading, session } = useAppConfig();
+  const executiveName = session?.role === "Executive" ? session.name : "";
+  const isPriorityForCurrentExecutive = (text: string) => {
+    if (!executiveName) return false;
+    const normalizedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
+    const normalizedName = executiveName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const activeNotifications = useMemo(
     () => [...notifications]
       .filter((item) => item.status.toLowerCase() !== "removed")
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [notifications],
+      .sort((a, b) => {
+        const priorityDifference = Number(isPriorityForCurrentExecutive(b.text)) - Number(isPriorityForCurrentExecutive(a.text));
+        return priorityDifference || b.createdAt.localeCompare(a.createdAt);
+      }),
+    [notifications, executiveName],
   );
 
-  // Opening the full inbox counts as viewing the currently published notices.
-  useEffect(() => {
-    if (!isLoading && activeNotifications.length > 0) {
-      markNotificationsViewed(activeNotifications.map((item) => item.id));
-    }
-  }, [isLoading, activeNotifications]);
-
+  // Only mark a notification as viewed after the executive opens its details.
   const selected = activeNotifications.find((item) => item.id === selectedId);
+
+  function openNotification(id: string) {
+    setSelectedId(id);
+    markNotificationsViewed([id]);
+  }
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-5 px-4 py-5 md:py-7">
@@ -58,13 +67,16 @@ function NotificationsPage() {
         )}
         <div className="divide-y">
           {activeNotifications.map((item) => (
-            <button key={item.id} type="button" onClick={() => setSelectedId(item.id)}
+            <button key={item.id} type="button" onClick={() => openNotification(item.id)}
               className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-[#fffdf4] ${selectedId === item.id ? "bg-[#fffdf4]" : "bg-white"}`}>
               <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#fff5ce] text-lg">🔔</span>
               <span className="min-w-0 flex-1">
                 <span className="block whitespace-pre-wrap break-words text-sm font-semibold text-[#292820]">
                   {item.text || "Notification"}
                 </span>
+                {isPriorityForCurrentExecutive(item.text) && (
+                  <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>
+                )}
                 <span className="mt-1 block text-[11px] text-muted-foreground">
                   {formatDateTime(item.createdAt)}
                 </span>

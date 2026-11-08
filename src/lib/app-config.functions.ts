@@ -39,7 +39,7 @@ export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
 export const HOLD_CASES_LOCK_KEY = "holdCasesLocked";
 
 export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
-  await requireSession();
+  const session = await requireSession();
   const { sheetsGet, ensureSheet } = await import("./mahavtaar.server");
 
   let settingRows: string[][] = [];
@@ -85,7 +85,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }))
     .filter((n) => n.text !== "" || n.imageUrl !== "");
 
-  return { flags, notifications, defaultCategory, holdCasesLocked };
+  return { flags, notifications, defaultCategory, holdCasesLocked, session };
 });
 
 export const saveFeatureFlags = createServerFn({ method: "POST" })
