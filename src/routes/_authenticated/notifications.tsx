@@ -27,8 +27,8 @@ function NotificationsPage() {
   const executiveName = session?.role === "Executive" ? session.name : "";
   const isPriorityForCurrentExecutive = (text: string) => {
     if (!executiveName) return false;
-    const normalizedText = ` ${text.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ")} `;
-    const normalizedName = executiveName.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ").trim();
+    const normalizedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
+    const normalizedName = executiveName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
   };
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -77,8 +77,6 @@ function NotificationsPage() {
                 {isPriorityForCurrentExecutive(item.text) && (
                   <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>
                 )}
-                {isPriorityForCurrentExecutive(item.text) && (
-                  <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>
                 )}
                 <span className="mt-1 block text-[11px] text-muted-foreground">
                   {formatDateTime(item.createdAt)}
