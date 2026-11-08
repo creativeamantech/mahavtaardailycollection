@@ -42,10 +42,6 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
   );
 
   useEffect(() => {
-    setIndex(0);
-  }, [unread.length]);
-
-  useEffect(() => {
     if (paused || unread.length < 2) return;
     const timer = window.setInterval(() => {
       setIndex((current) => (current + 1) % unread.length);
