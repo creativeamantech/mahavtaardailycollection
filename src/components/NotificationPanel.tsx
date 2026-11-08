@@ -42,8 +42,8 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
   const executiveName = session?.role === "Executive" ? session.name : "";
   const isPriorityForCurrentExecutive = (text: string) => {
     if (!executiveName) return false;
-    const normalizedText = ` ${text.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ")} `;
-    const normalizedName = executiveName.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ").trim();
+    const normalizedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
+    const normalizedName = executiveName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
   };
   const [index, setIndex] = useState(0);
