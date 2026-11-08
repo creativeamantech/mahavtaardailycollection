@@ -177,7 +177,7 @@ function CollectionSheetPage() {
     [allRows],
   );
   const buckets = useMemo(() => [...new Set(allRows.map((row) => String(row.bucket ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [allRows]);
-  const cities = useMemo(() => [...new Set(allRows.map((row) => String(row.city ?? "").trim()).filter(Boolean)).sort((a, b) => a.localeCompare(b)), [allRows]);
+  const cities = useMemo(() => [...new Set(allRows.map((row) => String(row.city ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [allRows]);
   const rows = useMemo(() => allRows.filter((row) => {
     const rowLoanId = normaliseLoanId(row.loanId);
     const matchesLoan = !deferredSearch.trim()
