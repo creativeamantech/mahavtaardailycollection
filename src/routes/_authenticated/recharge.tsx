@@ -13,7 +13,7 @@ function RechargePage() {
   const credit = useServerFn(createRechargeCredit);
   const submit = useServerFn(createRechargeRequest);
   const review = useServerFn(reviewRechargeRequest);
-  const { data, isLoading } = useQuery({ queryKey: ["recharge"], queryFn: () => load() });
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({ queryKey: ["recharge"], queryFn: () => load(), retry: 1, retryDelay: 1500 });
   const [numbers, setNumbers] = useState(["", ""]);
   const [executive, setExecutive] = useState("");
   const [creditAmount, setCreditAmount] = useState("");
@@ -38,7 +38,8 @@ function RechargePage() {
     try { await work(); toast.success("Saved successfully"); await client.invalidateQueries({ queryKey: ["recharge"] }); }
     catch (error) { toast.error(error instanceof Error ? error.message : "Operation failed"); }
   }
-  if (isLoading || !data) return <main className="mx-auto max-w-4xl p-5">Loading recharge management…</main>;
+  if (isLoading) return <main className="mx-auto max-w-4xl p-5">Loading recharge management…</main>;
+  if (isError || !data) return <main className="mx-auto max-w-xl space-y-3 p-5"><h1 className="text-xl font-bold">Recharge Management</h1><p className="text-sm text-destructive">Recharge data load nahi ho paya: {error instanceof Error ? error.message : "Unknown error"}</p><p className="text-xs text-muted-foreground">Google Sheets connection, spreadsheet access aur server configuration check karein.</p><button onClick={() => void refetch()} disabled={isFetching} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">{isFetching ? "Retrying…" : "Retry"}</button></main>;
   return <main className="mx-auto max-w-5xl space-y-5 p-4 pb-8 sm:p-6">
     <header><h1 className="text-2xl font-bold">Recharge Management</h1><p className="text-sm text-muted-foreground">Executive-wise credit and calling-number recharge ledger</p></header>
     <section className="grid grid-cols-3 gap-2">
