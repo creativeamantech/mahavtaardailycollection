@@ -38,7 +38,14 @@ function formatNotificationTime(value: string) {
 
 // Previews rotate until the executive opens the full Notifications inbox.
 export function NotificationPanel({ className = "" }: { className?: string }) {
-  const { notifications, session } = useAppConfig();\n  const executiveName = session?.role === "Executive" ? session.name : "";\n  const isPriorityForCurrentExecutive = (text: string) => {\n    if (!executiveName) return false;\n    const escapedName = executiveName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\  const { notifications } = useAppConfig();");\n    return new RegExp(`(^|[^\\\\p{L}\\\\p{N}])${escapedName}(?=$|[^\\\\p{L}\\\\p{N}])`, "iu").test(text);\n  };
+  const { notifications, session } = useAppConfig();
+  const executiveName = session?.role === "Executive" ? session.name : "";
+  const isPriorityForCurrentExecutive = (text: string) => {
+    if (!executiveName) return false;
+    const normalizedText = ` ${text.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ")} `;
+    const normalizedName = executiveName.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ").trim();
+    return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
+  };
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [viewedIds, setViewedIds] = useState<string[] | null>(null);
@@ -59,8 +66,11 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
       [...notifications]
         .filter((item) => item.status.toLowerCase() !== "removed")
         .filter((item) => !viewedIds?.includes(item.id))
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    [notifications, viewedIds],
+        .sort((a, b) => {
+          const priorityDifference = Number(isPriorityForCurrentExecutive(b.text)) - Number(isPriorityForCurrentExecutive(a.text));
+          return priorityDifference || a.createdAt.localeCompare(b.createdAt);
+        }),
+    [notifications, viewedIds, executiveName],
   );
 
   useEffect(() => {
@@ -93,6 +103,11 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
         <span className="shrink-0 rounded-md bg-[#facc15] px-2 py-1 text-[10px] font-extrabold tracking-wide text-[#292820]">
           NOTICE
         </span>
+        {isPriorityForCurrentExecutive(active.text) && (
+          <span className="shrink-0 rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">
+            YOUR PRIORITY
+          </span>
+        )}
         {active.imageUrl !== "" && (
           <a
             href={active.imageUrl}
