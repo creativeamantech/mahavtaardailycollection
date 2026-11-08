@@ -243,12 +243,12 @@ function AppShell() {
             <p className="mt-2 text-sm text-muted-foreground">Please contact the admin or open Settings.</p>
           </main>
         ) : (
-          <div className="min-w-0 pb-24 md:pb-0"><Outlet /></div>
+          <div className="min-w-0 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-0"><Outlet /></div>
         )}
       </div>
 
       {/* Mobile uses the prototype's compact bottom navigation; secondary links live in More. */}
-      <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-[100] isolate grid grid-cols-4 border-t border-[#dfe7e1] bg-white px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-5px_20px_rgba(25,48,37,0.08)] md:hidden print:hidden">
+      <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-[9999] isolate grid grid-cols-4 border-t border-[#dfe7e1] bg-white px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-5px_20px_rgba(25,48,37,0.08)] md:hidden print:hidden">
         {primaryMobile.map((n) => (
           <Link key={n.to} to={n.to as never} preload="intent" activeOptions={{ exact: n.to === "/" }} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold ${pathname === n.to ? "text-[#292820]" : "text-[#737b84]"}`}>
             <span className={`grid size-7 place-items-center rounded-lg text-base ${pathname === n.to ? "bg-[#fff2c9] text-[#292820]" : ""}`} aria-hidden="true">{n.icon}</span>
@@ -262,7 +262,7 @@ function AppShell() {
       </nav>
 
       {moreOpen && (
-        <div className="fixed inset-0 z-50 md:hidden print:hidden">
+        <div className="fixed inset-0 z-[9998] md:hidden print:hidden">
           <button type="button" aria-label="Close more menu" className="absolute inset-0 bg-[#252525]/35" onClick={() => setMoreOpen(false)} />
           <section id="mobile-more-menu" className="absolute inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto rounded-2xl border border-[#e4eae5] bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-extrabold text-[#17211d]">More sections</h2><button type="button" onClick={() => setMoreOpen(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-[#718078] hover:bg-[#f3f6f3]">Close ✕</button></div>
