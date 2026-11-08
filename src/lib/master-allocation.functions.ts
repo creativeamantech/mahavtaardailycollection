@@ -20,12 +20,12 @@ export const initializeMasterAllocation = createServerFn({ method: "POST" }).han
     "X-Connection-Api-Key": key,
     "Content-Type": "application/json",
   });
-  const driveUrl = new URL(GATEWAY + "/google_drive/v3/files");
+  const driveUrl = new URL(GATEWAY + "/google_drive/drive/v3/files");
   driveUrl.searchParams.set("q", "name = '" + title.replace(/'/g, "\\'") + "' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false");
   driveUrl.searchParams.set("fields", "files(id,name,webViewLink)");
   driveUrl.searchParams.set("pageSize", "10");
   const search = await fetch(driveUrl, { headers: headers(driveKey), signal: AbortSignal.timeout(20000) });
-  if (!search.ok) throw new Error("Could not check Drive for the monthly spreadsheet (" + search.status + ").");
+  if (!search.ok) throw new Error("Could not check Drive for the monthly spreadsheet (" + search.status + "): " + (await search.text()).slice(0, 300));
   const found = (await search.json()) as { files?: { id: string; name: string; webViewLink?: string }[] };
   const existing = found.files?.[0];
   if (existing) {
@@ -37,7 +37,7 @@ export const initializeMasterAllocation = createServerFn({ method: "POST" }).han
     body: JSON.stringify({ properties: { title }, sheets: [{ properties: { title: "Sheet1", index: 0 } }] }),
     signal: AbortSignal.timeout(25000),
   });
-  if (!create.ok) throw new Error("Spreadsheet creation failed (" + create.status + ").");
+  if (!create.ok) throw new Error("Spreadsheet creation failed (" + create.status + "): " + (await create.text()).slice(0, 300));
   const result = (await create.json()) as { spreadsheetId?: string; spreadsheetUrl?: string; properties?: { title?: string } };
   if (!result.spreadsheetId) throw new Error("Google did not return a spreadsheet ID.");
   return { created: true, title, spreadsheetId: result.spreadsheetId, url: result.spreadsheetUrl || "https://docs.google.com/spreadsheets/d/" + result.spreadsheetId + "/edit" };
