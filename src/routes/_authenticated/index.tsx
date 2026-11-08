@@ -406,28 +406,28 @@ function EntryPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-3 pb-16 pt-4 text-[#29261e] sm:px-6 sm:pt-7 lg:px-8">
+    <main className="mx-auto w-full max-w-[1440px] min-w-0 px-3 pb-20 pt-4 text-[#20242b] sm:px-5 sm:pt-6 lg:px-8 lg:pb-16">
       <NotificationPanel className="mb-4" />
-      <div className="relative overflow-hidden rounded-3xl border border-[#302e26] bg-[#29271f] p-5 text-white shadow-[0_18px_45px_rgba(41,39,31,0.14)] sm:p-7"><div aria-hidden="true" className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f4c542]/15" /><div className="relative"><p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#f4c542]">Mahavtaar Enterprises · Daily Operations</p><h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
+      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#29271f] bg-[#29271f] p-5 text-white shadow-sm sm:mb-6 sm:rounded-3xl sm:p-7 lg:p-8"><div aria-hidden="true" className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f4c542]/15" /><div className="relative"><p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#f4c542]">Mahavtaar Enterprises · Daily Operations</p><h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
       <p className="mt-1 text-sm leading-6 text-[#d6d2c6] sm:text-base">
         Record and verify a payment collected by an executive.
       </p></div></div>
 
-      <Tabs defaultValue="collection" className="mt-6 w-full">
-        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl border border-[#e8e2d4] bg-white p-1.5 shadow-sm">
-          <TabsTrigger value="collection" className="shrink-0 whitespace-nowrap px-3 text-sm data-[state=active]:bg-[#f4c43d] data-[state=active]:text-[#30250c] data-[state=active]:shadow-sm">
+      <Tabs defaultValue="collection" className="w-full">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-2xl border border-[#e1e5eb] bg-white p-1.5 shadow-sm sm:grid-cols-3 sm:gap-2">
+          <TabsTrigger value="collection" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:bg-[#29271f] data-[state=active]:text-white data-[state=active]:shadow-sm">
             Collection Entry
           </TabsTrigger>
-          <TabsTrigger value="hold" className="shrink-0 whitespace-nowrap px-3 text-sm">
+          <TabsTrigger value="hold" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5">
             Hold Cases
           </TabsTrigger>
-          <TabsTrigger value="ptps" className="shrink-0 whitespace-nowrap px-3 text-sm">
+          <TabsTrigger value="ptps" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5">
             PTPs
           </TabsTrigger>
         </TabsList>
         <TabsContent value="collection">
           <div
-            className={`mt-4 space-y-5 rounded-2xl border border-[#e8e2d4] bg-white p-4 shadow-[0_12px_40px_rgba(41,39,31,0.07)] sm:p-7 ${
+            className={`mt-4 grid min-w-0 grid-cols-1 gap-5 rounded-2xl border border-[#e1e5eb] bg-white p-4 shadow-[0_12px_40px_rgba(32,36,43,0.06)] sm:gap-6 sm:p-6 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-6 lg:p-8 ${
               conflicts.length > 0
                 ? "border-red-500 bg-red-50"
                 : duplicates.length > 0
@@ -436,13 +436,13 @@ function EntryPage() {
             }`}
           >
             <div className="space-y-2">
-              <Label className="text-base">Executive Name</Label>
+              <Label className="text-sm font-semibold text-[#343a43] sm:text-base">Executive Name</Label>
               <Select
                 value={executive}
                 onValueChange={setExecutive}
                 disabled={session?.role !== "Admin"}
               >
-                <SelectTrigger className="h-12 rounded-xl border-[#e4dfd2] bg-[#fcfbf8] px-3 text-base shadow-none focus-visible:ring-[#e8b82e]">
+                <SelectTrigger className="h-12 w-full rounded-xl border-[#d9dee6] bg-white px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50">
                   <SelectValue placeholder="Select executive" />
                 </SelectTrigger>
                 <SelectContent>
@@ -456,12 +456,12 @@ function EntryPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-base" htmlFor="loanId">
+              <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="loanId">
                 Loan ID / Loan Number
               </Label>
               <Input
                 id="loanId"
-                className={`h-12 text-base ${isExcludedLoan ? "text-orange-600 font-semibold" : ""}`}
+                className={`h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50 ${isExcludedLoan ? "font-semibold text-orange-600" : ""}`}
                 value={loanId}
                 maxLength={60}
                 onChange={(e) => setLoanId(e.target.value)}
@@ -480,7 +480,7 @@ function EntryPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-base" htmlFor="amount">
+              <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="amount">
                 Amount
               </Label>
               <Input
@@ -488,14 +488,14 @@ function EntryPage() {
                 type="number"
                 inputMode="decimal"
                 min={1}
-                className="h-12 rounded-xl border-[#e4dfd2] bg-[#fcfbf8] px-3 text-base shadow-none focus-visible:ring-[#e8b82e]"
+                className="h-12 w-full rounded-xl border-[#d9dee6] bg-white px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
               />
             </div>
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+            <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-[#e1e5eb] bg-[#f8f9fb] p-4 lg:col-span-2">
               <Checkbox
                 checked={isPrevious}
                 onCheckedChange={(v) => {
@@ -514,20 +514,20 @@ function EntryPage() {
             </label>
 
             {isPrevious && (
-              <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <div className="min-w-0 space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 lg:col-span-2">
                 <p className="text-sm leading-snug text-amber-900">
                   This payment will be counted on the selected Original Payment Date, while
                   today&apos;s date will be stored as the Entry Date for audit purposes.
                 </p>
                 <div className="space-y-2">
-                  <Label className="text-base" htmlFor="prevDate">
+                  <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="prevDate">
                     Original Payment Date
                   </Label>
                   <Input
                     id="prevDate"
                     type="date"
                     max={yesterday}
-                    className="h-12 bg-white text-base"
+                    className="h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base"
                     value={prevDate}
                     onChange={(e) => setPrevDate(e.target.value)}
                   />
@@ -551,9 +551,9 @@ function EntryPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-base" htmlFor="date">
+                <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="date">
                   {isPrevious ? "Payment Date" : "Date"}
                 </Label>
                 <Input
@@ -565,7 +565,7 @@ function EntryPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-base" htmlFor="time">
+                <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="time">
                   Time
                 </Label>
                 <Input id="time" className="h-12 text-base" value={time} readOnly />
@@ -573,7 +573,7 @@ function EntryPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-base" htmlFor="receiptImage">
+              <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="receiptImage">
                 Payment Receipt Images (multiple allowed)
               </Label>
               <div
@@ -591,7 +591,7 @@ function EntryPage() {
                   if (e.key === "Enter" || e.key === " ")
                     document.getElementById("receiptImage")?.click();
                 }}
-                className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+                className={`flex min-h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8b82e] lg:col-span-2 ${
                   dragOver
                     ? "border-primary bg-primary/10"
                     : "border-muted-foreground/30 bg-muted/30"
@@ -676,8 +676,8 @@ function EntryPage() {
             </div>
 
             {remarksOn && (
-              <div className="space-y-2">
-                <Label className="text-base" htmlFor="remark">
+              <div className="min-w-0 space-y-2 lg:col-span-2">
+                <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="remark">
                   Remark (only if receipt image is not available)
                 </Label>
                 <Input
@@ -697,7 +697,7 @@ function EntryPage() {
               </div>
             )}
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+            <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-[#e1e5eb] bg-[#f8f9fb] p-4 lg:col-span-2">
               <Checkbox
                 checked={confirmed}
                 onCheckedChange={(v) => setConfirmed(v === true)}
@@ -710,7 +710,7 @@ function EntryPage() {
             </label>
 
             {conflicts.length > 0 && (
-              <div className="space-y-2 rounded-lg border-2 border-red-500 bg-red-50 p-3">
+              <div className="min-w-0 space-y-2 rounded-xl border-2 border-red-500 bg-red-50 p-4 lg:col-span-2">
                 <p className="text-base font-bold text-red-700">
                   PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by
                   another Executive.
@@ -732,7 +732,7 @@ function EntryPage() {
               </div>
             )}
             {conflicts.length === 0 && duplicates.length > 0 && (
-              <div className="rounded-lg border-2 border-amber-500 bg-amber-50 p-3">
+              <div className="min-w-0 rounded-xl border-2 border-amber-500 bg-amber-50 p-4 lg:col-span-2">
                 <p className="text-base font-bold text-amber-800">
                   Warning: This payment is already entered for this Loan ID with the same amount.
                 </p>
@@ -746,11 +746,11 @@ function EntryPage() {
               </div>
             )}
 
-            <Button className="h-14 w-full rounded-xl bg-[#29271f] text-lg font-bold text-white shadow-md transition hover:bg-[#403b2c] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2" disabled={!valid} onClick={startSubmitFlow}>
+            <Button className="h-14 w-full rounded-xl bg-[#29271f] text-base font-bold text-white shadow-md transition hover:bg-[#403b2c] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2 sm:text-lg lg:col-span-2" disabled={!valid} onClick={startSubmitFlow}>
               Submit
             </Button>
             {!proofValid && (
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-center text-sm leading-6 text-muted-foreground lg:col-span-2">
                 Upload a receipt image or write a remark of more than 3 words to enable Submit.
               </p>
             )}
@@ -761,7 +761,7 @@ function EntryPage() {
             )}
           </div>
 
-          <div className="mt-4 text-center">
+          <div className="mt-4 text-center lg:col-span-2">
             <Link to="/report" className="text-base font-medium text-primary underline">
               View reports
             </Link>
