@@ -91,14 +91,14 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
     >
       <div className="flex items-center gap-3">
         <span className="shrink-0 rounded-md bg-[#facc15] px-2 py-1 text-[10px] font-extrabold tracking-wide text-[#292820]">
-          NOTICE · {previews.length}
+          NOTICE
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-[#292820]">
+          <p className="whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-[#292820]">
             {active.text || "New notification"}
           </p>
-          <p className="mt-0.5 text-[11px] text-[#786a3c]">
-            {formatNotificationTime(active.createdAt)} · Preview {index + 1}/{previews.length}
+          <p className="mt-1 text-[11px] text-[#786a3c]">
+            {formatNotificationTime(active.createdAt)}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
