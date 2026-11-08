@@ -448,10 +448,7 @@ function CollectionSheetPage() {
                 })}</tbody>
               </table>
             </div>
-            {selectedRecord&&<div className="border-t bg-amber-50/40 p-5">
-              <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Complete record details</p><h3 className="mt-1 text-lg font-bold">{selectedRecord.loanId||"Loan details"}</h3><p className="text-xs text-muted-foreground">{selectedRecord.linkedName||"No linked name"} · {selectedRecord.executive||"Unassigned"}</p></div><Button type="button" variant="ghost" size="sm" onClick={()=>setSelectedRecord(null)} aria-label="Close record details"><X className="h-4 w-4"/></Button></div>
-              <dl className="mt-4 grid grid-cols-4 gap-3">{columns.map(column=><div key={String(column.key)} className="min-w-0 rounded-lg border bg-white p-3"><dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{column.label}</dt><dd className="mt-1 break-words text-xs font-medium">{displayValue(selectedRecord,column)||"—"}</dd></div>)}<div className="rounded-lg border bg-white p-3"><dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid Flag</dt><dd className="mt-1 text-xs font-medium">{selectedRecord.alreadyPaid?"Already Paid":"—"}</dd></div></dl>
-            </div>}
+
           </div>
         </section>
       )}
@@ -460,6 +457,50 @@ function CollectionSheetPage() {
           <Button type="button" variant="outline" onClick={() => setVisibleCount((count) => count + 50)}>
             Load 50 more ({rows.length - visibleRows.length} remaining)
           </Button>
+        </div>
+      )}
+      {selectedRecord && (
+        <div className="fixed inset-0 z-[70] hidden md:block" role="presentation">
+          <button
+            type="button"
+            aria-label="Close record details"
+            className="absolute inset-0 h-full w-full cursor-default bg-black/30"
+            onClick={() => setSelectedRecord(null)}
+          />
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="record-detail-title"
+            className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col border-l border-amber-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-amber-200 bg-amber-50/70 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Complete record details</p>
+                <h2 id="record-detail-title" className="mt-1 break-all text-lg font-bold">{selectedRecord.loanId || "Loan details"}</h2>
+                <p className="mt-1 text-xs text-muted-foreground">{selectedRecord.linkedName || "No linked name"} · {selectedRecord.executive || "Unassigned"}</p>
+              </div>
+              <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0 border-amber-300 bg-white" onClick={() => setSelectedRecord(null)} aria-label="Close record details">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {columns.map((column) => (
+                  <div key={String(column.key)} className="min-w-0 rounded-lg border border-amber-100 bg-white p-3">
+                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{column.label}</dt>
+                    <dd className="mt-1 break-words text-sm font-medium text-foreground">{displayValue(selectedRecord, column) || "—"}</dd>
+                  </div>
+                ))}
+                <div className="rounded-lg border border-amber-100 bg-white p-3">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid Flag</dt>
+                  <dd className="mt-1 text-sm font-medium text-foreground">{selectedRecord.alreadyPaid ? "Already Paid" : "—"}</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="border-t border-amber-100 bg-white px-5 py-3">
+              <p className="text-[11px] text-muted-foreground">Read-only record details · Google Sheet data is not modified.</p>
+            </div>
+          </aside>
         </div>
       )}
       {!isLoading && !error && isBulkSearch && (
