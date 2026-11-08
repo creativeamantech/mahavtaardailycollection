@@ -23,7 +23,8 @@ export function useAppConfig(options: { enabled?: boolean } = {}) {
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS, ...(query.data?.flags ?? {}) };
   const notifications: Notification[] = query.data?.notifications ?? [];
-  const defaultCategory = query.data?.defaultCategory ?? "";\n  const session = query.data?.session ?? null;
+  const defaultCategory = query.data?.defaultCategory ?? "";
+  const session = query.data?.session ?? null;
   const activeNotification =
     [...notifications]
       .filter((n) => n.status.toLowerCase() !== "removed")
@@ -36,6 +37,7 @@ export function useAppConfig(options: { enabled?: boolean } = {}) {
     notifications,
     activeNotification,
     defaultCategory,
+    session,
     holdCasesLocked: query.data?.holdCasesLocked ?? false,
   };
 }
