@@ -408,14 +408,14 @@ function EntryPage() {
   return (
     <main className="mx-auto w-full max-w-[1440px] min-w-0 px-3 pb-20 pt-4 text-[#20242b] sm:px-5 sm:pt-6 lg:px-8 lg:pb-16">
       <NotificationPanel className="mb-4" />
-      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#29271f] bg-[#29271f] p-5 text-white shadow-sm sm:mb-6 sm:rounded-3xl sm:p-7 lg:p-8"><div aria-hidden="true" className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f4c542]/15" /><div className="relative"><p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#f4c542]">Mahavtaar Enterprises · Daily Operations</p><h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
-      <p className="mt-1 text-sm leading-6 text-[#d6d2c6] sm:text-base">
+      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#eadb9d] bg-white p-5 text-[#29271f] shadow-sm sm:mb-6 sm:rounded-xl sm:p-6 lg:p-7"><div aria-hidden="true" className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f2c400]/20" /><div className="relative"><p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#967300]">Mahavtaar Enterprises · Daily Operations</p><h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
+      <p className="mt-1 text-sm leading-6 text-[#737b86] sm:text-base">
         Record and verify a payment collected by an executive.
       </p></div></div>
 
       <Tabs defaultValue="collection" className="w-full">
         <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-2xl border border-[#e1e5eb] bg-white p-1.5 shadow-sm sm:grid-cols-3 sm:gap-2">
-          <TabsTrigger value="collection" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:bg-[#29271f] data-[state=active]:text-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="collection" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:bg-[#f2c400] data-[state=active]:text-[#29271f] data-[state=active]:shadow-sm">
             Collection Entry
           </TabsTrigger>
           <TabsTrigger value="hold" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5">
@@ -426,6 +426,7 @@ function EntryPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="collection">
+          <div className="mt-4 grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_292px] lg:items-start">
           <div
             className={`mt-4 grid min-w-0 grid-cols-1 gap-5 rounded-2xl border border-[#e1e5eb] bg-white p-4 shadow-[0_12px_40px_rgba(32,36,43,0.06)] sm:gap-6 sm:p-6 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-6 lg:p-8 ${
               conflicts.length > 0
@@ -746,7 +747,7 @@ function EntryPage() {
               </div>
             )}
 
-            <Button className="h-14 w-full rounded-xl bg-[#29271f] text-base font-bold text-white shadow-md transition hover:bg-[#403b2c] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2 sm:text-lg lg:col-span-2" disabled={!valid} onClick={startSubmitFlow}>
+            <Button className="h-14 w-full rounded-xl bg-[#f2c400] text-base font-bold text-[#29271f] shadow-sm transition hover:bg-[#e3b800] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2 sm:text-lg lg:col-span-2" disabled={!valid} onClick={startSubmitFlow}>
               Submit
             </Button>
             {!proofValid && (
@@ -760,9 +761,38 @@ function EntryPage() {
               </p>
             )}
           </div>
-
-          <div className="mt-4 text-center lg:col-span-2">
-            <Link to="/report" className="text-base font-medium text-primary underline">
+          <aside className="hidden min-w-0 space-y-4 lg:block">
+            <section className="rounded-xl border border-[#e1e5eb] bg-white p-5 shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-bold text-[#303640]">Entry at a glance</h2>
+                <span className="rounded-md bg-[#fff8dc] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#806500]">Live form</span>
+              </div>
+              <dl className="space-y-3 text-xs">
+                <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2"><dt className="text-[#7d8590]">Executive</dt><dd className="max-w-[150px] text-right font-semibold text-[#343a43]">{executive || "Not selected"}</dd></div>
+                <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2"><dt className="text-[#7d8590]">Loan number</dt><dd className="max-w-[150px] break-all text-right font-semibold text-[#343a43]">{loanId.trim() || "Not entered"}</dd></div>
+                <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2"><dt className="text-[#7d8590]">Amount</dt><dd className="text-right font-semibold text-[#343a43]">{amountNum > 0 ? formatAmount(amountNum) : "—"}</dd></div>
+                <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2"><dt className="text-[#7d8590]">Payment date</dt><dd className="text-right font-semibold text-[#343a43]">{paymentDate}</dd></div>
+                <div className="flex items-start justify-between gap-3"><dt className="text-[#7d8590]">Entry type</dt><dd className="text-right font-semibold text-[#343a43]">{isPrevious ? "Previous Paid File" : "Normal"}</dd></div>
+              </dl>
+            </section>
+            <section className="rounded-xl border border-[#e1e5eb] bg-white p-5 shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
+              <h2 className="mb-4 text-sm font-bold text-[#303640]">Submission checklist</h2>
+              <ul className="space-y-3 text-xs">
+                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Executive selected</span><span className={executive ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{executive ? "Ready" : "Pending"}</span></li>
+                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Loan number entered</span><span className={loanId.trim() ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{loanId.trim() ? "Ready" : "Pending"}</span></li>
+                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Amount entered</span><span className={amountNum > 0 ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{amountNum > 0 ? "Ready" : "Pending"}</span></li>
+                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Receipt / remark</span><span className={proofValid ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{proofValid ? "Ready" : "Pending"}</span></li>
+                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Confirmation</span><span className={confirmed ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{confirmed ? "Ready" : "Pending"}</span></li>
+              </ul>
+            </section>
+            <div className="rounded-xl border border-[#f0e3ad] bg-[#fffbeb] p-4 text-xs leading-5 text-[#746222]">
+              <p className="mb-1 font-bold text-[#594900]">Before you submit</p>
+              Verify the loan number, amount and receipt proof. The final confirmation and existing duplicate checks remain part of the normal save process.
+            </div>
+          </aside>
+          </div>
+          <div className="mt-4 text-center">
+            <Link to="/report" className="text-sm font-semibold text-[#8a6a00] underline underline-offset-4">
               View reports
             </Link>
           </div>
