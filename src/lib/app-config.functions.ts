@@ -14,6 +14,7 @@ export const FEATURES = [
   { key: "pending", label: "Pending Receipts", path: "/pending" },
   { key: "ecs", label: "ECS / Special", path: "/ecs" },
   { key: "notifications", label: "Notifications", path: "/notifications" },
+  { key: "recharge", label: "Recharge Management", path: "/recharge" },
   { key: "alreadyPaid", label: "Already Paid", path: "/already-paid" },
   { key: "conflicts", label: "Conflicts", path: "/conflicts" },
   { key: "remarks", label: "Remarks", path: null },
