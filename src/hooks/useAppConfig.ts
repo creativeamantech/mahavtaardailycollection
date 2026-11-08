@@ -16,9 +16,9 @@ export function useAppConfig(options: { enabled?: boolean } = {}) {
     queryKey: APP_CONFIG_KEY,
     queryFn: () => fetchConfig(),
     enabled: options.enabled ?? true,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS, ...(query.data?.flags ?? {}) };
