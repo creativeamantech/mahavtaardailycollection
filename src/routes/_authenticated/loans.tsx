@@ -203,7 +203,7 @@ function LoansPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
+    <main className="mx-auto w-full max-w-[1440px] bg-white px-4 pb-16 pt-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Loan Details</h1>
@@ -213,7 +213,7 @@ function LoansPage() {
         </div>
         <Button
           variant="outline"
-          className="h-12 text-base"
+          className="h-11 border-amber-300 bg-white text-slate-800 hover:bg-amber-50"
           onClick={() => refetch()}
           disabled={isFetching}
         >
@@ -221,10 +221,10 @@ function LoansPage() {
         </Button>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/40 p-3 [&_button]:border-amber-200 [&_button]:bg-white">
         <MonthSelect value={month} onChange={setMonth} options={months} />
       </div>
-      <div className="mt-3">
+      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3 [&_button]:border-amber-200 [&_button]:bg-white">
         <CategoryFilter value={category} onChange={setCategory} options={categories} />
       </div>
 
@@ -248,13 +248,13 @@ function LoansPage() {
           </Label>
           <Input
             id="loan-search"
-            className="h-12 text-base"
+            className="h-12 border-amber-200 bg-white text-base focus-visible:ring-amber-300"
             placeholder="Enter Loan ID"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button type="submit" className="h-12 text-base">
+        <Button type="submit" className="h-12 bg-amber-300 text-amber-950 hover:bg-amber-400">
           Search
         </Button>
       </form>
@@ -275,7 +275,7 @@ function LoansPage() {
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             variant="outline"
-            className="h-12 text-base"
+            className="h-11 border-amber-300 bg-white text-slate-800 hover:bg-amber-50"
             onClick={() => setShowShort((s) => !s)}
           >
             {showShort ? "Hide Short EMIs" : "View Short EMIs"}
@@ -322,7 +322,7 @@ function LoansPage() {
         <div
           role="tablist"
           aria-label="Loan reports"
-          className="grid grid-cols-2 rounded-xl border bg-muted/40 p-1"
+          className="grid grid-cols-2 rounded-xl border border-amber-200 bg-amber-50 p-1"
         >
           <button
             type="button"
@@ -333,8 +333,8 @@ function LoansPage() {
             onClick={() => setReportTab("date")}
             className={`min-h-12 rounded-lg px-3 py-2 text-sm font-semibold transition-colors sm:text-base ${
               reportTab === "date"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground"
+                ? "bg-amber-300 text-amber-950 shadow-sm"
+                : "text-slate-600 hover:bg-amber-100"
             }`}
           >
             Date-wise
@@ -372,7 +372,7 @@ function LoansPage() {
                 <Input
                   id="report-date"
                   type="date"
-                  className="h-12 text-base"
+                  className="h-12 border-amber-200 bg-white text-base focus-visible:ring-amber-300"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                 />
@@ -380,7 +380,7 @@ function LoansPage() {
               <div className="space-y-2">
                 <Label className="text-base">Bucket</Label>
                 <Select value={dateBucket} onValueChange={setDateBucket}>
-                  <SelectTrigger className="h-12 text-base">
+                  <SelectTrigger className="h-12 border-amber-200 bg-white text-base focus:ring-amber-300">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -448,8 +448,8 @@ const METRIC_COLS = [
 function SectionTable({ title, section }: { title: string; section: ReportSection }) {
   const cell = "whitespace-nowrap px-1 py-1.5 sm:px-2 sm:py-2";
   return (
-    <div className="rounded-xl border">
-      <p className="border-b bg-muted/50 px-3 py-2 text-sm font-bold break-words sm:text-base">
+    <div className="rounded-xl border border-amber-200 bg-white shadow-sm">
+      <p className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold break-words text-slate-900 sm:text-base">
         {title}
       </p>
       <div className="overflow-x-auto">
@@ -479,7 +479,7 @@ function SectionTable({ title, section }: { title: string; section: ReportSectio
                 ))}
               </tr>
             ))}
-            <tr className="border-t-2 bg-muted/50 font-bold">
+            <tr className="border-t-2 border-amber-300 bg-amber-100 font-bold text-slate-900">
               <td className={`${cell} text-left`}>TOTAL</td>
               {METRIC_COLS.map((c) => (
                 <td key={c.label} className={`${cell} text-right tabular-nums`}>
@@ -517,7 +517,7 @@ function Td({ children, right }: { children: React.ReactNode; right?: boolean })
 
 function LoanCard({ loan }: { loan: LoanSummary }) {
   return (
-    <div className="rounded-xl border p-4">
+    <div className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-lg font-bold">{loan.loanId}</p>
