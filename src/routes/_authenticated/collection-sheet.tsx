@@ -352,7 +352,54 @@ function CollectionSheetPage() {
         </div>
       )}
       {!isLoading && !error && rows.length > 0 && (
-        <div className="mt-4 overflow-auto rounded-xl border">
+        <div className="mt-4 space-y-3 md:hidden" aria-label="Collection records">
+          {visibleRows.map((row, index) => {
+            const primaryKeys = new Set<keyof Collection>(["executive", "loanId", "amount", "date", "time", "bucket", "city"]);
+            const detailColumns = columns.filter((column) => !primaryKeys.has(column.key));
+            return (
+              <article
+                key={row.row ?? (String(row.loanId ?? "row") + "-" + index)}
+                className={"overflow-hidden rounded-xl border bg-white shadow-sm " + (row.alreadyPaid ? "border-red-200 bg-red-50/70" : "border-amber-200/70")}
+              >
+                <div className="flex items-start justify-between gap-3 p-3.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="break-all text-[15px] font-bold tracking-tight text-foreground">{row.loanId || "Loan number unavailable"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {row.executive || "Unassigned"}{row.bucket ? " · " + row.bucket : ""}{row.city ? " · " + row.city : ""}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-lg font-extrabold tabular-nums">{formatAmount(Number(row.amount ?? 0))}</p>
+                    <span className={"mt-1 inline-flex rounded-md px-2 py-1 text-[10px] font-bold " + (row.alreadyPaid ? "bg-red-100 text-red-800" : row.isConflict ? "bg-amber-100 text-amber-900" : "bg-yellow-100 text-yellow-900")}>
+                      {row.alreadyPaid ? "ALREADY PAID" : row.isConflict ? "CONFLICT" : "COLLECTION"}
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 border-t border-border/70 px-3.5 py-3">
+                  <div><p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Payment Date</p><p className="mt-0.5 text-xs font-semibold">{row.date || "—"}</p></div>
+                  <div><p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Entry Time</p><p className="mt-0.5 text-xs font-semibold">{row.time || "—"}</p></div>
+                </div>
+                <details className="group border-t border-border/70">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3.5 text-xs font-semibold text-amber-800 [&::-webkit-details-marker]:hidden">
+                    <span>View all details</span><span className="text-base transition-transform group-open:rotate-45">＋</span>
+                  </summary>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border/60 bg-stone-50/70 p-3.5">
+                    {detailColumns.map((column) => (
+                      <div key={String(column.key)} className="min-w-0">
+                        <dt className="text-[10px] font-medium text-muted-foreground">{column.label}</dt>
+                        <dd className="mt-0.5 break-words text-xs font-medium text-foreground">{displayValue(row, column) || "—"}</dd>
+                      </div>
+                    ))}
+                    <div className="col-span-2"><dt className="text-[10px] font-medium text-muted-foreground">Paid Flag</dt><dd className="mt-0.5 text-xs font-semibold">{row.alreadyPaid ? "Already Paid" : "—"}</dd></div>
+                  </dl>
+                </details>
+              </article>
+            );
+          })}
+        </div>
+      )}
+      {!isLoading && !error && rows.length > 0 && (
+        <div className="mt-4 hidden overflow-auto rounded-xl border md:block">
           <table className="min-w-max w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-muted">
               <tr>
