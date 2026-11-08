@@ -427,7 +427,7 @@ function EntryPage() {
         </TabsList>
         <TabsContent value="collection">
           <div
-            className={`mt-4 space-y-5 rounded-2xl border border-[#eee3c8] bg-white p-4 shadow-[0_10px_35px_rgba(71,55,15,0.06)] sm:p-6 ${
+            className={`mt-4 space-y-5 rounded-2xl border border-[#e8e2d4] bg-white p-4 shadow-[0_12px_40px_rgba(41,39,31,0.07)] sm:p-7 ${
               conflicts.length > 0
                 ? "border-red-500 bg-red-50"
                 : duplicates.length > 0
