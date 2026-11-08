@@ -52,9 +52,9 @@ export function LoginScreen() {
   }
 
   return (
-    <main className="min-h-[100svh] bg-[#f6f7f3] px-4 py-6 text-[#20231f] sm:px-6 sm:py-10">
-      <div className="mx-auto flex min-h-[calc(100svh-3rem)] w-full max-w-6xl flex-col justify-center gap-7 md:min-h-[calc(100svh-5rem)] md:grid md:grid-cols-[minmax(0,1fr)_minmax(390px,480px)] md:items-center md:gap-12 lg:gap-20">
-        <section className="flex flex-col justify-between gap-8 md:min-h-[520px] md:py-5">
+    <main className="min-h-[100svh] bg-[#f6f7f3] px-4 py-6 text-[#20231f] sm:px-6 sm:py-10 md:flex md:items-center md:justify-center">
+      <div className="mx-auto flex min-h-[calc(100svh-3rem)] w-full max-w-[520px] flex-col justify-center gap-7 md:min-h-0 md:max-w-[520px] md:gap-0">
+        <section className="flex flex-col justify-between gap-8 md:hidden">
           <div className="flex items-center gap-3">
             <div className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#f4c542] text-xl font-black text-[#29271f] shadow-sm">
               M
@@ -85,9 +85,16 @@ export function LoginScreen() {
         </section>
 
         <section className="w-full">
+          <div className="mb-6 hidden items-center justify-center gap-3 md:flex">
+            <div className="grid size-12 place-items-center rounded-[15px] bg-[#f4c542] text-xl font-black text-[#29271f] shadow-sm">M</div>
+            <div className="leading-tight">
+              <p className="text-base font-extrabold tracking-tight text-[#20231f]">Mahavtaar</p>
+              <p className="mt-1 text-xs text-[#777d73]">Daily Collection Workspace</p>
+            </div>
+          </div>
           <form
             onSubmit={submit}
-            className="mx-auto w-full max-w-[480px] rounded-[24px] border border-[#e7e9e2] bg-white p-5 shadow-[0_18px_55px_rgba(32,35,31,0.08)] sm:p-8 lg:p-10"
+            className="mx-auto w-full max-w-[480px] rounded-[24px] border border-[#e7e9e2] bg-white p-5 shadow-[0_18px_55px_rgba(32,35,31,0.08)] sm:p-8 md:rounded-[28px] md:p-10 md:shadow-[0_24px_70px_rgba(32,35,31,0.10)]"
           >
             <header className="mb-7">
               <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#98751b]">
