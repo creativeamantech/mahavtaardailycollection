@@ -93,6 +93,26 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
         <span className="shrink-0 rounded-md bg-[#facc15] px-2 py-1 text-[10px] font-extrabold tracking-wide text-[#292820]">
           NOTICE
         </span>
+        {active.imageUrl !== "" && (
+          <a
+            href={active.imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open notification image"
+            className="block shrink-0"
+          >
+            <img
+              src={toDirectDriveUrl(active.imageUrl)}
+              alt="Notification image preview"
+              loading="lazy"
+              decoding="async"
+              className="h-16 w-16 rounded-lg border border-[#e8d98f] bg-white object-cover"
+              onError={(event) => {
+                event.currentTarget.style.display = "none";
+              }}
+            />
+          </a>
+        )}
         <div className="min-w-0 flex-1">
           <p className="whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-[#292820]">
             {active.text || "New notification"}
