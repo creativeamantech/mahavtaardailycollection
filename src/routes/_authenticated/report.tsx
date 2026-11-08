@@ -1884,7 +1884,7 @@ function ReportBlock({
 
   return (
     <div className="space-y-5">
-      <div className="overflow-hidden rounded-xl border">
+      <div className="hidden overflow-hidden rounded-xl border sm:block">
         <table className="w-full text-xs sm:text-base">
           <thead className="bg-muted">
             <tr>
