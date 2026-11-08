@@ -1,6 +1,5 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
-import { TeamMeter } from "@/components/TeamMeter";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -409,7 +408,6 @@ function EntryPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-3 pb-16 pt-5 text-[#29261e] sm:px-5 sm:pt-7">
       <NotificationPanel className="mb-4" />
-      <TeamMeter />
       <div className="rounded-2xl border border-[#f1e4bd] bg-gradient-to-r from-[#fff8df] to-white p-4 shadow-sm sm:p-6"><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a5790c]">Mahavtaar Daily Collection</p><h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#29261e] sm:text-3xl">Collection Entry</h1>
       <p className="mt-1 text-base text-muted-foreground">
         Record a payment collected by an executive.
