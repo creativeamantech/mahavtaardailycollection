@@ -185,7 +185,7 @@ function AppShell() {
       {/* Desktop navigation follows the approved prototype: a readable fixed-width sidebar. */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[252px] flex-col gap-7 overflow-y-auto border-r border-[#e8e9eb] bg-white px-4 py-6 text-[#252525] shadow-[1px_0_8px_rgba(0,0,0,0.025)] md:flex print:hidden">
         <Link to="/" className="flex items-center gap-3 px-2">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#f2c94c] text-lg font-black text-[#292820]">M</span>
+          <img src="/mahavtaar-logo.png" alt="Mahavtaar Enterprises" className="size-10 shrink-0 rounded-lg object-contain" />
           <span className="min-w-0"><span className="block text-sm font-extrabold tracking-tight">Mahavtaar</span><span className="mt-0.5 block text-[11px] text-[#737b84]">Daily Collection</span></span>
         </Link>
         <div>
@@ -224,7 +224,7 @@ function AppShell() {
         <header className="sticky top-0 z-30 border-b border-[#e4eae5] bg-white/95 shadow-sm backdrop-blur print:hidden">
           <div className="flex min-h-[62px] items-center justify-between gap-3 px-4 sm:px-6 md:min-h-[68px] md:px-8">
             <div className="flex min-w-0 items-center gap-3 md:hidden">
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#f2c94c] text-sm font-black text-[#292820]">M</span>
+              <img src="/mahavtaar-logo.png" alt="Mahavtaar Enterprises" className="size-9 shrink-0 rounded-lg object-contain" />
               <span className="min-w-0"><span className="block truncate text-sm font-extrabold text-[#17211d]">Mahavtaar Daily Collection</span><span className="block text-[10px] text-[#718078]">Collection workspace</span></span>
             </div>
             <div className="hidden min-w-0 items-center gap-2 text-xs text-[#718078] md:flex">
