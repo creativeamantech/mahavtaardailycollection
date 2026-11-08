@@ -411,7 +411,7 @@ function EntryPage() {
       <div className="rounded-2xl border border-[#f1e4bd] bg-gradient-to-r from-[#fff8df] to-white p-4 shadow-sm sm:p-6"><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a5790c]">Mahavtaar Daily Collection</p><h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#29261e] sm:text-3xl">Collection Entry</h1>
       <p className="mt-1 text-base text-muted-foreground">
         Record a payment collected by an executive.
-      </p>
+      </p></div>
 
       <Tabs defaultValue="collection" className="mt-5 w-full">
         <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-[#f0e5c9] bg-[#fffaf0] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3">
