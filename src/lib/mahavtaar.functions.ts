@@ -840,7 +840,7 @@ export const savePending = createServerFn({ method: "POST" })
     return { ok: true as const, links, id };
   });
 
-export async function readPending() {
+export async function readPending(includeDone = false) {
   try {
     const { sheetsGet } = await import("./mahavtaar.server");
     const rows = await sheetsGet("Pending!A2:H");
@@ -855,10 +855,11 @@ export async function readPending() {
           .map((s) => s.trim())
           .filter(Boolean),
         status: r[4] ?? "",
+        timestamp: r[5] ?? "",
         id: r[6] ?? "",
         settlement: (r[7] ?? "").trim().toLowerCase() === "yes",
       }))
-      .filter((r) => r.loanNumber && r.status === "Pending");
+      .filter((r) => r.loanNumber && (r.status === "Pending" || (includeDone && r.status === "Done")));
   } catch (err) {
     console.error("Failed to read pending from Google Sheets:", err);
     throw new Error("Unable to load pending receipts. Please retry.");
@@ -867,7 +868,7 @@ export async function readPending() {
 
 export const getPending = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireSession();
-  const rows = await readPending();
+  const rows = await readPending(true);
   return session.role === "Admin" ? rows : rows.filter((row) => row.executive === session.name);
 });
 
