@@ -12,7 +12,7 @@ const authHeaders = () => {
   return { Authorization: "Bearer " + token, "X-Connection-Api-Key": key, "Content-Type": "application/json" };
 };
 async function sheetRequest(path: string, init?: RequestInit) {
-  const response = await fetch(GATEWAY + path, { ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) } });
+  const response = await fetch(GATEWAY + path, { ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) }, signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error("Recharge data operation failed (" + response.status + ").");
   return response.json() as Promise<{ values?: string[][] }>;
 }
