@@ -1,0 +1,79 @@
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { getRechargeData, saveRechargeNumbers, createRechargeCredit, createRechargeRequest, reviewRechargeRequest } from "@/lib/recharge.functions";
+
+export const Route = createFileRoute("/_authenticated/recharge")({ component: RechargePage });
+function RechargePage() {
+  const client = useQueryClient();
+  const load = useServerFn(getRechargeData);
+  const save = useServerFn(saveRechargeNumbers);
+  const credit = useServerFn(createRechargeCredit);
+  const submit = useServerFn(createRechargeRequest);
+  const review = useServerFn(reviewRechargeRequest);
+  const { data, isLoading } = useQuery({ queryKey: ["recharge"], queryFn: () => load() });
+  const [numbers, setNumbers] = useState(["", ""]);
+  const [executive, setExecutive] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+  const [requestAmount, setRequestAmount] = useState("");
+  const [selectedNumber, setSelectedNumber] = useState("");
+  const [reference, setReference] = useState("");
+  const [creditFile, setCreditFile] = useState<File | null>(null);
+  const [requestFile, setRequestFile] = useState<File | null>(null);
+  const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
+  const admin = data?.session.role === "Admin";
+  async function proof(file: File | null) {
+    if (!file) throw new Error("Payment screenshot select karein.");
+    if (file.size > 12 * 1024 * 1024) throw new Error("Screenshot 12 MB se chhota hona chahiye.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("JPEG, PNG ya WebP screenshot upload karein.");
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+      reader.onerror = reject; reader.readAsDataURL(file);
+    });
+    return { name: file.name, mimeType: file.type as "image/jpeg" | "image/png" | "image/webp", base64 };
+  }
+  async function act(work: () => Promise<unknown>) {
+    try { await work(); toast.success("Saved successfully"); await client.invalidateQueries({ queryKey: ["recharge"] }); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Operation failed"); }
+  }
+  if (isLoading || !data) return <main className="mx-auto max-w-4xl p-5">Loading recharge management…</main>;
+  return <main className="mx-auto max-w-5xl space-y-5 p-4 pb-8 sm:p-6">
+    <header><h1 className="text-2xl font-bold">Recharge Management</h1><p className="text-sm text-muted-foreground">Executive-wise credit and calling-number recharge ledger</p></header>
+    <section className="grid grid-cols-3 gap-2">
+      <Metric label="Total Credit" value={data.creditTotal}/><Metric label="Approved Used" value={data.used}/><Metric label="Available" value={data.balance}/>
+    </section>
+    {!admin && <section className="space-y-3 rounded-2xl border bg-card p-4">
+      <h2 className="font-semibold">My calling numbers</h2><p className="text-sm text-muted-foreground">Apne maximum 2 calling numbers khud enter karein. Admin inhe sirf view kar sakta hai.</p>
+      {numbers.map((n, i) => <input key={i} value={n} onChange={e => setNumbers(old => old.map((v,j) => i === j ? e.target.value : v))} placeholder={"Calling number " + (i+1)} className="w-full rounded-lg border bg-background p-3"/>)}
+      <button onClick={() => void act(async () => save({ data: { numbers: numbers.filter(Boolean) } }))} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">Save numbers</button>
+      <p className="text-sm">Saved: {data.numbers.join(" · ") || "No numbers saved"}</p>
+    </section>}
+    {admin ? <section className="space-y-3 rounded-2xl border bg-card p-4">
+      <h2 className="font-semibold">Transfer credit to executive</h2>
+      <select value={executive} onChange={e => setExecutive(e.target.value)} className="w-full rounded-lg border bg-background p-3"><option value="">Select executive</option>{data.executives.map(n => <option key={n}>{n}</option>)}</select>
+      <input type="number" min="1" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} placeholder="Total amount transferred" className="w-full rounded-lg border bg-background p-3"/>
+      <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Transfer reference / note (optional)" className="w-full rounded-lg border bg-background p-3"/>
+      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setCreditFile(e.target.files?.[0] ?? null)} className="w-full text-sm"/>
+      <button disabled={!executive || !creditAmount || Number(creditAmount) <= 0 || !creditFile} onClick={() => void act(async () => { await credit({ data: { executive, amount: Number(creditAmount), image: await proof(creditFile), reference } }); setCreditAmount(""); setReference(""); setCreditFile(null); })} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Save credit + screenshot</button>
+      <p className="text-xs text-muted-foreground">Ek executive ko total credit. Dono calling numbers isi balance ko share karenge.</p>
+    </section> : <section className="space-y-3 rounded-2xl border bg-card p-4">
+      <h2 className="font-semibold">Request recharge</h2>
+      <select value={selectedNumber} onChange={e => setSelectedNumber(e.target.value)} className="w-full rounded-lg border bg-background p-3"><option value="">Select your calling number</option>{data.numbers.map(n => <option key={n}>{n}</option>)}</select>
+      <input type="number" min="1" max={data.balance} value={requestAmount} onChange={e => setRequestAmount(e.target.value)} placeholder="Recharge amount" className="w-full rounded-lg border bg-background p-3"/>
+      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setRequestFile(e.target.files?.[0] ?? null)} className="w-full text-sm"/>
+      <button disabled={!selectedNumber || !requestAmount || Number(requestAmount) <= 0 || Number(requestAmount) > data.balance || !requestFile} onClick={() => void act(async () => { await submit({ data: { number: selectedNumber, amount: Number(requestAmount), image: await proof(requestFile) } }); setRequestAmount(""); setRequestFile(null); })} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Submit recharge request</button>
+      <p className="text-xs text-muted-foreground">Pending request balance se tab kategi jab Admin approve karega.</p>
+    </section>}
+    <section className="space-y-3"><h2 className="font-semibold">Recharge requests</h2>
+      {data.requests.length === 0 ? <p className="rounded-xl border p-4 text-sm text-muted-foreground">No requests yet.</p> : data.requests.slice().reverse().map(r => <article key={r.id} className="space-y-2 rounded-xl border bg-card p-3">
+        <div className="flex flex-wrap justify-between gap-2"><b>{r.executive} · ₹{r.amount.toLocaleString("en-IN")}</b><span className="text-sm">{r.status}</span></div><p className="text-xs text-muted-foreground">{r.number} · {r.date}</p>
+        {r.screenshot && <a href={r.screenshot} target="_blank" rel="noreferrer" className="text-sm underline">View screenshot</a>}
+        {admin && r.status.toLowerCase() === "pending" && <div className="space-y-2"><input value={reviewNote[r.id] ?? ""} onChange={e => setReviewNote(old => ({...old,[r.id]:e.target.value}))} placeholder="Admin note (optional)" className="w-full rounded-lg border bg-background p-2 text-sm"/><div className="flex gap-2"><button onClick={() => void act(() => review({ data: { id:r.id,status:"Approved",note:reviewNote[r.id] } }))} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">Approve</button><button onClick={() => void act(() => review({ data: { id:r.id,status:"Rejected",note:reviewNote[r.id] } }))} className="rounded-lg border px-3 py-2 text-sm">Reject</button></div></div>}
+      </article>)}
+    </section>
+    <section className="space-y-2"><h2 className="font-semibold">Admin credit history</h2>{data.credits.slice().reverse().map(c => <div key={c.id} className="rounded-xl border bg-card p-3 text-sm"><b>{c.name} · ₹{c.amount.toLocaleString("en-IN")}</b><p className="text-xs text-muted-foreground">{c.date} · {c.by}</p>{c.screenshot && <a href={c.screenshot} target="_blank" rel="noreferrer" className="underline">View transfer proof</a>}</div>)}</section>
+  </main>;
+}
+function Metric({label,value}:{label:string;value:number}) { return <div className="rounded-xl border bg-card p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-bold">₹{value.toLocaleString("en-IN")}</p></div>; }
