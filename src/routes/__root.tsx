@@ -263,7 +263,7 @@ function AppShell() {
 
       {moreOpen && (
         <div className="fixed inset-0 z-50 md:hidden print:hidden">
-          <button type="button" aria-label="Close more menu" className="absolute inset-0 bg-[#10291f]/35" onClick={() => setMoreOpen(false)} />
+          <button type="button" aria-label="Close more menu" className="absolute inset-0 bg-[#252525]/35" onClick={() => setMoreOpen(false)} />
           <section id="mobile-more-menu" className="absolute inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto rounded-2xl border border-[#e4eae5] bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-extrabold text-[#17211d]">More sections</h2><button type="button" onClick={() => setMoreOpen(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-[#718078] hover:bg-[#f3f6f3]">Close ✕</button></div>
             <div className="grid grid-cols-2 gap-2">
