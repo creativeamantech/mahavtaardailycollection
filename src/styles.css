@@ -143,3 +143,35 @@
     color: var(--color-foreground);
   }
 }
+
+
+/* Android/mobile viewport stability: keep the app within the device width while
+   allowing explicitly scrollable data tables and tab strips to scroll locally. */
+@layer base {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  body {
+    min-width: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  #root,
+  #app,
+  main,
+  [data-app-shell] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  img,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+}

@@ -247,7 +247,7 @@ function LoansPage() {
           setQuery(search);
         }}
       >
-        <div className="min-w-[200px] flex-1 space-y-2">
+        <div className="w-full min-w-0 flex-1 space-y-2 sm:min-w-[200px]">
           <Label className="text-base" htmlFor="loan-search">
             Loan ID / Loan Number
           </Label>

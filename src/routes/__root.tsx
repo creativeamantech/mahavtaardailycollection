@@ -71,7 +71,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "robots", content: "noindex, nofollow, noarchive" },
       { title: "Mahavtaar Daily Collection" },
       { name: "description", content: "Record daily loan collections by executive with instant confirmation and printable receipts." },
@@ -180,7 +180,7 @@ function AppShell() {
       : "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#535b64] transition hover:bg-[#fffaf0] hover:text-[#292820]";
 
   return (
-    <div className="min-h-screen bg-[#f7f7f5] text-[#252525]">
+    <div data-app-shell className="min-h-screen min-h-[100dvh] w-full min-w-0 max-w-full overflow-x-clip bg-[#f7f7f5] text-[#252525]">
       {/* Desktop navigation follows the approved prototype: a readable fixed-width sidebar. */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[252px] flex-col gap-7 overflow-y-auto border-r border-[#e8e9eb] bg-white px-4 py-6 text-[#252525] shadow-[1px_0_8px_rgba(0,0,0,0.025)] md:flex print:hidden">
         <Link to="/" className="flex items-center gap-3 px-2">
