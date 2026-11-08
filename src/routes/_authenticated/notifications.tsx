@@ -23,13 +23,23 @@ function formatDateTime(iso: string) {
 }
 
 function NotificationsPage() {
-  const { notifications, isLoading, session } = useAppConfig();\n  const executiveName = session?.role === "Executive" ? session.name : "";\n  const isPriorityForCurrentExecutive = (text: string) => {\n    if (!executiveName) return false;\n    const escapedName = executiveName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\  const { notifications, isLoading } = useAppConfig();");\n    return new RegExp(`(^|[^\\\\p{L}\\\\p{N}])${escapedName}(?=$|[^\\\\p{L}\\\\p{N}])`, "iu").test(text);\n  };
+  const { notifications, isLoading, session } = useAppConfig();
+  const executiveName = session?.role === "Executive" ? session.name : "";
+  const isPriorityForCurrentExecutive = (text: string) => {
+    if (!executiveName) return false;
+    const normalizedText = ` ${text.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ")} `;
+    const normalizedName = executiveName.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, " ").trim();
+    return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const activeNotifications = useMemo(
     () => [...notifications]
       .filter((item) => item.status.toLowerCase() !== "removed")
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [notifications],
+      .sort((a, b) => {
+        const priorityDifference = Number(isPriorityForCurrentExecutive(b.text)) - Number(isPriorityForCurrentExecutive(a.text));
+        return priorityDifference || b.createdAt.localeCompare(a.createdAt);
+      }),
+    [notifications, executiveName],
   );
 
   // Only mark a notification as viewed after the executive opens its details.
@@ -64,7 +74,13 @@ function NotificationsPage() {
                 <span className="block whitespace-pre-wrap break-words text-sm font-semibold text-[#292820]">
                   {item.text || "Notification"}
                 </span>
-                {isPriorityForCurrentExecutive(item.text) && (\n                  <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>\n                )}\n                <span className="mt-1 block text-[11px] text-muted-foreground">
+                {isPriorityForCurrentExecutive(item.text) && (
+                  <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>
+                )}
+                {isPriorityForCurrentExecutive(item.text) && (
+                  <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>
+                )}
+                <span className="mt-1 block text-[11px] text-muted-foreground">
                   {formatDateTime(item.createdAt)}
                 </span>
               </span>
