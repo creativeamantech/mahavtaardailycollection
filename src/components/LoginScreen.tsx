@@ -81,7 +81,7 @@ export function LoginScreen() {
             <div className="space-y-2">
               <Label className="text-sm font-bold text-[#38372f]">Executive Name</Label>
               <Select value={executiveName} onValueChange={setExecutiveName} disabled={busy}>
-                <SelectTrigger className="h-13 rounded-xl border-[#e5e0d4] bg-[#fcfbf8] px-4 text-base shadow-none focus:ring-2 focus:ring-[#e8b82e]/40">
+                <SelectTrigger className="h-12 rounded-xl border-[#e5e0d4] bg-[#fcfbf8] px-4 text-base shadow-none focus:ring-2 focus:ring-[#e8b82e]/40">
                   <SelectValue placeholder="Select executive" />
                 </SelectTrigger>
                 <SelectContent>
@@ -101,11 +101,11 @@ export function LoginScreen() {
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="Enter your PIN"
                 disabled={busy}
-                className="h-13 rounded-xl border-[#e5e0d4] bg-[#fcfbf8] px-4 text-base tracking-[0.22em] shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/40"
+                className="h-12 rounded-xl border-[#e5e0d4] bg-[#fcfbf8] px-4 text-base tracking-[0.22em] shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/40"
               />
             </div>
 
-            <Button type="submit" className="h-13 w-full rounded-xl bg-[#29271f] text-base font-bold text-white shadow-md transition hover:bg-[#403b2c] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2" disabled={!executiveName || !pin || busy}>
+            <Button type="submit" className="h-12 w-full rounded-xl bg-[#29271f] text-base font-bold text-white shadow-md transition hover:bg-[#403b2c] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2" disabled={!executiveName || !pin || busy}>
               {busy ? "Signing in..." : "Login"}
             </Button>
             <p className="text-center text-xs leading-5 text-[#929087]">Secure access for authorised team members</p>
