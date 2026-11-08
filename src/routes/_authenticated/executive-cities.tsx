@@ -150,10 +150,7 @@ export function ExecutiveCitiesPage() {
   const [selectedExecutive, setSelectedExecutive] = useState<string>(ALL);
   const [citySearch, setCitySearch] = useState("");
   const [includeBucket, setIncludeBucket] = useState(false);
-  const [excludeAlreadyPaid, setExcludeAlreadyPaid] = useState(true);
-
-  // Count already paid cases in total dataset
-  const alreadyPaidCount = useMemo(() => data.filter((r) => r.alreadyPaid).length, [data]);
+  // Already Paid cases are always excluded from this report. No separate tab or include toggle.
 
   // Filter raw collection rows based on selected filters
   const filteredRows = useMemo(() => {
@@ -167,8 +164,8 @@ export function ExecutiveCitiesPage() {
         )
       )
         return false;
-      // Exclude Already Paid (matching loans.tsx city table by default)
-      if (excludeAlreadyPaid && r.alreadyPaid) return false;
+      // Always exclude Already Paid cases from Executive City performance.
+      if (r.alreadyPaid) return false;
 
       // Date filter
       if (dateMode === "month") {
@@ -185,7 +182,7 @@ export function ExecutiveCitiesPage() {
 
       return true;
     });
-  }, [data, excludedLoanIds, excludeAlreadyPaid, dateMode, month, selectedDate, bucket, category]);
+  }, [data, excludedLoanIds, dateMode, month, selectedDate, bucket, category]);
 
   // Summarise loans for the filtered scope
   const loanSummaries = useMemo(() => {
@@ -330,7 +327,7 @@ export function ExecutiveCitiesPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-3 pb-20 pt-6 sm:px-6">
+    <main className="mx-auto w-full max-w-6xl px-3 pb-20 pt-4 sm:px-6 sm:pt-6">
       {/* Page Title & Controls */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -364,7 +361,7 @@ export function ExecutiveCitiesPage() {
       </div>
 
       {/* Top Stat Cards */}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
         <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
             <TrendingUp className="h-4 w-4 text-primary" />
@@ -380,10 +377,10 @@ export function ExecutiveCitiesPage() {
 
         <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
-            <Receipt className="h-4 w-4 text-emerald-600" />
+            <Receipt className="h-4 w-4 text-primary" />
             <span>Main Paid Cases</span>
           </div>
-          <p className="mt-1 text-lg font-bold text-emerald-700 sm:text-2xl">
+          <p className="mt-1 text-lg font-bold text-foreground sm:text-2xl">
             {overallMetrics.totalMainPaid}
           </p>
           <p className="text-[11px] text-muted-foreground">
@@ -393,7 +390,7 @@ export function ExecutiveCitiesPage() {
 
         <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
-            <MapPin className="h-4 w-4 text-blue-600" />
+            <MapPin className="h-4 w-4 text-primary" />
             <span>Active Cities</span>
           </div>
           <p className="mt-1 text-lg font-bold sm:text-2xl">{overallMetrics.cityCount}</p>
@@ -402,7 +399,7 @@ export function ExecutiveCitiesPage() {
 
         <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
-            <Users className="h-4 w-4 text-amber-600" />
+            <Users className="h-4 w-4 text-primary" />
             <span>Top Executive</span>
           </div>
           <p className="mt-1 text-lg font-bold truncate sm:text-2xl">
@@ -559,24 +556,9 @@ export function ExecutiveCitiesPage() {
               {includeBucket ? "Breakdown: City + Bucket" : "Breakdown: City Only"}
             </Button>
 
-            {alreadyPaidCount > 0 && (
-              <Button
-                type="button"
-                variant={excludeAlreadyPaid ? "outline" : "secondary"}
-                className={`h-12 text-sm font-medium ${
-                  excludeAlreadyPaid
-                    ? "text-muted-foreground"
-                    : "border-red-300 bg-red-50 text-red-700"
-                }`}
-                onClick={() => setExcludeAlreadyPaid((prev) => !prev)}
-              >
-                <Filter className="mr-2 h-4 w-4 text-red-600" />
-                {excludeAlreadyPaid ? "Exclude Already Paid" : "Include Already Paid"}
-                <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-800">
-                  {alreadyPaidCount}
-                </span>
-              </Button>
-            )}
+            <div className="flex h-12 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-medium text-amber-900 sm:text-sm">
+              Already Paid cases are always excluded
+            </div>
           </div>
         </div>
       </section>
@@ -599,7 +581,7 @@ export function ExecutiveCitiesPage() {
           )}
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-nowrap gap-2 overflow-x-auto pb-2">
           <button
             type="button"
             className={`rounded-lg border px-3 py-2 text-xs font-semibold sm:text-sm transition-all ${
@@ -660,7 +642,31 @@ export function ExecutiveCitiesPage() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="grid gap-2 p-3 md:hidden">
+            {sections.map((sec) => (
+              <div key={sec.executive} className="rounded-lg border border-border bg-background p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0"><p className="font-semibold text-sm">{sec.executive}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{sec.rows.length} cities · {sec.total.cases} cases</p></div>
+                  <p className="shrink-0 text-sm font-bold tabular-nums">{formatAmount(sec.total.collection)}</p>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-2">
+                  <div><p className="text-[10px] text-muted-foreground">Main Paid</p><p className="text-sm font-semibold">{sec.total.mainPaid}</p></div>
+                  <div><p className="text-[10px] text-muted-foreground">Paid EMI</p><p className="text-sm font-semibold">{sec.total.paidEmi}</p></div>
+                  <div><p className="text-[10px] text-muted-foreground">POS*</p><p className="text-sm font-semibold">{sec.total.posPaidNotMain}</p></div>
+                  <div className="col-span-3 flex items-center justify-between border-t pt-2">
+                    <div><p className="text-[10px] text-muted-foreground">Paid POS</p><p className="text-xs font-semibold">{formatAmount(sec.total.paidPos)}</p></div>
+                    <Button type="button" size="sm" className="h-8" onClick={() => setSelectedExecutive(sec.executive)}>View Cities</Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3">
+              <p className="text-xs font-bold">TOTAL OVERALL</p><p className="mt-1 text-lg font-bold">{formatAmount(overallMetrics.totalCollection)}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{overallMetrics.totalCases} cases · {overallMetrics.totalMainPaid} Main Paid · {overallMetrics.totalEmi} EMI · {sections.reduce((a, s) => a + s.total.posPaidNotMain, 0)} POS*</p>
+              <p className="mt-1 text-[11px] font-medium">Paid POS: {formatAmount(sections.reduce((a, s) => a + s.total.paidPos, 0))}</p>
+            </div>
+          </div>
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b bg-muted/20 text-muted-foreground font-semibold">
@@ -670,10 +676,10 @@ export function ExecutiveCitiesPage() {
                     Collection Amount
                   </th>
                   <th className="px-3 py-2.5 text-right">Cases</th>
-                  <th className="px-3 py-2.5 text-right text-emerald-700">Main Paid</th>
+                  <th className="px-3 py-2.5 text-right text-foreground">Main Paid</th>
                   <th className="px-3 py-2.5 text-right">EMI Count</th>
                   <th className="px-3 py-2.5 text-right">POS*</th>
-                  <th className="px-3 py-2.5 text-right text-sky-700">Paid POS</th>
+                  <th className="px-3 py-2.5 text-right text-foreground">Paid POS</th>
                   <th className="px-3 py-2.5 text-center">Action</th>
                 </tr>
               </thead>
@@ -697,14 +703,14 @@ export function ExecutiveCitiesPage() {
                     <td className="px-3 py-2 text-right tabular-nums font-semibold">
                       {sec.total.cases}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums font-medium text-emerald-700">
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-foreground">
                       {sec.total.mainPaid}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{sec.total.paidEmi}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                       {sec.total.posPaidNotMain}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums font-medium text-sky-700">
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-foreground">
                       {formatAmount(sec.total.paidPos)}
                     </td>
                     <td className="px-3 py-2 text-center">
@@ -731,7 +737,7 @@ export function ExecutiveCitiesPage() {
                   <td className="px-3 py-2.5 text-right tabular-nums font-bold">
                     {overallMetrics.totalCases}
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-emerald-700">
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-foreground">
                     {overallMetrics.totalMainPaid}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums font-bold">
@@ -740,7 +746,7 @@ export function ExecutiveCitiesPage() {
                   <td className="px-3 py-2.5 text-right tabular-nums font-bold text-muted-foreground">
                     {sections.reduce((acc, s) => acc + s.total.posPaidNotMain, 0)}
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-sky-700">
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-foreground">
                     {formatAmount(sections.reduce((acc, s) => acc + s.total.paidPos, 0))}
                   </td>
                   <td className="px-3 py-2.5" />
@@ -839,7 +845,7 @@ function ExecutiveCityTableCard({ section }: { section: ExecutiveCitySection }) 
           <div className="hidden sm:block text-muted-foreground">·</div>
           <div className="text-right">
             <span className="text-xs text-muted-foreground">Main Paid: </span>
-            <span className="font-semibold text-emerald-600">{section.total.mainPaid}</span>
+            <span className="font-semibold text-primary">{section.total.mainPaid}</span>
           </div>
         </div>
       </div>
@@ -850,7 +856,30 @@ function ExecutiveCityTableCard({ section }: { section: ExecutiveCitySection }) 
           No city records for {section.executive} under current filters.
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="space-y-2 p-3 md:hidden">
+          {section.rows.map((r, idx) => (
+            <div key={`${r.city}-mobile-${idx}`} className="rounded-lg border border-border p-3">
+              <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span className="text-sm font-semibold">{r.city}</span></div><span className="shrink-0 text-sm font-bold tabular-nums">{formatAmount(r.collection)}</span></div>
+              <div className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3 border-t pt-3">
+                <div><p className="text-[10px] text-muted-foreground">Cases</p><p className="text-sm font-semibold tabular-nums">{r.cases}</p></div>
+                <div><p className="text-[10px] text-muted-foreground">Main Paid</p><p className="text-sm font-semibold tabular-nums">{r.mainPaid}</p></div>
+                <div><p className="text-[10px] text-muted-foreground">Paid EMI</p><p className="text-sm font-semibold tabular-nums">{r.paidEmi}</p></div>
+                <div><p className="text-[10px] text-muted-foreground">POS*</p><p className="text-sm font-semibold tabular-nums">{r.posPaidNotMain}</p></div>
+                <div className="col-span-2"><p className="text-[10px] text-muted-foreground">Paid POS</p><p className="text-sm font-semibold tabular-nums">{formatAmount(r.paidPos)}</p></div>
+              </div>
+            </div>
+          ))}
+          <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3"><p className="text-xs font-bold">TOTAL ({section.executive})</p><p className="mt-1 text-lg font-bold">{formatAmount(section.total.collection)}</p>
+            <div className="mt-2 grid grid-cols-3 gap-2 border-t border-amber-200 pt-2">
+              <div><p className="text-[10px] text-muted-foreground">Cases</p><p className="text-sm font-semibold">{section.total.cases}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Main Paid</p><p className="text-sm font-semibold">{section.total.mainPaid}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Paid EMI</p><p className="text-sm font-semibold">{section.total.paidEmi}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">POS*</p><p className="text-sm font-semibold">{section.total.posPaidNotMain}</p></div>
+              <div className="col-span-2"><p className="text-[10px] text-muted-foreground">Paid POS</p><p className="text-sm font-semibold">{formatAmount(section.total.paidPos)}</p></div>
+            </div>
+          </div>
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-xs sm:text-sm">
             <thead>
               <tr className="border-b bg-muted/20 text-muted-foreground">
