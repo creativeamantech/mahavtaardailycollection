@@ -1,6 +1,5 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
-import { TeamMeter } from "@/components/TeamMeter";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -407,17 +406,16 @@ function EntryPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6">
+    <main className="mx-auto w-full max-w-5xl px-3 pb-16 pt-5 text-[#29261e] sm:px-5 sm:pt-7">
       <NotificationPanel className="mb-4" />
-      <TeamMeter />
-      <h1 className="text-3xl font-bold tracking-tight">Collection Entry</h1>
+      <div className="rounded-2xl border border-[#f1e4bd] bg-gradient-to-r from-[#fff8df] to-white p-4 shadow-sm sm:p-6"><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a5790c]">Mahavtaar Daily Collection</p><h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#29261e] sm:text-3xl">Collection Entry</h1>
       <p className="mt-1 text-base text-muted-foreground">
         Record a payment collected by an executive.
-      </p>
+      </p></div>
 
-      <Tabs defaultValue="collection" className="mt-6 w-full">
-        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3">
-          <TabsTrigger value="collection" className="shrink-0 whitespace-nowrap px-3 text-sm">
+      <Tabs defaultValue="collection" className="mt-5 w-full">
+        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-[#f0e5c9] bg-[#fffaf0] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3">
+          <TabsTrigger value="collection" className="shrink-0 whitespace-nowrap px-3 text-sm data-[state=active]:bg-[#f4c43d] data-[state=active]:text-[#30250c] data-[state=active]:shadow-sm">
             Collection Entry
           </TabsTrigger>
           <TabsTrigger value="hold" className="shrink-0 whitespace-nowrap px-3 text-sm">
@@ -429,7 +427,7 @@ function EntryPage() {
         </TabsList>
         <TabsContent value="collection">
           <div
-            className={`mt-6 space-y-5 rounded-xl border p-4 ${
+            className={`mt-4 space-y-5 rounded-2xl border border-[#eee3c8] bg-white p-4 shadow-[0_10px_35px_rgba(71,55,15,0.06)] sm:p-6 ${
               conflicts.length > 0
                 ? "border-red-500 bg-red-50"
                 : duplicates.length > 0
@@ -444,7 +442,7 @@ function EntryPage() {
                 onValueChange={setExecutive}
                 disabled={session?.role !== "Admin"}
               >
-                <SelectTrigger className="h-12 text-base">
+                <SelectTrigger className="h-12 rounded-xl border-[#e9dfc8] bg-white text-base focus-visible:ring-[#e8b82e]">
                   <SelectValue placeholder="Select executive" />
                 </SelectTrigger>
                 <SelectContent>
@@ -490,7 +488,7 @@ function EntryPage() {
                 type="number"
                 inputMode="decimal"
                 min={1}
-                className="h-12 text-base"
+                className="h-12 rounded-xl border-[#e9dfc8] bg-white text-base focus-visible:ring-[#e8b82e]"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
@@ -748,7 +746,7 @@ function EntryPage() {
               </div>
             )}
 
-            <Button className="h-14 w-full text-lg" disabled={!valid} onClick={startSubmitFlow}>
+            <Button className="h-14 w-full rounded-xl bg-[#f2bd2e] text-lg font-bold text-[#2c230d] shadow-sm hover:bg-[#e6ad17]" disabled={!valid} onClick={startSubmitFlow}>
               Submit
             </Button>
             {!proofValid && (
