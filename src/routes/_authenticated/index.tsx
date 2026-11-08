@@ -568,11 +568,11 @@ function EntryPage() {
                 <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="time">
                   Time
                 </Label>
-                <Input id="time" className="h-12 text-base" value={time} readOnly />
+                <Input id="time" className="h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base" value={time} readOnly />
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2 lg:col-span-2">
               <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="receiptImage">
                 Payment Receipt Images (multiple allowed)
               </Label>
