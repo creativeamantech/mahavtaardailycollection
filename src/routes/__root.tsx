@@ -248,7 +248,7 @@ function AppShell() {
       </div>
 
       {/* Mobile uses the prototype's compact bottom navigation; secondary links live in More. */}
-      <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-[#dfe7e1] bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-5px_20px_rgba(25,48,37,0.08)] backdrop-blur md:hidden print:hidden">
+      <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-[100] isolate grid grid-cols-4 border-t border-[#dfe7e1] bg-white px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-5px_20px_rgba(25,48,37,0.08)] md:hidden print:hidden">
         {primaryMobile.map((n) => (
           <Link key={n.to} to={n.to as never} preload="intent" activeOptions={{ exact: n.to === "/" }} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold ${pathname === n.to ? "text-[#174d3b]" : "text-[#718078]"}`}>
             <span className={`grid size-7 place-items-center rounded-lg text-base ${pathname === n.to ? "bg-[#fff2c9] text-[#174d3b]" : ""}`} aria-hidden="true">{n.icon}</span>
