@@ -56,8 +56,8 @@ function NotificationsPage() {
   const previous = history.filter((n) => n.id !== activeNotification?.id);
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
-      <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 text-[#292820]">
+      <h1 className="text-2xl font-extrabold tracking-tight text-[#292820]">Notifications</h1>
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading notifications…</p>}
 
@@ -67,7 +67,7 @@ function NotificationsPage() {
 
       {activeNotification && (
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold">Latest Notification</h2>
+          <h2 className="text-lg font-bold text-[#292820]">Latest Notification</h2>
           {/* Same panel style used across the app. */}
           <NotificationPanel />
         </section>
@@ -75,13 +75,13 @@ function NotificationsPage() {
 
       {previous.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Previous Notifications</h2>
+          <h2 className="text-lg font-bold text-[#292820]">Previous Notifications</h2>
           <div className="space-y-3">
             {previous.map((n) => {
               const { date, time } = formatDateTime(n.createdAt);
               return (
-                <article key={n.id} className="rounded-lg border p-3">
-                  <p className="whitespace-pre-wrap break-words text-sm leading-snug">{n.text}</p>
+                <article key={n.id} className="rounded-xl border border-[#ead17a] bg-white p-3 shadow-sm">
+                  <p className="whitespace-pre-wrap break-words text-sm leading-snug text-[#292820]">{n.text}</p>
                   {isPriorityForCurrentExecutive(n.text) && (
                     <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>
                   )}
@@ -90,14 +90,14 @@ function NotificationsPage() {
                       href={n.imageUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-2 inline-block max-w-full text-sm font-medium underline"
+                      className="mt-2 inline-block max-w-full text-sm font-semibold text-[#765b00] underline"
                     >
                       <img
                         src={toDirectDriveUrl(n.imageUrl)}
                         alt="Notification attachment"
                         loading="lazy"
                         decoding="async"
-                        className="max-h-48 w-full max-w-xs rounded-md border object-contain"
+                        className="max-h-48 w-full max-w-xs rounded-lg border border-[#e8d98f] bg-white object-contain"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
                         }}
