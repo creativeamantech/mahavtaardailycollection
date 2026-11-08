@@ -1882,8 +1882,8 @@ function ReportBlock({
   }
 
   return (
-    <div className="space-y-5 lg:space-y-4">
-      <div className="hidden grid-cols-2 gap-3 lg:grid">
+    <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)] lg:items-start lg:gap-4 lg:space-y-0">
+      <div className="hidden grid-cols-2 gap-3 lg:col-span-2 lg:grid">
         <div className="rounded-xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">Total Collection</p>
           <p className="mt-2 text-2xl font-extrabold tabular-nums text-[#252525]">{formatAmount(total)}</p>
@@ -1895,7 +1895,7 @@ function ReportBlock({
           <p className="mt-1 text-[11px] text-[#8a9097]">Recorded collection entries</p>
         </div>
       </div>
-      <div className="hidden overflow-hidden rounded-xl border border-[#e8e9eb] bg-white shadow-sm sm:block lg:col-span-1">
+      <div className="hidden overflow-hidden rounded-xl border border-[#e8e9eb] bg-white shadow-sm sm:block lg:col-start-1 lg:row-start-2">
         <table className="w-full text-xs sm:text-base">
           <thead className="bg-muted">
             <tr>
@@ -2011,7 +2011,7 @@ function ReportBlock({
         })}
       </div>
 
-      <div className="h-72 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:sticky lg:top-24">
+      <div className="h-72 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:col-start-2 lg:row-start-2 lg:sticky lg:top-24">
         {mounted ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
