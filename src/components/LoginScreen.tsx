@@ -51,47 +51,62 @@ export function LoginScreen() {
   }
 
   return (
-    <main className="relative flex min-h-[100svh] items-center justify-center overflow-hidden bg-[#f7f6f1] px-4 py-8 text-[#25251f] sm:px-6">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-[#f5c542]/25 blur-3xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-24 size-80 rounded-full bg-[#e9dfc7]/55 blur-3xl" />
+    <main className="relative flex min-h-[100svh] items-center justify-center bg-[#f4f5f7] px-4 py-6 text-[#20242b] sm:px-6 sm:py-10">
+      <div aria-hidden="true" className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-[#f4c542]/15 blur-3xl" />
+      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-[#e4e7ec] bg-white shadow-[0_24px_70px_rgba(24,32,45,0.10)] md:min-h-[600px] md:grid-cols-[1fr_0.92fr]">
+        <section className="flex flex-col justify-between bg-[#29271f] px-6 py-7 text-white sm:px-9 sm:py-9 md:px-12 md:py-12">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#f4c542] text-xl font-black text-[#29271f] shadow-sm">M</div>
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold tracking-wide text-white">Mahavtaar Enterprises</p>
+                <p className="mt-0.5 text-xs text-[#d4d0c5]">Operations workspace</p>
+              </div>
+            </div>
 
-      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-[#e8e2d4] bg-white shadow-[0_28px_90px_rgba(38,35,25,0.12)] md:min-h-[590px] md:grid-cols-[1.02fr_0.98fr]">
-        <section className="relative flex min-h-56 flex-col justify-between overflow-hidden bg-[#f4c542] p-7 sm:p-10 md:min-h-full">
-          <div aria-hidden="true" className="absolute -bottom-24 -right-16 size-72 rounded-full border-[36px] border-white/15" />
-          <div className="relative">
-            <div className="grid size-14 place-items-center rounded-2xl bg-[#29271f] text-2xl font-black text-[#f7ca4c] shadow-lg">M</div>
-            <p className="mt-8 text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#5c4712]">Mahavtaar Enterprises</p>
-            <h1 className="mt-3 max-w-sm text-4xl font-black leading-[1.05] tracking-tight text-[#282419] sm:text-5xl">Daily<br className="hidden sm:block" /> Collection</h1>
-            <p className="mt-4 max-w-sm text-sm leading-6 text-[#55451e] sm:text-base">A clear, reliable workspace for your team's daily collection operations.</p>
+            <p className="mt-8 text-[11px] font-bold uppercase tracking-[0.2em] text-[#f4c542]">Daily operations</p>
+            <h1 className="mt-3 max-w-md text-3xl font-black leading-tight tracking-tight sm:text-4xl md:text-5xl">
+              Daily Collection
+            </h1>
+            <p className="mt-3 max-w-md text-sm leading-6 text-[#dedbd3] sm:text-base">
+              A clear and reliable workspace for recording and tracking your team's daily collections.
+            </p>
           </div>
-          <div className="relative mt-8 hidden max-w-sm rounded-2xl border border-black/10 bg-white/35 p-4 md:block">
-            <p className="text-sm font-bold text-[#3c3218]">One workspace. Clear daily progress.</p>
-            <p className="mt-1 text-xs leading-5 text-[#65552e]">Use your registered executive PIN to securely access the collection desk.</p>
+
+          <div className="mt-8 rounded-2xl border border-white/15 bg-white/[0.06] p-4 sm:p-5">
+            <p className="text-sm font-bold text-white">Your collection desk, in one place.</p>
+            <p className="mt-1 text-sm leading-6 text-[#d4d0c5]">
+              Sign in with your registered executive name and PIN to continue.
+            </p>
           </div>
         </section>
 
-        <section className="flex items-center justify-center px-6 py-9 sm:px-10 sm:py-12">
+        <section className="flex items-center justify-center px-5 py-8 sm:px-9 sm:py-10 md:px-12">
           <form onSubmit={submit} className="w-full max-w-sm space-y-6">
             <div>
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#a47a12]">Welcome back</p>
-              <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#25251f] sm:text-3xl">Sign in to continue</h2>
-              <p className="mt-2 text-sm leading-6 text-[#77766f]">Choose your name and enter your secure PIN.</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9a7410]">Secure sign in</p>
+              <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#20242b] sm:text-3xl">Welcome back</h2>
+              <p className="mt-2 text-sm leading-6 text-[#69717d]">
+                Select your executive profile and enter your PIN.
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-bold text-[#38372f]">Executive Name</Label>
+              <Label className="text-sm font-semibold text-[#343a43]">Executive Name</Label>
               <Select value={executiveName} onValueChange={setExecutiveName} disabled={busy}>
-                <SelectTrigger className="h-12 rounded-xl border-[#e5e0d4] bg-[#fcfbf8] px-4 text-base shadow-none focus:ring-2 focus:ring-[#e8b82e]/40">
+                <SelectTrigger className="h-12 w-full rounded-xl border-[#d9dee6] bg-white px-4 text-base shadow-none focus:ring-2 focus:ring-[#e8b82e]/40">
                   <SelectValue placeholder="Select executive" />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXECUTIVE_NAMES.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                  {EXECUTIVE_NAMES.map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="login-pin" className="text-sm font-bold text-[#38372f]">PIN</Label>
+              <Label htmlFor="login-pin" className="text-sm font-semibold text-[#343a43]">PIN</Label>
               <Input
                 id="login-pin"
                 type="password"
@@ -101,14 +116,21 @@ export function LoginScreen() {
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="Enter your PIN"
                 disabled={busy}
-                className="h-12 rounded-xl border-[#e5e0d4] bg-[#fcfbf8] px-4 text-base tracking-[0.22em] shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/40"
+                className="h-12 rounded-xl border-[#d9dee6] bg-white px-4 text-base tracking-[0.2em] shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/40"
               />
             </div>
 
-            <Button type="submit" className="h-12 w-full rounded-xl bg-[#29271f] text-base font-bold text-white shadow-md transition hover:bg-[#403b2c] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2" disabled={!executiveName || !pin || busy}>
+            <Button
+              type="submit"
+              className="h-12 w-full rounded-xl bg-[#29271f] text-base font-bold text-white shadow-sm transition hover:bg-[#403b2c] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2"
+              disabled={!executiveName || !pin || busy}
+            >
               {busy ? "Signing in..." : "Login"}
             </Button>
-            <p className="text-center text-xs leading-5 text-[#929087]">Secure access for authorised team members</p>
+
+            <p className="text-center text-xs leading-5 text-[#747b85]">
+              Secure access for authorised team members
+            </p>
           </form>
         </section>
       </div>
