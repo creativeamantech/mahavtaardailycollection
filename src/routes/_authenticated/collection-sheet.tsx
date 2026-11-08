@@ -3,7 +3,7 @@ import { getCurrentSession } from "@/lib/auth.functions";
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Search, RefreshCw, X, Download } from "lucide-react";
+import { Search, RefreshCw, X, Download, Eye } from "lucide-react";
 
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
@@ -125,6 +125,10 @@ function CollectionSheetPage() {
   const deferredSearch = useDeferredValue(search);
   const [visibleCount, setVisibleCount] = useState(50);
   const [executiveFilter, setExecutiveFilter] = useState("__all__");
+  const [bucketFilter, setBucketFilter] = useState("__all__");
+  const [cityFilter, setCityFilter] = useState("__all__");
+  const [statusFilter, setStatusFilter] = useState("__all__");
+  const [selectedRecord, setSelectedRecord] = useState<Collection | null>(null);
   const [paymentDateFrom, setPaymentDateFrom] = useState("");
   const [paymentDateTo, setPaymentDateTo] = useState("");
   const [entryDateFrom, setEntryDateFrom] = useState("");
@@ -172,20 +176,30 @@ function CollectionSheetPage() {
     () => [...new Set(allRows.map((row) => String(row.executive ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     [allRows],
   );
+  const buckets = useMemo(() => [...new Set(allRows.map((row) => String(row.bucket ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [allRows]);
+  const cities = useMemo(() => [...new Set(allRows.map((row) => String(row.city ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [allRows]);
   const rows = useMemo(() => allRows.filter((row) => {
     const rowLoanId = normaliseLoanId(row.loanId);
     const matchesLoan = !deferredSearch.trim()
       || (isBulkSearch ? requestedLoanIds.includes(rowLoanId) : rowLoanId.includes(normalizedQuery));
     const matchesExecutive = executiveFilter === "__all__" || String(row.executive ?? "").trim() === executiveFilter;
+    const rowStatus = row.alreadyPaid ? "Already Paid" : activeExcludedIds.has(rowLoanId) ? "Small Case" : row.isConflict ? "Duplicate / Conflict" : "Collection";
+    const matchesBucket = bucketFilter === "__all__" || String(row.bucket ?? "").trim() === bucketFilter;
+    const matchesCity = cityFilter === "__all__" || String(row.city ?? "").trim() === cityFilter;
+    const matchesStatus = statusFilter === "__all__" || rowStatus === statusFilter;
     const paymentDate = dateFilterKey(row.date);
     const entryDate = dateFilterKey(row.entryDate);
     const matchesPaymentDate = (!paymentDateFrom || (paymentDate && paymentDate >= paymentDateFrom))
       && (!paymentDateTo || (paymentDate && paymentDate <= paymentDateTo));
     const matchesEntryDate = (!entryDateFrom || (entryDate && entryDate >= entryDateFrom))
       && (!entryDateTo || (entryDate && entryDate <= entryDateTo));
-    return matchesLoan && matchesExecutive && matchesPaymentDate && matchesEntryDate;
-  }), [allRows, deferredSearch, isBulkSearch, requestedLoanIds, normalizedQuery, executiveFilter, paymentDateFrom, paymentDateTo, entryDateFrom, entryDateTo]);
+    return matchesLoan && matchesExecutive && matchesBucket && matchesCity && matchesStatus && matchesPaymentDate && matchesEntryDate;
+  }), [allRows, deferredSearch, isBulkSearch, requestedLoanIds, normalizedQuery, executiveFilter, bucketFilter, cityFilter, statusFilter, activeExcludedIds, paymentDateFrom, paymentDateTo, entryDateFrom, entryDateTo]);
   const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount]);
+  const desktopCollectionAmount = rows.reduce((sum, row) => {
+    const id = normaliseLoanId(row.loanId);
+    return row.alreadyPaid || activeExcludedIds.has(id) || row.isConflict ? sum : sum + Number(row.amount ?? 0);
+  }, 0);
 
   // Apply the existing reporting rules to the currently visible/search-filtered rows.
   // Category priority avoids double-counting excluded rows in the summary.
@@ -400,32 +414,46 @@ function CollectionSheetPage() {
         </div>
       )}
       {!isLoading && !error && rows.length > 0 && (
-        <div className="mt-4 hidden overflow-auto rounded-xl border md:block">
-          <table className="min-w-max w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-10 bg-muted">
-              <tr>
-                <th className="whitespace-nowrap border-b px-3 py-3 text-left font-semibold">#</th>
-                {columns.map((column) => (
-                  <th key={String(column.key)} className="whitespace-nowrap border-b px-3 py-3 text-left font-semibold">{column.label}</th>
-                ))}
-                <th className="whitespace-nowrap border-b px-3 py-3 text-left font-semibold">Paid Flag</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.map((row, index) => (
-                <tr key={row.row ?? `${row.loanId ?? "row"}-${index}`} className={row.alreadyPaid ? "border-b bg-red-100 text-red-950 hover:bg-red-200" : "border-b hover:bg-muted/50"}>
-                  <td className="whitespace-nowrap px-3 py-2">{row.row ?? index + 1}</td>
-                  {columns.map((column) => (
-                    <td key={String(column.key)} className="max-w-[320px] whitespace-nowrap px-3 py-2">
-                      {displayValue(row, column)}
-                    </td>
-                  ))}
-                  <td className="whitespace-nowrap px-3 py-2 font-semibold">{row.alreadyPaid ? "Already Paid" : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <section className="mt-5 hidden space-y-4 md:block">
+          <div className="grid grid-cols-4 gap-3">
+            <div className="rounded-xl border bg-white p-4"><p className="text-xs font-medium text-muted-foreground">Eligible Collection</p><p className="mt-2 text-xl font-bold tabular-nums">{formatAmount(desktopCollectionAmount)}</p><p className="mt-1 text-[11px] text-muted-foreground">After paid, small-case and conflict exclusions</p></div>
+            <div className="rounded-xl border bg-white p-4"><p className="text-xs font-medium text-muted-foreground">Matching Records</p><p className="mt-2 text-xl font-bold tabular-nums">{rows.length.toLocaleString("en-IN")}</p><p className="mt-1 text-[11px] text-muted-foreground">Current filter result</p></div>
+            <div className="rounded-xl border bg-white p-4"><p className="text-xs font-medium text-muted-foreground">Unique Loan Accounts</p><p className="mt-2 text-xl font-bold tabular-nums">{new Set(rows.filter((row) => !row.alreadyPaid && !activeExcludedIds.has(normaliseLoanId(row.loanId)) && !row.isConflict).map((row) => normaliseLoanId(row.loanId)).filter(Boolean)).size.toLocaleString("en-IN")}</p><p className="mt-1 text-[11px] text-muted-foreground">Eligible unique loan numbers</p></div>
+            <div className="rounded-xl border bg-white p-4"><p className="text-xs font-medium text-muted-foreground">Needs Attention</p><p className="mt-2 text-xl font-bold tabular-nums">{rows.filter((row) => !row.alreadyPaid && (activeExcludedIds.has(normaliseLoanId(row.loanId)) || row.isConflict)).length.toLocaleString("en-IN")}</p><p className="mt-1 text-[11px] text-muted-foreground">Small cases and conflicts</p></div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3">
+            <div><h2 className="text-sm font-bold">Collection Records</h2><p className="mt-0.5 text-xs text-muted-foreground">Scan key payment information and open any row for its complete record.</p></div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select value={bucketFilter} onChange={(event) => setBucketFilter(event.target.value)} aria-label="Filter by Bucket" className="h-9 min-w-[130px] rounded-md border border-input bg-white px-2.5 text-xs"><option value="__all__">All Buckets</option>{buckets.map((bucket) => <option key={bucket} value={bucket}>{bucket}</option>)}</select>
+              <select value={cityFilter} onChange={(event) => setCityFilter(event.target.value)} aria-label="Filter by City" className="h-9 min-w-[130px] rounded-md border border-input bg-white px-2.5 text-xs"><option value="__all__">All Cities</option>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by Status" className="h-9 min-w-[150px] rounded-md border border-input bg-white px-2.5 text-xs"><option value="__all__">All Statuses</option><option value="Collection">Collection</option><option value="Already Paid">Already Paid</option><option value="Small Case">Small Case</option><option value="Duplicate / Conflict">Duplicate / Conflict</option></select>
+              {(bucketFilter !== "__all__" || cityFilter !== "__all__" || statusFilter !== "__all__") && <Button variant="ghost" size="sm" onClick={() => { setBucketFilter("__all__"); setCityFilter("__all__"); setStatusFilter("__all__"); }}>Clear filters</Button>}
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1120px] border-collapse text-sm">
+                <thead className="bg-stone-50"><tr>{["Loan Number","Executive","Bucket","City","Principal Outstanding","EMI Amount","Amount","Payment Date","Entry Time","Status",""].map((label) => <th key={label} className="whitespace-nowrap border-b px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</th>)}</tr></thead>
+                <tbody>{visibleRows.map((row,index)=>{
+                  const rowStatus=row.alreadyPaid?"Already Paid":activeExcludedIds.has(normaliseLoanId(row.loanId))?"Small Case":row.isConflict?"Duplicate / Conflict":"Collection";
+                  const isSelected=selectedRecord===row;
+                  return <tr key={row.row??`${row.loanId??"row"}-${index}`} className={`border-b last:border-0 hover:bg-amber-50/50 ${isSelected?"bg-amber-50":""} ${row.alreadyPaid?"bg-stone-50":""}`}>
+                    <td className="whitespace-nowrap px-3 py-3 font-semibold">{row.loanId||"—"}<span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">{row.entryType||"Collection entry"}</span></td>
+                    <td className="whitespace-nowrap px-3 py-3">{row.executive||"—"}</td><td className="whitespace-nowrap px-3 py-3">{row.bucket||"—"}</td><td className="whitespace-nowrap px-3 py-3">{row.city||"—"}</td>
+                    <td className="whitespace-nowrap px-3 py-3 tabular-nums">{row.pos==null?"—":formatAmount(row.pos)}</td><td className="whitespace-nowrap px-3 py-3 tabular-nums">{row.emiAmount==null?"—":formatAmount(row.emiAmount)}</td>
+                    <td className="whitespace-nowrap px-3 py-3 font-bold tabular-nums">{formatAmount(Number(row.amount??0))}</td><td className="whitespace-nowrap px-3 py-3">{row.date||"—"}</td><td className="whitespace-nowrap px-3 py-3">{row.time||row.createdAt||"—"}</td>
+                    <td className="whitespace-nowrap px-3 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${rowStatus==="Collection"?"bg-amber-100 text-amber-900":rowStatus==="Already Paid"?"bg-stone-200 text-stone-700":"bg-yellow-50 text-yellow-900"}`}>{rowStatus}</span></td>
+                    <td className="whitespace-nowrap px-3 py-3"><Button type="button" variant={isSelected?"secondary":"outline"} size="sm" className="h-8 text-xs" onClick={()=>setSelectedRecord(isSelected?null:row)}><Eye className="mr-1.5 h-3.5 w-3.5"/>{isSelected?"Close":"View"}</Button></td>
+                  </tr>;
+                })}</tbody>
+              </table>
+            </div>
+            {selectedRecord&&<div className="border-t bg-amber-50/40 p-5">
+              <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Complete record details</p><h3 className="mt-1 text-lg font-bold">{selectedRecord.loanId||"Loan details"}</h3><p className="text-xs text-muted-foreground">{selectedRecord.linkedName||"No linked name"} · {selectedRecord.executive||"Unassigned"}</p></div><Button type="button" variant="ghost" size="sm" onClick={()=>setSelectedRecord(null)} aria-label="Close record details"><X className="h-4 w-4"/></Button></div>
+              <dl className="mt-4 grid grid-cols-4 gap-3">{columns.map(column=><div key={String(column.key)} className="min-w-0 rounded-lg border bg-white p-3"><dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{column.label}</dt><dd className="mt-1 break-words text-xs font-medium">{displayValue(selectedRecord,column)||"—"}</dd></div>)}<div className="rounded-lg border bg-white p-3"><dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid Flag</dt><dd className="mt-1 text-xs font-medium">{selectedRecord.alreadyPaid?"Already Paid":"—"}</dd></div></dl>
+            </div>}
+          </div>
+        </section>
       )}
       {!isLoading && !error && rows.length > visibleRows.length && (
         <div className="mt-3 flex justify-center">
