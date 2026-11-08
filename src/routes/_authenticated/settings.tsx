@@ -14,6 +14,7 @@ import {
 } from "@/lib/app-config.functions";
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
+import { MasterAllocationInitializer } from "@/components/MasterAllocationInitializer";
 import { ALL_CATEGORIES, uniqueCategories } from "@/components/AllocationFilters";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,7 @@ function SettingsPage() {
           </span>
         </div>
       </div>
+      <MasterAllocationInitializer />
       <SettingsContent />
     </main>
   );
