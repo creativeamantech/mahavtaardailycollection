@@ -38,7 +38,7 @@ function formatNotificationTime(value: string) {
 
 // Previews rotate until the executive opens the full Notifications inbox.
 export function NotificationPanel({ className = "" }: { className?: string }) {
-  const { notifications } = useAppConfig();
+  const { notifications, session } = useAppConfig();\n  const executiveName = session?.role === "Executive" ? session.name : "";\n  const isPriorityForCurrentExecutive = (text: string) => {\n    if (!executiveName) return false;\n    const escapedName = executiveName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\  const { notifications } = useAppConfig();");\n    return new RegExp(`(^|[^\\\\p{L}\\\\p{N}])${escapedName}(?=$|[^\\\\p{L}\\\\p{N}])`, "iu").test(text);\n  };
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [viewedIds, setViewedIds] = useState<string[] | null>(null);
