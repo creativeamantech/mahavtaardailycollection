@@ -356,6 +356,7 @@ function CollectionSheetPage() {
           {visibleRows.map((row, index) => {
             const primaryKeys = new Set<keyof Collection>(["executive", "loanId", "amount", "date", "time", "bucket", "city"]);
             const detailColumns = columns.filter((column) => !primaryKeys.has(column.key));
+            const isSmallCase = !row.alreadyPaid && activeExcludedIds.has(normaliseLoanId(row.loanId));
             return (
               <article
                 key={row.row ?? (String(row.loanId ?? "row") + "-" + index)}
@@ -370,8 +371,8 @@ function CollectionSheetPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-lg font-extrabold tabular-nums">{formatAmount(Number(row.amount ?? 0))}</p>
-                    <span className={"mt-1 inline-flex rounded-md px-2 py-1 text-[10px] font-bold " + (row.alreadyPaid ? "bg-red-100 text-red-800" : row.isConflict ? "bg-amber-100 text-amber-900" : "bg-yellow-100 text-yellow-900")}>
-                      {row.alreadyPaid ? "ALREADY PAID" : row.isConflict ? "CONFLICT" : "COLLECTION"}
+                    <span className={"mt-1 inline-flex rounded-md px-2 py-1 text-[10px] font-bold " + (row.alreadyPaid ? "bg-red-100 text-red-800" : isSmallCase || row.isConflict ? "bg-amber-100 text-amber-900" : "bg-yellow-100 text-yellow-900")}>
+                      {row.alreadyPaid ? "ALREADY PAID" : isSmallCase ? "SMALL CASE" : row.isConflict ? "DUPLICATE / CONFLICT" : "COLLECTION"}
                     </span>
                   </div>
                 </div>
