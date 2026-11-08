@@ -428,7 +428,7 @@ function EntryPage() {
         <TabsContent value="collection">
           <div className="mt-4 grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_292px] lg:items-start">
           <div
-            className={`mt-4 grid min-w-0 grid-cols-1 gap-5 rounded-2xl border border-[#e1e5eb] bg-white p-4 shadow-[0_12px_40px_rgba(32,36,43,0.06)] sm:gap-6 sm:p-6 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-6 lg:p-8 ${
+            className={`grid min-w-0 grid-cols-1 gap-5 rounded-xl border border-[#e1e5eb] bg-white p-4 shadow-[0_2px_10px_rgba(32,36,43,0.045)] sm:gap-6 sm:p-6 lg:grid-cols-2 lg:gap-x-7 lg:gap-y-6 lg:p-7 ${
               conflicts.length > 0
                 ? "border-red-500 bg-red-50"
                 : duplicates.length > 0
