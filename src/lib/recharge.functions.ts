@@ -55,6 +55,7 @@ async function readState(name: string, isAdmin: boolean) {
   const myRequests = requestRows.filter(r => (r[2] ?? "").trim().toLowerCase() === name.toLowerCase());
   const creditTotal = myCredits.reduce((sum, r) => sum + money(r[3]), 0);
   const used = myRequests.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0);
+  const pending = myRequests.filter(r => (r[7] ?? "").toLowerCase() === "pending").reduce((sum, r) => sum + money(r[4]), 0);
   const allCreditUsed = creditRows.map(r => ({
     id: r[0] ?? "", name: r[2] ?? "", amount: money(r[3]), date: r[4] ?? "", month: r[5] ?? "",
     by: r[6] ?? "", screenshot: r[7] ?? "", reference: r[8] ?? "", note: r[11] ?? "",
@@ -65,7 +66,7 @@ async function readState(name: string, isAdmin: boolean) {
   }));
   return {
     numbers: [numbers?.[2] ?? "", numbers?.[3] ?? ""].filter(Boolean),
-    creditTotal, used, balance: creditTotal - used,
+    creditTotal: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) : creditTotal, used: isAdmin ? requestRows.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0) : used, balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => ["approved", "pending"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used - pending,
     credits: isAdmin ? allCreditUsed : allCreditUsed.filter(r => r.name.toLowerCase() === name.toLowerCase()),
     requests: isAdmin ? allRequests : allRequests.filter(r => r.executive.toLowerCase() === name.toLowerCase()),
   };
