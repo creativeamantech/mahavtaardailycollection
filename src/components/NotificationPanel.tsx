@@ -51,6 +51,7 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
 
   if (unread.length === 0) return null;
   const active = unread[index % unread.length];
+  if (!active) return null;
 
   return (
     <section
