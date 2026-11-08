@@ -391,7 +391,6 @@ function SummaryCard({ icon, label, value, detail }: { icon: React.ReactNode; la
 }
 
 function BucketComparisonTable({ table, executives, metric }: { table: BucketTable; executives: string[]; metric: MetricKey }) {
-  const cellClass = "whitespace-nowrap border-b px-1.5 py-1.5 text-right text-[10px] tabular-nums sm:px-2 sm:text-xs";
   return (
     <div className="overflow-hidden rounded-lg border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
       <div className="flex items-center justify-between gap-2 border-b bg-amber-50 px-3 py-1.5">
