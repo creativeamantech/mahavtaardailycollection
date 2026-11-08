@@ -17,6 +17,7 @@ export const FEATURES = [
   { key: "recharge", label: "Recharge Management", path: "/recharge" },
   { key: "alreadyPaid", label: "Already Paid", path: "/already-paid" },
   { key: "conflicts", label: "Conflicts", path: "/conflicts" },
+  { key: "receiptGallery", label: "Receipt Gallery", path: "/receipt-gallery" },
   { key: "remarks", label: "Remarks", path: null },
 ] as const;
 
