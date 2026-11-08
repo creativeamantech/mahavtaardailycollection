@@ -363,7 +363,7 @@ function TopPerformers({
                           .trim()
                           .toUpperCase(),
                       )
-                        ? "text-orange-600"
+                        ? "text-amber-800"
                         : ""
                     }`}
                   >
@@ -380,7 +380,7 @@ function TopPerformers({
                           href={toDriveUrl(l)}
                           target="_blank"
                           rel="noreferrer"
-                          className="font-medium text-primary underline hover:text-primary/80"
+                          className="font-medium text-amber-800 underline hover:text-amber-900"
                         >
                           {r.receiptLinks!.length === 1
                             ? "Google Drive Receipt ↗"
@@ -1640,13 +1640,13 @@ function ReportPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6">
+    <main className="mx-auto w-full max-w-4xl px-3 pb-24 pt-4 sm:px-5 sm:pb-16 sm:pt-6">
       <NotificationPanel className="mb-4" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Collection Report</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Reports</h1>
           <p className="mt-1 text-base text-muted-foreground">
-            Executive-wise totals and case counts.
+            Collection performance, case counts and follow-ups.
           </p>
         </div>
         <Button
@@ -1695,10 +1695,10 @@ function ReportPage() {
       )}
 
       <Tabs defaultValue="datewise" className="mt-6 w-full min-w-0">
-        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6">
+        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-amber-100 bg-white p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6">
           <TabsTrigger
             value="datewise"
-            className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs data-[state=active]:bg-amber-300 data-[state=active]:text-amber-950 sm:px-2 sm:text-sm"
           >
             Date-wise
           </TabsTrigger>
@@ -1906,8 +1906,8 @@ function ReportBlock({
                     const status = activity.alreadyPaid
                       ? { label: "ALREADY PAID", className: "text-amber-700 dark:text-amber-400" }
                       : excludedLoanIds.has(loanKey)
-                        ? { label: "EXCLUDED", className: "text-orange-700 dark:text-orange-400" }
-                        : { label: "ADDED", className: "text-emerald-700 dark:text-emerald-400" };
+                        ? { label: "EXCLUDED", className: "text-amber-800 dark:text-amber-300" }
+                        : { label: "ADDED", className: "text-amber-800 dark:text-amber-300" };
                     return (
                       <div className="mt-1 space-y-0.5 text-[10px] leading-tight sm:text-xs">
                         <div className={`font-semibold ${status.className}`}>● {status.label}</div>
@@ -1930,7 +1930,7 @@ function ReportBlock({
                 <td className="px-2 py-2 sm:p-3">
                   <div className="flex flex-wrap gap-1">
                     {r.normalCount > 0 && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
                         Normal {r.normalCount}
                       </span>
                     )}
@@ -1953,6 +1953,53 @@ function ReportBlock({
         </table>
       </div>
 
+      <div className="space-y-3 sm:hidden">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-medium text-amber-900">Total Collection</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-amber-950">{formatAmount(total)}</p>
+          </div>
+          <div className="rounded-xl border bg-white p-3">
+            <p className="text-xs font-medium text-muted-foreground">Total Cases</p>
+            <p className="mt-1 text-lg font-bold tabular-nums">{cases}</p>
+          </div>
+        </div>
+        {rows.map((r) => {
+          const activity = latestActivityByExecutive.get(r.executive);
+          const loanKey = String(activity?.loanId ?? "").trim().toUpperCase();
+          const status = !activity
+            ? null
+            : activity.alreadyPaid
+              ? "ALREADY PAID"
+              : excludedLoanIds.has(loanKey)
+                ? "EXCLUDED"
+                : "LATEST ENTRY";
+          return (
+            <article key={r.executive} className="rounded-xl border bg-white p-3 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{r.executive}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{r.count} cases</p>
+                </div>
+                <p className="shrink-0 text-base font-bold tabular-nums">{formatAmount(r.total)}</p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {r.normalCount > 0 && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900">Normal {r.normalCount}</span>}
+                {r.previousCount > 0 && <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-[11px] font-semibold text-yellow-900">Previous Paid {r.previousCount}</span>}
+              </div>
+              {activity && (
+                <div className="mt-3 border-t pt-2 text-[11px] text-muted-foreground">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{status}</span><span>{activity.loanId || "—"} · {formatAmount(activity.amount)}</span>
+                  </div>
+                  {activity.createdAt && <p className="mt-1">{new Date(activity.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>}
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
       <div className="h-72 rounded-xl border p-3">
         {mounted ? (
           <ResponsiveContainer width="100%" height="100%">
@@ -1968,7 +2015,7 @@ function ReportBlock({
               />
               <YAxis tick={{ fontSize: 12 }} width={60} />
               <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
-              <Bar dataKey="total" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="total" fill="#f2c94c" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
