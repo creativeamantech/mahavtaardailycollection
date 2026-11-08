@@ -1640,18 +1640,19 @@ function ReportPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-3 pb-24 pt-4 sm:px-5 sm:pb-16 sm:pt-6">
+    <main className="mx-auto w-full max-w-[1600px] px-3 pb-24 pt-4 sm:px-5 sm:pb-16 sm:pt-6 lg:px-8 lg:pb-12 lg:pt-7 xl:px-10">
       <NotificationPanel className="mb-4" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Reports</h1>
-          <p className="mt-1 text-base text-muted-foreground">
+          <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#a07b0a]">Performance &amp; collection intelligence</div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-[30px]">Collection Reports</h1>
+          <p className="mt-1 text-sm text-muted-foreground lg:text-[13px]">
             Collection performance, case counts and follow-ups.
           </p>
         </div>
         <Button
           variant="outline"
-          className="h-12 text-base"
+          className="h-10 border-[#e5e5e5] bg-white text-sm hover:border-[#e6c34c] hover:bg-[#fffaf0] lg:px-4"
           onClick={() => refetch()}
           disabled={isFetching}
         >
@@ -1659,11 +1660,9 @@ function ReportPage() {
         </Button>
       </div>
 
-      <div className="mt-4">
-        <MonthSelect value={month} onChange={setMonth} options={months} />
-      </div>
-      <div className="mt-3">
-        <CategoryFilter value={category} onChange={setCategory} options={categories} />
+      <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] lg:items-end lg:p-4">
+        <div className="min-w-0"><MonthSelect value={month} onChange={setMonth} options={months} /></div>
+        <div className="min-w-0"><CategoryFilter value={category} onChange={setCategory} options={categories} /></div>
       </div>
       {alreadyPaidCount > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">
@@ -1694,17 +1693,17 @@ function ReportPage() {
         </p>
       )}
 
-      <Tabs defaultValue="datewise" className="mt-6 w-full min-w-0">
-        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-amber-100 bg-white p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6">
+      <Tabs defaultValue="datewise" className="mt-5 w-full min-w-0">
+        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-[#e8e9eb] bg-white p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 lg:gap-1.5 lg:p-2">
           <TabsTrigger
             value="datewise"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs data-[state=active]:bg-amber-300 data-[state=active]:text-amber-950 sm:px-2 sm:text-sm"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
           >
             Date-wise
           </TabsTrigger>
           <TabsTrigger
             value="overall"
-            className="shrink-0 whitespace-nowrap px-3 text-sm sm:px-2 sm:text-base"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
           >
             Overall
           </TabsTrigger>
