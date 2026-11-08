@@ -205,4 +205,3 @@ export const removeNotification = createServerFn({ method: "POST" })
     await sheetsUpdateStrict(`${NOTIF_TAB}!C${idx + 2}`, [["Removed"]]);
     return { ok: true as const };
   });
-
