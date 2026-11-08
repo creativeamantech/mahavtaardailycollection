@@ -26,6 +26,7 @@ import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedPendingRouteImport } from './routes/_authenticated/pending'
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
+import { Route as AuthenticatedReceiptGalleryRouteImport } from './routes/_authenticated/receipt-gallery'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as ReceiptFileIdRouteImport } from './routes/receipt.$fileId'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -115,6 +116,11 @@ const AuthenticatedPendingRoute = AuthenticatedPendingRouteImport.update({
   path: '/pending',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedReceiptGalleryRoute = AuthenticatedReceiptGalleryRouteImport.update({
+  id: '/receipt-gallery',
+  path: '/receipt-gallery',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedReportRoute = AuthenticatedReportRouteImport.update({
   id: '/report',
   path: '/report',
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/loans': typeof AuthenticatedLoansRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pending': typeof AuthenticatedPendingRoute
+  '/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
   '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/receipt/$fileId': typeof ReceiptFileIdRoute
@@ -196,6 +203,7 @@ export interface FileRoutesById {
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/pending': typeof AuthenticatedPendingRoute
+  '/_authenticated/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
   '/_authenticated/report': typeof AuthenticatedReportRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/receipt/$fileId': typeof ReceiptFileIdRoute
@@ -220,6 +228,7 @@ export interface FileRouteTypes {
     | '/loans'
     | '/notifications'
     | '/pending'
+    | '/receipt-gallery'
     | '/report'
     | '/settings'
     | '/receipt/$fileId'
@@ -393,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPendingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/receipt-gallery': {
+      id: '/_authenticated/receipt-gallery'
+      path: '/receipt-gallery'
+      fullPath: '/receipt-gallery'
+      preLoaderRoute: typeof AuthenticatedReceiptGalleryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/report': {
       id: '/_authenticated/report'
       path: '/report'
@@ -436,6 +452,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPendingRoute: typeof AuthenticatedPendingRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
+  AuthenticatedReceiptGalleryRoute: typeof AuthenticatedReceiptGalleryRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
@@ -452,6 +469,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPendingRoute: AuthenticatedPendingRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,
+  AuthenticatedReceiptGalleryRoute: AuthenticatedReceiptGalleryRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
