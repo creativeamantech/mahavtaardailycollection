@@ -49,7 +49,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 
 function SettingsPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-5 px-3 py-4 sm:space-y-6 sm:px-4 sm:py-6">
+    <main className="mx-auto w-full max-w-7xl space-y-5 px-3 py-4 sm:space-y-6 sm:px-4 sm:py-6">
       <div className="rounded-2xl border border-[#f0df9e] bg-gradient-to-r from-[#fff8df] via-white to-white p-4 shadow-sm sm:p-5">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f7c928] text-xl font-black text-[#493900] shadow-sm">
@@ -226,10 +226,12 @@ function SettingsContent() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-7">
-      <NotificationPanel className="rounded-2xl border-[#efd77d] bg-[#fff9e5] p-4" />
+    <div className="grid grid-cols-1 items-start gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:gap-6">
+      <div className="lg:col-span-2">
+        <NotificationPanel className="rounded-2xl border-[#efd77d] bg-[#fff9e5] p-4" />
+      </div>
 
-      <section className="rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4">
+      <section className="order-2 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-2 lg:col-start-2">
         <SectionHeading
           title="Hold Cases Access Lock"
           eyebrow="ACCESS CONTROL"
@@ -256,7 +258,7 @@ function SettingsContent() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4">
+      <section className="order-1 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-1 lg:col-start-1 lg:row-span-3">
         <SectionHeading
           title="Page & Feature Visibility"
           eyebrow="APP ACCESS"
@@ -283,7 +285,7 @@ function SettingsContent() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4">
+      <section className="order-3 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-3 lg:col-start-2">
         <SectionHeading
           title="Default Allocation Category"
           eyebrow="DEFAULT"
@@ -369,7 +371,7 @@ function SettingsContent() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4">
+      <section className="order-4 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-4 lg:col-start-2">
         <SectionHeading
           title="Notification Management"
           eyebrow="ANNOUNCEMENTS"
