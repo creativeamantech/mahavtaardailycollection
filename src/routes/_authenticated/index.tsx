@@ -410,8 +410,8 @@ function EntryPage() {
       <NotificationPanel className="mb-4" />
       <div className="relative overflow-hidden rounded-3xl border border-[#302e26] bg-[#29271f] p-5 text-white shadow-[0_18px_45px_rgba(41,39,31,0.14)] sm:p-7"><div aria-hidden="true" className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f4c542]/15" /><div className="relative"><p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#f4c542]">Mahavtaar Enterprises · Daily Operations</p><h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
       <p className="mt-1 text-base text-muted-foreground">
-        Record a payment collected by an executive.
-      </p></div>
+        Record and verify a payment collected by an executive.
+      </p></div></div>
 
       <Tabs defaultValue="collection" className="mt-6 w-full">
         <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl border border-[#e8e2d4] bg-white p-1.5 shadow-sm">
