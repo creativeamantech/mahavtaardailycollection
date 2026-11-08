@@ -1,9 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSession } from "./auth.functions";
-import { driveUpload } from "./mahavtaar.server";
+import { ensureRechargeStorage, uploadRechargeProof } from "./recharge-storage.server";
 
-const SHEET_ID = "1U4IOr9PxBU4PLc1sT_bsz70ZzDGgNYG4WRsVCufaFFI";
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const authHeaders = () => {
   const token = process.env["LOVABLE_API_KEY"];
@@ -12,21 +11,24 @@ const authHeaders = () => {
   return { Authorization: "Bearer " + token, "X-Connection-Api-Key": key, "Content-Type": "application/json" };
 };
 async function sheetRequest(path: string, init?: RequestInit) {
-  const response = await fetch(GATEWAY + path, { ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) }, signal: AbortSignal.timeout(15000) });
+  const { spreadsheetId } = await ensureRechargeStorage();
+  const response = await fetch(GATEWAY + path.replace("__SPREADSHEET_ID__", encodeURIComponent(spreadsheetId)), {
+    ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) }, signal: AbortSignal.timeout(20000),
+  });
   if (!response.ok) throw new Error("Recharge data operation failed (" + response.status + ").");
   return response.json() as Promise<{ values?: string[][] }>;
 }
 async function readTab(tab: string) {
-  const result = await sheetRequest("/google_sheets/v4/spreadsheets/" + SHEET_ID + "/values/" + encodeURIComponent("'" + tab + "'!A2:M"));
+  const result = await sheetRequest("/google_sheets/v4/spreadsheets/__SPREADSHEET_ID__/values/" + encodeURIComponent("'" + tab + "'!A2:M"));
   return result.values ?? [];
 }
 async function appendRow(tab: string, values: (string | number)[]) {
-  await sheetRequest("/google_sheets/v4/spreadsheets/" + SHEET_ID + "/values/" + encodeURIComponent("'" + tab + "'!A:M") + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", {
+  await sheetRequest("/google_sheets/v4/spreadsheets/__SPREADSHEET_ID__/values/" + encodeURIComponent("'" + tab + "'!A:M") + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", {
     method: "POST", body: JSON.stringify({ values: [values] }),
   });
 }
 async function updateRow(tab: string, row: number, range: string, values: (string | number)[][]) {
-  await sheetRequest("/google_sheets/v4/spreadsheets/" + SHEET_ID + "/values/" + encodeURIComponent("'" + tab + "'!" + range.replace("{row}", String(row))) + "?valueInputOption=RAW", {
+  await sheetRequest("/google_sheets/v4/spreadsheets/__SPREADSHEET_ID__/values/" + encodeURIComponent("'" + tab + "'!" + range.replace("{row}", String(row))) + "?valueInputOption=RAW", {
     method: "PUT", body: JSON.stringify({ values }),
   });
 }
@@ -38,10 +40,10 @@ function configuredExecutives() {
 const imageInput = z.object({
   name: z.string().trim().min(1).max(120),
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-  base64: z.string().min(1).max(9_000_000),
+  base64: z.string().min(1).max(16_800_000),
 });
 async function uploadProof(file: z.infer<typeof imageInput>) {
-  return driveUpload("recharge-" + Date.now() + "-" + file.name, file.mimeType, file.base64);
+  return uploadRechargeProof("recharge-" + Date.now() + "-" + file.name, file.mimeType, file.base64);
 }
 const money = (value: string | undefined) => {
   const n = Number(value ?? 0); return Number.isFinite(n) ? n : 0;
@@ -56,7 +58,7 @@ async function readState(name: string, isAdmin: boolean) {
   const creditTotal = myCredits.reduce((sum, r) => sum + money(r[3]), 0);
   const used = myRequests.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0);
   const pending = myRequests.filter(r => (r[7] ?? "").toLowerCase() === "pending").reduce((sum, r) => sum + money(r[4]), 0);
-  const allCreditUsed = creditRows.map(r => ({
+  const allCredits = creditRows.map(r => ({
     id: r[0] ?? "", name: r[2] ?? "", amount: money(r[3]), date: r[4] ?? "", month: r[5] ?? "",
     by: r[6] ?? "", screenshot: r[7] ?? "", reference: r[8] ?? "", note: r[11] ?? "",
   }));
@@ -66,8 +68,10 @@ async function readState(name: string, isAdmin: boolean) {
   }));
   return {
     numbers: [numbers?.[2] ?? "", numbers?.[3] ?? ""].filter(Boolean),
-    creditTotal: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) : creditTotal, used: isAdmin ? requestRows.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0) : used, balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => ["approved", "pending"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used - pending,
-    credits: isAdmin ? allCreditUsed : allCreditUsed.filter(r => r.name.toLowerCase() === name.toLowerCase()),
+    creditTotal: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) : creditTotal,
+    used: isAdmin ? requestRows.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0) : used,
+    balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => ["approved", "pending"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used - pending,
+    credits: isAdmin ? allCredits : allCredits.filter(r => r.name.toLowerCase() === name.toLowerCase()),
     requests: isAdmin ? allRequests : allRequests.filter(r => r.executive.toLowerCase() === name.toLowerCase()),
   };
 }
