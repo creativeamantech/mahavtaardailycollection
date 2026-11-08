@@ -190,18 +190,16 @@ function LoansPage() {
     return executiveSections(summariseLoans(scoped));
   }, [rows, date, dateBucket]);
 
-  // Overall bucket -> city report (all dates in the selected month).
-  // Rendered only after the user asks for it; no extra API call is made,
-  // the already-fetched dataset is reused.
-  const [showOverall, setShowOverall] = useState(false);
+  // The two report views reuse the same already-fetched month dataset.
+  const [reportTab, setReportTab] = useState<"date" | "overall">("date");
   const overallSections = useMemo(
     () =>
-      showOverall
+      reportTab === "overall"
         ? [...executiveSections(loans)].sort(
             (a, b) => a.bucket.localeCompare(b.bucket) || a.city.localeCompare(b.city),
           )
         : [],
-    [loans, showOverall],
+    [loans, reportTab],
   );
 
   return (
@@ -321,71 +319,116 @@ function LoansPage() {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-2xl font-bold tracking-tight">Date-wise City & Bucket Report</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label className="text-base" htmlFor="report-date">
-              Date
-            </Label>
-            <Input
-              id="report-date"
-              type="date"
-              className="h-12 text-base"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-base">Bucket</Label>
-            <Select value={dateBucket} onValueChange={setDateBucket}>
-              <SelectTrigger className="h-12 text-base">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL} className="text-base">
-                  All Buckets
-                </SelectItem>
-                {buckets.map((b) => (
-                  <SelectItem key={b} value={b} className="text-base">
-                    {b}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div
+          role="tablist"
+          aria-label="Loan reports"
+          className="grid grid-cols-2 rounded-xl border bg-muted/40 p-1"
+        >
+          <button
+            type="button"
+            role="tab"
+            id="date-report-tab"
+            aria-selected={reportTab === "date"}
+            aria-controls="date-report-panel"
+            onClick={() => setReportTab("date")}
+            className={`min-h-12 rounded-lg px-3 py-2 text-sm font-semibold transition-colors sm:text-base ${
+              reportTab === "date"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground"
+            }`}
+          >
+            Date-wise
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="overall-report-tab"
+            aria-selected={reportTab === "overall"}
+            aria-controls="overall-report-panel"
+            onClick={() => setReportTab("overall")}
+            className={`min-h-12 rounded-lg px-3 py-2 text-sm font-semibold transition-colors sm:text-base ${
+              reportTab === "overall"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground"
+            }`}
+          >
+            Overall
+          </button>
         </div>
 
-        {dateSections.length === 0 ? (
-          <p className="mt-3 rounded-xl border p-6 text-center text-base">
-            No paid cases for this date.
-          </p>
-        ) : (
-          <div className="mt-4 space-y-5">
-            {dateSections.map((s) => (
-              <SectionTable key={s.key} title={`${s.bucket} — ${s.city}`} section={s} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-2xl font-bold tracking-tight">Overall Bucket &amp; City Report</h2>
-        <p className="mt-1 text-base text-muted-foreground">All dates in the selected month.</p>
-        {!showOverall ? (
-          <Button
-            variant="outline"
-            className="mt-3 h-12 w-full text-base"
-            onClick={() => setShowOverall(true)}
+        {reportTab === "date" ? (
+          <div
+            id="date-report-panel"
+            role="tabpanel"
+            aria-labelledby="date-report-tab"
+            className="pt-4"
           >
-            Show Overall Bucket &amp; City Report
-          </Button>
-        ) : overallSections.length === 0 ? (
-          <p className="mt-3 rounded-xl border p-6 text-center text-base">No data yet.</p>
+            <h2 className="text-xl font-bold tracking-tight">Date-wise City &amp; Bucket Report</h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-base" htmlFor="report-date">
+                  Date
+                </Label>
+                <Input
+                  id="report-date"
+                  type="date"
+                  className="h-12 text-base"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-base">Bucket</Label>
+                <Select value={dateBucket} onValueChange={setDateBucket}>
+                  <SelectTrigger className="h-12 text-base">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL} className="text-base">
+                      All Buckets
+                    </SelectItem>
+                    {buckets.map((b) => (
+                      <SelectItem key={b} value={b} className="text-base">
+                        {b}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {dateSections.length === 0 ? (
+              <p className="mt-3 rounded-xl border p-6 text-center text-base">
+                No paid cases for this date.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-5">
+                {dateSections.map((s) => (
+                  <SectionTable key={s.key} title={`${s.bucket} — ${s.city}`} section={s} />
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
-          <div className="mt-4 space-y-5">
-            {overallSections.map((s) => (
-              <SectionTable key={s.key} title={`${s.bucket} — ${s.city}`} section={s} />
-            ))}
+          <div
+            id="overall-report-panel"
+            role="tabpanel"
+            aria-labelledby="overall-report-tab"
+            className="pt-4"
+          >
+            <h2 className="text-xl font-bold tracking-tight">Overall Bucket &amp; City Report</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              All dates in {month} for the selected allocation category.
+            </p>
+            {overallSections.length === 0 ? (
+              <p className="mt-3 rounded-xl border p-6 text-center text-base">No data yet.</p>
+            ) : (
+              <div className="mt-4 space-y-5">
+                {overallSections.map((s) => (
+                  <SectionTable key={s.key} title={`${s.bucket} — ${s.city}`} section={s} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>
