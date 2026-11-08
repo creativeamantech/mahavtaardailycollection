@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { markNotificationsViewed, toDirectDriveUrl } from "@/components/NotificationPanel";
 
@@ -32,14 +32,13 @@ function NotificationsPage() {
     [notifications],
   );
 
-  // Opening the full inbox counts as viewing the currently published notices.
-  useEffect(() => {
-    if (!isLoading && activeNotifications.length > 0) {
-      markNotificationsViewed(activeNotifications.map((item) => item.id));
-    }
-  }, [isLoading, activeNotifications]);
-
+  // Only mark a notification as viewed after the executive opens its details.
   const selected = activeNotifications.find((item) => item.id === selectedId);
+
+  function openNotification(id: string) {
+    setSelectedId(id);
+    markNotificationsViewed([id]);
+  }
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-5 px-4 py-5 md:py-7">
@@ -58,7 +57,7 @@ function NotificationsPage() {
         )}
         <div className="divide-y">
           {activeNotifications.map((item) => (
-            <button key={item.id} type="button" onClick={() => setSelectedId(item.id)}
+            <button key={item.id} type="button" onClick={() => openNotification(item.id)}
               className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-[#fffdf4] ${selectedId === item.id ? "bg-[#fffdf4]" : "bg-white"}`}>
               <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#fff5ce] text-lg">🔔</span>
               <span className="min-w-0 flex-1">
