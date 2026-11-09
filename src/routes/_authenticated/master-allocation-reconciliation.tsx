@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { FileSpreadsheet, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getMasterAllocationReconciliation, previewMasterAllocationReconciliation, applyMasterAllocationReconciliation } from "@/lib/master-allocation-reconciliation.functions";
+import { getMasterAllocationReconciliation, previewMasterAllocationReconciliation, applyMasterAllocationReconciliation, uploadPaidFileSnapshot } from "@/lib/master-allocation-reconciliation.functions";
 
 type FileItem={id:string;name:string;sequence:number;modifiedTime:string;url:string};
 type LoanRow={loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string};
@@ -18,13 +18,34 @@ function ReconciliationPage(){
   const {data,isLoading,error}=useQuery({queryKey:["master-allocation-reconciliation"],queryFn:()=>load(),staleTime:0});
   const [selected,setSelected]=useState<Preview|null>(null);
   const [fileChoice,setFileChoice]=useState("auto");
+  const [uploading,setUploading]=useState(false);
+  const [uploadSequence,setUploadSequence]=useState(1);
   const previewMutation=useMutation({mutationFn:(fileId:string)=>previewFn({data:{fileId}}),onSuccess:r=>{setSelected(r as Preview);toast.success("Read-only preview ready. Master Data has not been changed.");},onError:e=>toast.error(e.message)});
   const applyMutation=useMutation({mutationFn:()=>{if(!selected)throw new Error("Preview a Paid File first.");return applyFn({data:{fileId:selected.file.id,fingerprint:selected.fingerprint,confirm:true}});},onSuccess:async r=>{toast.success("Applied "+r.applied+" Master Allocation loans. Audit and snapshot state recorded.");setSelected(null);await qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]});},onError:e=>toast.error(e.message)});
   const files=(data?.files??[]) as FileItem[];
   const counts=selected?.counts;
-  const busy=previewMutation.isPending||applyMutation.isPending;
+  const busy=previewMutation.isPending||applyMutation.isPending||uploading;
   const autoFile=files.reduce<FileItem|null>((latest,file)=>!latest||file.sequence>latest.sequence?file:latest,null);
   const chosenFile=fileChoice==="auto"?autoFile:files.find(file=>file.id===fileChoice)??null;
+  const uploadPaidFile=async(file:File)=>{
+    const ext=file.name.toLowerCase().split(".").pop();
+    const types:Record<string,string>={xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",xls:"application/vnd.ms-excel",csv:"text/csv"};
+    const mimeType=types[ext??""];
+    if(!mimeType){toast.error("केवल .xlsx, .xls या .csv फ़ाइल चुनें।");return;}
+    if(file.size>15*1024*1024){toast.error("फ़ाइल 15 MB से छोटी होनी चाहिए।");return;}
+    setUploading(true);
+    try{
+      const bytes=new Uint8Array(await file.arrayBuffer());let binary="";
+      for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+      const base64=btoa(binary);
+      const result=await uploadPaidFileSnapshot({data:{fileName:file.name,mimeType:mimeType as "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"|"application/vnd.ms-excel"|"text/csv",base64,sequence:uploadSequence}});
+      toast.success("Paid File Google Sheet में upload और convert हो गई: "+result.name);
+      setFileChoice(result.id);setSelected(null);
+      await qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]});
+    }catch(e){toast.error(e instanceof Error?e.message:"Paid File upload failed.");}
+    finally{setUploading(false);}
+  };
+
   return <main className="mx-auto w-full max-w-7xl space-y-5 px-3 py-5 sm:px-6">
     <header className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-800"><FileSpreadsheet/></span><div className="min-w-0"><h1 className="text-xl font-extrabold">Master Allocation Reconciliation</h1><p className="mt-1 text-sm text-muted-foreground">Current-month Master Allocation is selected automatically. Same-day Paid File Google Sheets are listed by sequence.</p></div></div>
@@ -32,6 +53,7 @@ function ReconciliationPage(){
     </header>
     {isLoading&&<p className="rounded-xl border bg-white p-4 text-sm">Loading Master Allocation and Paid Files…</p>}
     {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error.message}</p>}
+    <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5"><h2 className="font-bold">Upload Paid File manually</h2><p className="mt-1 text-xs text-muted-foreground">Admin upload only · XLSX, XLS या CSV · अधिकतम 15 MB. फ़ाइल Drive में native Google Sheet में convert होगी; Master Allocation पर कोई बदलाव नहीं होगा।</p><div className="mt-3 grid gap-3 sm:grid-cols-[150px_1fr] sm:items-end"><label className="grid gap-1 text-sm font-medium">Snapshot sequence<input type="number" min={1} max={9999} value={uploadSequence} onChange={e=>setUploadSequence(Math.max(1,Number(e.target.value)||1))} className="h-10 rounded-md border bg-background px-3"/></label><label className="grid gap-1 text-sm font-medium">Choose Paid File<input type="file" accept=".xlsx,.xls,.csv" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void uploadPaidFile(file);e.currentTarget.value="";}} className="block w-full rounded-md border bg-background p-2 text-sm"/></label></div>{uploading&&<p className="mt-2 text-sm">Uploading and converting to Google Sheets…</p>}</section>
     <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold">Available Paid File snapshots</h2><p className="text-xs text-muted-foreground">Only files matching today’s date and the exact Paid File naming pattern are listed. Extra loan IDs outside Master Data are ignored.</p></div><Button variant="outline" size="sm" onClick={()=>void qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]})}><RefreshCw className="mr-2 size-4"/>Refresh</Button></div>
       {!isLoading&&!files.length&&<p className="mt-4 rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">No same-day Paid File Google Sheets found.</p>}
