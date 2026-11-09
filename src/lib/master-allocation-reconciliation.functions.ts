@@ -74,6 +74,27 @@ function amount(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 function col(n:number) { let x=n+1,s="";while(x){const r=(x-1)%26;s=String.fromCharCode(65+r)+s;x=Math.floor((x-1)/26);}return s; }
+async function ensurePaidFileDac(fileId:string, paid:string[][]):Promise<{values:string[][];dacIndex:number}> {
+  if(!paid.length) throw new Error("Paid File is empty.");
+  const header=paid[0]??[];
+  const sfdcIndex=headerIndex(header,["SFDC"]), onlineIndex=headerIndex(header,["Online"]);
+  if(sfdcIndex<0||onlineIndex<0) throw new Error("Paid File must contain both SFDC and Online columns so DAC can be calculated.");
+  const existingDac=headerIndex(header,["DAC"]);
+  const dacIndex=existingDac>=0?existingDac:header.length;
+  const values:string[][]=[];
+  values.push(["DAC"]);
+  for(let i=1;i<paid.length;i++) {
+    const row=paid[i]??[];
+    const rawSfdc=row[sfdcIndex], rawOnline=row[onlineIndex];
+    const sfdc=rawSfdc===undefined||String(rawSfdc).trim()===""?0:amount(rawSfdc);
+    const online=rawOnline===undefined||String(rawOnline).trim()===""?0:amount(rawOnline);
+    values.push([sfdc===null||online===null?"INVALID":sfdc+online]);
+  }
+  const range=col(dacIndex)+"1:"+col(dacIndex)+Math.max(paid.length,1);
+  await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+encodeURIComponent(fileId)+"/values/"+encodeURIComponent(range)+":?valueInputOption=RAW",{method:"PUT",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({majorDimension:"ROWS",values})}),"Create or update Paid File DAC column");
+  const updated=paid.map((row,i)=>{const copy=[...(row??[])];copy[dacIndex]=i===0?"DAC":String(values[i]?.[0]??"");return copy;});
+  return {values:updated,dacIndex};
+}
 type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number|undefined};
 type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
 async function masterFile() {
@@ -90,19 +111,21 @@ async function paidFiles() {
 }
 async function build(masterId:string,file:DriveFile):Promise<Built> {
   if(file.mimeType!==SHEET_MIME) throw new Error("Paid File must be a native Google Sheet.");
-  const [master,paid,history]=await Promise.all([
+  const [master,rawPaid,history]=await Promise.all([
     sheetValues(masterId,"Data!A1:GY"),
     sheetValues(file.id,"A1:AZ"),
     readHistory(masterId)
   ]);
   const {audit,state,resolutions}=history;
+  const paidResult=await ensurePaidFileDac(file.id,rawPaid);
+  const paid=paidResult.values;
   if(master.length<2||paid.length<2) throw new Error("Master Data or Paid File has no data rows.");
   const mh=master[0]!, ph=paid[0]!;
   const mi=headerIndex(mh,["Agreement ID","Loan Number","Loan No"]), pi=headerIndex(ph,["Agreement ID","Loan Number","Loan No"]);
   const mTotal=headerIndex(mh,["Total"]), mNew=headerIndex(mh,["New Total"]), mRemain=headerIndex(mh,["Remaining"]), mDate=headerIndex(mh,["Date","Payment Date"]), mDac=headerIndex(mh,["DAC"]), mEcs=headerIndex(mh,["ECS"]), mSpecial=headerIndex(mh,["Special"]);
   const mSfdc=headerIndex(mh,["SFDC"]), mOnline=headerIndex(mh,["Online"]);
-  const pTotal=headerIndex(ph,["Total","Paid Amount","Payment Amount","New Total"]), pDate=headerIndex(ph,["Date","Payment Date","Paid Date"]), pDac=headerIndex(ph,["DAC"]), pEcs=headerIndex(ph,["ECS"]), pSpecial=headerIndex(ph,["Special"]);
-  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pDac,pEcs,pSpecial].some(x=>x<0)) throw new Error("Required Agreement ID, DAC, ECS, Special and Total columns in Paid File, plus Date, DAC, Original Total, New Total and Remaining columns in Master Data, are required.");
+  const pTotal=headerIndex(ph,["Total","Paid Amount","Payment Amount","New Total"]), pDate=headerIndex(ph,["Date","Payment Date","Paid Date"]), pDac=paidResult.dacIndex, pEcs=headerIndex(ph,["ECS"]), pSpecial=headerIndex(ph,["Special"]);
+  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pEcs,pSpecial].some(x=>x<0)) throw new Error("Required Agreement ID, SFDC, Online, ECS, Special and Total columns in Paid File, plus Date, DAC, Original Total, New Total and Remaining columns in Master Data, are required.");
   const masterById=new Map<string,{row:string[];rowNo:number}>();
   for(let i=1;i<master.length;i++){const r=master[i]??[];const id=norm(r[mi]);if(id){if(masterById.has(id)) throw new Error("Duplicate loan number exists in Master Data: "+id+". Resolve it before reconciliation.");masterById.set(id,{row:r,rowNo:i+1});}}
   const paidById=new Map<string,string[][]>();
@@ -126,9 +149,9 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     if(matches.length!==1){duplicates++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:amount(masterRow.row[mTotal])??0,newTotal:0,remaining:0,date:"",dac:0,ecs:null,special:null,status:"Duplicate – manual review"});continue;}
     const p=matches[0]!;
     const total=amount(p[pTotal]), old=amount(masterRow.row[mTotal]);
-    const dac=pDac>=0?amount(p[pDac]):(mSfdc>=0?(amount(masterRow.row[mSfdc])??0):0)+(mOnline>=0?(amount(masterRow.row[mOnline])??0):0);
+    const dac=amount(p[pDac]);
     const ecs=pEcs>=0?amount(p[pEcs]):null, special=pSpecial>=0?amount(p[pSpecial]):null;
-    const paidFields=[p[pTotal],pDac>=0?p[pDac]:undefined,pEcs>=0?p[pEcs]:undefined,pSpecial>=0?p[pSpecial]:undefined];
+    const paidFields=[p[pTotal],p[pDac],pEcs>=0?p[pEcs]:undefined,pSpecial>=0?p[pSpecial]:undefined];
     const malformed=paidFields.some(v=>v!==undefined&&String(v??"").trim()!==""&&amount(v)===null);
     if(malformed||old===null){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid – non-numeric amount or missing Master Total"});continue;}
     if(total===null||dac===null||(pEcs>=0&&ecs===null)||(pSpecial>=0&&special===null)){pending++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Pending – blank payment amount"});continue;}
