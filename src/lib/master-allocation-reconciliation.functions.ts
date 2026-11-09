@@ -215,8 +215,8 @@ export const uploadPaidFileSnapshot = createServerFn({method:"POST"})
   const boundary="mahaPaidUpload"+crypto.randomUUID().replace(/-/g,"");
   const metadata=JSON.stringify({name,mimeType:SHEET_MIME});
   const body=new Blob([
-    "--"+boundary+"\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n"+metadata+"\\r\\n",
-    "--"+boundary+"\\r\\nContent-Type: "+data.mimeType+"\\r\\nContent-Transfer-Encoding: base64\\r\\n\\r\\n"+data.base64+"\\r\\n",
+    "--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+metadata+"\r\n",
+    "--"+boundary+"\r\nContent-Type: "+data.mimeType+"\r\nContent-Transfer-Encoding: base64\r\n\r\n"+data.base64+"\r\n",
     "--"+boundary+"--"
   ]);
   const res=await fetch(GATEWAY+"/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink",{
