@@ -9,13 +9,14 @@ import {
   addNotification,
   removeNotification,
   saveDefaultCategory,
+  saveDefaultAllocationType,
   saveFeatureFlags,
   saveHoldCasesLock,
 } from "@/lib/app-config.functions";
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { MasterAllocationInitializer } from "@/components/MasterAllocationInitializer";
-import { ALL_CATEGORIES, uniqueCategories } from "@/components/AllocationFilters";
+import { ALL_CATEGORIES, uniqueCategories, uniqueAllocationTypes, ALL_ALLOCATION_TYPES } from "@/components/AllocationFilters";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,9 +103,10 @@ function SectionHeading({
 
 function SettingsContent() {
   const qc = useQueryClient();
-  const { flags, notifications, defaultCategory, holdCasesLocked, isLoading } = useAppConfig();
+  const { flags, notifications, defaultCategory, defaultAllocationType, holdCasesLocked, isLoading } = useAppConfig();
   const saveFlags = useServerFn(saveFeatureFlags);
   const saveDefaultCat = useServerFn(saveDefaultCategory);
+  const saveDefaultType = useServerFn(saveDefaultAllocationType);
   const saveHoldLock = useServerFn(saveHoldCasesLock);
   const addNotif = useServerFn(addNotification);
   const removeNotif = useServerFn(removeNotification);
@@ -124,6 +126,16 @@ function SettingsContent() {
     [collectionsData],
   );
 
+  const detectedAllocationTypes = useMemo(
+    () => uniqueAllocationTypes(Array.isArray(collectionsData) ? collectionsData : []),
+    [collectionsData],
+  );
+  const allocationTypeOptions = useMemo(() => {
+    const set = new Set(detectedAllocationTypes);
+    if (defaultAllocationType) set.add(defaultAllocationType);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [detectedAllocationTypes, defaultAllocationType]);
+
   const categoryOptions = useMemo(() => {
     const set = new Set(detectedCategories);
     if (defaultCategory && defaultCategory !== ALL_CATEGORIES) {
@@ -133,6 +145,7 @@ function SettingsContent() {
   }, [detectedCategories, defaultCategory]);
 
   const [savingCategory, setSavingCategory] = useState(false);
+  const [savingAllocationType, setSavingAllocationType] = useState(false);
   const [savingHoldLock, setSavingHoldLock] = useState(false);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -185,6 +198,24 @@ function SettingsContent() {
       await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
     } finally {
       setSavingCategory(false);
+    }
+  }
+
+
+  async function handleSaveAllocationType(allocationType: string) {
+    const value = allocationType === ALL_ALLOCATION_TYPES ? "" : allocationType.trim();
+    setSavingAllocationType(true);
+    qc.setQueryData(APP_CONFIG_KEY, (old: unknown) =>
+      old ? { ...(old as object), defaultAllocationType: value } : old,
+    );
+    try {
+      await saveDefaultType({ data: { allocationType: value } });
+      toast.success(value ? `Default allocation type saved: "${value}"` : "Default allocation type set to All Allocation Types");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save default allocation type");
+      await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
+    } finally {
+      setSavingAllocationType(false);
     }
   }
 
@@ -374,6 +405,27 @@ function SettingsContent() {
       </section>
 
       <section className="order-4 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-4 lg:col-start-2">
+
+      <section className="order-4 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-4 lg:col-start-2">
+        <SectionHeading title="Default Allocation Type" eyebrow="DEFAULT" description="Sets the starting Allocation Type filter for reports and loan views. Options are read directly from the existing Collection Sheet." />
+        <div className="space-y-3 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3 sm:p-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-[#51451e]" htmlFor="default-allocation-type">Select Starting Allocation Type</Label>
+            <Select value={defaultAllocationType || ALL_ALLOCATION_TYPES} onValueChange={(value) => void handleSaveAllocationType(value)} disabled={isLoading || savingAllocationType}>
+              <SelectTrigger id="default-allocation-type" className="h-12 rounded-xl border-[#e9dba9] bg-white text-base focus:ring-[#e5b500]"><SelectValue placeholder="Choose default allocation type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_ALLOCATION_TYPES} className="text-base">All Allocation Types</SelectItem>
+                {allocationTypeOptions.map((value) => <SelectItem key={value} value={value} className="text-base">{value}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f1e8cf] pt-3 text-xs text-muted-foreground sm:text-sm">
+            <span>Active Default: <strong className="text-[#51451e]">{defaultAllocationType || "All Allocation Types"}</strong></span>
+            {savingAllocationType && <span className="font-medium text-[#947000]">Saving changes…</span>}
+          </div>
+        </div>
+      </section>
+
         <SectionHeading
           title="Notification Management"
           eyebrow="ANNOUNCEMENTS"
