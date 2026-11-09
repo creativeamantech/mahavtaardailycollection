@@ -15,12 +15,12 @@ function connectorHeaders(key: string) {
   if (!lovable || !connection) throw new Error(`Missing connector configuration: ${key}`);
   return { Authorization: `Bearer ${lovable}`, "X-Connection-Api-Key": connection };
 }
-async function checkedJson(response: Response, label: string) {
+async function checkedJson<T extends Record<string, unknown> = Record<string, unknown>>(response: Response, label: string): Promise<T> {
   if (!response.ok) {
     const message = await response.text();
     throw new Error(`${label} failed (${response.status}): ${message.slice(0, 500)}`);
   }
-  return response.json() as Promise<Record<string, any>>;
+  return response.json() as Promise<T>;
 }
 function columnName(index: number) {
   let n = index + 1, out = "";
@@ -48,8 +48,8 @@ async function getMasterId() {
 }
 async function saveMasterId(id: string) {
   const headers = connectorHeaders("GOOGLE_SHEETS_API_KEY");
-  const meta = await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`, { headers }), "App settings metadata");
-  const exists = (meta["sheets"] ?? []).some((s: any) => s.properties?.title === SETTINGS_TAB);
+  const meta = await checkedJson<{ sheets?: Array<{ properties?: { title?: string } }> }>(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`, { headers }), "App settings metadata");
+  const exists = (meta["sheets"] ?? []).some((sheet) => sheet.properties?.title === SETTINGS_TAB);
   if (!exists) throw new Error("AppSettings tab is missing; cannot save master selection.");
   const response = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${SETTINGS_TAB}!A2:B?majorDimension=ROWS`, { headers });
   const data = await checkedJson(response, "App settings read") as { values?: string[][] };
@@ -65,9 +65,9 @@ async function readValues(spreadsheetId: string, range: string) {
   const json = await checkedJson(response, "Spreadsheet read") as { values?: string[][] };
   return json.values ?? [];
 }
-async function getDriveFile(fileId: string) {
+async function getDriveFile(fileId: string): Promise<{ id: string; name?: string; mimeType?: string; trashed?: boolean; webViewLink?: string }> {
   const response = await fetch(`${GATEWAY}/google_drive/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,trashed,webViewLink`, { headers: connectorHeaders("GOOGLE_DRIVE_API_KEY") });
-  return checkedJson(response, "Drive file metadata");
+  return checkedJson<{ id: string; name?: string; mimeType?: string; trashed?: boolean; webViewLink?: string }>(response, "Drive file metadata");
 }
 async function buildPreview(masterId: string, convertedId: string) {
   const [masterRows, paidRows] = await Promise.all([
@@ -220,8 +220,8 @@ export const applyPaidFile = createServerFn({ method: "POST" })
       await checkedJson(response, "Paid File master update");
     }
     const auditHeaders = ["Applied At", "Paid File ID", "Paid File Name", "Matched Rows", "Unmatched Rows", "Duplicate Rows", "Invalid Rows", "Applied By"];
-    const meta = await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}?fields=sheets.properties`, { headers: apiHeaders }), "Master metadata");
-    const auditExists = (meta["sheets"] ?? []).some((s: any) => s.properties?.title === "Paid File Audit");
+    const meta = await checkedJson<{ sheets?: Array<{ properties?: { title?: string } }> }>(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}?fields=sheets.properties`, { headers: apiHeaders }), "Master metadata");
+    const auditExists = (meta["sheets"] ?? []).some((sheet) => sheet.properties?.title === "Paid File Audit");
     if (!auditExists) await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}:batchUpdate`, { method: "POST", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ requests: [{ addSheet: { properties: { title: "Paid File Audit" } } }] }) }), "Create Paid File Audit");
     const audit = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}/values/${encodeURIComponent("'Paid File Audit'!A1:H")}?valueInputOption=RAW`, { headers: apiHeaders });
     const auditJson = await checkedJson(audit, "Audit read") as { values?: string[][] };
