@@ -121,7 +121,7 @@ function adjacentTypoMonthMatches(value:string, expected:string) {
 async function paidFiles() {
   const d=dateParts();
   const files=await driveList("name contains 'Paid File' and mimeType = '" + SHEET_MIME + "'");
-  const pattern=/^Paid File\\s+([A-Za-z]+)\\s+(\\d{1,2})\\s+(\\d{4})\\s+-\\s+(\\d{2,})$/i;
+  const pattern=/^Paid File\s+([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})\s+-\s+(\d{2,})$/i;
   return files.flatMap(file=>{
     const match=file.name.match(pattern);
     if(!match||!adjacentTypoMonthMatches(match[1]!,d.month)||Number(match[2])!==Number(d.day)||Number(match[3])!==Number(d.year))return [];
