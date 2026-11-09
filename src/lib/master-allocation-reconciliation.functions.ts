@@ -186,8 +186,6 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   if(result.counts.duplicates||result.counts.invalid||result.counts.manualReview)throw new Error("Write-back blocked: duplicate, invalid or manual-review cases must be resolved first.");
   const eligible=result.rows.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
   if(!eligible.length)throw new Error("No eligible Master Allocation loans were found.");
-  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
-  await ensureHeaders(master.id);
   const payload=result.writes;
   if(!payload.length)throw new Error("No write operations were generated.");
   const res=await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"USER_ENTERED",data:payload})});
