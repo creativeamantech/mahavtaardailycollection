@@ -37,7 +37,7 @@ function PaidFilePage() {
   async function refreshPreview() {
     if(!result)return;
     setBusy(true);
-    try { const next=await previewFile({data:{fileId:result.fileId}});setResult({...result,...next});toast.success("Preview refreshed."); }
+    try { const next=await previewFile({data:{fileId:result.fileId}});setResult({...result,...next,fileName:next.fileName ?? result.fileName});toast.success("Preview refreshed."); }
     catch(e){toast.error(e instanceof Error?e.message:"Preview refresh failed.");}
     finally{setBusy(false);}
   }
