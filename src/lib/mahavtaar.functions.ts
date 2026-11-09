@@ -364,9 +364,9 @@ export async function readCollections() {
           settlementType,
           foreclosureEntry: isForeclosure,
           receiptLinks: (r[15] ?? "")
-            .split(/[|,\\s]+/)
+            .split(/[|,\s]+/)
             .map((s) => s.trim())
-            .filter((s) => /^\\/receipt\\/[A-Za-z0-9_-]{20,100}$/.test(s) || /^https?:\\/\\//i.test(s)),
+            .filter((s) => /^\/receipt\/[A-Za-z0-9_-]{20,100}$/.test(s) || /^https?:\/\//i.test(s)),
           remark: (r[16] ?? "").trim(),
           actualId: (r[17] ?? "").trim(),
           amansRemarks: (r[18] ?? "").trim(),
