@@ -49,7 +49,7 @@ async function getMasterId() {
 async function saveMasterId(id: string) {
   const headers = connectorHeaders("GOOGLE_SHEETS_API_KEY");
   const meta = await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties`, { headers }), "App settings metadata");
-  const exists = (meta.sheets ?? []).some((s: any) => s.properties?.title === SETTINGS_TAB);
+  const exists = (meta["sheets"] ?? []).some((s: any) => s.properties?.title === SETTINGS_TAB);
   if (!exists) throw new Error("AppSettings tab is missing; cannot save master selection.");
   const response = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${SETTINGS_TAB}!A2:B?majorDimension=ROWS`, { headers });
   const data = await checkedJson(response, "App settings read") as { values?: string[][] };
@@ -131,7 +131,7 @@ export const getPaidFileSetup = createServerFn({ method: "GET" }).handler(async 
     (async () => {
       const response = await fetch(`${GATEWAY}/google_drive/drive/v3/files?q=${encodeURIComponent("trashed=false and mimeType='application/vnd.google-apps.spreadsheet'")}&pageSize=100&orderBy=modifiedTime desc&fields=files(id,name,mimeType,modifiedTime,webViewLink)`, { headers: connectorHeaders("GOOGLE_DRIVE_API_KEY") });
       const json = await checkedJson(response, "Drive spreadsheet listing") as { files?: Array<{id:string;name:string;mimeType:string;modifiedTime?:string;webViewLink?:string}> };
-      return (json.files ?? []).filter((f) => f.id !== SPREADSHEET_ID);
+      return (json.files ?? []).filter((f) => f["id"] !== SPREADSHEET_ID);
     })(),
   ]);
   return { masterId, files: drive };
@@ -142,11 +142,11 @@ export const savePaidFileMaster = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireSession("Admin");
     const file = await getDriveFile(data.spreadsheetId);
-    if (file.trashed || file.mimeType !== GOOGLE_SHEET_MIME) throw new Error("Select an active Google spreadsheet.");
+    if (file["trashed"] || file["mimeType"] !== GOOGLE_SHEET_MIME) throw new Error("Select an active Google spreadsheet.");
     const dataRows = await readValues(data.spreadsheetId, "Data!A1:B2");
     if (!dataRows.length || !normalise(dataRows[0]?.[0]).includes("agreement")) throw new Error("Selected spreadsheet must contain a Data tab with Agreement ID in column A.");
     await saveMasterId(data.spreadsheetId);
-    return { ok: true, name: file.name };
+    return { ok: true, name: file["name"] };
   });
 
 export const uploadPaidFile = createServerFn({ method: "POST" })
@@ -174,11 +174,11 @@ export const uploadPaidFile = createServerFn({ method: "POST" })
     const body = Buffer.concat([prefix, bytes, suffix]);
     const upload = await fetch(`${GATEWAY}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink`, { method: "POST", headers: { ...driveHeaders, "Content-Type": `multipart/related; boundary=${boundary}` }, body });
     const converted = await checkedJson(upload, "XLSB conversion to Google Sheets");
-    if (converted.mimeType !== GOOGLE_SHEET_MIME) throw new Error("Google Drive did not convert this XLSB workbook to a Google Sheet. Original XLSB is safely stored in Drive; no master data was changed.");
-    const file = await getDriveFile(converted.id);
-    if (file.trashed) throw new Error("Converted Paid File is not available in Drive.");
-    const result = await buildPreview(masterId, converted.id);
-    return { fileId: converted.id, originalFileId: original.id, fileName: converted.name, ...result };
+    if (converted["mimeType"] !== GOOGLE_SHEET_MIME) throw new Error("Google Drive did not convert this XLSB workbook to a Google Sheet. Original XLSB is safely stored in Drive; no master data was changed.");
+    const file = await getDriveFile(converted["id"]);
+    if (file["trashed"]) throw new Error("Converted Paid File is not available in Drive.");
+    const result = await buildPreview(masterId, converted["id"]);
+    return { fileId: converted["id"], originalFileId: original["id"], fileName: converted["name"], ...result };
   });
 
 export const previewPaidFile = createServerFn({ method: "POST" })
@@ -188,8 +188,8 @@ export const previewPaidFile = createServerFn({ method: "POST" })
     const masterId = await getMasterId();
     if (!masterId) throw new Error("Master Allocation is not configured.");
     const file = await getDriveFile(data.fileId);
-    if (file.trashed || file.mimeType !== GOOGLE_SHEET_MIME) throw new Error("Paid File conversion is unavailable.");
-    return { fileName: file.name, ...await buildPreview(masterId, data.fileId) };
+    if (file["trashed"] || file["mimeType"] !== GOOGLE_SHEET_MIME) throw new Error("Paid File conversion is unavailable.");
+    return { fileName: file["name"], ...await buildPreview(masterId, data.fileId) };
   });
 
 export const applyPaidFile = createServerFn({ method: "POST" })
@@ -199,7 +199,7 @@ export const applyPaidFile = createServerFn({ method: "POST" })
     const masterId = await getMasterId();
     if (!masterId) throw new Error("Master Allocation is not configured.");
     const file = await getDriveFile(data.fileId);
-    if (file.trashed || file.mimeType !== GOOGLE_SHEET_MIME) throw new Error("Paid File conversion is unavailable.");
+    if (file["trashed"] || file["mimeType"] !== GOOGLE_SHEET_MIME) throw new Error("Paid File conversion is unavailable.");
     const { preview, duplicateCount, unmatchedCount, invalidCount, columns } = await buildPreview(masterId, data.fileId);
     if (duplicateCount || invalidCount) throw new Error("Write-back blocked: resolve duplicate Agreement IDs and invalid amounts first.");
     if (!preview.length) throw new Error("No valid matched payments to apply.");
@@ -221,12 +221,12 @@ export const applyPaidFile = createServerFn({ method: "POST" })
     }
     const auditHeaders = ["Applied At", "Paid File ID", "Paid File Name", "Matched Rows", "Unmatched Rows", "Duplicate Rows", "Invalid Rows", "Applied By"];
     const meta = await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}?fields=sheets.properties`, { headers: apiHeaders }), "Master metadata");
-    const auditExists = (meta.sheets ?? []).some((s: any) => s.properties?.title === "Paid File Audit");
+    const auditExists = (meta["sheets"] ?? []).some((s: any) => s.properties?.title === "Paid File Audit");
     if (!auditExists) await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}:batchUpdate`, { method: "POST", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ requests: [{ addSheet: { properties: { title: "Paid File Audit" } } }] }) }), "Create Paid File Audit");
     const audit = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}/values/${encodeURIComponent("'Paid File Audit'!A1:H")}?valueInputOption=RAW`, { headers: apiHeaders });
     const auditJson = await checkedJson(audit, "Audit read") as { values?: string[][] };
     if (!(auditJson.values ?? []).length) await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}/values/${encodeURIComponent("'Paid File Audit'!A1:H1")}?valueInputOption=RAW`, { method: "PUT", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ values: [auditHeaders] }) }), "Audit headers");
     const nextRow = (auditJson.values?.length ?? 1) + 1;
-    await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}/values/${encodeURIComponent("'Paid File Audit'!A" + nextRow + ":H" + nextRow)}?valueInputOption=RAW`, { method: "PUT", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ values: [[new Date().toISOString(), data.fileId, String(file.name ?? ""), preview.length, unmatchedCount, duplicateCount, invalidCount, (await requireSession("Admin")).name]] }) }), "Paid File audit write");
+    await checkedJson(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}/values/${encodeURIComponent("'Paid File Audit'!A" + nextRow + ":H" + nextRow)}?valueInputOption=RAW`, { method: "PUT", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ values: [[new Date().toISOString(), data.fileId, String(file["name"] ?? ""), preview.length, unmatchedCount, duplicateCount, invalidCount, (await requireSession("Admin"))["name"]]] }) }), "Paid File audit write");
     return { ok: true, applied: preview.length, unmatchedCount, duplicateCount, invalidCount };
   });
