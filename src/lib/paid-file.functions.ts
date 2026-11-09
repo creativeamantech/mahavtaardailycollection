@@ -114,8 +114,9 @@ async function buildPreview(masterId: string, convertedId: string) {
     const found = masterMap.get(id);
     if (!found) { unmatchedCount++; continue; }
     const oldTotal = asNumber(found.row[mTotal]);
-    const newTotal = asNumber(paid[pTotal]);
-    if (newTotal < 0 || !Number.isFinite(newTotal)) { invalidCount++; continue; }
+    const parsedTotal = parseAmount(paid[pTotal]);
+    if (parsedTotal === null) { invalidCount++; continue; }
+    const newTotal = parsedTotal;
     const remaining = oldTotal - newTotal;
     const date = pDate >= 0 ? String(paid[pDate] ?? "").trim() : "";
     const dac = pDac >= 0 ? asNumber(paid[pDac]) : (mSfdc >= 0 ? asNumber(found.row[mSfdc]) : 0) + (mOnline >= 0 ? asNumber(found.row[mOnline]) : 0);
@@ -206,7 +207,7 @@ export const applyPaidFile = createServerFn({ method: "POST" })
     const writes: Array<{ range: string; values: (string | number)[][] }> = [];
     for (const item of preview) {
       const row = item.rowNumber;
-      writes.push({ range: `Data!${columnName(columns.mDate)}${row}`, values: [[item.date]] });
+      if (item.date) writes.push({ range: `Data!${columnName(columns.mDate)}${row}`, values: [[item.date]] });
       writes.push({ range: `Data!${columnName(columns.mDac)}${row}`, values: [[item.dac]] });
       writes.push({ range: `Data!${columnName(columns.mNewTotal)}${row}`, values: [[item.newTotal]] });
       writes.push({ range: `Data!${columnName(columns.mRemaining)}${row}`, values: [[item.remaining]] });
@@ -214,11 +215,8 @@ export const applyPaidFile = createServerFn({ method: "POST" })
       if (columns.mSpecial >= 0 && item.special !== undefined) writes.push({ range: `Data!${columnName(columns.mSpecial)}${row}`, values: [[item.special]] });
     }
     const apiHeaders = connectorHeaders("GOOGLE_SHEETS_API_KEY");
-    for (let i = 0; i < writes.length; i += 400) {
-      const batch = writes.slice(i, i + 400);
-      const response = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}/values:batchUpdate`, { method: "POST", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: batch }) });
-      await checkedJson(response, "Paid File master update");
-    }
+    const updateResponse = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}/values:batchUpdate`, { method: "POST", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: writes }) });
+    await checkedJson(updateResponse, "Paid File master update");
     const auditHeaders = ["Applied At", "Paid File ID", "Paid File Name", "Matched Rows", "Unmatched Rows", "Duplicate Rows", "Invalid Rows", "Applied By"];
     const meta = await checkedJson<{ sheets?: Array<{ properties?: { title?: string } }> }>(await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${masterId}?fields=sheets.properties`, { headers: apiHeaders }), "Master metadata");
     const auditExists = (meta["sheets"] ?? []).some((sheet) => sheet.properties?.title === "Paid File Audit");
