@@ -13,6 +13,10 @@ import {
   ALL_CATEGORIES,
   AlreadyPaidSection,
   CategoryFilter,
+  AllocationTypeFilter,
+  allocationTypeMatches,
+  uniqueAllocationTypes,
+  useAllocationTypeFilter,
   categoryMatches,
   uniqueCategories,
   useCategoryFilter,
@@ -77,16 +81,18 @@ function AlreadyPaidContent() {
   const all = useMemo(() => collections.filter((r) => r.alreadyPaid), [collections]);
   const [month, setMonth] = useState(currentMonthKey());
   const [category, setCategory] = useCategoryFilter();
+  const [allocationType, setAllocationType] = useAllocationTypeFilter();
+  const allocationTypes = useMemo(() => uniqueAllocationTypes(collections), [collections]);
   const months = useMemo(() => monthOptions(collections.map((r) => r.date)), [collections]);
   const categories = useMemo(() => uniqueCategories(collections), [collections]);
   const rows = useMemo(
     () =>
       all
         .filter(
-          (r) => monthKey(r.date) === month && categoryMatches(r.allocationCategory, category),
+          (r) => monthKey(r.date) === month && categoryMatches(r.allocationCategory, category) && allocationTypeMatches(r.allocationType, allocationType),
         )
         .sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [all, month, category],
+    [all, month, category, allocationType],
   );
 
   const alreadyPaidRowNumbers = useMemo(
@@ -209,6 +215,7 @@ function AlreadyPaidContent() {
       </div>
       <MonthSelect value={month} onChange={setMonth} options={months} />
       <CategoryFilter value={category} onChange={setCategory} options={categories} />
+        <AllocationTypeFilter value={allocationType} onChange={setAllocationType} options={allocationTypes} />
       {isLoading && <p className="text-base">Loading...</p>}
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-destructive">

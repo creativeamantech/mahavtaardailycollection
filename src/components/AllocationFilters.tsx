@@ -19,6 +19,7 @@ type Collection = {
   date: string;
   createdAt?: string;
   allocationCategory?: string;
+  allocationType?: string;
   allocationDate?: string;
 };
 
@@ -44,6 +45,64 @@ export function uniqueCategories(rows: { allocationCategory?: string }[] | unkno
 }
 
 export const ALL_CATEGORIES = "__all_categories__";
+
+export const ALL_ALLOCATION_TYPES = "__all_allocation_types__";
+
+export function allocationTypeMatches(value: string | undefined, filter: string | undefined | null) {
+  if (!filter || filter === ALL_ALLOCATION_TYPES) return true;
+  return (value ?? "") === filter;
+}
+
+export function uniqueAllocationTypes(rows: { allocationType?: string }[] | unknown) {
+  const list = Array.isArray(rows) ? rows : [];
+  return [...new Set(list.map((r) => (r && typeof r === "object"
+    ? String((r as { allocationType?: string }).allocationType ?? "").trim()
+    : "")).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+// Starts from the Settings-selected default, while preserving a user's in-page choice.
+export function useAllocationTypeFilter() {
+  const { defaultAllocationType } = useAppConfig();
+  const targetDefault = defaultAllocationType || ALL_ALLOCATION_TYPES;
+  const [allocationType, setAllocationTypeState] = useState(targetDefault);
+  const lastDefaultRef = useRef(defaultAllocationType);
+  const userModified = useRef(false);
+
+  useEffect(() => {
+    if (!userModified.current && defaultAllocationType !== lastDefaultRef.current) {
+      lastDefaultRef.current = defaultAllocationType;
+      setAllocationTypeState(targetDefault);
+    }
+  }, [defaultAllocationType, targetDefault]);
+
+  const setAllocationType = (val: string | ((prev: string) => string)) => {
+    userModified.current = true;
+    setAllocationTypeState(val);
+  };
+  return [allocationType, setAllocationType] as const;
+}
+
+export function AllocationTypeFilter({ value, onChange, options }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  const mergedOptions = useMemo(() => value && value !== ALL_ALLOCATION_TYPES && !options.includes(value)
+    ? [value, ...options] : options, [value, options]);
+  return (
+    <div className="space-y-2">
+      <Label className="text-base">Allocation Type</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_ALLOCATION_TYPES} className="text-base">All Allocation Types</SelectItem>
+          {mergedOptions.map((item) => <SelectItem key={item} value={item} className="text-base">{item}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 
 // Category filter state that starts on the Settings-chosen default category
 // (applied once, when the config arrives; the user can still change it freely).

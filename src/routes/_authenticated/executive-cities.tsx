@@ -8,7 +8,7 @@ import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 import { summariseLoans, type CollectionRow } from "@/lib/loans";
 import { EXECUTIVES, formatAmount, todayISO } from "@/lib/executives";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
-import { useCategoryFilter, categoryMatches, uniqueCategories, ALL_CATEGORIES } from "@/components/AllocationFilters";
+import { useCategoryFilter, categoryMatches, uniqueCategories, ALL_CATEGORIES, useAllocationTypeFilter, allocationTypeMatches, uniqueAllocationTypes, ALL_ALLOCATION_TYPES } from "@/components/AllocationFilters";
 import { MonthSelect } from "@/components/MonthSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,6 +132,8 @@ export function ExecutiveCitiesPage() {
 
   const categories = useMemo(() => uniqueCategories(data), [data]);
   const [category, setCategory] = useCategoryFilter();
+  const allocationTypes = useMemo(() => uniqueAllocationTypes(data), [data]);
+  const [allocationType, setAllocationType] = useAllocationTypeFilter();
   const [bucket, setBucket] = useState(ALL);
   const buckets = useMemo(
     () => [...new Set(data.map((row) => row.bucket).filter(Boolean))].sort((a, b) =>
@@ -150,8 +152,9 @@ export function ExecutiveCitiesPage() {
     if (dateMode === "date" && selectedDate && row.date !== selectedDate) return false;
     if (bucket !== ALL && (row.bucket ?? "") !== bucket) return false;
     if (!categoryMatches(row.allocationCategory, category)) return false;
+    if (!allocationTypeMatches(row.allocationType, allocationType)) return false;
     return true;
-  }), [data, excludedLoanIds, dateMode, month, selectedDate, bucket, category]);
+  }), [data, excludedLoanIds, dateMode, month, selectedDate, bucket, category, allocationType]);
 
   const loanSummaries = useMemo(() => {
     const rows: CollectionRow[] = filteredRows.map((row) => ({
@@ -335,6 +338,16 @@ export function ExecutiveCitiesPage() {
               <SelectContent>
                 <SelectItem value={ALL_CATEGORIES}>All Categories</SelectItem>
                 {categories.map((value) => <SelectItem key={value} value={value}>Category {value}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Allocation Type</Label>
+            <Select value={allocationType} onValueChange={setAllocationType}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_ALLOCATION_TYPES}>All Allocation Types</SelectItem>
+                {allocationTypes.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

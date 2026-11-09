@@ -37,7 +37,7 @@ import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
-import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter } from "@/components/AllocationFilters";
+import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter, AllocationTypeFilter, allocationTypeMatches, uniqueAllocationTypes, useAllocationTypeFilter } from "@/components/AllocationFilters";
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
 function ExportButton({
@@ -172,6 +172,7 @@ type Collection = {
   amansRemarks?: string;
   allocationCategory?: string;
   allocationDate?: string;
+  allocationType?: string;
   alreadyPaid?: boolean;
   row?: number;
 };
@@ -719,6 +720,7 @@ function PaidHoldAnalysis({
       "Principal Outstanding",
       "Approx Foreclosure",
       "Allocation Category",
+      "Allocation Type",
       "Allocation Date",
       "Already Paid",
       "Receipt Links",
@@ -746,6 +748,7 @@ function PaidHoldAnalysis({
       r.pos ?? "",
       r.foreclosure ?? "",
       r.allocationCategory ?? "",
+      r.allocationType ?? "",
       r.allocationDate ?? "",
       r.alreadyPaid ? "Yes" : "No",
       (r.receiptLinks ?? []).join(" | "),
@@ -1489,7 +1492,13 @@ function ReportPage() {
   const [dateBucket, setDateBucket] = useState(ALL_BUCKETS);
   const [overallBucket, setOverallBucket] = useState(ALL_BUCKETS);
 
-  const rawRows = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const allRawRows = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const [allocationType, setAllocationType] = useAllocationTypeFilter();
+  const allocationTypes = useMemo(() => uniqueAllocationTypes(allRawRows), [allRawRows]);
+  const rawRows = useMemo(
+    () => allRawRows.filter((r) => allocationTypeMatches(r.allocationType, allocationType)),
+    [allRawRows, allocationType],
+  );
   const [category, setCategory] = useCategoryFilter();
   const dateCategory = category;
   const overallCategory = category;
@@ -1663,6 +1672,7 @@ function ReportPage() {
       <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] lg:items-end lg:p-4">
         <div className="min-w-0"><MonthSelect value={month} onChange={setMonth} options={months} /></div>
         <div className="min-w-0"><CategoryFilter value={category} onChange={setCategory} options={categories} /></div>
+        <div className="min-w-0"><AllocationTypeFilter value={allocationType} onChange={setAllocationType} options={allocationTypes} /></div>
       </div>
       {alreadyPaidCount > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">

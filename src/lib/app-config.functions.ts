@@ -38,6 +38,7 @@ const SETTINGS_TAB = "AppSettings";
 const NOTIF_TAB = "Notifications";
 // AppSettings key holding the default allocation category ("" = All Categories).
 export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
+export const DEFAULT_ALLOCATION_TYPE_KEY = "defaultAllocationType";
 export const HOLD_CASES_LOCK_KEY = "holdCasesLocked";
 
 export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
@@ -62,6 +63,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS };
   let defaultCategory = "";
+  let defaultAllocationType = "";
   let holdCasesLocked = false;
   for (const r of settingRows) {
     const key = (r[0] ?? "").trim();
@@ -72,6 +74,10 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }
     if (key === DEFAULT_CATEGORY_KEY) {
       defaultCategory = (r[1] ?? "").trim();
+      continue;
+    }
+    if (key === DEFAULT_ALLOCATION_TYPE_KEY) {
+      defaultAllocationType = (r[1] ?? "").trim();
       continue;
     }
     flags[key] = (r[1] ?? "").trim().toUpperCase() !== "OFF";
@@ -87,7 +93,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }))
     .filter((n) => n.text !== "" || n.imageUrl !== "");
 
-  return { flags, notifications, defaultCategory, holdCasesLocked, session };
+  return { flags, notifications, defaultCategory, defaultAllocationType, holdCasesLocked, session };
 });
 
 export const saveFeatureFlags = createServerFn({ method: "POST" })
@@ -100,11 +106,14 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
     // Preserve the default-category row so flag saves never wipe it.
     let defaultCategory = "";
+    let defaultAllocationType = "";
     let holdCasesLocked = false;
     try {
       const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
       defaultCategory =
         rows.find((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY)?.[1]?.trim() ?? "";
+      defaultAllocationType =
+        rows.find((r) => (r[0] ?? "").trim() === DEFAULT_ALLOCATION_TYPE_KEY)?.[1]?.trim() ?? "";
       holdCasesLocked =
         (rows.find((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY)?.[1] ?? "")
           .trim()
@@ -115,6 +124,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     const entries = Object.entries(data.flags);
     const values = entries.map(([k, v]) => [k, v ? "ON" : "OFF"]);
     values.push([DEFAULT_CATEGORY_KEY, defaultCategory]);
+    values.push([DEFAULT_ALLOCATION_TYPE_KEY, defaultAllocationType]);
     values.push([HOLD_CASES_LOCK_KEY, holdCasesLocked ? "ON" : "OFF"]);
     // Pad so removed keys never leave stale rows behind.
     while (values.length < 40) values.push(["", ""]);
@@ -161,6 +171,28 @@ export const saveDefaultCategory = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+
+export const saveDefaultAllocationType = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ allocationType: z.string().trim().max(100) }).parse(d))
+  .handler(async ({ data }) => {
+    await requireSession("Admin");
+    const { sheetsGet, sheetsUpdateStrict, ensureSheetStrict } = await import("./mahavtaar.server");
+    await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
+    let rows: string[][] = [];
+    try {
+      rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
+    } catch {
+      /* empty tab */
+    }
+    const idx = rows.findIndex((r) => (r[0] ?? "").trim() === DEFAULT_ALLOCATION_TYPE_KEY);
+    if (idx >= 0) {
+      await sheetsUpdateStrict(`${SETTINGS_TAB}!B${idx + 2}`, [[data.allocationType]]);
+    } else {
+      const row = rows.length + 2;
+      await sheetsUpdateStrict(`${SETTINGS_TAB}!A${row}:B${row}`, [[DEFAULT_ALLOCATION_TYPE_KEY, data.allocationType]]);
+    }
+    return { ok: true as const };
+  });
 export const addNotification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z

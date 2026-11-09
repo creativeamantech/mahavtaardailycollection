@@ -68,6 +68,7 @@ type Collection = {
   amansRemarks?: string;
   allocationCategory?: string;
   allocationDate?: string;
+  allocationType?: string;
   alreadyPaid?: boolean;
   isValidated?: boolean;
   isConflict?: boolean;
@@ -97,6 +98,7 @@ const columns: { key: keyof Collection; label: string; render?: (row: Collection
   { key: "amansRemarks", label: "Aman's Remarks" },
   { key: "allocationCategory", label: "Allocation Category" },
   { key: "allocationDate", label: "Allocation Date" },
+  { key: "allocationType", label: "Allocation Type" },
   { key: "isValidated", label: "Validation", render: (r) => r.isValidated ? "VALIDATED" : "" },
   { key: "linkedName", label: "Linked Name", render: (r) => r.portalUrl ? <a href={r.portalUrl} target="_blank" rel="noreferrer" className="text-primary underline">{r.linkedName || "Open"}</a> : (r.linkedName ?? "") },
 ];
