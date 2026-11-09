@@ -29,6 +29,10 @@ import {
 import {
   ALL_CATEGORIES,
   CategoryFilter,
+  AllocationTypeFilter,
+  allocationTypeMatches,
+  uniqueAllocationTypes,
+  useAllocationTypeFilter,
   categoryMatches,
   uniqueCategories,
   useCategoryFilter,
@@ -136,6 +140,8 @@ function LoansPage() {
   const collections = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   // Already Paid payments (before Allocation Date) never count as collection.
   const [category, setCategory] = useCategoryFilter();
+  const [allocationType, setAllocationType] = useAllocationTypeFilter();
+  const allocationTypes = useMemo(() => uniqueAllocationTypes(collections), [collections]);
   const categories = useMemo(() => uniqueCategories(collections), [collections]);
   const allRows = useMemo(
     () =>
@@ -147,9 +153,10 @@ function LoansPage() {
               .trim()
               .toUpperCase(),
           ) &&
-          categoryMatches(r.allocationCategory, category),
+          categoryMatches(r.allocationCategory, category) &&
+          allocationTypeMatches(r.allocationType, allocationType),
       ),
-    [collections, category, excludedLoanIds],
+    [collections, category, allocationType, excludedLoanIds],
   );
   const [month, setMonth] = useState(currentMonthKey());
   const months = useMemo(() => monthOptions(collections.map((r) => r.date)), [collections]);
@@ -231,6 +238,9 @@ function LoansPage() {
       </div>
       <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3 [&_button]:border-amber-200 [&_button]:bg-white">
         <CategoryFilter value={category} onChange={setCategory} options={categories} />
+      </div>
+      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3 [&_button]:border-amber-200 [&_button]:bg-white">
+        <AllocationTypeFilter value={allocationType} onChange={setAllocationType} options={allocationTypes} />
       </div>
 
       {isLoading && <p className="mt-6 text-base">Loading loan details...</p>}
