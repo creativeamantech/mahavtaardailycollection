@@ -104,10 +104,30 @@ async function masterFile() {
   return files[0]!;
 }
 function paidFilePrefix() { const d=dateParts(); return "Paid File " + d.month + " " + d.day + " " + d.year + " - "; }
+function adjacentTypoMonthMatches(value:string, expected:string) {
+  const candidate=value.toLowerCase(), target=expected.toLowerCase();
+  if(candidate===target)return true;
+  if(Math.abs(candidate.length-target.length)>1)return false;
+  if(candidate.length===target.length) {
+    let differences=0;
+    for(let i=0;i<candidate.length;i++)if(candidate[i]!==target[i])differences++;
+    return differences<=1;
+  }
+  const longer=candidate.length>target.length?candidate:target;
+  const shorter=candidate.length>target.length?target:candidate;
+  for(let i=0;i<longer.length;i++)if(longer.slice(0,i)+longer.slice(i+1)===shorter)return true;
+  return false;
+}
 async function paidFiles() {
-  const prefix=paidFilePrefix();
-  const files=await driveList("name contains '" + prefix.replace(/'/g,"\\'") + "' and mimeType = '" + SHEET_MIME + "'");
-  return files.map(f=>({...f, sequence:Number(f.name.slice(prefix.length))})).filter(f=>Number.isSafeInteger(f.sequence)&&f.sequence>0&&new RegExp("^"+prefix.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\d{2,}$").test(f.name)).sort((a,b)=>a.sequence-b.sequence);
+  const d=dateParts();
+  const files=await driveList("name contains 'Paid File' and mimeType = '" + SHEET_MIME + "'");
+  const pattern=/^Paid File\\s+([A-Za-z]+)\\s+(\\d{1,2})\\s+(\\d{4})\\s+-\\s+(\\d{2,})$/i;
+  return files.flatMap(file=>{
+    const match=file.name.match(pattern);
+    if(!match||!adjacentTypoMonthMatches(match[1]!,d.month)||Number(match[2])!==Number(d.day)||Number(match[3])!==Number(d.year))return [];
+    const sequence=Number(match[4]);
+    return Number.isSafeInteger(sequence)&&sequence>0?[{...file,sequence}]:[];
+  }).sort((a,b)=>a.sequence-b.sequence);
 }
 async function build(masterId:string,file:DriveFile):Promise<Built> {
   if(file.mimeType!==SHEET_MIME) throw new Error("Paid File must be a native Google Sheet.");
@@ -122,9 +142,9 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   if(master.length<2||paid.length<2) throw new Error("Master Data or Paid File has no data rows.");
   const mh=master[0]!, ph=paid[0]!;
   const mi=headerIndex(mh,["Agreement ID","Loan Number","Loan No"]), pi=headerIndex(ph,["Agreement ID","Loan Number","Loan No"]);
-  const mTotal=headerIndex(mh,["Total"]), mNew=headerIndex(mh,["New Total"]), mRemain=headerIndex(mh,["Remaining"]), mDate=headerIndex(mh,["Date","Payment Date"]), mDac=headerIndex(mh,["DAC"]), mEcs=headerIndex(mh,["ECS"]), mSpecial=headerIndex(mh,["Special"]);
+  const mTotal=headerIndex(mh,["Original Total","Total"]), mNew=headerIndex(mh,["New Total"]), mRemain=headerIndex(mh,["Remaining"]), mDate=headerIndex(mh,["Date","Payment Date"]), mDac=headerIndex(mh,["DAC"]), mEcs=headerIndex(mh,["ECS"]), mSpecial=headerIndex(mh,["Special"]);
   const pTotal=headerIndex(ph,["Total","Paid Amount","Payment Amount","New Total"]), pDate=headerIndex(ph,["Date","Payment Date","Paid Date"]), pDac=paidResult.dacIndex, pEcs=headerIndex(ph,["ECS"]), pSpecial=headerIndex(ph,["Special"]);
-  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pEcs,pSpecial].some(x=>x<0)) throw new Error("Required Agreement ID, SFDC, Online, ECS, Special and Total columns in Paid File, plus Date, DAC, Original Total, New Total and Remaining columns in Master Data, are required.");
+  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pEcs].some(x=>x<0)) throw new Error("Required Agreement ID, SFDC, Online, ECS and Total columns in Paid File, plus Date, DAC, Total, New Total and Remaining columns in Master Data, are required. Special is optional and defaults to zero when absent.");
   const masterById=new Map<string,{row:string[];rowNo:number}>();
   for(let i=1;i<master.length;i++){const r=master[i]??[];const id=norm(r[mi]);if(id){if(masterById.has(id)) throw new Error("Duplicate loan number exists in Master Data: "+id+". Resolve it before reconciliation.");masterById.set(id,{row:r,rowNo:i+1});}}
   const paidById=new Map<string,string[][]>();
@@ -149,7 +169,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     const p=matches[0]!;
     const total=amount(p[pTotal]), old=amount(masterRow.row[mTotal]);
     const dac=amount(p[pDac]);
-    const ecs=pEcs>=0?amount(p[pEcs]):null, special=pSpecial>=0?amount(p[pSpecial]):null;
+    const ecs=pEcs>=0?amount(p[pEcs]):null, special=pSpecial>=0?amount(p[pSpecial]):0;
     const paidFields=[p[pTotal],p[pDac],pEcs>=0?p[pEcs]:undefined,pSpecial>=0?p[pSpecial]:undefined];
     const malformed=paidFields.some(v=>v!==undefined&&String(v??"").trim()!==""&&amount(v)===null);
     if(malformed||old===null){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid – non-numeric amount or missing Master Total"});continue;}
