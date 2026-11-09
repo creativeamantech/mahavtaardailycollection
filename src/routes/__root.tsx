@@ -126,6 +126,7 @@ const ADMIN_NAV = [
   { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
   { to: "/excluded-loans", label: "Excluded Loans", key: "report" },
   { to: "/receipt-gallery", label: "Receipt Gallery", key: "receiptGallery" },
+  { to: "/paid-file-implementation", label: "Paid File Implementation", key: "paidFileImplementation" },
 ] as const;
 
 function RootComponent() {
