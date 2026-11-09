@@ -25,12 +25,15 @@ function PaidFilePage() {
   const masterMutation=useMutation({mutationFn:()=>saveMaster({data:{spreadsheetId:selected}}),onSuccess:async()=>{toast.success("Master Allocation saved.");await qc.invalidateQueries({queryKey:["paid-file-setup"]});},onError:e=>toast.error(e.message)});
   async function handleUpload(file?:File) {
     if(!file)return;
-    if(!/\.xlsb$/i.test(file.name)){toast.error("Please select an XLSB (.xlsb) file.");return;}
+    const isXlsbName = /\.xlsb(?:$|[?#])/i.test(file.name);
+    const isXlsbMime = file.type === "application/vnd.ms-excel.sheet.binary.macroEnabled.12" || file.type === "application/octet-stream";
+    if(!isXlsbName && !isXlsbMime){toast.error("Please select an XLSB (.xlsb) file.");return;}
     if(!setup?.masterId){toast.error("First select and save the Master Allocation spreadsheet.");return;}
     setBusy(true);setResult(null);
     try {
       const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error("Could not read selected file."));reader.onload=()=>resolve(String(reader.result??""));reader.readAsDataURL(file);});
-      const response=await upload({data:{fileName:file.name,base64}});
+      const uploadName = /\.xlsb$/i.test(file.name) ? file.name : `${file.name.replace(/[?#].*$/, "") || "Paid-File"}.xlsb`;
+      const response=await upload({data:{fileName:uploadName,base64}});
       setResult(response as Preview);
       toast.success("Paid File converted and preview generated. Master data is unchanged.");
     } catch(e) {toast.error(e instanceof Error?e.message:"Paid File upload failed.");}
