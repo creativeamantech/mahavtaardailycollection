@@ -10,6 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type PreviewRow = { agreementId:string; rowNumber:number; oldTotal:number; newTotal:number; remaining:number; date:string; dac:number; ecs?:number; special?:number; status:string };
 type Preview = { fileId:string; fileName:string; preview:PreviewRow[]; duplicateCount:number; unmatchedCount:number; invalidCount:number; paidRows:number; matchedCount:number };
+type SheetJs = { read:(data:ArrayBuffer, options:{type:"array";cellDates:true})=>unknown; write:(workbook:unknown, options:{bookType:"xlsx";type:"base64";compression:true})=>string };
+declare global { interface Window { XLSX?: SheetJs } }
+function loadSheetJs(): Promise<SheetJs> {
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve,reject)=>{
+    const existing=document.querySelector<HTMLScriptElement>("script[data-sheetjs-loader]");
+    const script=existing??document.createElement("script");
+    const onLoad=()=>window.XLSX?resolve(window.XLSX):reject(new Error("SheetJS loaded but its XLSX engine is unavailable."));
+    const onError=()=>reject(new Error("Could not load the on-device XLSB converter. Check your internet connection and retry."));
+    script.addEventListener("load",onLoad,{once:true}); script.addEventListener("error",onError,{once:true});
+    if(!existing){script.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";script.async=true;script.dataset.sheetjsLoader="true";document.head.appendChild(script);}
+  });
+}
 export const Route = createFileRoute("/_authenticated/paid-file")({ component: PaidFilePage });
 
 function money(value:number) { return new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(value); }
@@ -28,24 +41,22 @@ function PaidFilePage() {
     if(!setup?.masterId){toast.error("First select and save the Master Allocation spreadsheet.");return;}
     setBusy(true);setResult(null);
     try {
-      // Android document providers often return an empty or unrelated filename/MIME.
-      // Identify XLSB by its ZIP package entry instead of browser metadata.
-      const fileBytes = await file.arrayBuffer();
-      const bytes = new Uint8Array(fileBytes);
-      if(bytes.length < 8 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
-        throw new Error("The selected file is not a valid Excel workbook. Please choose the original .xlsb file.");
-      }
-      const packageDirectory = new TextDecoder().decode(bytes);
-      if(!packageDirectory.includes("xl/workbook.bin")) {
-        throw new Error("This file does not contain the XLSB workbook structure (xl/workbook.bin). Please choose an actual .xlsb file, not .xlsx.");
-      }
-      const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error("Could not read selected file."));reader.onload=()=>resolve(String(reader.result??""));reader.readAsDataURL(file);});
-      const safeBaseName = (file.name || "Paid-File").replace(/[?#].*$/, "").replace(/\.xlsb$/i, "") || "Paid-File";
-      const uploadName = `${safeBaseName}.xlsb`;
-      const response=await upload({data:{fileName:uploadName,base64}});
+      if(file.size>12*1024*1024) throw new Error("Paid File exceeds the 12 MB limit.");
+      const fileBytes=await file.arrayBuffer();
+      const bytes=new Uint8Array(fileBytes);
+      if(bytes.length<8||bytes[0]!==0x50||bytes[1]!==0x4b) throw new Error("The selected file is not a valid Excel workbook. Please choose the original .xlsb file.");
+      const packageDirectory=new TextDecoder().decode(bytes);
+      if(!packageDirectory.includes("xl/workbook.bin")) throw new Error("This file does not contain the XLSB workbook structure (xl/workbook.bin). Please choose an actual .xlsb file, not .xlsx.");
+      toast.message("Converting XLSB to XLSX on this device…");
+      const XLSX=await loadSheetJs();
+      const workbook=XLSX.read(fileBytes,{type:"array",cellDates:true});
+      const xlsxBase64=XLSX.write(workbook,{bookType:"xlsx",type:"base64",compression:true});
+      if(!xlsxBase64) throw new Error("On-device XLSX conversion returned an empty workbook.");
+      const safeBaseName=(file.name||"Paid-File").replace(/[?#].*$/,"").replace(/\.xlsb$/i,"")||"Paid-File";
+      const response=await upload({data:{fileName:`${safeBaseName}.xlsx`,base64:xlsxBase64}});
       setResult(response as Preview);
-      toast.success("Paid File converted and preview generated. Master data is unchanged.");
-    } catch(e) {toast.error(e instanceof Error?e.message:"Paid File upload failed.");}
+      toast.success("XLSB converted on this device. XLSX uploaded and preview generated; Master data is unchanged.");
+    } catch(e) {toast.error(e instanceof Error?e.message:"Paid File conversion/upload failed.");}
     finally{setBusy(false);}
   }
   async function refreshPreview() {
@@ -67,7 +78,7 @@ function PaidFilePage() {
   const selectedId=selected||setup?.masterId||"";
   return <main className="mx-auto w-full max-w-6xl space-y-5 px-3 py-5 sm:px-6">
     <header className="rounded-2xl border bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-amber-100 text-amber-800"><FileSpreadsheet/></span><div><h1 className="text-xl font-extrabold">Paid File Reconciliation</h1><p className="text-sm text-muted-foreground">Admin-only XLSB upload, validation and controlled write-back</p></div></div>
+      <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-amber-100 text-amber-800"><FileSpreadsheet/></span><div><h1 className="text-xl font-extrabold">Paid File Reconciliation</h1><p className="text-sm text-muted-foreground">Admin-only on-device XLSB conversion, validation and controlled write-back</p></div></div>
     </header>
     <section className="space-y-3 rounded-2xl border bg-white p-4 sm:p-5">
       <h2 className="font-bold">1. Select Master Allocation</h2>
@@ -77,13 +88,13 @@ function PaidFilePage() {
     </section>
     <section className="space-y-3 rounded-2xl border bg-white p-4 sm:p-5">
       <h2 className="font-bold">2. Upload Paid File (.xlsb)</h2>
-      <p className="text-sm text-muted-foreground">Upload up to 12 MB. The workbook is converted in Drive; the original Total column is never overwritten. Upload only creates a preview and does not change Data.</p>
+      <p className="text-sm text-muted-foreground">Upload up to 12 MB. XLSB is converted to XLSX on this device, then imported into Google Sheets in Drive. The original Total column is never overwritten. Upload only creates a preview and does not change Data.</p>
       <div className="flex min-h-28 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 p-4 text-center">
         <Upload className="size-6 text-amber-700"/>
         <Button type="button" disabled={busy} onClick={()=>fileInputRef.current?.click()}>
           {busy?"Processing…":"Choose XLSB Paid File"}
         </Button>
-        <span className="text-xs text-muted-foreground">.xlsb only · maximum 12 MB</span>
+        <span className="text-xs text-muted-foreground">.xlsb only · converted on this device · maximum 12 MB</span>
         <input ref={fileInputRef} className="hidden" type="file" accept=".xlsb,application/octet-stream,application/vnd.ms-excel.sheet.binary.macroEnabled.12,*/*" disabled={busy} onChange={e=>{const file=e.currentTarget.files?.[0];e.currentTarget.value="";void handleUpload(file);}}/>
       </div>
       {!setup?.masterId&&<p className="text-xs text-amber-700">You can select the file now; save a Master Allocation before uploading it.</p>}
