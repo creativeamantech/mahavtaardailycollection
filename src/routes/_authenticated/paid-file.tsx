@@ -67,7 +67,6 @@ function PaidFilePage() {
       const safeBaseName=(file.name||"Paid-File").replace(/[?#].*$/,"").replace(/\.xlsb$/i,"")||"Paid-File";
       await showStatus("XLSX फ़ाइल Drive पर अपलोड हो रही है और Google Sheets में इम्पोर्ट हो रही है…");
       const response=await upload({data:{fileName:`${safeBaseName}.xlsx`,base64:xlsxBase64}});
-      await showStatus("Google Sheets इम्पोर्ट पूरा। अब Paid File का Preview बनाया जा रहा है…");
       setResult(response as Preview);
       setUploadStatus("पूरा हुआ: XLSB कन्वर्ट, XLSX अपलोड और Preview तैयार। Master Data में कोई बदलाव नहीं हुआ।");
       toast.success("XLSB converted, uploaded and preview generated; Master data is unchanged.");
