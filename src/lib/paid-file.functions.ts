@@ -15,7 +15,7 @@ function connectorHeaders(key: string) {
   if (!lovable || !connection) throw new Error(`Missing connector configuration: ${key}`);
   return { Authorization: `Bearer ${lovable}`, "X-Connection-Api-Key": connection };
 }
-async function checkedJson<T extends Record<string, unknown> = Record<string, unknown>>(response: Response, label: string): Promise<T> {
+async function checkedJson<T = Record<string, unknown>>(response: Response, label: string): Promise<T> {
   if (!response.ok) {
     const message = await response.text();
     throw new Error(`${label} failed (${response.status}): ${message.slice(0, 500)}`);
