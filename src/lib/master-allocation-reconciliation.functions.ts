@@ -113,7 +113,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   if(file.mimeType!==SHEET_MIME) throw new Error("Paid File must be a native Google Sheet.");
   const [master,rawPaid,history]=await Promise.all([
     sheetValues(masterId,"Data!A1:GY"),
-    sheetValues(file.id,"A1:AZ"),
+    sheetValues(file.id,"A1:ZZ"),
     readHistory(masterId)
   ]);
   const {audit,state,resolutions}=history;
