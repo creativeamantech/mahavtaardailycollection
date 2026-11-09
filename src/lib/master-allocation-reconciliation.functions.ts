@@ -73,7 +73,7 @@ function amount(v: unknown): number | null {
 }
 function col(n:number) { let x=n+1,s="";while(x){const r=(x-1)%26;s=String.fromCharCode(65+r)+s;x=Math.floor((x-1)/26);}return s; }
 type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string};
-type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
+type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
 async function masterFile() {
   const title = monthTitle();
   const files = await driveList("name = '" + title.replace(/'/g,"\\'") + "' and mimeType = '" + SHEET_MIME + "'");
@@ -115,7 +115,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   for(const r of state.slice(1)){const snapshotName=String(r[5]??"");const sameDay=String(r[6]??"")===dateKey()||(!r[6]&&snapshotName.startsWith(todayPrefix));const id=norm(r[0]);const priorSeq=Number(r[1]);const amt=amount(r[2]);if(sameDay&&id&&Number.isFinite(priorSeq)&&amt!==null)previous.set(id,{sequence:priorSeq,amount:amt});}
   const preview:RowPreview[]=[]; const writes:{range:string;values:(string|number)[][]}[]=[];
   const notFoundLoans:string[]=[];
-  let notFound=0,zeroZero=0,duplicates=0,invalid=0,overpaid=0,manualReview=0,found=0;
+  let notFound=0,zeroZero=0,duplicates=0,invalid=0,pending=0,overpaid=0,manualReview=0,found=0;
   const stateWrites:(string|number)[][]=[];
   for(const [id,masterRow] of masterById){
     const matches=paidById.get(id);
@@ -126,16 +126,19 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     const total=amount(p[pTotal]), old=amount(masterRow.row[mTotal]);
     const dac=pDac>=0?amount(p[pDac]):(mSfdc>=0?(amount(masterRow.row[mSfdc])??0):0)+(mOnline>=0?(amount(masterRow.row[mOnline])??0):0);
     const ecs=pEcs>=0?amount(p[pEcs]):null, special=pSpecial>=0?amount(p[pSpecial]):null;
-    if(total===null||old===null||dac===null||(pEcs>=0&&ecs===null)||(pSpecial>=0&&special===null)){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid / blank amount"});continue;}
+    const paidFields=[p[pTotal],pDac>=0?p[pDac]:undefined,pEcs>=0?p[pEcs]:undefined,pSpecial>=0?p[pSpecial]:undefined];
+    const malformed=paidFields.some(v=>v!==undefined&&String(v??"").trim()!==""&&amount(v)===null);
+    if(malformed||old===null){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid – non-numeric amount or missing Master Total"});continue;}
+    if(total===null||dac===null||(pEcs>=0&&ecs===null)||(pSpecial>=0&&special===null)){pending++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Pending – blank payment amount"});continue;}
+    const allPaymentValuesZero=total===0&&dac===0&&(pEcs<0||ecs===0)&&(pSpecial<0||special===0);
+    if(allPaymentValuesZero){zeroZero++;manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(pDate>=0?p[pDate]??"":""),dac,ecs,special,status:"Manual Review – DAC, ECS, Special and Total are zero"});continue;}
     const prior=previous.get(id);
     if(prior&&seq<prior.sequence){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Stale snapshot"});continue;}
     if(prior&&seq===prior.sequence&&total!==prior.amount){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Same sequence changed – manual review"});continue;}
     if(prior&&seq>prior.sequence&&total<prior.amount){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Amount decreased – correction review"});continue;}
     const date=String(pDate>=0?p[pDate]??"":"").trim(), remaining=old-total;
-    const zero=total===0&&dac===0&&(ecs===null||ecs===0)&&(special===null||special===0);
-    if(zero)zeroZero++;
     if(remaining<0)overpaid++;
-    const status=zero?"Zero-Zero":remaining<0?"Overpaid":"Ready";
+    const status=remaining<0?"Overpaid":"Ready";
     preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining,date,dac,ecs,special,status});
     if(date)writes.push({range:"Data!"+col(mDate)+masterRow.rowNo,values:[[date]]});
     writes.push({range:"Data!"+col(mDac)+masterRow.rowNo,values:[[dac]]},{range:"Data!"+col(mNew)+masterRow.rowNo,values:[[total]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[remaining]]});
@@ -149,8 +152,8 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     writes.length=0;
     stateWrites.length=0;
   }
-  const ready=preview.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
-  const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,overpaid,manualReview};
+  const ready=preview.filter(r=>["Ready","Overpaid"].includes(r.status));
+  const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,pending,overpaid,manualReview};
   const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1)]);
   const fingerprint=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(digest)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
   const auditRows=ready.map(r=>[new Date().toISOString(),file.id,file.name,r.loan,r.newTotal,r.row,r.status,fingerprint]);
@@ -183,9 +186,8 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   await ensureHeaders(master.id);
   const result=await build(master.id,file);
   if(result.fingerprint!==data.fingerprint)throw new Error("Master Allocation, Paid File, or reconciliation history changed after preview. Refresh preview and approve the new version.");
-  if(result.counts.duplicates||result.counts.invalid||result.counts.manualReview)throw new Error("Write-back blocked: duplicate, invalid or manual-review cases must be resolved first.");
-  const eligible=result.rows.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
-  if(!eligible.length)throw new Error("No eligible Master Allocation loans were found.");
+  const eligible=result.rows.filter(r=>["Ready","Overpaid"].includes(r.status));
+  if(!eligible.length)throw new Error("No eligible payment rows were found. Pending, invalid, duplicate and manual-review rows are skipped.");
   const payload=result.writes;
   if(!payload.length)throw new Error("No write operations were generated.");
   const res=await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"USER_ENTERED",data:payload})});
