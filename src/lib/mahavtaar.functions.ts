@@ -311,9 +311,9 @@ export async function readCollections() {
     // Read K:O too — those are maintained with formulas in the sheet and come back
     // as their calculated values (never the formula text).
     // T = Allocation Category, U = Allocation Date, V = Validation, W = Linked Name.
-    // X = Allocation Type (existing Collection Sheet field).
+    // AA = Allocation Type (existing Collection Sheet field).
     const [rows, linkedNameUrls] = await Promise.all([
-      sheetsGet("Collections!A2:X"),
+      sheetsGet("Collections!A2:AA"),
       sheetsGetCellLinks("Collections!W2:W"),
     ]);
     const num = (v: string | undefined) => {
@@ -372,7 +372,7 @@ export async function readCollections() {
           amansRemarks: (r[18] ?? "").trim(),
           allocationCategory: (r[19] ?? "").trim(),
           allocationDate: validAlloc ? allocationDate : "",
-          allocationType: (r[23] ?? "").trim(),
+          allocationType: (r[26] ?? "").trim(),
           // Payment before allocation = Already Paid (reporting rule only).
           alreadyPaid: validAlloc && paymentDate !== "" && paymentDate < allocationDate,
           isValidated,
