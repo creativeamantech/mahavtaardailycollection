@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -21,10 +21,12 @@ function PaidFilePage() {
   const [selected,setSelected]=useState("");
   const [result,setResult]=useState<Preview|null>(null);
   const [busy,setBusy]=useState(false);
+  const fileInputRef=useRef<HTMLInputElement>(null);
   const masterMutation=useMutation({mutationFn:()=>saveMaster({data:{spreadsheetId:selected}}),onSuccess:async()=>{toast.success("Master Allocation saved.");await qc.invalidateQueries({queryKey:["paid-file-setup"]});},onError:e=>toast.error(e.message)});
   async function handleUpload(file?:File) {
     if(!file)return;
     if(!/\.xlsb$/i.test(file.name)){toast.error("Please select an XLSB (.xlsb) file.");return;}
+    if(!setup?.masterId){toast.error("First select and save the Master Allocation spreadsheet.");return;}
     setBusy(true);setResult(null);
     try {
       const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error("Could not read selected file."));reader.onload=()=>resolve(String(reader.result??""));reader.readAsDataURL(file);});
@@ -64,8 +66,15 @@ function PaidFilePage() {
     <section className="space-y-3 rounded-2xl border bg-white p-4 sm:p-5">
       <h2 className="font-bold">2. Upload Paid File (.xlsb)</h2>
       <p className="text-sm text-muted-foreground">Upload up to 12 MB. The workbook is converted in Drive; the original Total column is never overwritten. Upload only creates a preview and does not change Data.</p>
-      <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 p-4 text-center hover:bg-amber-50"><Upload className="size-6 text-amber-700"/><span className="text-sm font-semibold">{busy?"Processing…":"Choose XLSB Paid File"}</span><span className="text-xs text-muted-foreground">.xlsb only · maximum 12 MB</span><input className="sr-only" type="file" accept=".xlsb,application/vnd.ms-excel.sheet.binary.macroEnabled.12" disabled={busy||!setup?.masterId} onChange={e=>{void handleUpload(e.target.files?.[0]);e.currentTarget.value="";}}/></label>
-      {!setup?.masterId&&<p className="text-xs text-amber-700">Save a Master Allocation spreadsheet before uploading.</p>}
+      <div className="flex min-h-28 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 p-4 text-center">
+        <Upload className="size-6 text-amber-700"/>
+        <Button type="button" disabled={busy} onClick={()=>fileInputRef.current?.click()}>
+          {busy?"Processing…":"Choose XLSB Paid File"}
+        </Button>
+        <span className="text-xs text-muted-foreground">.xlsb only · maximum 12 MB</span>
+        <input ref={fileInputRef} className="hidden" type="file" accept=".xlsb,application/octet-stream,application/vnd.ms-excel.sheet.binary.macroEnabled.12,*/*" disabled={busy} onChange={e=>{const file=e.currentTarget.files?.[0];e.currentTarget.value="";void handleUpload(file);}}/>
+      </div>
+      {!setup?.masterId&&<p className="text-xs text-amber-700">You can select the file now; save a Master Allocation before uploading it.</p>}
     </section>
     {result&&<section className="space-y-4 rounded-2xl border bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold">3. Review before applying</h2><p className="text-xs text-muted-foreground">{result.fileName}</p></div><Button variant="outline" size="sm" disabled={busy} onClick={()=>void refreshPreview()}><RefreshCw className="mr-2 size-4"/>Refresh</Button></div>
