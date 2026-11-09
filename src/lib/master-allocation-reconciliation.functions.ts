@@ -100,7 +100,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   const mTotal=headerIndex(mh,["Total"]), mNew=headerIndex(mh,["New Total"]), mRemain=headerIndex(mh,["Remaining"]), mDate=headerIndex(mh,["Date","Payment Date"]), mDac=headerIndex(mh,["DAC"]), mEcs=headerIndex(mh,["ECS"]), mSpecial=headerIndex(mh,["Special"]);
   const mSfdc=headerIndex(mh,["SFDC"]), mOnline=headerIndex(mh,["Online"]);
   const pTotal=headerIndex(ph,["Total","Paid Amount","Payment Amount","New Total"]), pDate=headerIndex(ph,["Date","Payment Date","Paid Date"]), pDac=headerIndex(ph,["DAC"]), pEcs=headerIndex(ph,["ECS"]), pSpecial=headerIndex(ph,["Special"]);
-  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal].some(x=>x<0)) throw new Error("Required Agreement ID, Date, DAC, Total, New Total or Remaining columns are missing.");
+  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pDac,pEcs,pSpecial].some(x=>x<0)) throw new Error("Required Agreement ID, DAC, ECS, Special and Total columns in Paid File, plus Date, DAC, Original Total, New Total and Remaining columns in Master Data, are required.");
   const masterById=new Map<string,{row:string[];rowNo:number}>();
   for(let i=1;i<master.length;i++){const r=master[i]??[];const id=norm(r[mi]);if(id){if(masterById.has(id)) throw new Error("Duplicate loan number exists in Master Data: "+id+". Resolve it before reconciliation.");masterById.set(id,{row:r,rowNo:i+1});}}
   const paidById=new Map<string,string[][]>();
@@ -130,7 +130,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     const malformed=paidFields.some(v=>v!==undefined&&String(v??"").trim()!==""&&amount(v)===null);
     if(malformed||old===null){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid – non-numeric amount or missing Master Total"});continue;}
     if(total===null||dac===null||(pEcs>=0&&ecs===null)||(pSpecial>=0&&special===null)){pending++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Pending – blank payment amount"});continue;}
-    const allPaymentValuesZero=total===0&&dac===0&&(pEcs<0||ecs===0)&&(pSpecial<0||special===0);
+    const allPaymentValuesZero=total===0&&dac===0&&ecs===0&&special===0;
     if(allPaymentValuesZero){zeroZero++;manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(pDate>=0?p[pDate]??"":""),dac,ecs,special,status:"Manual Review – DAC, ECS, Special and Total are zero"});continue;}
     const prior=previous.get(id);
     if(prior&&seq<prior.sequence){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Stale snapshot"});continue;}
