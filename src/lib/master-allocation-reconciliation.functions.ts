@@ -46,18 +46,20 @@ async function ensureTabs(id: string, titles: string[]) {
 async function readHistory(id:string) {
   const meta=await json<{sheets?:{properties?:{title?:string}}[]}>(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"?fields=sheets.properties",{headers:headers("GOOGLE_SHEETS_API_KEY")}),"Master spreadsheet metadata");
   const names=new Set((meta.sheets??[]).map(s=>s.properties?.title));
-  const [audit,state]=await Promise.all([
+  const [audit,state,resolutions]=await Promise.all([
     names.has("Paid File Audit")?sheetValues(id,"'Paid File Audit'!A1:H"):Promise.resolve([] as string[][]),
-    names.has("Paid File Snapshot State")?sheetValues(id,"'Paid File Snapshot State'!A1:G"):Promise.resolve([] as string[][])
+    names.has("Paid File Snapshot State")?sheetValues(id,"'Paid File Snapshot State'!A1:G"):Promise.resolve([] as string[][]),
+    names.has("Paid File Review Resolutions")?sheetValues(id,"'Paid File Review Resolutions'!A1:I"):Promise.resolve([] as string[][])
   ]);
-  return {audit,state};
+  return {audit,state,resolutions};
 }
 async function ensureHeaders(id:string) {
-  const [audit,state]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:G1")]);
+  const [audit,state,resolutions]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:G1"),sheetValues(id,"'Paid File Review Resolutions'!A1:I1")]);
   const data:{range:string;values:string[][]}[]=[];
   if(!audit.length)data.push({range:"'Paid File Audit'!A1:H1",values:[["Applied At","Paid File ID","Paid File Name","Agreement ID","New Total","Master Row","Status","Fingerprint"]]});
   if(!state.length)data.push({range:"'Paid File Snapshot State'!A1:G1",values:[["Agreement ID","Latest Sequence","Latest Cumulative Total","Paid File ID","Accepted At","Paid File Name","Snapshot Date"]]});
   else if(!(state[0]??[])[6])data.push({range:"'Paid File Snapshot State'!G1",values:[["Snapshot Date"]]});
+  if(!resolutions.length)data.push({range:"'Paid File Review Resolutions'!A1:I1",values:[["Agreement ID","Review Type","Resolved Difference","Admin New Total","Paid File Total","Decision","Resolved By","Resolved At","Source Paid File"]]});
   if(data.length)await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data})}),"Initialize reconciliation headers");
 }
 function norm(v: unknown) { return String(v ?? "").trim().toUpperCase().replace(/^['`]+/,"").replace(/[^A-Z0-9]/g,""); }
@@ -72,8 +74,8 @@ function amount(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 function col(n:number) { let x=n+1,s="";while(x){const r=(x-1)%26;s=String.fromCharCode(65+r)+s;x=Math.floor((x-1)/26);}return s; }
-type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string};
-type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
+type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number|undefined};
+type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
 async function masterFile() {
   const title = monthTitle();
   const files = await driveList("name = '" + title.replace(/'/g,"\\'") + "' and mimeType = '" + SHEET_MIME + "'");
@@ -93,14 +95,14 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     sheetValues(file.id,"A1:AZ"),
     readHistory(masterId)
   ]);
-  const {audit,state}=history;
+  const {audit,state,resolutions}=history;
   if(master.length<2||paid.length<2) throw new Error("Master Data or Paid File has no data rows.");
   const mh=master[0]!, ph=paid[0]!;
   const mi=headerIndex(mh,["Agreement ID","Loan Number","Loan No"]), pi=headerIndex(ph,["Agreement ID","Loan Number","Loan No"]);
   const mTotal=headerIndex(mh,["Total"]), mNew=headerIndex(mh,["New Total"]), mRemain=headerIndex(mh,["Remaining"]), mDate=headerIndex(mh,["Date","Payment Date"]), mDac=headerIndex(mh,["DAC"]), mEcs=headerIndex(mh,["ECS"]), mSpecial=headerIndex(mh,["Special"]);
   const mSfdc=headerIndex(mh,["SFDC"]), mOnline=headerIndex(mh,["Online"]);
   const pTotal=headerIndex(ph,["Total","Paid Amount","Payment Amount","New Total"]), pDate=headerIndex(ph,["Date","Payment Date","Paid Date"]), pDac=headerIndex(ph,["DAC"]), pEcs=headerIndex(ph,["ECS"]), pSpecial=headerIndex(ph,["Special"]);
-  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal].some(x=>x<0)) throw new Error("Required Agreement ID, Date, DAC, Total, New Total or Remaining columns are missing.");
+  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pDac,pEcs,pSpecial].some(x=>x<0)) throw new Error("Required Agreement ID, DAC, ECS, Special and Total columns in Paid File, plus Date, DAC, Original Total, New Total and Remaining columns in Master Data, are required.");
   const masterById=new Map<string,{row:string[];rowNo:number}>();
   for(let i=1;i<master.length;i++){const r=master[i]??[];const id=norm(r[mi]);if(id){if(masterById.has(id)) throw new Error("Duplicate loan number exists in Master Data: "+id+". Resolve it before reconciliation.");masterById.set(id,{row:r,rowNo:i+1});}}
   const paidById=new Map<string,string[][]>();
@@ -115,7 +117,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   for(const r of state.slice(1)){const snapshotName=String(r[5]??"");const sameDay=String(r[6]??"")===dateKey()||(!r[6]&&snapshotName.startsWith(todayPrefix));const id=norm(r[0]);const priorSeq=Number(r[1]);const amt=amount(r[2]);if(sameDay&&id&&Number.isFinite(priorSeq)&&amt!==null)previous.set(id,{sequence:priorSeq,amount:amt});}
   const preview:RowPreview[]=[]; const writes:{range:string;values:(string|number)[][]}[]=[];
   const notFoundLoans:string[]=[];
-  let notFound=0,zeroZero=0,duplicates=0,invalid=0,overpaid=0,manualReview=0,found=0;
+  let notFound=0,zeroZero=0,duplicates=0,invalid=0,pending=0,overpaid=0,manualReview=0,found=0;
   const stateWrites:(string|number)[][]=[];
   for(const [id,masterRow] of masterById){
     const matches=paidById.get(id);
@@ -126,19 +128,33 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     const total=amount(p[pTotal]), old=amount(masterRow.row[mTotal]);
     const dac=pDac>=0?amount(p[pDac]):(mSfdc>=0?(amount(masterRow.row[mSfdc])??0):0)+(mOnline>=0?(amount(masterRow.row[mOnline])??0):0);
     const ecs=pEcs>=0?amount(p[pEcs]):null, special=pSpecial>=0?amount(p[pSpecial]):null;
-    if(total===null||old===null||dac===null||(pEcs>=0&&ecs===null)||(pSpecial>=0&&special===null)){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid / blank amount"});continue;}
+    const paidFields=[p[pTotal],pDac>=0?p[pDac]:undefined,pEcs>=0?p[pEcs]:undefined,pSpecial>=0?p[pSpecial]:undefined];
+    const malformed=paidFields.some(v=>v!==undefined&&String(v??"").trim()!==""&&amount(v)===null);
+    if(malformed||old===null){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid – non-numeric amount or missing Master Total"});continue;}
+    if(total===null||dac===null||(pEcs>=0&&ecs===null)||(pSpecial>=0&&special===null)){pending++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Pending – blank payment amount"});continue;}
+    const allPaymentValuesZero=total===0&&dac===0&&ecs===0&&special===0;
+    if(allPaymentValuesZero){zeroZero++;manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(pDate>=0?p[pDate]??"":""),dac,ecs,special,status:"Manual Review – DAC, ECS, Special and Total are zero"});continue;}
     const prior=previous.get(id);
+    const adminNewTotal=amount(masterRow.row[mNew]);
+    const adminDifference=adminNewTotal!==null&&adminNewTotal>total?adminNewTotal-total:0;
+    const resolvedDifference=adminDifference>0&&resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="ADMIN_TOTAL_EXCEEDS_PAID_FILE"&&amount(r[2])===adminDifference&&String(r[5]??"")==="KEEP_ADMIN_TOTAL");
+    if(adminDifference>0&&!resolvedDifference){
+      manualReview++;
+      preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-adminNewTotal!,date:String(pDate>=0?p[pDate]??"":""),dac,ecs,special,difference:adminDifference,status:"Manual Review – Admin New Total exceeds Paid File by "+adminDifference});
+      continue;
+    }
     if(prior&&seq<prior.sequence){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Stale snapshot"});continue;}
     if(prior&&seq===prior.sequence&&total!==prior.amount){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Same sequence changed – manual review"});continue;}
     if(prior&&seq>prior.sequence&&total<prior.amount){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Amount decreased – correction review"});continue;}
-    const date=String(pDate>=0?p[pDate]??"":"").trim(), remaining=old-total;
-    const zero=total===0&&dac===0&&(ecs===null||ecs===0)&&(special===null||special===0);
-    if(zero)zeroZero++;
+    const date=String(pDate>=0?p[pDate]??"":"").trim();
+    const retainedNewTotal=resolvedDifference&&adminNewTotal!==null?adminNewTotal:total;
+    const remaining=old-retainedNewTotal;
     if(remaining<0)overpaid++;
-    const status=zero?"Zero-Zero":remaining<0?"Overpaid":"Ready";
-    preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining,date,dac,ecs,special,status});
+    const status=resolvedDifference?"Resolved – Admin New Total preserved":remaining<0?"Overpaid":"Ready";
+    preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:retainedNewTotal,remaining,date,dac,ecs,special,status,difference:resolvedDifference?adminDifference:undefined});
     if(date)writes.push({range:"Data!"+col(mDate)+masterRow.rowNo,values:[[date]]});
-    writes.push({range:"Data!"+col(mDac)+masterRow.rowNo,values:[[dac]]},{range:"Data!"+col(mNew)+masterRow.rowNo,values:[[total]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[remaining]]});
+    writes.push({range:"Data!"+col(mDac)+masterRow.rowNo,values:[[dac]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[remaining]]});
+    if(!resolvedDifference)writes.push({range:"Data!"+col(mNew)+masterRow.rowNo,values:[[total]]});
     if(mEcs>=0&&ecs!==null)writes.push({range:"Data!"+col(mEcs)+masterRow.rowNo,values:[[ecs]]});
     if(mSpecial>=0&&special!==null)writes.push({range:"Data!"+col(mSpecial)+masterRow.rowNo,values:[[special]]});
     stateWrites.push([id,seq,total,file.id,new Date().toISOString(),file.name,dateKey()]);
@@ -149,9 +165,9 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     writes.length=0;
     stateWrites.length=0;
   }
-  const ready=preview.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
-  const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,overpaid,manualReview};
-  const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1)]);
+  const ready=preview.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved"].includes(r.status));
+  const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,pending,overpaid,manualReview};
+  const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1),resolutions.slice(1)]);
   const fingerprint=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(digest)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
   const auditRows=ready.map(r=>[new Date().toISOString(),file.id,file.name,r.loan,r.newTotal,r.row,r.status,fingerprint]);
   const auditWrite=auditRows.length?{range:"'Paid File Audit'!A"+(Math.max(audit.length,1)+1)+":H"+(Math.max(audit.length,1)+auditRows.length),values:auditRows}:null;
@@ -179,18 +195,34 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   const session=await requireSession("Admin"), master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
   if(!file)throw new Error("Selected file is no longer in the current-day Paid File list.");
   if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Resolve the duplicate sequence before applying.");
-  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
+  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions"]);
   await ensureHeaders(master.id);
   const result=await build(master.id,file);
   if(result.fingerprint!==data.fingerprint)throw new Error("Master Allocation, Paid File, or reconciliation history changed after preview. Refresh preview and approve the new version.");
-  if(result.counts.duplicates||result.counts.invalid||result.counts.manualReview)throw new Error("Write-back blocked: duplicate, invalid or manual-review cases must be resolved first.");
-  const eligible=result.rows.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
-  if(!eligible.length)throw new Error("No eligible Master Allocation loans were found.");
+  const eligible=result.rows.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved"].includes(r.status));
+  if(!eligible.length)throw new Error("No eligible payment rows were found. Pending, invalid, duplicate and manual-review rows are skipped.");
   const payload=result.writes;
   if(!payload.length)throw new Error("No write operations were generated.");
   const res=await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"USER_ENTERED",data:payload})});
   await json(res,"Reconciliation write-back");
   return {ok:true,applied:eligible.length,counts:result.counts,appliedBy:session.name};
+});
+
+export const resolveMasterAllocationReview = createServerFn({method:"POST"})
+.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),loan:z.string().min(1),decision:z.literal("KEEP_ADMIN_TOTAL")}).parse(v))
+.handler(async({data})=>{
+  const session=await requireSession("Admin"), master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
+  if(!file)throw new Error("Selected Paid File is no longer available.");
+  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions"]);
+  await ensureHeaders(master.id);
+  const result=await build(master.id,file), row=result.rows.find(r=>norm(r.loan)===norm(data.loan));
+  if(!row||!row.status.startsWith("Manual Review – Admin New Total exceeds Paid File by ")||!row.difference)throw new Error("This loan no longer has the expected positive difference. Refresh the preview.");
+  const values=await sheetValues(master.id,"'Paid File Review Resolutions'!A1:I");
+  const already=values.slice(1).some(r=>norm(r[0])===norm(row.loan)&&String(r[1]??"")==="ADMIN_TOTAL_EXCEEDS_PAID_FILE"&&amount(r[2])===row.difference&&String(r[5]??"")==="KEEP_ADMIN_TOTAL");
+  if(already)return {ok:true,alreadyResolved:true,loan:row.loan};
+  const next=Math.max(values.length,1)+1;
+  await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data:[{range:"'Paid File Review Resolutions'!A"+next+":I"+next,values:[[row.loan,"ADMIN_TOTAL_EXCEEDS_PAID_FILE",row.difference,row.newTotal+row.difference,row.newTotal,"KEEP_ADMIN_TOTAL",session.name,new Date().toISOString(),file.name]]}]})}),"Save review resolution");
+  return {ok:true,alreadyResolved:false,loan:row.loan,difference:row.difference};
 });
 
 
