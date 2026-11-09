@@ -6,7 +6,6 @@ import { SPREADSHEET_ID, DRIVE_FOLDER_ID } from "./mahavtaar.server";
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SETTINGS_TAB = "AppSettings";
 const MASTER_KEY = "paidFileMasterSpreadsheetId";
-const XLSB_MIME = "application/vnd.ms-excel.sheet.binary.macroEnabled.12";
 const GOOGLE_SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 
 function connectorHeaders(key: string) {
@@ -163,31 +162,24 @@ export const uploadPaidFile = createServerFn({ method: "POST" })
     await requireSession("Admin");
     const masterId = await getMasterId();
     if (!masterId) throw new Error("Choose the Master Allocation spreadsheet first.");
-    if (!/\.xlsb$/i.test(data.fileName)) throw new Error("Paid File must be an .xlsb workbook.");
+    if (!/\.xlsx$/i.test(data.fileName)) throw new Error("The converted Paid File must be an .xlsx workbook.");
     const base64 = data.base64.replace(/^data:[^,]+,/, "").replace(/\s/g, "");
     const bytes = Buffer.from(base64, "base64");
-    if (bytes.length < 8 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error("The uploaded file is not a valid XLSB/OOXML container.");
-    if (bytes.length > 12 * 1024 * 1024) throw new Error("Paid File exceeds the 12 MB limit.");
+    if (bytes.length < 8 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error("The converted file is not a valid XLSX workbook.");
+    if (bytes.length > 12 * 1024 * 1024) throw new Error("Converted XLSX exceeds the 12 MB upload limit.");
     const driveHeaders = connectorHeaders("GOOGLE_DRIVE_API_KEY");
-    const originalBoundary = "paidoriginal" + crypto.randomUUID().replace(/-/g, "");
-    const originalMetadata = JSON.stringify({ name: data.fileName, parents: [DRIVE_FOLDER_ID], mimeType: XLSB_MIME });
-    const originalPrefix = Buffer.from(`--${originalBoundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${originalMetadata}\r\n--${originalBoundary}\r\nContent-Type: ${XLSB_MIME}\r\n\r\n`);
-    const suffix = Buffer.from(`\r\n--${originalBoundary}--\r\n`);
-    const originalBody = Buffer.concat([originalPrefix, bytes, suffix]);
-    const originalUpload = await fetch(`${GATEWAY}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType`, { method: "POST", headers: { ...driveHeaders, "Content-Type": `multipart/related; boundary=${originalBoundary}` }, body: originalBody });
-    const original = await checkedJson<{ id: string; name?: string; mimeType?: string }>(originalUpload, "Original XLSB upload");
-    const boundary = "paidconvert" + crypto.randomUUID().replace(/-/g, "");
-    const metadata = JSON.stringify({ name: data.fileName.replace(/\.xlsb$/i, "") + " (Converted)", parents: [DRIVE_FOLDER_ID], mimeType: GOOGLE_SHEET_MIME });
-    const prefix = Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: ${XLSB_MIME}\r\n\r\n`);
-    const conversionSuffix = Buffer.from(`\r\n--${boundary}--\r\n`);
-    const body = Buffer.concat([prefix, bytes, conversionSuffix]);
+    const boundary = "paidxlsx" + crypto.randomUUID().replace(/-/g, "");
+    const metadata = JSON.stringify({ name: data.fileName.replace(/\.xlsx$/i, "") + " (Converted)", parents: [DRIVE_FOLDER_ID], mimeType: GOOGLE_SHEET_MIME });
+    const prefix = Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n`);
+    const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
+    const body = Buffer.concat([prefix, bytes, suffix]);
     const upload = await fetch(`${GATEWAY}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink`, { method: "POST", headers: { ...driveHeaders, "Content-Type": `multipart/related; boundary=${boundary}` }, body });
-    const converted = await checkedJson<{ id: string; name?: string; mimeType?: string }>(upload, "XLSB conversion to Google Sheets");
-    if (converted["mimeType"] !== GOOGLE_SHEET_MIME) throw new Error("Google Drive did not convert this XLSB workbook to a Google Sheet. Original XLSB is safely stored in Drive; no master data was changed.");
+    const converted = await checkedJson<{ id: string; name?: string; mimeType?: string }>(upload, "XLSX conversion to Google Sheets");
+    if (converted["mimeType"] !== GOOGLE_SHEET_MIME) throw new Error("Google Drive did not convert the XLSX workbook to a Google Sheet. No master data was changed.");
     const file = await getDriveFile(converted["id"]);
     if (file["trashed"]) throw new Error("Converted Paid File is not available in Drive.");
     const result = await buildPreview(masterId, converted["id"]);
-    return { fileId: converted["id"], originalFileId: original["id"], fileName: converted.name ?? data.fileName, ...result };
+    return { fileId: converted["id"], fileName: converted.name ?? data.fileName, ...result };
   });
 
 export const previewPaidFile = createServerFn({ method: "POST" })
