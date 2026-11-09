@@ -6,6 +6,7 @@ const GATEWAY = "https://connector-gateway.lovable.dev";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 const TZ = "Asia/Kolkata";
 const monthTitle = () => "Mahavtaar Master Allocation " + new Intl.DateTimeFormat("en-US", { timeZone: TZ, month: "long", year: "numeric" }).format(new Date());
+const dateKey = () => { const p = dateParts(); return new Date(Date.UTC(Number(p.year), new Date(p.month+" 1, "+p.year).getMonth(), Number(p.day))).toISOString().slice(0,10); };
 const dateParts = () => {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: TZ, month: "long", day: "numeric", year: "numeric" }).formatToParts(new Date());
   const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
@@ -42,11 +43,21 @@ async function ensureTabs(id: string, titles: string[]) {
   const requests = titles.filter(t => !existing.has(t)).map(title => ({addSheet:{properties:{title}}}));
   if (requests.length) await json(await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + ":batchUpdate", {method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({requests})}), "Create reconciliation tabs");
 }
+async function readHistory(id:string) {
+  const meta=await json<{sheets?:{properties?:{title?:string}}[]}>(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"?fields=sheets.properties",{headers:headers("GOOGLE_SHEETS_API_KEY")}),"Master spreadsheet metadata");
+  const names=new Set((meta.sheets??[]).map(s=>s.properties?.title));
+  const [audit,state]=await Promise.all([
+    names.has("Paid File Audit")?sheetValues(id,"'Paid File Audit'!A1:H"):Promise.resolve([] as string[][]),
+    names.has("Paid File Snapshot State")?sheetValues(id,"'Paid File Snapshot State'!A1:G"):Promise.resolve([] as string[][])
+  ]);
+  return {audit,state};
+}
 async function ensureHeaders(id:string) {
-  const [audit,state]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:F1")]);
+  const [audit,state]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:G1")]);
   const data:{range:string;values:string[][]}[]=[];
   if(!audit.length)data.push({range:"'Paid File Audit'!A1:H1",values:[["Applied At","Paid File ID","Paid File Name","Agreement ID","New Total","Master Row","Status","Fingerprint"]]});
-  if(!state.length)data.push({range:"'Paid File Snapshot State'!A1:F1",values:[["Agreement ID","Latest Sequence","Latest Cumulative Total","Paid File ID","Accepted At","Paid File Name"]]});
+  if(!state.length)data.push({range:"'Paid File Snapshot State'!A1:G1",values:[["Agreement ID","Latest Sequence","Latest Cumulative Total","Paid File ID","Accepted At","Paid File Name","Snapshot Date"]]});
+  else if(!(state[0]??[])[6])data.push({range:"'Paid File Snapshot State'!G1",values:[["Snapshot Date"]]});
   if(data.length)await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data})}),"Initialize reconciliation headers");
 }
 function norm(v: unknown) { return String(v ?? "").trim().toUpperCase().replace(/^['`]+/,"").replace(/[^A-Z0-9]/g,""); }
@@ -62,7 +73,7 @@ function amount(v: unknown): number | null {
 }
 function col(n:number) { let x=n+1,s="";while(x){const r=(x-1)%26;s=String.fromCharCode(65+r)+s;x=Math.floor((x-1)/26);}return s; }
 type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string};
-type Built = { rows:RowPreview[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
+type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
 async function masterFile() {
   const title = monthTitle();
   const files = await driveList("name = '" + title.replace(/'/g,"\\'") + "' and mimeType = '" + SHEET_MIME + "'");
@@ -77,12 +88,12 @@ async function paidFiles() {
 }
 async function build(masterId:string,file:DriveFile):Promise<Built> {
   if(file.mimeType!==SHEET_MIME) throw new Error("Paid File must be a native Google Sheet.");
-  const [master,paid,audit,state]=await Promise.all([
+  const [master,paid,history]=await Promise.all([
     sheetValues(masterId,"Data!A1:GY"),
     sheetValues(file.id,"A1:AZ"),
-    sheetValues(masterId,"'Paid File Audit'!A1:K"),
-    sheetValues(masterId,"'Paid File Snapshot State'!A1:F")
+    readHistory(masterId)
   ]);
+  const {audit,state}=history;
   if(master.length<2||paid.length<2) throw new Error("Master Data or Paid File has no data rows.");
   const mh=master[0]!, ph=paid[0]!;
   const mi=headerIndex(mh,["Agreement ID","Loan Number","Loan No"]), pi=headerIndex(ph,["Agreement ID","Loan Number","Loan No"]);
@@ -97,16 +108,18 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   const appliedIds=new Set(audit.slice(1).filter(r=>r[1]===file.id).map(r=>r[1]));
   if(appliedIds.size) throw new Error("This Paid File has already been applied. A repeated application is blocked.");
   const seq=Number(file.name.slice(paidFilePrefix().length));
-  const appliedSequences=audit.slice(1).map(r=>Number(String(r[2]??"").match(/ - (\\d+)$/)?.[1]??0)).filter(n=>Number.isSafeInteger(n)&&n>0);
+  const todayPrefix=paidFilePrefix();
+  const appliedSequences=audit.slice(1).filter(r=>String(r[2]??"").startsWith(todayPrefix)).map(r=>Number(String(r[2]??"").match(/ - (\d+)$/)?.[1]??0)).filter(n=>Number.isSafeInteger(n)&&n>0);
   const latestAppliedSequence=appliedSequences.length?Math.max(...appliedSequences):0;
   const previous=new Map<string,{sequence:number;amount:number}>();
-  for(const r of state.slice(1)){const id=norm(r[0]);const seq=Number(r[1]);const amt=amount(r[2]);if(id&&Number.isFinite(seq)&&amt!==null)previous.set(id,{sequence:seq,amount:amt});}
+  for(const r of state.slice(1)){const snapshotName=String(r[5]??"");const sameDay=String(r[6]??"")===dateKey()||(!r[6]&&snapshotName.startsWith(todayPrefix));const id=norm(r[0]);const priorSeq=Number(r[1]);const amt=amount(r[2]);if(sameDay&&id&&Number.isFinite(priorSeq)&&amt!==null)previous.set(id,{sequence:priorSeq,amount:amt});}
   const preview:RowPreview[]=[]; const writes:{range:string;values:(string|number)[][]}[]=[];
+  const notFoundLoans:string[]=[];
   let notFound=0,zeroZero=0,duplicates=0,invalid=0,overpaid=0,manualReview=0,found=0;
   const stateWrites:(string|number)[][]=[];
   for(const [id,masterRow] of masterById){
     const matches=paidById.get(id);
-    if(!matches){notFound++;continue;}
+    if(!matches){notFound++;notFoundLoans.push(id);continue;}
     found++;
     if(matches.length!==1){duplicates++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:amount(masterRow.row[mTotal])??0,newTotal:0,remaining:0,date:"",dac:0,ecs:null,special:null,status:"Duplicate – manual review"});continue;}
     const p=matches[0]!;
@@ -128,7 +141,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     writes.push({range:"Data!"+col(mDac)+masterRow.rowNo,values:[[dac]]},{range:"Data!"+col(mNew)+masterRow.rowNo,values:[[total]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[remaining]]});
     if(mEcs>=0&&ecs!==null)writes.push({range:"Data!"+col(mEcs)+masterRow.rowNo,values:[[ecs]]});
     if(mSpecial>=0&&special!==null)writes.push({range:"Data!"+col(mSpecial)+masterRow.rowNo,values:[[special]]});
-    stateWrites.push([id,seq,total,file.id,new Date().toISOString(),file.name]);
+    stateWrites.push([id,seq,total,file.id,new Date().toISOString(),file.name,dateKey()]);
   }
   if(latestAppliedSequence>seq){
     manualReview++;
@@ -138,18 +151,16 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   }
   const ready=preview.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
   const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,overpaid,manualReview};
-  const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid]);
+  const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1)]);
   const fingerprint=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(digest)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
   const auditRows=ready.map(r=>[new Date().toISOString(),file.id,file.name,r.loan,r.newTotal,r.row,r.status,fingerprint]);
-  const auditWrite=auditRows.length?{range:"'Paid File Audit'!A"+(audit.length+1)+":H"+(audit.length+auditRows.length),values:auditRows}:null;
-  const stateWrite=stateWrites.length?{range:"'Paid File Snapshot State'!A"+(state.length+1)+":F"+(state.length+stateWrites.length),values:stateWrites}:null;
-  return {rows:preview,counts,writes:[...writes,...(auditWrite?[auditWrite]:[]),...(stateWrite?[stateWrite]:[])],fingerprint,sequence:seq};
+  const auditWrite=auditRows.length?{range:"'Paid File Audit'!A"+(Math.max(audit.length,1)+1)+":H"+(Math.max(audit.length,1)+auditRows.length),values:auditRows}:null;
+  const stateWrite=stateWrites.length?{range:"'Paid File Snapshot State'!A"+(Math.max(state.length,1)+1)+":G"+(Math.max(state.length,1)+stateWrites.length),values:stateWrites}:null;
+  return {rows:preview,notFoundLoans,counts,writes:[...writes,...(auditWrite?[auditWrite]:[]),...(stateWrite?[stateWrite]:[])],fingerprint,sequence:seq};
 }
 export const getMasterAllocationReconciliation = createServerFn({method:"GET"}).handler(async()=>{
   await requireSession("Admin");
   const master=await masterFile(), files=await paidFiles();
-  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
-  await ensureHeaders(master.id);
   return {master:{id:master.id,name:master.name,url:master.webViewLink??("https://docs.google.com/spreadsheets/d/"+master.id+"/edit")},files:files.map(f=>({id:f.id,name:f.name,sequence:f.sequence,modifiedTime:f.modifiedTime??"",url:f.webViewLink??("https://docs.google.com/spreadsheets/d/"+f.id+"/edit")}))};
 });
 export const previewMasterAllocationReconciliation = createServerFn({method:"POST"})
@@ -159,10 +170,8 @@ export const previewMasterAllocationReconciliation = createServerFn({method:"POS
   const master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
   if(!file)throw new Error("Selected file is not a current-day Paid File Google Sheet.");
   if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Rename the files to unique -01, -02, -03 sequence numbers.");
-  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
-  await ensureHeaders(master.id);
   const result=await build(master.id,file);
-  return {file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
+  return {file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
 });
 export const applyMasterAllocationReconciliation = createServerFn({method:"POST"})
 .inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),fingerprint:z.string().length(64),confirm:z.literal(true)}).parse(v))
@@ -173,7 +182,7 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
   await ensureHeaders(master.id);
   const result=await build(master.id,file);
-  if(result.fingerprint!==data.fingerprint)throw new Error("Paid File changed after preview. Refresh preview and approve the new version.");
+  if(result.fingerprint!==data.fingerprint)throw new Error("Master Allocation, Paid File, or reconciliation history changed after preview. Refresh preview and approve the new version.");
   if(result.counts.duplicates||result.counts.invalid||result.counts.manualReview)throw new Error("Write-back blocked: duplicate, invalid or manual-review cases must be resolved first.");
   const eligible=result.rows.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
   if(!eligible.length)throw new Error("No eligible Master Allocation loans were found.");
