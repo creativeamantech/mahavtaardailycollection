@@ -43,6 +43,15 @@ async function ensureTabs(id: string, titles: string[]) {
   const requests = titles.filter(t => !existing.has(t)).map(title => ({addSheet:{properties:{title}}}));
   if (requests.length) await json(await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + ":batchUpdate", {method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({requests})}), "Create reconciliation tabs");
 }
+async function readHistory(id:string) {
+  const meta=await json<{sheets?:{properties?:{title?:string}}[]}>(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"?fields=sheets.properties",{headers:headers("GOOGLE_SHEETS_API_KEY")}),"Master spreadsheet metadata");
+  const names=new Set((meta.sheets??[]).map(s=>s.properties?.title));
+  const [audit,state]=await Promise.all([
+    names.has("Paid File Audit")?sheetValues(id,"'Paid File Audit'!A1:H"):Promise.resolve([] as string[][]),
+    names.has("Paid File Snapshot State")?sheetValues(id,"'Paid File Snapshot State'!A1:G"):Promise.resolve([] as string[][])
+  ]);
+  return {audit,state};
+}
 async function ensureHeaders(id:string) {
   const [audit,state]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:G1")]);
   const data:{range:string;values:string[][]}[]=[];
@@ -79,12 +88,12 @@ async function paidFiles() {
 }
 async function build(masterId:string,file:DriveFile):Promise<Built> {
   if(file.mimeType!==SHEET_MIME) throw new Error("Paid File must be a native Google Sheet.");
-  const [master,paid,audit,state]=await Promise.all([
+  const [master,paid,history]=await Promise.all([
     sheetValues(masterId,"Data!A1:GY"),
     sheetValues(file.id,"A1:AZ"),
-    sheetValues(masterId,"'Paid File Audit'!A1:K"),
-    sheetValues(masterId,"'Paid File Snapshot State'!A1:G")
+    readHistory(masterId)
   ]);
+  const {audit,state}=history;
   if(master.length<2||paid.length<2) throw new Error("Master Data or Paid File has no data rows.");
   const mh=master[0]!, ph=paid[0]!;
   const mi=headerIndex(mh,["Agreement ID","Loan Number","Loan No"]), pi=headerIndex(ph,["Agreement ID","Loan Number","Loan No"]);
@@ -142,18 +151,16 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   }
   const ready=preview.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
   const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,overpaid,manualReview};
-  const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit,state]);
+  const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1)]);
   const fingerprint=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(digest)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
   const auditRows=ready.map(r=>[new Date().toISOString(),file.id,file.name,r.loan,r.newTotal,r.row,r.status,fingerprint]);
-  const auditWrite=auditRows.length?{range:"'Paid File Audit'!A"+(audit.length+1)+":H"+(audit.length+auditRows.length),values:auditRows}:null;
-  const stateWrite=stateWrites.length?{range:"'Paid File Snapshot State'!A"+(state.length+1)+":G"+(state.length+stateWrites.length),values:stateWrites}:null;
+  const auditWrite=auditRows.length?{range:"'Paid File Audit'!A"+(Math.max(audit.length,1)+1)+":H"+(Math.max(audit.length,1)+auditRows.length),values:auditRows}:null;
+  const stateWrite=stateWrites.length?{range:"'Paid File Snapshot State'!A"+(Math.max(state.length,1)+1)+":G"+(Math.max(state.length,1)+stateWrites.length),values:stateWrites}:null;
   return {rows:preview,notFoundLoans,counts,writes:[...writes,...(auditWrite?[auditWrite]:[]),...(stateWrite?[stateWrite]:[])],fingerprint,sequence:seq};
 }
 export const getMasterAllocationReconciliation = createServerFn({method:"GET"}).handler(async()=>{
   await requireSession("Admin");
   const master=await masterFile(), files=await paidFiles();
-  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
-  await ensureHeaders(master.id);
   return {master:{id:master.id,name:master.name,url:master.webViewLink??("https://docs.google.com/spreadsheets/d/"+master.id+"/edit")},files:files.map(f=>({id:f.id,name:f.name,sequence:f.sequence,modifiedTime:f.modifiedTime??"",url:f.webViewLink??("https://docs.google.com/spreadsheets/d/"+f.id+"/edit")}))};
 });
 export const previewMasterAllocationReconciliation = createServerFn({method:"POST"})
@@ -163,8 +170,6 @@ export const previewMasterAllocationReconciliation = createServerFn({method:"POS
   const master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
   if(!file)throw new Error("Selected file is not a current-day Paid File Google Sheet.");
   if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Rename the files to unique -01, -02, -03 sequence numbers.");
-  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
-  await ensureHeaders(master.id);
   const result=await build(master.id,file);
   return {file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
 });
@@ -181,6 +186,8 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   if(result.counts.duplicates||result.counts.invalid||result.counts.manualReview)throw new Error("Write-back blocked: duplicate, invalid or manual-review cases must be resolved first.");
   const eligible=result.rows.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
   if(!eligible.length)throw new Error("No eligible Master Allocation loans were found.");
+  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
+  await ensureHeaders(master.id);
   const payload=result.writes;
   if(!payload.length)throw new Error("No write operations were generated.");
   const res=await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"USER_ENTERED",data:payload})});
