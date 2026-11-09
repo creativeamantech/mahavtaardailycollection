@@ -121,7 +121,6 @@ const NAV = [
 
 const ADMIN_NAV = [
   { to: "/settings", label: "Settings", key: "settings" },
-  { to: "/paid-file", label: "Paid File", key: "settings" },
   { to: "/admin-loan-audit", label: "Productivity Desk", key: "adminLoanAudit" },
   { to: "/conflicts", label: "Conflicts", key: "conflicts" },
   { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
