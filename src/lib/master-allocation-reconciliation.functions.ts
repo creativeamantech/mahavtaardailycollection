@@ -95,10 +95,12 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   const paidById=new Map<string,string[][]>();
   for(let i=1;i<paid.length;i++){const r=paid[i]??[];const id=norm(r[pi]);if(id){const a=paidById.get(id)??[];a.push(r);paidById.set(id,a);}}
   const appliedIds=new Set(audit.slice(1).filter(r=>r[1]===file.id).map(r=>r[1]));
-  if(appliedIds.size) throw new Error("This Paid File has already been applied. Revisions require a new, separately named snapshot file.");
+  if(appliedIds.size) throw new Error("This Paid File has already been applied. A repeated application is blocked.");
+  const seq=Number(file.name.slice(paidFilePrefix().length));
+  const appliedSequences=audit.slice(1).map(r=>Number(String(r[2]??"").match(/ - (\\d+)$/)?.[1]??0)).filter(n=>Number.isSafeInteger(n)&&n>0);
+  const latestAppliedSequence=appliedSequences.length?Math.max(...appliedSequences):0;
   const previous=new Map<string,{sequence:number;amount:number}>();
   for(const r of state.slice(1)){const id=norm(r[0]);const seq=Number(r[1]);const amt=amount(r[2]);if(id&&Number.isFinite(seq)&&amt!==null)previous.set(id,{sequence:seq,amount:amt});}
-  const seq=Number(file.name.slice(paidFilePrefix().length));
   const preview:RowPreview[]=[]; const writes:{range:string;values:(string|number)[][]}[]=[];
   let notFound=0,zeroZero=0,duplicates=0,invalid=0,overpaid=0,manualReview=0,found=0;
   const stateWrites:(string|number)[][]=[];
@@ -128,6 +130,12 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     if(mSpecial>=0&&special!==null)writes.push({range:"Data!"+col(mSpecial)+masterRow.rowNo,values:[[special]]});
     stateWrites.push([id,seq,total,file.id,new Date().toISOString(),file.name]);
   }
+  if(latestAppliedSequence>seq){
+    manualReview++;
+    for(const row of preview) row.status="Stale snapshot – newer sequence already applied";
+    writes.length=0;
+    stateWrites.length=0;
+  }
   const ready=preview.filter(r=>["Ready","Overpaid","Zero-Zero"].includes(r.status));
   const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,overpaid,manualReview};
   const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid]);
@@ -150,6 +158,7 @@ export const previewMasterAllocationReconciliation = createServerFn({method:"POS
   await requireSession("Admin");
   const master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
   if(!file)throw new Error("Selected file is not a current-day Paid File Google Sheet.");
+  if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Rename the files to unique -01, -02, -03 sequence numbers.");
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
   await ensureHeaders(master.id);
   const result=await build(master.id,file);
@@ -160,6 +169,7 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
 .handler(async({data})=>{
   const session=await requireSession("Admin"), master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
   if(!file)throw new Error("Selected file is no longer in the current-day Paid File list.");
+  if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Resolve the duplicate sequence before applying.");
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
   await ensureHeaders(master.id);
   const result=await build(master.id,file);
