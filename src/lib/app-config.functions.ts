@@ -193,7 +193,7 @@ export const saveDefaultAllocationType = createServerFn({ method: "POST" })
     }
     return { ok: true as const };
   });
-\nexport const addNotification = createServerFn({ method: "POST" })
+export const addNotification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
