@@ -81,7 +81,7 @@ async function ensurePaidFileDac(fileId:string, paid:string[][]):Promise<{values
   if(sfdcIndex<0||onlineIndex<0) throw new Error("Paid File must contain both SFDC and Online columns so DAC can be calculated.");
   const existingDac=headerIndex(header,["DAC"]);
   const dacIndex=existingDac>=0?existingDac:header.length;
-  const values:string[][]=[];
+  const values:(string|number)[][]=[];
   values.push(["DAC"]);
   for(let i=1;i<paid.length;i++) {
     const row=paid[i]??[];
@@ -91,7 +91,7 @@ async function ensurePaidFileDac(fileId:string, paid:string[][]):Promise<{values
     values.push([sfdc===null||online===null?"INVALID":sfdc+online]);
   }
   const range=col(dacIndex)+"1:"+col(dacIndex)+Math.max(paid.length,1);
-  await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+encodeURIComponent(fileId)+"/values/"+encodeURIComponent(range)+":?valueInputOption=RAW",{method:"PUT",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({majorDimension:"ROWS",values})}),"Create or update Paid File DAC column");
+  await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+encodeURIComponent(fileId)+"/values/"+encodeURIComponent(range)+"?valueInputOption=RAW",{method:"PUT",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({majorDimension:"ROWS",values})}),"Create or update Paid File DAC column");
   const updated=paid.map((row,i)=>{const copy=[...(row??[])];copy[dacIndex]=i===0?"DAC":String(values[i]?.[0]??"");return copy;});
   return {values:updated,dacIndex};
 }
@@ -123,7 +123,6 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   const mh=master[0]!, ph=paid[0]!;
   const mi=headerIndex(mh,["Agreement ID","Loan Number","Loan No"]), pi=headerIndex(ph,["Agreement ID","Loan Number","Loan No"]);
   const mTotal=headerIndex(mh,["Total"]), mNew=headerIndex(mh,["New Total"]), mRemain=headerIndex(mh,["Remaining"]), mDate=headerIndex(mh,["Date","Payment Date"]), mDac=headerIndex(mh,["DAC"]), mEcs=headerIndex(mh,["ECS"]), mSpecial=headerIndex(mh,["Special"]);
-  const mSfdc=headerIndex(mh,["SFDC"]), mOnline=headerIndex(mh,["Online"]);
   const pTotal=headerIndex(ph,["Total","Paid Amount","Payment Amount","New Total"]), pDate=headerIndex(ph,["Date","Payment Date","Paid Date"]), pDac=paidResult.dacIndex, pEcs=headerIndex(ph,["ECS"]), pSpecial=headerIndex(ph,["Special"]);
   if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pEcs,pSpecial].some(x=>x<0)) throw new Error("Required Agreement ID, SFDC, Online, ECS, Special and Total columns in Paid File, plus Date, DAC, Original Total, New Total and Remaining columns in Master Data, are required.");
   const masterById=new Map<string,{row:string[];rowNo:number}>();
