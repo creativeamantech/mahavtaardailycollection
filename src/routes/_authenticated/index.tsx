@@ -843,18 +843,29 @@ function EntryPage() {
                         {entry.executive} · {entry.date} {entry.time}
                       </p>
                       {entry.receiptLinks?.length ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-3 flex flex-wrap gap-3">
                           {entry.receiptLinks.map((link, index) => (
                             <a
                               key={`${entry.row}-receipt-${index}`}
                               href={link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[#d9e4df] bg-[#f3faf6] px-2.5 py-1 text-xs font-semibold text-[#176044] hover:bg-[#e7f5ed]"
-                              aria-label={`Open receipt ${index + 1} for loan ${entry.loanId}`}
+                              className="group flex w-20 flex-col gap-1.5"
+                              aria-label={`Open receipt preview ${index + 1} for loan ${entry.loanId}`}
+                              title="Tap to view full receipt"
                             >
-                              <span aria-hidden="true">▧</span>
-                              View receipt{(entry.receiptLinks?.length ?? 0) > 1 ? ` ${index + 1}` : ""}
+                              <img
+                                src={link}
+                                alt={`Receipt ${index + 1} for loan ${entry.loanId}`}
+                                loading="lazy"
+                                className="h-24 w-20 rounded-lg border border-[#d9e4df] bg-[#f3faf6] object-cover shadow-sm transition group-hover:shadow-md"
+                                onError={(event) => {
+                                  event.currentTarget.style.display = "none";
+                                }}
+                              />
+                              <span className="truncate text-center text-[10px] font-semibold text-[#176044]">
+                                Receipt{(entry.receiptLinks?.length ?? 0) > 1 ? ` ${index + 1}` : ""}
+                              </span>
                             </a>
                           ))}
                         </div>
