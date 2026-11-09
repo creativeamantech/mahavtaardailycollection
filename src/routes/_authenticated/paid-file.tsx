@@ -20,7 +20,7 @@ function loadSheetJs(): Promise<SheetJs> {
     const onLoad=()=>window.XLSX?resolve(window.XLSX):reject(new Error("SheetJS loaded but its XLSX engine is unavailable."));
     const onError=()=>reject(new Error("Could not load the on-device XLSB converter. Check your internet connection and retry."));
     script.addEventListener("load",onLoad,{once:true}); script.addEventListener("error",onError,{once:true});
-    if(!existing){script.src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";script.async=true;script.dataset.sheetjsLoader="true";document.head.appendChild(script);}
+    if(!existing){script.src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";script.async=true;script.dataset["sheetjsLoader"]="true";document.head.appendChild(script);}
   });
 }
 export const Route = createFileRoute("/_authenticated/paid-file")({ component: PaidFilePage });
