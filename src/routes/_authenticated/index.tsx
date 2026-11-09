@@ -78,6 +78,8 @@ type ExistingEntry = {
   amount: number;
   date: string;
   time: string;
+  entryType?: string;
+  receiptLinks?: string[];
 };
 
 function normaliseLoanId(v: string) {
@@ -840,6 +842,36 @@ function EntryPage() {
                       <p className="mt-0.5 truncate text-xs text-[#7d8590]">
                         {entry.executive} · {entry.date} {entry.time}
                       </p>
+                      {entry.receiptLinks?.length ? (
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {entry.receiptLinks.map((link, index) => (
+                            <a
+                              key={`${entry.row}-receipt-${index}`}
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="group flex w-20 flex-col gap-1.5"
+                              aria-label={`Open receipt preview ${index + 1} for loan ${entry.loanId}`}
+                              title="Tap to view full receipt"
+                            >
+                              <img
+                                src={link}
+                                alt={`Receipt ${index + 1} for loan ${entry.loanId}`}
+                                loading="lazy"
+                                className="h-24 w-20 rounded-lg border border-[#d9e4df] bg-[#f3faf6] object-cover shadow-sm transition group-hover:shadow-md"
+                                onError={(event) => {
+                                  event.currentTarget.style.display = "none";
+                                }}
+                              />
+                              <span className="truncate text-center text-[10px] font-semibold text-[#176044]">
+                                Receipt{(entry.receiptLinks?.length ?? 0) > 1 ? ` ${index + 1}` : ""}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-[11px] text-[#9a6b25]">No receipt attached</p>
+                      )}
                     </div>
                     <p className="text-right text-sm font-extrabold tabular-nums text-[#174d3b]">
                       {formatAmount(Number(entry.amount) || 0)}

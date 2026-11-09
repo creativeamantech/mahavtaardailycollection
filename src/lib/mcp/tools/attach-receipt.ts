@@ -74,7 +74,10 @@ export default defineTool({
     const links = existingLinksRaw
       .split(/[|,\s]+/)
       .map((s: string) => s.trim())
-      .filter((s: string) => s.startsWith("http"));
+      .filter(
+        (s: string) =>
+          /^\/receipt\/[A-Za-z0-9_-]{20,100}$/.test(s) || /^https?:\/\//i.test(s),
+      );
 
     if (!links.includes(finalLink)) {
       links.push(finalLink);
