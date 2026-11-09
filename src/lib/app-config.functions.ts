@@ -38,6 +38,7 @@ const SETTINGS_TAB = "AppSettings";
 const NOTIF_TAB = "Notifications";
 // AppSettings key holding the default allocation category ("" = All Categories).
 export const DEFAULT_CATEGORY_KEY = "defaultAllocationCategory";
+export const DEFAULT_ALLOCATION_TYPE_KEY = "defaultAllocationType";
 export const HOLD_CASES_LOCK_KEY = "holdCasesLocked";
 
 export const getAppConfig = createServerFn({ method: "GET" }).handler(async () => {
@@ -87,7 +88,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }))
     .filter((n) => n.text !== "" || n.imageUrl !== "");
 
-  return { flags, notifications, defaultCategory, holdCasesLocked, session };
+  return { flags, notifications, defaultCategory, defaultAllocationType, holdCasesLocked, session };
 });
 
 export const saveFeatureFlags = createServerFn({ method: "POST" })
@@ -161,7 +162,29 @@ export const saveDefaultCategory = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-export const addNotification = createServerFn({ method: "POST" })
+
+export const saveDefaultAllocationType = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ allocationType: z.string().trim().max(100) }).parse(d))
+  .handler(async ({ data }) => {
+    await requireSession("Admin");
+    const { sheetsGet, sheetsUpdateStrict, ensureSheetStrict } = await import("./mahavtaar.server");
+    await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
+    let rows: string[][] = [];
+    try {
+      rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
+    } catch {
+      /* empty tab */
+    }
+    const idx = rows.findIndex((r) => (r[0] ?? "").trim() === DEFAULT_ALLOCATION_TYPE_KEY);
+    if (idx >= 0) {
+      await sheetsUpdateStrict(`${SETTINGS_TAB}!B${idx + 2}`, [[data.allocationType]]);
+    } else {
+      const row = rows.length + 2;
+      await sheetsUpdateStrict(`${SETTINGS_TAB}!A${row}:B${row}`, [[DEFAULT_ALLOCATION_TYPE_KEY, data.allocationType]]);
+    }
+    return { ok: true as const };
+  });
+\nexport const addNotification = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
