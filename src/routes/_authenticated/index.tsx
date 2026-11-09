@@ -854,7 +854,7 @@ function EntryPage() {
                               aria-label={`Open receipt ${index + 1} for loan ${entry.loanId}`}
                             >
                               <span aria-hidden="true">▧</span>
-                              View receipt{entry.receiptLinks.length > 1 ? ` ${index + 1}` : ""}
+                              View receipt{(entry.receiptLinks?.length ?? 0) > 1 ? ` ${index + 1}` : ""}
                             </a>
                           ))}
                         </div>
