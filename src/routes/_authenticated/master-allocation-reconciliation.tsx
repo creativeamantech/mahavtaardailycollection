@@ -1,0 +1,45 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
+import { toast } from "sonner";
+import { FileSpreadsheet, RefreshCw, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getMasterAllocationReconciliation, previewMasterAllocationReconciliation, applyMasterAllocationReconciliation } from "@/lib/master-allocation-reconciliation.functions";
+
+type FileItem={id:string;name:string;sequence:number;modifiedTime:string;url:string};
+type LoanRow={loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string};
+type Preview={file:{id:string;name:string;sequence:number};rows:LoanRow[];counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;overpaid:number;manualReview:number};fingerprint:string;sequence:number};
+const money=(v:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(v);
+export const Route=createFileRoute("/_authenticated/master-allocation-reconciliation")({component:ReconciliationPage});
+function ReconciliationPage(){
+  const qc=useQueryClient();
+  const load=useServerFn(getMasterAllocationReconciliation), previewFn=useServerFn(previewMasterAllocationReconciliation), applyFn=useServerFn(applyMasterAllocationReconciliation);
+  const {data,isLoading,error}=useQuery({queryKey:["master-allocation-reconciliation"],queryFn:()=>load(),staleTime:0});
+  const [selected,setSelected]=useState<Preview|null>(null);
+  const previewMutation=useMutation({mutationFn:(fileId:string)=>previewFn({data:{fileId}}),onSuccess:r=>{setSelected(r as Preview);toast.success("Read-only preview ready. Master Data has not been changed.");},onError:e=>toast.error(e.message)});
+  const applyMutation=useMutation({mutationFn:()=>{if(!selected)throw new Error("Preview a Paid File first.");return applyFn({data:{fileId:selected.file.id,fingerprint:selected.fingerprint,confirm:true}});},onSuccess:async r=>{toast.success("Applied "+r.applied+" Master Allocation loans. Audit and snapshot state recorded.");setSelected(null);await qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]});},onError:e=>toast.error(e.message)});
+  const files=(data?.files??[]) as FileItem[];
+  const counts=selected?.counts;
+  const busy=previewMutation.isPending||applyMutation.isPending;
+  return <main className="mx-auto w-full max-w-7xl space-y-5 px-3 py-5 sm:px-6">
+    <header className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-800"><FileSpreadsheet/></span><div className="min-w-0"><h1 className="text-xl font-extrabold">Master Allocation Reconciliation</h1><p className="mt-1 text-sm text-muted-foreground">Current-month Master Allocation is selected automatically. Same-day Paid File Google Sheets are listed by sequence.</p></div></div>
+      {data?.master&&<div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 p-3"><div><p className="text-xs text-muted-foreground">Current Master Allocation</p><p className="text-sm font-semibold">{data.master.name}</p></div><a className="text-sm font-semibold text-primary underline" href={data.master.url} target="_blank" rel="noreferrer">Open Master Sheet</a></div>}
+    </header>
+    {isLoading&&<p className="rounded-xl border bg-white p-4 text-sm">Loading Master Allocation and Paid Files…</p>}
+    {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error.message}</p>}
+    <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold">Available Paid File snapshots</h2><p className="text-xs text-muted-foreground">Only files matching today’s date and the exact Paid File naming pattern are listed. Extra loan IDs outside Master Data are ignored.</p></div><Button variant="outline" size="sm" onClick={()=>void qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]})}><RefreshCw className="mr-2 size-4"/>Refresh</Button></div>
+      {!isLoading&&!files.length&&<p className="mt-4 rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">No same-day Paid File Google Sheets found.</p>}
+      <div className="mt-3 divide-y rounded-xl border">{files.map(file=><div key={file.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="break-all text-sm font-semibold">{file.name}</p><p className="mt-1 text-xs text-muted-foreground">Snapshot sequence: {file.sequence}{file.modifiedTime?" · Updated "+new Date(file.modifiedTime).toLocaleString("en-IN",{timeZone:"Asia/Kolkata"}):""}</p></div><div className="flex shrink-0 gap-2"><a href={file.url} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-md border px-3 text-xs font-medium">Open</a><Button size="sm" variant="outline" disabled={busy} onClick={()=>previewMutation.mutate(file.id)}>Preview</Button></div></div>)}</div>
+    </section>
+    {selected&&counts&&<section className="space-y-4 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2"><div><h2 className="font-bold">Read-only preview</h2><p className="text-xs text-muted-foreground">{selected.file.name} · sequence {selected.sequence}</p></div><span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800"><ShieldCheck className="size-3"/>No write-back yet</span></div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">{[["Master loans",counts.master],["Found",counts.found],["Not found",counts.notFound],["Zero-Zero",counts.zeroZero],["Duplicates",counts.duplicates],["Invalid",counts.invalid],["Overpaid",counts.overpaid],["Manual review",counts.manualReview]].map(([label,value])=><div key={String(label)} className="rounded-xl bg-muted/50 p-3"><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 text-xl font-bold">{value}</p></div>)}</div>
+      <p className="text-xs text-muted-foreground">Matching iterates only Master Allocation loan numbers. Paid File loans absent from Master Allocation are not processed or counted. Not Found means a Master loan was absent from this Paid File.</p>
+      <div className="max-h-[480px] overflow-auto rounded-xl border"><table className="w-full min-w-[850px] text-left text-xs"><thead className="sticky top-0 bg-muted"><tr>{["Master Loan Number","Data Row","Original Total","New Paid Total","Remaining","Date","DAC","ECS","Special","Status"].map(h=><th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr></thead><tbody>{selected.rows.map((r,i)=><tr key={r.loan+"-"+i} className="border-t"><td className="px-3 py-2 font-semibold">{r.loan}</td><td className="px-3 py-2">{r.row}</td><td className="px-3 py-2">{money(r.oldTotal)}</td><td className="px-3 py-2">{money(r.newTotal)}</td><td className="px-3 py-2">{money(r.remaining)}</td><td className="px-3 py-2">{r.date||"—"}</td><td className="px-3 py-2">{money(r.dac)}</td><td className="px-3 py-2">{r.ecs===null?"—":money(r.ecs)}</td><td className="px-3 py-2">{r.special===null?"—":money(r.special)}</td><td className="px-3 py-2">{r.status}</td></tr>)}</tbody></table></div>
+      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Original Total is preserved. Admin approval is required. Duplicate, invalid and manual-review cases block write-back.</p><Button disabled={busy||counts.duplicates>0||counts.invalid>0||counts.manualReview>0||counts.found===0} onClick={()=>{if(window.confirm("Approve this snapshot and update eligible loans in the current-month Master Allocation? Original Total will remain untouched. This action will be audited."))applyMutation.mutate();}}>Approve & Apply</Button></div>
+    </section>}
+  </main>;
+}
