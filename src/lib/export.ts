@@ -44,6 +44,7 @@ export type ExportCollection = {
   time?: string;
   allocationDate?: string;
   allocationCategory?: string;
+  allocationType?: string;
   row?: number;
 };
 
@@ -75,6 +76,7 @@ export function collectionCsv(rows: ExportCollection[]) {
       "Executive Name",
       "Amount",
       "Allocation Category",
+      "Allocation Type",
       "Bucket",
       "City",
       "EMI Amount",
@@ -94,6 +96,7 @@ export function collectionCsv(rows: ExportCollection[]) {
       r.executive,
       r.amount,
       r.allocationCategory ?? "",
+      r.allocationType ?? "",
       r.bucket ?? "",
       r.city ?? "",
       r.emiAmount ?? "",
@@ -159,6 +162,7 @@ export type ExportAlreadyPaid = {
   date: string;
   allocationDate?: string;
   allocationCategory?: string;
+  allocationType?: string;
   entryType?: string;
   settlement?: boolean;
   settlementType?: string;
@@ -183,6 +187,7 @@ export function alreadyPaidCsv(rows: ExportAlreadyPaid[]) {
       "Executive Name",
       "Amount",
       "Allocation Category",
+      "Allocation Type",
       "Bucket",
       "City",
       "EMI Amount",
@@ -202,6 +207,7 @@ export function alreadyPaidCsv(rows: ExportAlreadyPaid[]) {
       r.executive,
       r.amount,
       r.allocationCategory ?? "",
+      r.allocationType ?? "",
       r.bucket ?? "",
       r.city ?? "",
       r.emiAmount ?? "",
