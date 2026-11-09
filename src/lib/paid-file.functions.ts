@@ -186,7 +186,7 @@ export const uploadPaidFile = createServerFn({ method: "POST" })
     const file = await getDriveFile(converted["id"]);
     if (file["trashed"]) throw new Error("Converted Paid File is not available in Drive.");
     const result = await buildPreview(masterId, converted["id"]);
-    return { fileId: converted["id"], originalFileId: original["id"], fileName: converted["name"], ...result };
+    return { fileId: converted["id"], originalFileId: original["id"], fileName: converted.name ?? data.fileName, ...result };
   });
 
 export const previewPaidFile = createServerFn({ method: "POST" })
