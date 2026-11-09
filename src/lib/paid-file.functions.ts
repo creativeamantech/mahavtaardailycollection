@@ -179,7 +179,8 @@ export const uploadPaidFile = createServerFn({ method: "POST" })
     const boundary = "paidconvert" + crypto.randomUUID().replace(/-/g, "");
     const metadata = JSON.stringify({ name: data.fileName.replace(/\.xlsb$/i, "") + " (Converted)", parents: [DRIVE_FOLDER_ID], mimeType: GOOGLE_SHEET_MIME });
     const prefix = Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: ${XLSB_MIME}\r\n\r\n`);
-    const body = Buffer.concat([prefix, bytes, suffix]);
+    const conversionSuffix = Buffer.from(`\r\n--${boundary}--\r\n`);
+    const body = Buffer.concat([prefix, bytes, conversionSuffix]);
     const upload = await fetch(`${GATEWAY}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink`, { method: "POST", headers: { ...driveHeaders, "Content-Type": `multipart/related; boundary=${boundary}` }, body });
     const converted = await checkedJson<{ id: string; name?: string; mimeType?: string }>(upload, "XLSB conversion to Google Sheets");
     if (converted["mimeType"] !== GOOGLE_SHEET_MIME) throw new Error("Google Drive did not convert this XLSB workbook to a Google Sheet. Original XLSB is safely stored in Drive; no master data was changed.");
