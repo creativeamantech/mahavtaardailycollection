@@ -24,6 +24,7 @@ export function useAppConfig(options: { enabled?: boolean } = {}) {
   const flags: FeatureFlags = { ...DEFAULT_FLAGS, ...(query.data?.flags ?? {}) };
   const notifications: Notification[] = query.data?.notifications ?? [];
   const defaultCategory = query.data?.defaultCategory ?? "";
+  const defaultAllocationType = query.data?.defaultAllocationType ?? "";
   const session = query.data?.session ?? null;
   const executiveName = session?.role === "Executive" ? session.name : "";
   const isPriority = (text: string) => {
@@ -43,6 +44,7 @@ export function useAppConfig(options: { enabled?: boolean } = {}) {
     notifications,
     activeNotification,
     defaultCategory,
+    defaultAllocationType,
     session,
     holdCasesLocked: query.data?.holdCasesLocked ?? false,
   };
