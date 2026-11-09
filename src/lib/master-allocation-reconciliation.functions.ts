@@ -167,7 +167,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   }
   const ready=preview.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved"].includes(r.status));
   const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,pending,overpaid,manualReview};
-  const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1)]);
+  const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1),resolutions.slice(1)]);
   const fingerprint=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(digest)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
   const auditRows=ready.map(r=>[new Date().toISOString(),file.id,file.name,r.loan,r.newTotal,r.row,r.status,fingerprint]);
   const auditWrite=auditRows.length?{range:"'Paid File Audit'!A"+(Math.max(audit.length,1)+1)+":H"+(Math.max(audit.length,1)+auditRows.length),values:auditRows}:null;
