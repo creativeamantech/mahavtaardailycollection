@@ -107,12 +107,15 @@ function paidFilePrefix() { const d=dateParts(); return "Paid File " + d.month +
 function adjacentTypoMonthMatches(value:string, expected:string) {
   const candidate=value.toLowerCase(), target=expected.toLowerCase();
   if(candidate===target)return true;
-  if(candidate.length!==target.length)return false;
-  for(let i=0;i<candidate.length-1;i++) {
-    const chars=candidate.split("");
-    [chars[i],chars[i+1]]=[chars[i+1]!,chars[i]!];
-    if(chars.join("")===target)return true;
+  if(Math.abs(candidate.length-target.length)>1)return false;
+  if(candidate.length===target.length) {
+    let differences=0;
+    for(let i=0;i<candidate.length;i++)if(candidate[i]!==target[i])differences++;
+    return differences<=1;
   }
+  const longer=candidate.length>target.length?candidate:target;
+  const shorter=candidate.length>target.length?target:candidate;
+  for(let i=0;i<longer.length;i++)if(longer.slice(0,i)+longer.slice(i+1)===shorter)return true;
   return false;
 }
 async function paidFiles() {
