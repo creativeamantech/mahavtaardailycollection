@@ -35,10 +35,17 @@ function findHeader(headers: string[], aliases: string[]) {
   return headers.findIndex((h) => wanted.has(normalise(h)));
 }
 function asNumber(value: unknown) {
-  if (typeof value === "number") return value;
-  const clean = String(value ?? "").replace(/[₹,\s]/g, "").replace(/[()]/g, (m) => m === "(" ? "-" : "");
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const clean = String(value ?? "").replace(/[₹,\\s]/g, "").replace(/^\\((.*)\\)$/, "-$1");
   const n = Number(clean);
   return Number.isFinite(n) ? n : 0;
+}
+function parseAmount(value: unknown): number | null {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const clean = String(value).replace(/[₹,\\s]/g, "").replace(/^\\((.*)\\)$/, "-$1");
+  const n = Number(clean);
+  return Number.isFinite(n) ? n : null;
 }
 async function getMasterId() {
   const response = await fetch(`${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${SETTINGS_TAB}!A2:B`, { headers: connectorHeaders("GOOGLE_SHEETS_API_KEY") });
@@ -168,13 +175,13 @@ export const uploadPaidFile = createServerFn({ method: "POST" })
     const suffix = Buffer.from(`\r\n--${originalBoundary}--\r\n`);
     const originalBody = Buffer.concat([originalPrefix, bytes, suffix]);
     const originalUpload = await fetch(`${GATEWAY}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType`, { method: "POST", headers: { ...driveHeaders, "Content-Type": `multipart/related; boundary=${originalBoundary}` }, body: originalBody });
-    const original = await checkedJson(originalUpload, "Original XLSB upload");
+    const original = await checkedJson<{ id: string; name?: string; mimeType?: string }>(originalUpload, "Original XLSB upload");
     const boundary = "paidconvert" + crypto.randomUUID().replace(/-/g, "");
     const metadata = JSON.stringify({ name: data.fileName.replace(/\.xlsb$/i, "") + " (Converted)", parents: [DRIVE_FOLDER_ID], mimeType: GOOGLE_SHEET_MIME });
     const prefix = Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: ${XLSB_MIME}\r\n\r\n`);
     const body = Buffer.concat([prefix, bytes, suffix]);
     const upload = await fetch(`${GATEWAY}/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink`, { method: "POST", headers: { ...driveHeaders, "Content-Type": `multipart/related; boundary=${boundary}` }, body });
-    const converted = await checkedJson(upload, "XLSB conversion to Google Sheets");
+    const converted = await checkedJson<{ id: string; name?: string; mimeType?: string }>(upload, "XLSB conversion to Google Sheets");
     if (converted["mimeType"] !== GOOGLE_SHEET_MIME) throw new Error("Google Drive did not convert this XLSB workbook to a Google Sheet. Original XLSB is safely stored in Drive; no master data was changed.");
     const file = await getDriveFile(converted["id"]);
     if (file["trashed"]) throw new Error("Converted Paid File is not available in Drive.");
