@@ -63,6 +63,7 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
 
   const flags: FeatureFlags = { ...DEFAULT_FLAGS };
   let defaultCategory = "";
+  let defaultAllocationType = "";
   let holdCasesLocked = false;
   for (const r of settingRows) {
     const key = (r[0] ?? "").trim();
@@ -73,6 +74,10 @@ export const getAppConfig = createServerFn({ method: "GET" }).handler(async () =
     }
     if (key === DEFAULT_CATEGORY_KEY) {
       defaultCategory = (r[1] ?? "").trim();
+      continue;
+    }
+    if (key === DEFAULT_ALLOCATION_TYPE_KEY) {
+      defaultAllocationType = (r[1] ?? "").trim();
       continue;
     }
     flags[key] = (r[1] ?? "").trim().toUpperCase() !== "OFF";
@@ -101,11 +106,14 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     await ensureSheetStrict(SETTINGS_TAB, ["Key", "Value"]);
     // Preserve the default-category row so flag saves never wipe it.
     let defaultCategory = "";
+    let defaultAllocationType = "";
     let holdCasesLocked = false;
     try {
       const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
       defaultCategory =
         rows.find((r) => (r[0] ?? "").trim() === DEFAULT_CATEGORY_KEY)?.[1]?.trim() ?? "";
+      defaultAllocationType =
+        rows.find((r) => (r[0] ?? "").trim() === DEFAULT_ALLOCATION_TYPE_KEY)?.[1]?.trim() ?? "";
       holdCasesLocked =
         (rows.find((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY)?.[1] ?? "")
           .trim()
@@ -116,6 +124,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     const entries = Object.entries(data.flags);
     const values = entries.map(([k, v]) => [k, v ? "ON" : "OFF"]);
     values.push([DEFAULT_CATEGORY_KEY, defaultCategory]);
+    values.push([DEFAULT_ALLOCATION_TYPE_KEY, defaultAllocationType]);
     values.push([HOLD_CASES_LOCK_KEY, holdCasesLocked ? "ON" : "OFF"]);
     // Pad so removed keys never leave stale rows behind.
     while (values.length < 40) values.push(["", ""]);
