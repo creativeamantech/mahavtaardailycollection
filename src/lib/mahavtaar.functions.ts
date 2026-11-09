@@ -72,11 +72,16 @@ export const uploadReceiptImage = createServerFn({ method: "POST" })
     await requireSession();
     const { driveUpload } = await import("./mahavtaar.server");
     const safeLoan = data.loanNumber.replace(/[^A-Za-z0-9._-]/g, "");
-    const link = await driveUpload(
+    const uploadedLink = await driveUpload(
       `${safeLoan}-receipt-${Date.now()}-${data.name}`,
       data.mimeType,
       data.base64,
     );
+    // Store a fully qualified same-app URL in Google Sheets so it is clickable there.
+    // The endpoint remains private and requires the user's authenticated app session.
+    const link = uploadedLink.startsWith("/receipt/")
+      ? `https://mahavtaardailycollection.lovable.app${uploadedLink}`
+      : uploadedLink;
     return { ok: true as const, link };
   });
 
