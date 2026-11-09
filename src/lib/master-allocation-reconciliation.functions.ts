@@ -74,7 +74,7 @@ function amount(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 function col(n:number) { let x=n+1,s="";while(x){const r=(x-1)%26;s=String.fromCharCode(65+r)+s;x=Math.floor((x-1)/26);}return s; }
-type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number};
+type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number|undefined};
 type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
 async function masterFile() {
   const title = monthTitle();
