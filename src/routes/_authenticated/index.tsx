@@ -78,6 +78,8 @@ type ExistingEntry = {
   amount: number;
   date: string;
   time: string;
+  entryType?: string;
+  receiptLinks?: string[];
 };
 
 function normaliseLoanId(v: string) {
@@ -840,6 +842,25 @@ function EntryPage() {
                       <p className="mt-0.5 truncate text-xs text-[#7d8590]">
                         {entry.executive} · {entry.date} {entry.time}
                       </p>
+                      {entry.receiptLinks?.length ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {entry.receiptLinks.map((link, index) => (
+                            <a
+                              key={`${entry.row}-receipt-${index}`}
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[#d9e4df] bg-[#f3faf6] px-2.5 py-1 text-xs font-semibold text-[#176044] hover:bg-[#e7f5ed]"
+                              aria-label={`Open receipt ${index + 1} for loan ${entry.loanId}`}
+                            >
+                              <span aria-hidden="true">▧</span>
+                              View receipt{entry.receiptLinks.length > 1 ? ` ${index + 1}` : ""}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-[11px] text-[#9a6b25]">No receipt attached</p>
+                      )}
                     </div>
                     <p className="text-right text-sm font-extrabold tabular-nums text-[#174d3b]">
                       {formatAmount(Number(entry.amount) || 0)}
