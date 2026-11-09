@@ -6,7 +6,6 @@ import { SPREADSHEET_ID, DRIVE_FOLDER_ID } from "./mahavtaar.server";
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SETTINGS_TAB = "AppSettings";
 const MASTER_KEY = "paidFileMasterSpreadsheetId";
-const XLSB_MIME = "application/vnd.ms-excel.sheet.binary.macroEnabled.12";
 const GOOGLE_SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 
 function connectorHeaders(key: string) {
