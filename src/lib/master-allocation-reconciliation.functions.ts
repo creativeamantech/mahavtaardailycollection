@@ -42,6 +42,13 @@ async function ensureTabs(id: string, titles: string[]) {
   const requests = titles.filter(t => !existing.has(t)).map(title => ({addSheet:{properties:{title}}}));
   if (requests.length) await json(await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + ":batchUpdate", {method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({requests})}), "Create reconciliation tabs");
 }
+async function ensureHeaders(id:string) {
+  const [audit,state]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:F1")]);
+  const data:{range:string;values:string[][]}[]=[];
+  if(!audit.length)data.push({range:"'Paid File Audit'!A1:H1",values:[["Applied At","Paid File ID","Paid File Name","Agreement ID","New Total","Master Row","Status","Fingerprint"]]});
+  if(!state.length)data.push({range:"'Paid File Snapshot State'!A1:F1",values:[["Agreement ID","Latest Sequence","Latest Cumulative Total","Paid File ID","Accepted At","Paid File Name"]]});
+  if(data.length)await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data})}),"Initialize reconciliation headers");
+}
 function norm(v: unknown) { return String(v ?? "").trim().toUpperCase().replace(/^['`]+/,"").replace(/[^A-Z0-9]/g,""); }
 function headerIndex(row:string[], aliases:string[]) {
   const set = new Set(aliases.map(norm));
@@ -54,7 +61,6 @@ function amount(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 function col(n:number) { let x=n+1,s="";while(x){const r=(x-1)%26;s=String.fromCharCode(65+r)+s;x=Math.floor((x-1)/26);}return s; }
-function escapeTab(s:string) { return "'" + s.replace(/'/g,"''") + "'"; }
 type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string};
 type Built = { rows:RowPreview[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
 async function masterFile() {
@@ -88,7 +94,6 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   for(let i=1;i<master.length;i++){const r=master[i]??[];const id=norm(r[mi]);if(id){if(masterById.has(id)) throw new Error("Duplicate loan number exists in Master Data: "+id+". Resolve it before reconciliation.");masterById.set(id,{row:r,rowNo:i+1});}}
   const paidById=new Map<string,string[][]>();
   for(let i=1;i<paid.length;i++){const r=paid[i]??[];const id=norm(r[pi]);if(id){const a=paidById.get(id)??[];a.push(r);paidById.set(id,a);}}
-  const auditHeader=audit[0]??[];
   const appliedIds=new Set(audit.slice(1).filter(r=>r[1]===file.id).map(r=>r[1]));
   if(appliedIds.size) throw new Error("This Paid File has already been applied. Revisions require a new, separately named snapshot file.");
   const previous=new Map<string,{sequence:number;amount:number}>();
@@ -136,6 +141,7 @@ export const getMasterAllocationReconciliation = createServerFn({method:"GET"}).
   await requireSession("Admin");
   const master=await masterFile(), files=await paidFiles();
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
+  await ensureHeaders(master.id);
   return {master:{id:master.id,name:master.name,url:master.webViewLink??("https://docs.google.com/spreadsheets/d/"+master.id+"/edit")},files:files.map(f=>({id:f.id,name:f.name,sequence:f.sequence,modifiedTime:f.modifiedTime??"",url:f.webViewLink??("https://docs.google.com/spreadsheets/d/"+f.id+"/edit")}))};
 });
 export const previewMasterAllocationReconciliation = createServerFn({method:"POST"})
@@ -145,8 +151,9 @@ export const previewMasterAllocationReconciliation = createServerFn({method:"POS
   const master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
   if(!file)throw new Error("Selected file is not a current-day Paid File Google Sheet.");
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
+  await ensureHeaders(master.id);
   const result=await build(master.id,file);
-  return {file:{id:file.id,name:file.name,sequence:file.sequence},...result};
+  return {file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
 });
 export const applyMasterAllocationReconciliation = createServerFn({method:"POST"})
 .inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),fingerprint:z.string().length(64),confirm:z.literal(true)}).parse(v))
@@ -154,6 +161,7 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   const session=await requireSession("Admin"), master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
   if(!file)throw new Error("Selected file is no longer in the current-day Paid File list.");
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State"]);
+  await ensureHeaders(master.id);
   const result=await build(master.id,file);
   if(result.fingerprint!==data.fingerprint)throw new Error("Paid File changed after preview. Refresh preview and approve the new version.");
   if(result.counts.duplicates||result.counts.invalid||result.counts.manualReview)throw new Error("Write-back blocked: duplicate, invalid or manual-review cases must be resolved first.");
