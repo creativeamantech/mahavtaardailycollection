@@ -17,10 +17,15 @@ function loadSheetJs(): Promise<SheetJs> {
   return new Promise((resolve,reject)=>{
     const existing=document.querySelector<HTMLScriptElement>("script[data-sheetjs-loader]");
     const script=existing??document.createElement("script");
-    const onLoad=()=>window.XLSX?resolve(window.XLSX):reject(new Error("SheetJS loaded but its XLSX engine is unavailable."));
-    const onError=()=>reject(new Error("Could not load the on-device XLSB converter. Check your internet connection and retry."));
+    let settled=false;
+    const finish=(error?:Error)=>{if(settled)return;settled=true;window.clearTimeout(timer);if(error)reject(error);else if(window.XLSX)resolve(window.XLSX);else reject(new Error("SheetJS loaded but its XLSX engine is unavailable."));};
+    const onLoad=()=>finish();
+    const onError=()=>finish(new Error("Could not load the on-device XLSB converter. Check your internet connection and retry."));
+    const timer=window.setTimeout(()=>finish(new Error("XLSB converter is taking too long to load. Check your internet connection and retry.")),30000);
     script.addEventListener("load",onLoad,{once:true}); script.addEventListener("error",onError,{once:true});
     if(!existing){script.src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";script.async=true;script.dataset["sheetjsLoader"]="true";document.head.appendChild(script);}
+    else if(script.dataset["loaded"]==="true") finish();
+    script.addEventListener("load",()=>{script.dataset["loaded"]="true";},{once:true});
   });
 }
 export const Route = createFileRoute("/_authenticated/paid-file")({ component: PaidFilePage });
@@ -34,29 +39,39 @@ function PaidFilePage() {
   const [selected,setSelected]=useState("");
   const [result,setResult]=useState<Preview|null>(null);
   const [busy,setBusy]=useState(false);
+  const [uploadStatus,setUploadStatus]=useState("");
+  async function showStatus(message:string) { setUploadStatus(message); await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve())); }
   const fileInputRef=useRef<HTMLInputElement>(null);
   const masterMutation=useMutation({mutationFn:()=>saveMaster({data:{spreadsheetId:selected}}),onSuccess:async()=>{toast.success("Master Allocation saved.");await qc.invalidateQueries({queryKey:["paid-file-setup"]});},onError:e=>toast.error(e.message)});
   async function handleUpload(file?:File) {
     if(!file)return;
     if(!setup?.masterId){toast.error("First select and save the Master Allocation spreadsheet.");return;}
-    setBusy(true);setResult(null);
+    setBusy(true);setResult(null);setUploadStatus("शुरू कर रहे हैं…");
     try {
+      await showStatus("फ़ाइल पढ़ी जा रही है…");
       if(file.size>12*1024*1024) throw new Error("Paid File exceeds the 12 MB limit.");
       const fileBytes=await file.arrayBuffer();
       const bytes=new Uint8Array(fileBytes);
       if(bytes.length<8||bytes[0]!==0x50||bytes[1]!==0x4b) throw new Error("The selected file is not a valid Excel workbook. Please choose the original .xlsb file.");
       const packageDirectory=new TextDecoder().decode(bytes);
       if(!packageDirectory.includes("xl/workbook.bin")) throw new Error("This file does not contain the XLSB workbook structure (xl/workbook.bin). Please choose an actual .xlsb file, not .xlsx.");
-      toast.message("Converting XLSB to XLSX on this device…");
+      await showStatus("XLSB फ़ाइल जाँची जा रही है…");
+      toast.message("Loading XLSB converter…");
+      await showStatus("कन्वर्टर लोड हो रहा है…");
       const XLSX=await loadSheetJs();
+      await showStatus("XLSB को XLSX में कन्वर्ट किया जा रहा है…");
       const workbook=XLSX.read(fileBytes,{type:"array",cellDates:true});
       const xlsxBase64=XLSX.write(workbook,{bookType:"xlsx",type:"base64",compression:true});
       if(!xlsxBase64) throw new Error("On-device XLSX conversion returned an empty workbook.");
+      await showStatus("कन्वर्ज़न पूरा। XLSX तैयार है…");
       const safeBaseName=(file.name||"Paid-File").replace(/[?#].*$/,"").replace(/\.xlsb$/i,"")||"Paid-File";
+      await showStatus("XLSX फ़ाइल Drive पर अपलोड हो रही है और Google Sheets में इम्पोर्ट हो रही है…");
       const response=await upload({data:{fileName:`${safeBaseName}.xlsx`,base64:xlsxBase64}});
+      await showStatus("Google Sheets इम्पोर्ट पूरा। अब Paid File का Preview बनाया जा रहा है…");
       setResult(response as Preview);
-      toast.success("XLSB converted on this device. XLSX uploaded and preview generated; Master data is unchanged.");
-    } catch(e) {toast.error(e instanceof Error?e.message:"Paid File conversion/upload failed.");}
+      setUploadStatus("पूरा हुआ: XLSB कन्वर्ट, XLSX अपलोड और Preview तैयार। Master Data में कोई बदलाव नहीं हुआ।");
+      toast.success("XLSB converted, uploaded and preview generated; Master data is unchanged.");
+    } catch(e) {const message=e instanceof Error?e.message:"Paid File conversion/upload failed.";setUploadStatus(`असफल: ${message}`);toast.error(message);}
     finally{setBusy(false);}
   }
   async function refreshPreview() {
@@ -95,6 +110,7 @@ function PaidFilePage() {
           {busy?"Processing…":"Choose XLSB Paid File"}
         </Button>
         <span className="text-xs text-muted-foreground">.xlsb only · converted on this device · maximum 12 MB</span>
+        {uploadStatus&&<p role="status" aria-live="polite" className="w-full rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700">{busy&&<span className="mr-2 inline-block size-2 animate-pulse rounded-full bg-amber-500"/>}{uploadStatus}</p>}
         <input ref={fileInputRef} className="hidden" type="file" accept=".xlsb,application/octet-stream,application/vnd.ms-excel.sheet.binary.macroEnabled.12,*/*" disabled={busy} onChange={e=>{const file=e.currentTarget.files?.[0];e.currentTarget.value="";void handleUpload(file);}}/>
       </div>
       {!setup?.masterId&&<p className="text-xs text-amber-700">You can select the file now; save a Master Allocation before uploading it.</p>}
