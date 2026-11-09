@@ -14,18 +14,35 @@ type SheetJs = { read:(data:ArrayBuffer, options:{type:"array";cellDates:true})=
 declare global { interface Window { XLSX?: SheetJs } }
 function loadSheetJs(): Promise<SheetJs> {
   if(window.XLSX) return Promise.resolve(window.XLSX);
+  const sources = [
+    "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js",
+    "https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js",
+    "https://unpkg.com/xlsx@0.20.3/dist/xlsx.full.min.js",
+  ];
   return new Promise((resolve,reject)=>{
-    const existing=document.querySelector<HTMLScriptElement>("script[data-sheetjs-loader]");
-    const script=existing??document.createElement("script");
-    let settled=false;
-    const finish=(error?:Error)=>{if(settled)return;settled=true;window.clearTimeout(timer);if(error)reject(error);else if(window.XLSX)resolve(window.XLSX);else reject(new Error("SheetJS loaded but its XLSX engine is unavailable."));};
-    const onLoad=()=>finish();
-    const onError=()=>finish(new Error("Could not load the on-device XLSB converter. Check your internet connection and retry."));
-    const timer=window.setTimeout(()=>finish(new Error("XLSB converter is taking too long to load. Check your internet connection and retry.")),30000);
-    script.addEventListener("load",onLoad,{once:true}); script.addEventListener("error",onError,{once:true});
-    if(!existing){script.src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";script.async=true;script.dataset["sheetjsLoader"]="true";document.head.appendChild(script);}
-    else if(script.dataset["loaded"]==="true") finish();
-    script.addEventListener("load",()=>{script.dataset["loaded"]="true";},{once:true});
+    let sourceIndex=0;
+    const loadNext=()=>{
+      if(window.XLSX){resolve(window.XLSX);return;}
+      if(sourceIndex>=sources.length){reject(new Error("Could not load the XLSB converter from any of the available sources. Please check your internet connection, disable content blockers for this site, and retry."));return;}
+      const src=sources[sourceIndex++]!;
+      const script=document.createElement("script");
+      let settled=false;
+      const timer=window.setTimeout(()=>{
+        if(settled)return;settled=true;script.remove();loadNext();
+      },15000);
+      script.async=true;
+      script.src=src;
+      script.onload=()=>{
+        if(settled)return;settled=true;window.clearTimeout(timer);
+        if(window.XLSX)resolve(window.XLSX);
+        else {script.remove();loadNext();}
+      };
+      script.onerror=()=>{
+        if(settled)return;settled=true;window.clearTimeout(timer);script.remove();loadNext();
+      };
+      document.head.appendChild(script);
+    };
+    loadNext();
   });
 }
 export const Route = createFileRoute("/_authenticated/paid-file")({ component: PaidFilePage });
