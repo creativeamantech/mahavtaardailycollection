@@ -192,3 +192,40 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   await json(res,"Reconciliation write-back");
   return {ok:true,applied:eligible.length,counts:result.counts,appliedBy:session.name};
 });
+
+
+const uploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(180),
+  mimeType: z.enum(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.ms-excel","text/csv","application/csv"]),
+  base64: z.string().min(1).max(22_000_000),
+  sequence: z.number().int().min(1).max(9999),
+});
+export const uploadPaidFileSnapshot = createServerFn({method:"POST"})
+.inputValidator((v:unknown)=>uploadSchema.parse(v))
+.handler(async({data})=>{
+  await requireSession("Admin");
+  const prefix=paidFilePrefix();
+  const extension=data.mimeType==="text/csv"||data.mimeType==="application/csv"?".csv":data.mimeType==="application/vnd.ms-excel"?".xls":".xlsx";
+  if(!data.fileName.toLowerCase().endsWith(extension)) throw new Error("File extension and file type do not match.");
+  const bytes=Buffer.from(data.base64,"base64");
+  if(!bytes.length||bytes.length>15*1024*1024)throw new Error("Upload must be between 1 byte and 15 MB.");
+  const files=await paidFiles();
+  if(files.some(f=>f.sequence===data.sequence))throw new Error("This snapshot sequence already exists. Select a different sequence number.");
+  const name=prefix+String(data.sequence).padStart(2,"0");
+  const boundary="mahaPaidUpload"+crypto.randomUUID().replace(/-/g,"");
+  const metadata=JSON.stringify({name,mimeType:SHEET_MIME});
+  const body=new Blob([
+    "--"+boundary+"\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n"+metadata+"\\r\\n",
+    "--"+boundary+"\\r\\nContent-Type: "+data.mimeType+"\\r\\nContent-Transfer-Encoding: base64\\r\\n\\r\\n"+data.base64+"\\r\\n",
+    "--"+boundary+"--"
+  ]);
+  const res=await fetch(GATEWAY+"/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink",{
+    method:"POST",
+    headers:{...headers("GOOGLE_DRIVE_API_KEY"),"Content-Type":"multipart/related; boundary="+boundary},
+    body,
+    signal:AbortSignal.timeout(60000)
+  });
+  const uploaded=await json<{id:string;name:string;mimeType:string;webViewLink?:string}>(res,"Paid File upload and Google Sheets conversion");
+  if(uploaded.mimeType!==SHEET_MIME)throw new Error("Google Drive did not convert the uploaded file to a native Google Sheet. Remove the temporary upload and retry with XLSX or CSV.");
+  return {ok:true as const,id:uploaded.id,name:uploaded.name,url:uploaded.webViewLink??("https://docs.google.com/spreadsheets/d/"+uploaded.id+"/edit")};
+});
