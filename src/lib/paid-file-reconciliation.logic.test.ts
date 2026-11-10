@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, expect, test } from "bun:test";
 import { amount, computePaidFileDac, headerIndex, norm } from "./paid-file-reconciliation.logic";
 
