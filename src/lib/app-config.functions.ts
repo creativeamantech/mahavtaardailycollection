@@ -10,7 +10,6 @@ export const FEATURES = [
   { key: "report", label: "Reports", path: "/report" },
   { key: "loans", label: "Loan Details", path: "/loans" },
   { key: "adminLoanAudit", label: "Productivity Desk", path: "/admin-loan-audit" },
-  { key: "masterAllocationReconciliation", label: "Master Allocation Reconciliation", path: "/master-allocation-reconciliation" },
   { key: "execCities", label: "Executive Cities", path: "/executive-cities" },
   { key: "pending", label: "Pending Receipts", path: "/pending" },
   { key: "ecs", label: "ECS / Special", path: "/ecs" },
