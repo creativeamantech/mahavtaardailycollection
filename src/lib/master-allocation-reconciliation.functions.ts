@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSession } from "./auth.functions";
-import { amount, computePaidFileDac, headerIndex, norm, normalizePaidFileSource, paidFileHistoryGeneration } from "./paid-file-reconciliation.logic";
+import { amount, computePaidFileDac, headerIndex, norm, normalizePaidFileSource, paidFileHistoryGeneration, isPaidFileRowApplyEligible } from "./paid-file-reconciliation.logic";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
@@ -286,7 +286,7 @@ export const previewMasterAllocationReconciliation = createServerFn({method:"POS
   return {masterId:master.id,file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
 });
 async function applyBuiltReconciliation(masterId:string,file:DriveFile,result:Built,actor:string) {
-  const eligible=result.rows.filter(r=>["Ready","Resolved – Admin New Total preserved","Resolved – Admin authorized reversal","Resolved – Admin approved correction"].includes(r.status));
+  const eligible=result.rows.filter(r=>isPaidFileRowApplyEligible(r.status));
   if(!result.writes.length)return {ok:true as const,applied:0,counts:result.counts,appliedBy:actor};
 
   const res=await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+encodeURIComponent(masterId)+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"USER_ENTERED",data:result.writes})});
