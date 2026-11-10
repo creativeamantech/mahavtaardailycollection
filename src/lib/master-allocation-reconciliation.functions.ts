@@ -206,13 +206,15 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
       continue;
     }
     if(prior&&seq<prior.sequence){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Stale snapshot"});continue;}
-    if(prior&&seq===prior.sequence&&total!==prior.amount){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Same sequence changed – manual review"});continue;}
-    if(prior&&seq>prior.sequence&&total<prior.amount){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Amount decreased – correction review"});continue;}
+    const sameSequenceApproval=resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="SAME_SEQUENCE_CHANGED"&&String(r[5]??"")==="APPROVE_CORRECTION"&&String(r[9]??"")===conditionHash);
+    const decreaseApproval=resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="PAID_AMOUNT_DECREASE"&&String(r[5]??"")==="APPROVE_CORRECTION"&&String(r[9]??"")===conditionHash);
+    if(prior&&seq===prior.sequence&&total!==prior.amount&&!sameSequenceApproval){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Same sequence changed – manual review",conditionFingerprint:conditionHash});continue;}
+    if(prior&&seq>prior.sequence&&total<prior.amount&&!decreaseApproval){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Amount decreased – correction review",conditionFingerprint:conditionHash});continue;}
     const date=String(pDate>=0?p[pDate]??"":"").trim();
     const retainedNewTotal=resolvedDifference&&adminNewTotal!==null?adminNewTotal:total;
     const remaining=old-retainedNewTotal;
     if(remaining<0)overpaid++;
-    const status=resolvedDifference?"Resolved – Admin New Total preserved":remaining<0?"Overpaid":"Ready";
+    const status=resolvedDifference?"Resolved – Admin New Total preserved":sameSequenceApproval||decreaseApproval?"Resolved – Admin approved correction":remaining<0?"Overpaid":"Ready";
     preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:retainedNewTotal,remaining,date,dac,ecs,special,status,difference:resolvedDifference?adminDifference:undefined,conditionFingerprint:conditionHash});
     if(date)writes.push({range:"Data!"+col(mDate)+masterRow.rowNo,values:[[date]]});
     writes.push({range:"Data!"+col(mDac)+masterRow.rowNo,values:[[dac]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[remaining]]});
@@ -263,7 +265,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     writes.length=0;
     stateWrites.length=0;
   }
-  const ready=preview.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved","Resolved – Admin authorized reversal"].includes(r.status));
+  const ready=preview.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved","Resolved – Admin authorized reversal","Resolved – Admin approved correction"].includes(r.status));
   const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,pending,overpaid,manualReview};
   const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1),resolutions.slice(1),timeline.slice(1)]);
   const fingerprint=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(digest)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
@@ -315,7 +317,7 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
 });
 
 export const resolveMasterAllocationReview = createServerFn({method:"POST"})
-.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),masterId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),loan:z.string().min(1),decision:z.enum(["KEEP_ADMIN_TOTAL","AUTHORIZE_REVERSAL"])}).parse(v))
+.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),masterId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),loan:z.string().min(1),decision:z.enum(["KEEP_ADMIN_TOTAL","AUTHORIZE_REVERSAL","APPROVE_CORRECTION"])}).parse(v))
 .handler(async({data})=>{
   const session=await requireSession("Admin");
   const [master,rawFile]=await Promise.all([driveGet(data.masterId),driveGet(data.fileId)]);
@@ -330,9 +332,15 @@ export const resolveMasterAllocationReview = createServerFn({method:"POST"})
   if(data.decision==="KEEP_ADMIN_TOTAL"){
     if(!row||!row.status.startsWith("Manual Review – Admin New Total exceeds Paid File by ")||!row.difference)throw new Error("This loan no longer has the expected positive difference. Refresh the preview.");
     reviewType="ADMIN_TOTAL_EXCEEDS_PAID_FILE";resolvedDifference=row.difference;
-  }else{
+  }else if(data.decision==="AUTHORIZE_REVERSAL"){
     if(!row||!row.status.startsWith("Manual Review – Missing from Paid File")||!row.conditionFingerprint)throw new Error("This loan is no longer missing from the selected snapshot. Refresh the preview.");
     reviewType="MISSING_LOAN";resolvedDifference=row.newTotal;
+  }else{
+    if(!row||!row.conditionFingerprint)throw new Error("This correction review is no longer available. Refresh the preview.");
+    if(row.status.startsWith("Amount decreased"))reviewType="PAID_AMOUNT_DECREASE";
+    else if(row.status.startsWith("Same sequence changed"))reviewType="SAME_SEQUENCE_CHANGED";
+    else throw new Error("This loan no longer has an approvable correction review.");
+    resolvedDifference=row.difference??0;
   }
   const values=await sheetValues(master.id,"'Paid File Review Resolutions'!A1:J");
   const already=values.slice(1).some(r=>norm(r[0])===norm(row.loan)&&String(r[1]??"")===reviewType&&String(r[5]??"")===data.decision&&String(r[9]??"")===row.conditionFingerprint);
@@ -342,7 +350,7 @@ export const resolveMasterAllocationReview = createServerFn({method:"POST"})
   const adminTotal=data.decision==="AUTHORIZE_REVERSAL"?0:row.newTotal+(row.difference??0);
   const decisionRow=[row.loan,reviewType,resolvedDifference,adminTotal,row.newTotal,data.decision,session.name,now,file.name,row.conditionFingerprint??""];
   const timelineValues=await sheetValues(master.id,"'Paid File Timeline'!A1:N");
-  const timelineRow=[now,row.loan,file.sequence,file.id,file.name,data.decision==="AUTHORIZE_REVERSAL"?"REVERSAL_AUTHORIZED":"ADMIN_REVIEW_RESOLVED",data.decision==="AUTHORIZE_REVERSAL"?row.newTotal:adminTotal,data.decision==="AUTHORIZE_REVERSAL"?0:row.newTotal,"","","",data.decision,session.name,row.conditionFingerprint??""];
+  const timelineRow=[now,row.loan,file.sequence,file.id,file.name,data.decision==="AUTHORIZE_REVERSAL"?"REVERSAL_AUTHORIZED":data.decision==="APPROVE_CORRECTION"?"CORRECTION_APPROVED":"ADMIN_REVIEW_RESOLVED",data.decision==="AUTHORIZE_REVERSAL"?row.newTotal:data.decision==="APPROVE_CORRECTION"?row.newTotal:adminTotal,data.decision==="AUTHORIZE_REVERSAL"?0:row.newTotal,"","","",data.decision,session.name,row.conditionFingerprint??""];
   await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data:[
     {range:"'Paid File Review Resolutions'!A"+next+":J"+next,values:[decisionRow]},
     {range:"'Paid File Timeline'!A"+(Math.max(timelineValues.length,1)+1)+":N"+(Math.max(timelineValues.length,1)+1),values:[timelineRow]}
