@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSession } from "./auth.functions";
-import * as XLSX from "xlsx";
 import { amount, computePaidFileDac, headerIndex, norm, normalizePaidFileSource, paidFileHistoryGeneration } from "./paid-file-reconciliation.logic";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
