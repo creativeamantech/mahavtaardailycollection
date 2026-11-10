@@ -56,7 +56,7 @@ async function ensureTargetTab(id: string) {
     body: JSON.stringify({ values: [["ID", "Allocation Type", "Bucket", "State", "City", "Main Target %", "Rollback Target %"]] }),
   }), "Initialize Performance Targets");
 }
-function norm(v: unknown) { return String(v ?? "").trim().toLowerCase().replace(/\\s+/g, " "); }
+function norm(v: unknown) { return String(v ?? "").trim().toLowerCase().replace(/\\s+/g, " "); }\nfunction bucketKey(v: unknown) { return norm(v).replace(/^bucket\\s*/, "").replace(/^b\\s*/, "").replace(/[^0-9]/g, ""); }
 function headerIndex(headers: string[], aliases: string[]) {
   const accepted = new Set(aliases.map(v => norm(v)));
   return headers.findIndex(v => accepted.has(norm(v)));
@@ -87,7 +87,7 @@ function targetFor(rules: TargetRule[], allocationType: string, bucket: string, 
   const dimensions = [allocationType, bucket, state, city];
   const matches = rules.filter(rule => {
     const values = [rule.allocationType, rule.bucket, rule.state, rule.city];
-    return values.every((v, i) => !v || norm(v) === norm(dimensions[i]));
+    return values.every((v, i) => !v || (i === 1 ? bucketKey(v) === bucketKey(dimensions[i]) : norm(v) === norm(dimensions[i])));
   });
   matches.sort((a, b) =>
     [b.allocationType, b.bucket, b.state, b.city].filter(Boolean).length -
@@ -167,7 +167,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
   }
   const bucketNames = ["Bucket 1", "Bucket 2", "Bucket 3", "Bucket 4", "Bucket 5"];
   const buckets: BucketReport[] = bucketNames.map(bucket => {
-    const rows = parsed.filter(r => norm(r.bucket) === norm(bucket) || norm(r.bucket) === norm(bucket.replace(" ", "")));
+    const rows = parsed.filter(r => bucketKey(r.bucket) === bucketKey(bucket));
     const cityMap = new Map<string, typeof parsed>();
     for (const r of rows) {
       const list = cityMap.get(r.city) ?? [];
