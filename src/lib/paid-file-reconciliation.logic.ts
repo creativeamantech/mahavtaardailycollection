@@ -38,5 +38,5 @@ export function computePaidFileDac(paid: string[][]): { values: string[][]; dacI
  */
 export function paidFileHistoryGeneration(eventTypes: string[]): number {
   const transitions = eventTypes.filter(type => type === "REAPPEARED" || type === "AMOUNT_CHANGED").length;
-  return transitions + (eventTypes.at(-1) === "MISSING" ? 1 : 0);
+  return transitions + (["MISSING", "REVERSAL_AUTHORIZED", "REVERSAL_APPROVED"].includes(eventTypes.at(-1) ?? "") ? 1 : 0);
 }
