@@ -407,9 +407,10 @@ export const uploadPaidFileSnapshot = createServerFn({method:"POST"})
   const sourceBoundary="mahaPaidSource"+crypto.randomUUID().replace(/-/g,"");
   const sourceMetadata=JSON.stringify({name:originalName,mimeType:data.sourceMimeType});
   const sourceBody=new Blob([
-    "--"+sourceBoundary+"\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n"+sourceMetadata+"\\r\\n",
-    "--"+sourceBoundary+"\\r\\nContent-Type: "+data.sourceMimeType+"\\r\\nContent-Transfer-Encoding: base64\\r\\n\\r\\n"+data.sourceBase64+"\\r\\n",
-    "--"+sourceBoundary+"--"
+    "--"+sourceBoundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+sourceMetadata+"\r\n",
+    "--"+sourceBoundary+"\r\nContent-Type: "+data.sourceMimeType+"\r\n\r\n",
+    new Uint8Array(sourceBytes),
+    "\r\n--"+sourceBoundary+"--"
   ]);
   const sourceRes=await fetch(GATEWAY+"/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType",{method:"POST",headers:{...headers("GOOGLE_DRIVE_API_KEY"),"Content-Type":"multipart/related; boundary="+sourceBoundary},body:sourceBody,signal:AbortSignal.timeout(60000)});
   const source=await json<{id:string;name:string;mimeType:string}>(sourceRes,"Original Paid File archive");
@@ -417,9 +418,10 @@ export const uploadPaidFileSnapshot = createServerFn({method:"POST"})
   const boundary="mahaPaidSheet"+crypto.randomUUID().replace(/-/g,"");
   const metadata=JSON.stringify({name:sheetName,mimeType:SHEET_MIME,description:"Immutable converted snapshot. Original source file: "+source.id+" ("+data.fileName+"). DAC is computed in memory as SFDC + Online; this sheet is not modified during reconciliation."});
   const body=new Blob([
-    "--"+boundary+"\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n"+metadata+"\\r\\n",
-    "--"+boundary+"\\r\\nContent-Type: text/csv\\r\\nContent-Transfer-Encoding: base64\\r\\n\\r\\n"+data.normalizedCsvBase64+"\\r\\n",
-    "--"+boundary+"--"
+    "--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+metadata+"\r\n",
+    "--"+boundary+"\r\nContent-Type: text/csv; charset=UTF-8\r\n\r\n",
+    new Uint8Array(csvBytes),
+    "\r\n--"+boundary+"--"
   ]);
   const res=await fetch(GATEWAY+"/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink,modifiedTime,version",{method:"POST",headers:{...headers("GOOGLE_DRIVE_API_KEY"),"Content-Type":"multipart/related; boundary="+boundary},body,signal:AbortSignal.timeout(60000)});
   const uploaded=await json<DriveFile>(res,"Paid File CSV conversion to Google Sheets");
