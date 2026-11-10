@@ -193,12 +193,27 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     const malformed=paidFields.some(v=>v!==undefined&&String(v??"").trim()!==""&&amount(v)===null);
     if(malformed||old===null){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid – non-numeric amount or missing Master Total"});continue;}
     if(total===null||dac===null||(pEcs>=0&&ecs===null)||(pSpecial>=0&&special===null)){pending++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Pending – blank payment amount"});continue;}
-    const allPaymentValuesZero=total===0&&dac===0&&ecs===0&&special===0;
-    if(allPaymentValuesZero){zeroZero++;manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(pDate>=0?p[pDate]??"":""),dac,ecs,special,status:"Manual Review – DAC, ECS, Special and Total are zero"});continue;}
     const prior=previous.get(id);
     const adminNewTotal=amount(masterRow.row[mNew]);
     const adminDifference=adminNewTotal!==null&&adminNewTotal>total?adminNewTotal-total:0;
     const conditionHash=await conditionFingerprint([id,old,total,dac,ecs,special,pDate>=0?p[pDate]??"":"",adminNewTotal,file.id,seq]);
+    const allPaymentValuesZero=total===0&&dac===0&&ecs===0&&special===0;
+    if(allPaymentValuesZero){
+      zeroZero++;
+      const zeroApproved=resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="ZERO_VALUE_REVERSAL"&&String(r[5]??"")==="AUTHORIZE_REVERSAL"&&String(r[9]??"")===conditionHash);
+      if(zeroApproved){
+        preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:0,remaining:old,date:"",dac,ecs,special,status:"Resolved – Admin authorized reversal",conditionFingerprint:conditionHash});
+        writes.push({range:"Data!"+col(mNew)+masterRow.rowNo,values:[[0]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[old]]},{range:"Data!"+col(mDac)+masterRow.rowNo,values:[[0]]});
+        if(mEcs>=0)writes.push({range:"Data!"+col(mEcs)+masterRow.rowNo,values:[[0]]});
+        if(mSpecial>=0)writes.push({range:"Data!"+col(mSpecial)+masterRow.rowNo,values:[[0]]});
+        if(mDate>=0)writes.push({range:"Data!"+col(mDate)+masterRow.rowNo,values:[[""]]});
+        stateWrites.push([id,seq,0,file.id,new Date().toISOString(),file.name,dateKey()]);
+      }else{
+        manualReview++;
+        preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(pDate>=0?p[pDate]??"":""),dac,ecs,special,status:"Manual Review – DAC, ECS, Special and Total are zero",conditionFingerprint:conditionHash});
+      }
+      continue;
+    }
     const resolvedDifference=adminDifference>0&&resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="ADMIN_TOTAL_EXCEEDS_PAID_FILE"&&amount(r[2])===adminDifference&&String(r[5]??"")==="KEEP_ADMIN_TOTAL"&&String(r[9]??"")===conditionHash);
     if(adminDifference>0&&!resolvedDifference){
       manualReview++;
@@ -254,7 +269,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
       const matches=paidById.get(loan)??[];
       const paidRow=matches.length===1?matches[0]:undefined;
       const observed=paidRow?amount(paidRow[pTotal]):null;
-      const eventType=["MISSING","REVERSAL_AUTHORIZED","REVERSAL_APPROVED"].includes(latestEvent.get(loan)??"")?"REAPPEARED":prior&&observed!==null&&observed!==prior.amount?"AMOUNT_CHANGED":"PRESENT";
+      const eventType=row.status==="Resolved – Admin authorized reversal"?"REVERSAL_APPROVED":["MISSING","REVERSAL_AUTHORIZED","REVERSAL_APPROVED"].includes(latestEvent.get(loan)??"")?"REAPPEARED":prior&&observed!==null&&observed!==prior.amount?"AMOUNT_CHANGED":"PRESENT";
       timelineRows.push([new Date().toISOString(),row.loan,seq,file.id,file.name,eventType,prior?.amount??"",observed??"",paidRow?amount(paidRow[pDac])??"": "",paidRow&&pEcs>=0?amount(paidRow[pEcs])??"": "",paidRow&&pSpecial>=0?amount(paidRow[pSpecial])??"": "",row.status,actor,row.conditionFingerprint??""]);
     }
     if(timelineRows.length)writes.push({range:"'Paid File Timeline'!A"+(Math.max(timeline.length,1)+1)+":N"+(Math.max(timeline.length,1)+timelineRows.length),values:timelineRows});
@@ -333,8 +348,11 @@ export const resolveMasterAllocationReview = createServerFn({method:"POST"})
     if(!row||!row.status.startsWith("Manual Review – Admin New Total exceeds Paid File by ")||!row.difference)throw new Error("This loan no longer has the expected positive difference. Refresh the preview.");
     reviewType="ADMIN_TOTAL_EXCEEDS_PAID_FILE";resolvedDifference=row.difference;
   }else if(data.decision==="AUTHORIZE_REVERSAL"){
-    if(!row||!row.status.startsWith("Manual Review – Missing from Paid File")||!row.conditionFingerprint)throw new Error("This loan is no longer missing from the selected snapshot. Refresh the preview.");
-    reviewType="MISSING_LOAN";resolvedDifference=row.newTotal;
+    if(!row||!row.conditionFingerprint)throw new Error("This loan no longer has an eligible reversal review. Refresh the preview.");
+    if(row.status.startsWith("Manual Review – Missing from Paid File"))reviewType="MISSING_LOAN";
+    else if(row.status==="Manual Review – DAC, ECS, Special and Total are zero")reviewType="ZERO_VALUE_REVERSAL";
+    else throw new Error("This loan is no longer eligible for reversal approval.");
+    resolvedDifference=row.newTotal;
   }else{
     if(!row||!row.conditionFingerprint)throw new Error("This correction review is no longer available. Refresh the preview.");
     if(row.status.startsWith("Amount decreased"))reviewType="PAID_AMOUNT_DECREASE";
