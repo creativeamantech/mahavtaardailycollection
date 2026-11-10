@@ -116,7 +116,7 @@ async function assertUniquePaidSequence(file: DriveFile) {
 function identifyPaidFile(file: DriveFile): (DriveFile & {sequence:number}) | null {
   if (file.mimeType !== SHEET_MIME) return null;
   const d = dateParts();
-  const match = file.name.match(/^Paid File\\s+([A-Za-z]+)\\s+(\\d{1,2})\\s+(\\d{4})\\s+-\\s+(\\d{2,})$/i);
+  const match = file.name.match(/^Paid File\s+([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})\s+-\s+(\d{2,})$/i);
   if (!match || !adjacentTypoMonthMatches(match[1]!, d.month) || Number(match[2]) !== Number(d.day) || Number(match[3]) !== Number(d.year)) return null;
   const sequence = Number(match[4]);
   return Number.isSafeInteger(sequence) && sequence > 0 ? { ...file, sequence } : null;
