@@ -158,8 +158,13 @@ function AppShell() {
   const [moreOpen, setMoreOpen] = useState(false);
   const visibleNav = NAV.filter((n) => flags[n.key] !== false);
   const visibleAdminNav = ADMIN_NAV.filter((n) => flags[n.key] !== false);
-  const primaryMobile = visibleNav.filter((n) => ["/", "/collection-sheet", "/report"].includes(n.to));
-  const secondaryMobile = visibleNav.filter((n) => !["/", "/collection-sheet", "/report"].includes(n.to));
+  const primaryMobile = [
+    ...visibleNav.filter((n) => ["/", "/report"].includes(n.to)),
+    ...(session?.role === "Admin"
+      ? visibleAdminNav.filter((n) => n.to === "/master-performance")
+      : []),
+  ];
+  const secondaryMobile = visibleNav.filter((n) => !["/", "/report"].includes(n.to));
   const isSecondaryActive = secondaryMobile.some((n) => n.to === pathname) ||
     (session?.role === "Admin" && visibleAdminNav.some((n) => n.to === pathname));
 
