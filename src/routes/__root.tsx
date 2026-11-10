@@ -154,19 +154,9 @@ function AppShell() {
   const { flags } = useAppConfig({ enabled: !isLoading && Boolean(session) });
   const current = FEATURES.find((f) => f.path === pathname);
   const disabled = current ? flags[current.key] === false : false;
-  const [adminOpen, setAdminOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const visibleNav = NAV.filter((n) => flags[n.key] !== false);
   const visibleAdminNav = ADMIN_NAV.filter((n) => flags[n.key] !== false);
-  const primaryMobile = [
-    ...visibleNav.filter((n) => ["/", "/report"].includes(n.to)),
-    ...(session?.role === "Admin"
-      ? visibleAdminNav.filter((n) => n.to === "/master-performance")
-      : []),
-  ];
-  const secondaryMobile = visibleNav.filter((n) => !["/", "/report"].includes(n.to));
-  const isSecondaryActive = secondaryMobile.some((n) => n.to === pathname) ||
-    (session?.role === "Admin" && visibleAdminNav.some((n) => n.to === pathname));
 
   if (isLoading) {
     return <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Verifying authentication...</main>;
@@ -256,38 +246,66 @@ function AppShell() {
         )}
       </div>
 
-      {/* Mobile uses the prototype's compact bottom navigation; secondary links live in More. */}
-      <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom),8px)] z-[9999] isolate grid grid-cols-4 border-t border-[#dfe7e1] bg-white px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-5px_20px_rgba(25,48,37,0.08)] md:hidden print:hidden">
-        {primaryMobile.map((n) => (
-          <Link key={n.to} to={n.to as never} preload="intent" activeOptions={{ exact: n.to === "/" }} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold ${pathname === n.to ? "text-[#292820]" : "text-[#737b84]"}`}>
-            <span className={`grid size-7 place-items-center rounded-lg text-base ${pathname === n.to ? "bg-[#fff2c9] text-[#292820]" : ""}`} aria-hidden="true">{n.icon}</span>
-            <span>{n.short}</span>
-          </Link>
-        ))}
-        <button type="button" aria-expanded={moreOpen} aria-controls="mobile-more-menu" onClick={() => setMoreOpen((v) => !v)} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold ${moreOpen || isSecondaryActive ? "text-[#292820]" : "text-[#737b84]"}`}>
-          <span className={`grid size-7 place-items-center rounded-lg text-base ${moreOpen || isSecondaryActive ? "bg-[#fff2c9] text-[#292820]" : ""}`} aria-hidden="true">☰</span>
-          <span>More</span>
-        </button>
-      </nav>
+      {/* One global mobile navigation drawer is shared by every authenticated route. */}
+      <button
+        type="button"
+        aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+        aria-expanded={mobileNavOpen}
+        aria-controls="global-mobile-navigation"
+        onClick={() => setMobileNavOpen((open) => !open)}
+        className="fixed right-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[10000] grid size-12 place-items-center rounded-xl border border-[#26313d] bg-[#101722] text-2xl text-white shadow-lg transition hover:bg-[#202b39] active:scale-95 md:hidden print:hidden"
+      >
+        <span aria-hidden="true">{mobileNavOpen ? "×" : "☰"}</span>
+      </button>
 
-      {moreOpen && (
-        <div className="fixed inset-0 z-[9998] md:hidden print:hidden">
-          <button type="button" aria-label="Close more menu" className="absolute inset-0 bg-[#252525]/35" onClick={() => setMoreOpen(false)} />
-          <section id="mobile-more-menu" className="absolute inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto rounded-2xl border border-[#e4eae5] bg-white p-4 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-extrabold text-[#17211d]">More sections</h2><button type="button" onClick={() => setMoreOpen(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-[#718078] hover:bg-[#f3f6f3]">Close ✕</button></div>
-            <div className="grid grid-cols-2 gap-2">
-              {secondaryMobile.map((n) => (
-                <Link key={n.to} to={n.to as never} preload="intent" onClick={() => setMoreOpen(false)} className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${pathname === n.to ? "border-[#e6c34c] bg-[#fff6d9] text-[#292820]" : "border-[#e8e9eb] text-[#535b64] hover:bg-[#fffaf0]"}`}>
-                  <span className="text-base" aria-hidden="true">{n.icon}</span>{n.label}
-                </Link>
-              ))}
-              {session.role === "Admin" && visibleAdminNav.map((n) => (
-                <Link key={n.to} to={n.to as never} preload="intent" onClick={() => setMoreOpen(false)} className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${pathname === n.to ? "border-[#d6b64d] bg-[#fff8e8] text-[#174d3b]" : "border-[#e4eae5] text-[#45564b] hover:bg-[#f8faf8]"}`}>
-                  <span className="text-base" aria-hidden="true">⚙</span>{n.label}
-                </Link>
-              ))}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-[9999] md:hidden print:hidden">
+          <button
+            type="button"
+            aria-label="Close navigation menu"
+            className="absolute inset-0 bg-[#101722]/45"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside
+            id="global-mobile-navigation"
+            aria-label="Mobile navigation"
+            className="absolute inset-y-0 left-0 flex w-[min(84vw,320px)] flex-col gap-5 overflow-y-auto border-r border-[#e8e9eb] bg-white px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] text-[#252525] shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-[#e8e9eb] pb-4">
+              <Link to="/" onClick={() => setMobileNavOpen(false)} className="flex min-w-0 items-center gap-3">
+                <img src="/mahavtaar-logo.png" alt="Mahavtaar Enterprises" className="size-10 shrink-0 rounded-lg object-contain" />
+                <span className="min-w-0"><span className="block text-sm font-extrabold tracking-tight">Mahavtaar</span><span className="mt-0.5 block text-[11px] text-[#737b84]">Daily Collection</span></span>
+              </Link>
+              <button type="button" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" className="grid size-9 shrink-0 place-items-center rounded-lg text-xl text-[#737b84] hover:bg-[#f3f4f2]">×</button>
             </div>
-          </section>
+            <div>
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.17em] text-[#969ba1]">Workspace</p>
+              <nav aria-label="Workspace navigation" className="grid gap-1">
+                {visibleNav.map((n) => (
+                  <Link key={n.to} to={n.to as never} preload="intent" activeOptions={{ exact: n.to === "/" }} onClick={() => setMobileNavOpen(false)} className={linkClass(pathname === n.to)}>
+                    <span className="grid w-5 shrink-0 place-items-center text-base" aria-hidden="true">{n.icon}</span><span>{n.label}</span>
+                  </Link>
+                ))}
+              </nav>
+            </div>
+            {session.role === "Admin" && visibleAdminNav.length > 0 && (
+              <div>
+                <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.17em] text-[#969ba1]">Administration</p>
+                <nav aria-label="Administration navigation" className="grid gap-1">
+                  {visibleAdminNav.map((n) => (
+                    <Link key={n.to} to={n.to as never} preload="intent" onClick={() => setMobileNavOpen(false)} className={linkClass(pathname === n.to)}>
+                      <span className="grid w-5 shrink-0 place-items-center text-base" aria-hidden="true">⚙</span><span>{n.label}</span>
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+            )}
+            <div className="mt-auto border-t border-[#e8e9eb] px-2 pt-4">
+              <p className="truncate text-xs font-semibold text-[#292d32]">{session.name}</p>
+              <p className="mt-1 text-[11px] text-[#737b84]">{session.role}</p>
+              <button type="button" onClick={signOut} className="mt-4 min-h-10 w-full rounded-lg border border-[#e8e9eb] px-3 text-left text-xs font-semibold text-[#535b64] transition hover:border-[#f0d36d] hover:bg-[#fffaf0]">↪ Log out</button>
+            </div>
+          </aside>
         </div>
       )}
     </div>
