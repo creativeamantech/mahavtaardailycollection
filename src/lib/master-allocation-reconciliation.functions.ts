@@ -108,6 +108,11 @@ async function masterFile() {
   return files[0]!;
 }
 function paidFilePrefix() { const d=dateParts(); return "Paid File " + d.month + " " + d.day + " " + d.year + " - "; }
+async function assertUniquePaidSequence(file: DriveFile) {
+  const escapedName = file.name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  const matches = await driveList("name = '" + escapedName + "' and mimeType = '" + SHEET_MIME + "'");
+  if (matches.length > 1) throw new Error("Two or more Paid Files use the same sequence number. Resolve the duplicate sequence before processing.");
+}
 function identifyPaidFile(file: DriveFile): (DriveFile & {sequence:number}) | null {
   if (file.mimeType !== SHEET_MIME) return null;
   const d = dateParts();
@@ -242,7 +247,7 @@ export const previewMasterAllocationReconciliation = createServerFn({method:"POS
   if(master.mimeType!==SHEET_MIME||master.name!==monthTitle())throw new Error("Selected Master Allocation is no longer the current-month Google Sheet.");
   const file=identifyPaidFile(rawFile);
   if(!file)throw new Error("Selected file is not a current-day Paid File Google Sheet.");
-  if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Rename the files to unique -01, -02, -03 sequence numbers.");
+  await assertUniquePaidSequence(file);
   const result=await build(master.id,file);
   return {masterId:master.id,file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
 });
@@ -254,7 +259,7 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   if(master.mimeType!==SHEET_MIME||master.name!==monthTitle())throw new Error("Selected Master Allocation is no longer the current-month Google Sheet.");
   const file=identifyPaidFile(rawFile);
   if(!file)throw new Error("Selected file is no longer a current-day Paid File Google Sheet.");
-  if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Resolve the duplicate sequence before applying.");
+  await assertUniquePaidSequence(file);
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions"]);
   await ensureHeaders(master.id);
   const result=await build(master.id,file);
