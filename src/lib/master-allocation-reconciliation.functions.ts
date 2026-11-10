@@ -224,13 +224,14 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     if(prior&&seq<prior.sequence){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Stale snapshot"});continue;}
     const sameSequenceApproval=resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="SAME_SEQUENCE_CHANGED"&&String(r[5]??"")==="APPROVE_CORRECTION"&&String(r[9]??"")===conditionHash);
     const decreaseApproval=resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="PAID_AMOUNT_DECREASE"&&String(r[5]??"")==="APPROVE_CORRECTION"&&String(r[9]??"")===conditionHash);
+    const overpaidApproval=resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="OVERPAID"&&String(r[5]??"")==="APPROVE_CORRECTION"&&String(r[9]??"")===conditionHash);
     if(prior&&seq===prior.sequence&&total!==prior.amount&&!sameSequenceApproval){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Same sequence changed – manual review",conditionFingerprint:conditionHash});continue;}
     if(prior&&seq>prior.sequence&&total<prior.amount&&!decreaseApproval){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Amount decreased – correction review",conditionFingerprint:conditionHash});continue;}
     const date=String(pDate>=0?p[pDate]??"":"").trim();
     const retainedNewTotal=resolvedDifference&&adminNewTotal!==null?adminNewTotal:total;
     const remaining=old-retainedNewTotal;
-    if(remaining<0)overpaid++;
-    const status=resolvedDifference?"Resolved – Admin New Total preserved":sameSequenceApproval||decreaseApproval?"Resolved – Admin approved correction":remaining<0?"Overpaid":"Ready";
+    if(remaining<0){overpaid++;if(!overpaidApproval){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:retainedNewTotal,remaining,date,dac,ecs,special,status:"Manual Review – Overpaid",conditionFingerprint:conditionHash});continue;}}
+    const status=resolvedDifference?"Resolved – Admin New Total preserved":sameSequenceApproval||decreaseApproval||overpaidApproval?"Resolved – Admin approved correction":"Ready";
     preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:retainedNewTotal,remaining,date,dac,ecs,special,status,difference:resolvedDifference?adminDifference:undefined,conditionFingerprint:conditionHash});
     if(date)writes.push({range:"Data!"+col(mDate)+masterRow.rowNo,values:[[date]]});
     writes.push({range:"Data!"+col(mDac)+masterRow.rowNo,values:[[dac]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[remaining]]});
@@ -281,7 +282,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     writes.length=0;
     stateWrites.length=0;
   }
-  const ready=preview.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved","Resolved – Admin authorized reversal","Resolved – Admin approved correction"].includes(r.status));
+  const ready=preview.filter(r=>["Ready","Resolved – Admin New Total preserved","Resolved – Admin authorized reversal","Resolved – Admin approved correction"].includes(r.status));
   const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,pending,overpaid,manualReview};
   const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1),resolutions.slice(1),timeline.slice(1)]);
   const fingerprint=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(digest)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
@@ -358,6 +359,7 @@ export const resolveMasterAllocationReview = createServerFn({method:"POST"})
     if(!row||!row.conditionFingerprint)throw new Error("This correction review is no longer available. Refresh the preview.");
     if(row.status.startsWith("Amount decreased"))reviewType="PAID_AMOUNT_DECREASE";
     else if(row.status.startsWith("Same sequence changed"))reviewType="SAME_SEQUENCE_CHANGED";
+    else if(row.status.startsWith("Manual Review – Overpaid"))reviewType="OVERPAID";
     else throw new Error("This loan no longer has an approvable correction review.");
     resolvedDifference=row.difference??0;
   }
