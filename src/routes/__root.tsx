@@ -122,7 +122,6 @@ const NAV = [
 
 const ADMIN_NAV = [
   { to: "/master-performance", label: "IDFC Main Performance", short: "Performance", icon: "▥", key: "report" },
-  { to: "/master-allocation-reconciliation", label: "Master Allocation Reconciliation", key: "masterAllocationReconciliation" },
   { to: "/settings", label: "Settings", key: "settings" },
   { to: "/admin-loan-audit", label: "Productivity Desk", key: "adminLoanAudit" },
   { to: "/conflicts", label: "Conflicts", key: "conflicts" },
