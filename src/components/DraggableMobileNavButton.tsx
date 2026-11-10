@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 type SavedPosition = { x: number; y: number; hidden: "left" | "right" | null };
 type DragState = {
@@ -56,21 +56,21 @@ export function DraggableMobileNavButton({
     }
   }, [position]);
 
-  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
     if (event.button !== 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
     drag.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      originX: position?.x ?? rect.left,
+      originX: rect.left,
       originY: position?.y ?? rect.top,
       moved: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function handlePointerMove(event: React.PointerEvent<HTMLButtonElement>) {
+  function handlePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
     const active = drag.current;
     if (!active || active.pointerId !== event.pointerId) return;
     const dx = event.clientX - active.startX;
@@ -85,7 +85,7 @@ export function DraggableMobileNavButton({
     });
   }
 
-  function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
+  function handlePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
     const active = drag.current;
     if (!active || active.pointerId !== event.pointerId) return;
     drag.current = null;
