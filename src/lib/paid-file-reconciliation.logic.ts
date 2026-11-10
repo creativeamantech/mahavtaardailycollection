@@ -1,5 +1,5 @@
 export function norm(v: unknown): string {
-  return String(v ?? "").trim().toUpperCase().replace(/^['\`]+/,"").replace(/[^A-Z0-9]/g,"");
+  return String(v ?? "").trim().toUpperCase().replace(/^['`]+/,"").replace(/[^A-Z0-9]/g,"");
 }
 export function headerIndex(row: string[], aliases: string[]): number {
   const set = new Set(aliases.map(norm));
