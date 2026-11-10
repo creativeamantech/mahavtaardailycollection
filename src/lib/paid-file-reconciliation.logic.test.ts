@@ -55,12 +55,12 @@ describe("Paid File Excel format regression", () => {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "Payments");
       const bytes = XLSX.write(workbook, { type: "array", bookType });
-      expect(normalizePaidFileSource(new Uint8Array(bytes), bookType)).toContain("LN-001,1200.50,300");
+      expect(normalizePaidFileSource(new Uint8Array(bytes), bookType).includes("LN-001,1200.50,300")).toBe(true);
     }
   });
   test("normalizes CSV source bytes", () => {
     const csv = "Agreement ID,SFDC,Online\nLN-001,1200.50,300";
-    expect(normalizePaidFileSource(new TextEncoder().encode(csv), "csv")).toContain("LN-001,1200.50,300");
+    expect(normalizePaidFileSource(new TextEncoder().encode(csv), "csv").includes("LN-001,1200.50,300")).toBe(true);
   });
   test("rejects unsupported and empty inputs", () => {
     expect(() => normalizePaidFileSource(new Uint8Array([1, 2]), "pdf")).toThrow("Unsupported");
