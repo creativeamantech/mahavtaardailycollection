@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { FileSpreadsheet, ShieldCheck } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { getMasterAllocationReconciliation, previewMasterAllocationReconciliation, applyMasterAllocationReconciliation, uploadPaidFileSnapshot, resolveMasterAllocationReview } from "@/lib/master-allocation-reconciliation.functions";
 
