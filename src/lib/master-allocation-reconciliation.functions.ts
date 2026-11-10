@@ -170,12 +170,11 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
   const paidById=new Map<string,string[][]>();
   for(let i=1;i<paid.length;i++){const r=paid[i]??[];const id=norm(r[pi]);if(id){const a=paidById.get(id)??[];a.push(r);paidById.set(id,a);}}
   const appliedLoans=new Set(audit.slice(1).filter(r=>String(r[1]??"")===file.id).map(r=>norm(r[3])));
-  const seq=Number(file.name.slice(paidFilePrefix().length));
-  const todayPrefix=paidFilePrefix();
-  const appliedSequences=audit.slice(1).filter(r=>String(r[2]??"").startsWith(todayPrefix)).map(r=>Number(String(r[2]??"").match(/ - (\d+)$/)?.[1]??0)).filter(n=>Number.isSafeInteger(n)&&n>0);
+  const seq=Number(file.name.match(/ - (\d+)$/)?.[1]??0);
+  const appliedSequences=audit.slice(1).map(r=>identifyPaidFile({id:String(r[1]??""),name:String(r[2]??""),mimeType:SHEET_MIME})?.sequence??0).filter(n=>Number.isSafeInteger(n)&&n>0);
   const latestAppliedSequence=appliedSequences.length?Math.max(...appliedSequences):0;
   const previous=new Map<string,{sequence:number;amount:number}>();
-  for(const r of state.slice(1)){const id=norm(r[0]);const priorSeq=Number(r[1]);const amt=amount(r[2]);if(id&&Number.isFinite(priorSeq)&&amt!==null)previous.set(id,{sequence:priorSeq,amount:amt});}
+  for(const r of state.slice(1)){const snapshotName=String(r[5]??"");const sameDay=String(r[6]??"")===dateKey()||(!r[6]&&snapshotName.startsWith(paidFilePrefix()));const id=norm(r[0]);const priorSeq=Number(r[1]);const amt=amount(r[2]);if(sameDay&&id&&Number.isFinite(priorSeq)&&amt!==null)previous.set(id,{sequence:priorSeq,amount:amt});}
   const preview:RowPreview[]=[]; const writes:{range:string;values:(string|number)[][]}[]=[];
   const notFoundLoans:string[]=[];
   let notFound=0,zeroZero=0,duplicates=0,invalid=0,pending=0,overpaid=0,manualReview=0,found=0;
