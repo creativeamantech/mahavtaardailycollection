@@ -221,32 +221,32 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     if(mSpecial>=0&&special!==null)writes.push({range:"Data!"+col(mSpecial)+masterRow.rowNo,values:[[special]]});
     stateWrites.push([id,seq,total,file.id,new Date().toISOString(),file.name,dateKey()]);
   }
+  const alreadyRecorded=new Set(timeline.slice(1).filter(r=>String(r[3]??"")===file.id).map(r=>norm(r[1])));
+  const latestEvent=new Map<string,string>();
+  for(const event of timeline.slice(1)){const loan=norm(event[1]);if(loan)latestEvent.set(loan,String(event[5]??""));}
+  const timelineRows:(string|number)[][]=[];
+  for(const [loan,prior] of previous){
+    if(paidById.has(loan)||latestEvent.get(loan)==="MISSING")continue;
+    const masterRow=masterById.get(loan);
+    if(!masterRow)continue;
+    const oldTotal=amount(masterRow.row[mTotal])??0;
+    const conditionHash=await conditionFingerprint([loan,prior.amount,file.id,seq,"MISSING"]);
+    const missingRow:RowPreview={loan,row:masterRow.rowNo,oldTotal,newTotal:prior.amount,remaining:oldTotal-prior.amount,date:"",dac:0,ecs:0,special:0,status:"Manual Review – Missing from Paid File; previous values held",conditionFingerprint:conditionHash};
+    preview.push(missingRow);
+    if(!notFoundLoans.includes(loan))notFoundLoans.push(loan);
+    manualReview++;
+    if(actor&&!alreadyRecorded.has(loan))timelineRows.push([new Date().toISOString(),loan,seq,file.id,file.name,"MISSING",prior.amount,"","","","","Manual Review – missing loan; previous paid values retained",actor,conditionHash]);
+  }
   if(actor){
-    const alreadyRecorded=new Set(timeline.slice(1).filter(r=>String(r[3]??"")===file.id).map(r=>norm(r[1])));
-    const latestEvent=new Map<string,string>();
-    for(const event of timeline.slice(1)){const loan=norm(event[1]);if(loan)latestEvent.set(loan,String(event[5]??""));}
-    const timelineRows:(string|number)[][]=[];
     for(const row of preview){
       const loan=norm(row.loan);
-      if(alreadyRecorded.has(loan))continue;
+      if(alreadyRecorded.has(loan)||!paidById.has(loan))continue;
       const prior=previous.get(loan);
       const matches=paidById.get(loan)??[];
       const paidRow=matches.length===1?matches[0]:undefined;
       const observed=paidRow?amount(paidRow[pTotal]):null;
       const eventType=latestEvent.get(loan)==="MISSING"?"REAPPEARED":prior&&observed!==null&&observed!==prior.amount?"AMOUNT_CHANGED":"PRESENT";
       timelineRows.push([new Date().toISOString(),row.loan,seq,file.id,file.name,eventType,prior?.amount??"",observed??"",paidRow?amount(paidRow[pDac])??"": "",paidRow&&pEcs>=0?amount(paidRow[pEcs])??"": "",paidRow&&pSpecial>=0?amount(paidRow[pSpecial])??"": "",row.status,actor,row.conditionFingerprint??""]);
-    }
-    for(const [loan,prior] of previous){
-      if(paidById.has(loan)||alreadyRecorded.has(loan)||latestEvent.get(loan)==="MISSING")continue;
-      const masterRow=masterById.get(loan);
-      if(!masterRow)continue;
-      const oldTotal=amount(masterRow.row[mTotal])??0;
-      const conditionHash=await conditionFingerprint([loan,prior.amount,file.id,seq,"MISSING"]);
-      const row:RowPreview={loan,row:masterRow.rowNo,oldTotal,newTotal:prior.amount,remaining:oldTotal-prior.amount,date:"",dac:0,ecs:0,special:0,status:"Manual Review – Missing from Paid File; previous values held",conditionFingerprint:conditionHash};
-      preview.push(row);
-      notFoundLoans.push(loan);
-      manualReview++;
-      timelineRows.push([new Date().toISOString(),loan,seq,file.id,file.name,"MISSING",prior.amount,"","","","","Manual Review – missing loan; previous paid values retained",actor,conditionHash]);
     }
     if(timelineRows.length)writes.push({range:"'Paid File Timeline'!A"+(Math.max(timeline.length,1)+1)+":N"+(Math.max(timeline.length,1)+timelineRows.length),values:timelineRows});
   }
