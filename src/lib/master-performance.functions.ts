@@ -109,8 +109,10 @@ function makeMetric(rows: { agreement: string; dac: number; mainPaidCount: numbe
   const collection = rows.reduce((s, r) => s + r.dac, 0);
   const mainPaidPos = rows.reduce((s, r) => s + r.main, 0);
   const rollbackPos = rows.reduce((s, r) => s + r.rollback, 0);
-  const targetPos = totalPos * mainTarget / 100;
-  const targetRollbackPos = totalPos * rollbackTarget / 100;
+  const targetPos = rows.reduce((sum, row) => sum + row.pos * row.mainTarget / 100, 0);
+  const targetRollbackPos = rows.reduce((sum, row) => sum + row.pos * row.rollbackTarget / 100, 0);
+  const mainTarget = totalPos ? targetPos / totalPos * 100 : DEFAULT_MAIN_TARGET;
+  const rollbackTarget = totalPos ? targetRollbackPos / totalPos * 100 : DEFAULT_ROLLBACK_TARGET;
   return {
     totalCount, paidCount, unpaidCount, totalPos, collection, mainPaidPos, rollbackPos,
     mainPercent: totalPos ? mainPaidPos / totalPos * 100 : 0,
@@ -179,16 +181,11 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       const executiveMap = new Map<string, typeof parsed>();
       cityRows.forEach(r => { const list = executiveMap.get(r.executive) ?? []; list.push(r); executiveMap.set(r.executive, list); });
       const executives: ExecutiveRow[] = [...executiveMap.entries()].map(([executive, exRows]) => {
-        const first = exRows[0]!;
-        const t = targetFor(rules, first.allocation, bucket, first.state, city);
-        return { executive, ...makeMetric(exRows, t.mainTarget, t.rollbackTarget) };
+        return { executive, ...makeMetric(exRows) };
       }).sort((a,b) => b.totalCount-a.totalCount || a.executive.localeCompare(b.executive));
-      const first = cityRows[0]!;
-      const t = targetFor(rules, first.allocation, bucket, first.state, city);
-      return { city, executives, ...makeMetric(cityRows, t.mainTarget, t.rollbackTarget) };
+      return { city, executives, ...makeMetric(cityRows) };
     }).sort((a,b) => b.totalCount-a.totalCount || a.city.localeCompare(b.city));
-    const bucketTarget = targetFor(rules, "", bucket, "", "");
-    return { bucket, cities, total: makeMetric(rows, bucketTarget.mainTarget, bucketTarget.rollbackTarget) };
+    return { bucket, cities, total: makeMetric(rows) };
   });
   const totals = makeMetric(parsed);
   const positiveNeededPos = buckets.flatMap(b => b.cities.filter(c => c.neededPos > 0).map(c => ({ bucket: b.bucket, city: c.city, totalCount: c.totalCount, neededPos: round(c.neededPos), mainPaidPos: round(c.mainPaidPos), targetPos: round(c.targetPos) })));
