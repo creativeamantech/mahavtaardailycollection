@@ -251,7 +251,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     const reversalApproved=resolutions.slice(1).some(r=>norm(r[0])===loan&&String(r[1]??"")==="MISSING_LOAN"&&String(r[5]??"")==="AUTHORIZE_REVERSAL"&&String(r[9]??"")===conditionHash);
     const missingRow:RowPreview={loan,row:masterRow.rowNo,oldTotal,newTotal:reversalApproved?0:prior.amount,remaining:reversalApproved?oldTotal:oldTotal-prior.amount,date:"",dac:0,ecs:0,special:0,status:reversalApproved?"Resolved – Admin authorized reversal":"Manual Review – Missing from Paid File; previous values held",conditionFingerprint:conditionHash};
     preview.push(missingRow);
-    if(!notFoundLoans.includes(loan))notFoundLoans.push(loan);
+    if(!notFoundLoans.includes(loan)){notFoundLoans.push(loan);notFound++;}
     if(reversalApproved){
       writes.push({range:"Data!"+col(mNew)+masterRow.rowNo,values:[[0]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[oldTotal]]},{range:"Data!"+col(mDac)+masterRow.rowNo,values:[[0]]});
       if(mEcs>=0)writes.push({range:"Data!"+col(mEcs)+masterRow.rowNo,values:[[0]]});
@@ -326,7 +326,7 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   await assertUniquePaidSequence(file);
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions","Paid File Timeline"]);
   await ensureHeaders(master.id);
-  const result=await build(master.id,file);
+  const result=await build(master.id,file,session.name);
   if(result.fingerprint!==data.fingerprint)throw new Error("Master Allocation, Paid File, or reconciliation history changed after preview. Refresh preview and approve the new version.");
   return applyBuiltReconciliation(master.id,file,result,session.name);
 });
