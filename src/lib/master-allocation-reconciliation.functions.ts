@@ -50,21 +50,23 @@ async function ensureTabs(id: string, titles: string[]) {
 async function readHistory(id:string) {
   const meta=await json<{sheets?:{properties?:{title?:string}}[]}>(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"?fields=sheets.properties",{headers:headers("GOOGLE_SHEETS_API_KEY")}),"Master spreadsheet metadata");
   const names=new Set((meta.sheets??[]).map(s=>s.properties?.title));
-  const [audit,state,resolutions]=await Promise.all([
+  const [audit,state,resolutions,timeline]=await Promise.all([
     names.has("Paid File Audit")?sheetValues(id,"'Paid File Audit'!A1:H"):Promise.resolve([] as string[][]),
     names.has("Paid File Snapshot State")?sheetValues(id,"'Paid File Snapshot State'!A1:G"):Promise.resolve([] as string[][]),
-    names.has("Paid File Review Resolutions")?sheetValues(id,"'Paid File Review Resolutions'!A1:J"):Promise.resolve([] as string[][])
+    names.has("Paid File Review Resolutions")?sheetValues(id,"'Paid File Review Resolutions'!A1:J"):Promise.resolve([] as string[][]),
+    names.has("Paid File Timeline")?sheetValues(id,"'Paid File Timeline'!A1:L"):Promise.resolve([] as string[][])
   ]);
-  return {audit,state,resolutions};
+  return {audit,state,resolutions,timeline};
 }
 async function ensureHeaders(id:string) {
-  const [audit,state,resolutions]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:G1"),sheetValues(id,"'Paid File Review Resolutions'!A1:J1")]);
+  const [audit,state,resolutions,timeline]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:G1"),sheetValues(id,"'Paid File Review Resolutions'!A1:J1"),sheetValues(id,"'Paid File Timeline'!A1:L1")]);
   const data:{range:string;values:string[][]}[]=[];
   if(!audit.length)data.push({range:"'Paid File Audit'!A1:H1",values:[["Applied At","Paid File ID","Paid File Name","Agreement ID","New Total","Master Row","Status","Fingerprint"]]});
   if(!state.length)data.push({range:"'Paid File Snapshot State'!A1:G1",values:[["Agreement ID","Latest Sequence","Latest Cumulative Total","Paid File ID","Accepted At","Paid File Name","Snapshot Date"]]});
   else if(!(state[0]??[])[6])data.push({range:"'Paid File Snapshot State'!G1",values:[["Snapshot Date"]]});
   if(!resolutions.length)data.push({range:"'Paid File Review Resolutions'!A1:J1",values:[["Agreement ID","Review Type","Resolved Difference","Admin New Total","Paid File Total","Decision","Resolved By","Resolved At","Source Paid File","Condition Fingerprint"]]});
   else if(!(resolutions[0]??[])[9])data.push({range:"'Paid File Review Resolutions'!J1",values:[["Condition Fingerprint"]]});
+  if(!timeline.length)data.push({range:"'Paid File Timeline'!A1:L1",values:[["Event At","Agreement ID","Snapshot Sequence","Paid File ID","Paid File Name","Event Type","Previous Paid Total","Observed Paid Total","DAC","ECS","Special","Status / Reason"]]});
   if(data.length)await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data})}),"Initialize reconciliation headers");
 }
 function norm(v: unknown) { return String(v ?? "").trim().toUpperCase().replace(/^['`]+/,"").replace(/[^A-Z0-9]/g,""); }
@@ -269,7 +271,7 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   const file=identifyPaidFile(rawFile);
   if(!file)throw new Error("Selected file is no longer a current-day Paid File Google Sheet.");
   await assertUniquePaidSequence(file);
-  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions"]);
+  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions","Paid File Timeline"]);
   await ensureHeaders(master.id);
   const result=await build(master.id,file);
   if(result.fingerprint!==data.fingerprint)throw new Error("Master Allocation, Paid File, or reconciliation history changed after preview. Refresh preview and approve the new version.");
