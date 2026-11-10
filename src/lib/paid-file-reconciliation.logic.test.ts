@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { amount, computePaidFileDac, headerIndex, norm } from "./paid-file-reconciliation.logic";
+import { amount, computePaidFileDac, headerIndex, norm, paidFileHistoryGeneration } from "./paid-file-reconciliation.logic";
 
 describe("Paid File normalization", () => {
   test("parses Indian currency formatting and negative parentheses", () => {
@@ -29,5 +29,18 @@ describe("Paid File normalization", () => {
   test("requires both source columns and rejects an empty file", () => {
     expect(() => computePaidFileDac([])).toThrow("Paid File is empty");
     expect(() => computePaidFileDac([["Agreement ID", "SFDC"]])).toThrow("SFDC and Online");
+  });
+});
+
+
+describe("Paid File review fingerprint generations", () => {
+  test("does not invalidate an approval because its own reversal decision was recorded", () => {
+    expect(paidFileHistoryGeneration(["PRESENT", "REVERSAL_AUTHORIZED"])).toBe(0);
+    expect(paidFileHistoryGeneration(["PRESENT", "REVERSAL_APPROVED"])).toBe(0);
+  });
+  test("increments only when payment data reappears or changes after a missing state", () => {
+    expect(paidFileHistoryGeneration(["PRESENT", "MISSING"])).toBe(1);
+    expect(paidFileHistoryGeneration(["PRESENT", "MISSING", "REAPPEARED"])).toBe(1);
+    expect(paidFileHistoryGeneration(["PRESENT", "AMOUNT_CHANGED"])).toBe(1);
   });
 });
