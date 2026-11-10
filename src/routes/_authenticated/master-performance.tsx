@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ExternalLink, Plus, RefreshCw, Share2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Plus, RefreshCw, Share2, Trash2 } from "lucide-react";
 import { getMasterPerformanceReport, saveMasterPerformanceTargets } from "@/lib/master-performance.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -143,12 +143,38 @@ function ShareTable({ title, rows, onShare }: { title: string; rows: { city: str
   </section>;
 }
 function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) {
+  const [expandedCities, setExpandedCities] = useState<Set<string>>(() => new Set());
+  const allExpanded = cities.length > 0 && cities.every(city => expandedCities.has(city.city));
+  const toggleCity = (cityName: string) => setExpandedCities(current => {
+    const next = new Set(current);
+    if (next.has(cityName)) next.delete(cityName);
+    else next.add(cityName);
+    return next;
+  });
   const headers = ["City / Executive","Total Count","Paid Count","Unpaid Count","Total POS","Collection","Main %","Main Paid POS","Main Target","Target POS","Needed POS","RB %","Rollback POS","RB Target","Target RB POS","Needed RB POS"];
   const metricCells = (m: Metric) => [m.totalCount.toLocaleString("en-IN"),m.paidCount.toLocaleString("en-IN"),m.unpaidCount.toLocaleString("en-IN"),money(m.totalPos),money(m.collection),pct(m.mainPercent),money(m.mainPaidPos),pct(m.mainTarget),money(m.targetPos),money(m.neededPos),pct(m.rollbackPercent),money(m.rollbackPos),pct(m.rollbackTarget),money(m.targetRollbackPos),money(m.neededRollbackPos)];
-  return <div className="overflow-x-auto"><table className="w-full min-w-[1500px] text-xs"><thead className="bg-muted/70"><tr>{headers.map((h,i)=><th key={h} className={"px-2 py-3 text-right font-semibold " + (i===0?"sticky left-0 z-10 bg-muted/70 text-left":"")}>{h}</th>)}</tr></thead><tbody>
-    {cities.map(city => <><tr key={city.city} className="border-t bg-amber-50/70 font-bold"><td className="sticky left-0 bg-amber-50 px-2 py-2">{city.city}</td>{metricCells(city).map((v,i)=><td key={i} className="px-2 py-2 text-right tabular-nums">{v}</td>)}</tr>
-      {city.executives.map(ex=><tr key={city.city+"-"+ex.executive} className="border-t"><td className="sticky left-0 bg-white px-2 py-2 pl-6 text-left">{ex.executive}</td>{metricCells(ex).map((v,i)=><td key={i} className="px-2 py-2 text-right tabular-nums">{v}</td>)}</tr>)}
-    </>)}
+  return <div className="overflow-x-auto">
+    <div className="mb-2 flex justify-end gap-2">
+      <Button size="sm" variant="ghost" onClick={() => setExpandedCities(new Set(cities.map(city => city.city)))}>Expand all</Button>
+      <Button size="sm" variant="ghost" onClick={() => setExpandedCities(new Set())}>Collapse all</Button>
+    </div>
+    <table className="w-full min-w-[1500px] text-xs"><thead className="bg-muted/70"><tr>{headers.map((h,i)=><th key={h} className={"px-2 py-3 text-right font-semibold " + (i===0?"sticky left-0 z-10 bg-muted/70 text-left":"")}>{h}</th>)}</tr></thead><tbody>
+    {cities.map(city => <Fragment key={city.city}>
+      <tr className="border-t bg-amber-50/70 font-bold">
+        <td className="sticky left-0 bg-amber-50 px-2 py-2">
+          <button type="button" className="flex min-h-8 w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={expandedCities.has(city.city)} aria-label={(expandedCities.has(city.city) ? "Collapse " : "Expand ") + city.city + " executives"} onClick={() => toggleCity(city.city)}>
+            {expandedCities.has(city.city) ? <ChevronDown className="size-4 shrink-0" /> : <ChevronRight className="size-4 shrink-0" />}
+            <span>{city.city}</span>
+            <span className="ml-1 text-[10px] font-normal text-muted-foreground">({city.executives.length})</span>
+          </button>
+        </td>
+        {metricCells(city).map((v,i)=><td key={i} className="px-2 py-2 text-right tabular-nums">{v}</td>)}
+      </tr>
+      {expandedCities.has(city.city) && city.executives.map(ex=><tr key={city.city+"-"+ex.executive} className="border-t">
+        <td className="sticky left-0 bg-white px-2 py-2 pl-8 text-left">{ex.executive}</td>
+        {metricCells(ex).map((v,i)=><td key={i} className="px-2 py-2 text-right tabular-nums">{v}</td>)}
+      </tr>)}
+    </Fragment>)}
     <tr className="border-t-2 bg-muted/70 font-extrabold"><td className="sticky left-0 bg-muted px-2 py-3">GRAND TOTAL</td>{metricCells(total).map((v,i)=><td key={i} className="px-2 py-3 text-right tabular-nums">{v}</td>)}</tr>
   </tbody></table></div>;
 }
