@@ -404,9 +404,8 @@ export const uploadPaidFileSnapshot = createServerFn({method:"POST"})
   const uploaded=await json<DriveFile>(res,"Paid File CSV conversion to Google Sheets");
   if(uploaded.mimeType!==SHEET_MIME)throw new Error("Google Drive did not convert the normalized CSV into a native Google Sheet. Original source was archived as "+source.id+".");
   const master=await masterFile();
-  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions","Paid File Timeline"]);
-  await ensureHeaders(master.id);
+  // Upload creates an immutable snapshot only. Master Allocation is not written
+  // until the Admin explicitly approves the read-only preview via Apply.
   const result=await build(master.id,uploaded,session.name);
-  const applied=await applyBuiltReconciliation(master.id,uploaded,result,session.name);
-  return {ok:true as const,id:uploaded.id,name:uploaded.name,url:uploaded.webViewLink??("https://docs.google.com/spreadsheets/d/"+uploaded.id+"/edit"),sourceFileId:source.id,sourceFileName:source.name,preview:{masterId:master.id,file:{id:uploaded.id,name:uploaded.name,sequence:data.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence,autoApplied:applied.applied>0},applied};
+  return {ok:true as const,id:uploaded.id,name:uploaded.name,url:uploaded.webViewLink??("https://docs.google.com/spreadsheets/d/"+uploaded.id+"/edit"),sourceFileId:source.id,sourceFileName:source.name,preview:{masterId:master.id,file:{id:uploaded.id,name:uploaded.name,sequence:data.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence}};
 });
