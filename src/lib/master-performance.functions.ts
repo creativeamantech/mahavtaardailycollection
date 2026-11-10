@@ -28,7 +28,7 @@ async function checkedJson<T>(res: Response, label: string): Promise<T> {
 }
 async function findMaster(): Promise<DriveFile> {
   const url = new URL(GATEWAY + "/google_drive/drive/v3/files");
-  url.searchParams.set("q", "name = '" + monthTitle().replace(/'/g, "\'") + "' and mimeType = '" + SHEET_MIME + "' and trashed = false");
+  url.searchParams.set("q", "name = '" + monthTitle().replace(/'/g, "\\'") + "' and mimeType = '" + SHEET_MIME + "' and trashed = false");
   url.searchParams.set("pageSize", "100");
   url.searchParams.set("fields", "files(id,name,mimeType,modifiedTime,webViewLink)");
   const result = await checkedJson<{ files?: DriveFile[] }>(await fetch(url, { headers: authHeaders("GOOGLE_DRIVE_API_KEY") }), "Master Allocation search");
