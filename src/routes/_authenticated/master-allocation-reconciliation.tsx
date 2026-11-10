@@ -9,7 +9,7 @@ import { getMasterAllocationReconciliation, previewMasterAllocationReconciliatio
 
 type FileItem={id:string;name:string;sequence:number;modifiedTime:string;url:string};
 type LoanRow={loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number};
-type Preview={file:{id:string;name:string;sequence:number};rows:LoanRow[];notFoundLoans:string[];counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number};fingerprint:string;sequence:number};
+type Preview={masterId:string;file:{id:string;name:string;sequence:number};rows:LoanRow[];notFoundLoans:string[];counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number};fingerprint:string;sequence:number};
 const money=(v:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(v);
 export const Route=createFileRoute("/_authenticated/master-allocation-reconciliation")({component:ReconciliationPage});
 function ReconciliationPage(){
@@ -20,9 +20,9 @@ function ReconciliationPage(){
   const [fileChoice,setFileChoice]=useState("auto");
   const [uploading,setUploading]=useState(false);
   const [uploadSequence,setUploadSequence]=useState(1);
-  const previewMutation=useMutation({mutationFn:(fileId:string)=>previewFn({data:{fileId}}),onSuccess:r=>{setSelected(r as Preview);toast.success("Read-only preview ready. Master Data has not been changed.");},onError:e=>toast.error(e.message)});
-  const applyMutation=useMutation({mutationFn:()=>{if(!selected)throw new Error("Preview a Paid File first.");return applyFn({data:{fileId:selected.file.id,fingerprint:selected.fingerprint,confirm:true}});},onSuccess:async r=>{toast.success("Applied "+r.applied+" Master Allocation loans. Audit and snapshot state recorded.");setSelected(null);await qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]});},onError:e=>toast.error(e.message)});
-  const resolveMutation=useMutation({mutationFn:async(loan:string)=>{if(!selected)throw new Error("Preview a Paid File first.");await resolveMasterAllocationReview({data:{fileId:selected.file.id,loan,decision:"KEEP_ADMIN_TOTAL"}});return previewFn({data:{fileId:selected.file.id}});},onSuccess:r=>{setSelected(r as Preview);toast.success("Review resolved. Admin's verified New Total will be preserved; this exact difference will not be reviewed again.");},onError:e=>toast.error(e.message)});
+  const previewMutation=useMutation({mutationFn:(fileId:string)=>previewFn({data:{fileId,masterId:data?.master.id??""}}),onSuccess:r=>{setSelected(r as Preview);toast.success("Read-only preview ready. Master Data has not been changed.");},onError:e=>toast.error(e.message)});
+  const applyMutation=useMutation({mutationFn:()=>{if(!selected)throw new Error("Preview a Paid File first.");return applyFn({data:{fileId:selected.file.id,masterId:selected.masterId,fingerprint:selected.fingerprint,confirm:true}});},onSuccess:async r=>{toast.success("Applied "+r.applied+" Master Allocation loans. Audit and snapshot state recorded.");setSelected(null);await qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]});},onError:e=>toast.error(e.message)});
+  const resolveMutation=useMutation({mutationFn:async(loan:string)=>{if(!selected)throw new Error("Preview a Paid File first.");await resolveMasterAllocationReview({data:{fileId:selected.file.id,masterId:selected.masterId,loan,decision:"KEEP_ADMIN_TOTAL"}});return previewFn({data:{fileId:selected.file.id}});},onSuccess:r=>{setSelected(r as Preview);toast.success("Review resolved. Admin's verified New Total will be preserved; this exact difference will not be reviewed again.");},onError:e=>toast.error(e.message)});
   const files=(data?.files??[]) as FileItem[];
   const counts=selected?.counts;
   const eligibleCount=selected?.rows.filter(r=>r.status==="Ready"||r.status==="Overpaid"||r.status==="Resolved – Admin New Total preserved").length??0;
