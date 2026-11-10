@@ -61,3 +61,15 @@ export function normalizePaidFileSource(sourceBytes: Uint8Array, extension: stri
   if (!csv.trim()) throw new Error("Paid File worksheet is empty.");
   return csv;
 }
+
+const APPLY_ELIGIBLE_STATUSES = new Set([
+  "Ready",
+  "Resolved – Admin New Total preserved",
+  "Resolved – Admin authorized reversal",
+  "Resolved – Admin approved correction",
+]);
+
+/** Only explicitly ready or Admin-resolved rows may be written to Master Data. */
+export function isPaidFileRowApplyEligible(status: string): boolean {
+  return APPLY_ELIGIBLE_STATUSES.has(status);
+}
