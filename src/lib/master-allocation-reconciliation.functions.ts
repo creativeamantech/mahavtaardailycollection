@@ -194,6 +194,8 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     const malformed=paidFields.some(v=>v!==undefined&&String(v??"").trim()!==""&&amount(v)===null);
     if(malformed||old===null){invalid++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old??0,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Invalid – non-numeric amount or missing Master Total"});continue;}
     if(total===null||dac===null||(pEcs>=0&&ecs===null)||(pSpecial>=0&&special===null)){pending++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total??0,remaining:0,date:"",dac:dac??0,ecs,special,status:"Pending – blank payment amount"});continue;}
+    const paymentDate=String(p[pDate]??"").trim();
+    if(!paymentDate){pending++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:"",dac,ecs,special,status:"Pending – blank payment date"});continue;}
     const prior=previous.get(id);
     const adminNewTotal=amount(masterRow.row[mNew]);
     const adminDifference=adminNewTotal!==null&&adminNewTotal>total?adminNewTotal-total:0;
@@ -227,7 +229,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     const overpaidApproval=resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="OVERPAID"&&String(r[5]??"")==="APPROVE_CORRECTION"&&String(r[9]??"")===conditionHash);
     if(prior&&seq===prior.sequence&&total!==prior.amount&&!sameSequenceApproval){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Same sequence changed – manual review",conditionFingerprint:conditionHash});continue;}
     if(prior&&seq>prior.sequence&&total<prior.amount&&!decreaseApproval){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:total,remaining:old-total,date:String(p[pDate]??""),dac,ecs,special,status:"Amount decreased – correction review",conditionFingerprint:conditionHash});continue;}
-    const date=String(pDate>=0?p[pDate]??"":"").trim();
+    const date=paymentDate;
     const retainedNewTotal=resolvedDifference&&adminNewTotal!==null?adminNewTotal:total;
     const remaining=old-retainedNewTotal;
     if(remaining<0){overpaid++;if(!overpaidApproval){manualReview++;preview.push({loan:id,row:masterRow.rowNo,oldTotal:old,newTotal:retainedNewTotal,remaining,date,dac,ecs,special,status:"Manual Review – Overpaid",conditionFingerprint:conditionHash});continue;}}
