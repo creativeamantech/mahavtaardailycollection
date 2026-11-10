@@ -28,7 +28,7 @@ async function checkedJson<T>(res: Response, label: string): Promise<T> {
 }
 async function findMaster(): Promise<DriveFile> {
   const url = new URL(GATEWAY + "/google_drive/drive/v3/files");
-  url.searchParams.set("q", "name = '" + monthTitle().replace(/'/g, "\\'") + "' and mimeType = '" + SHEET_MIME + "' and trashed = false");
+  url.searchParams.set("q", "name = '" + monthTitle().replace(/'/g, "\'") + "' and mimeType = '" + SHEET_MIME + "' and trashed = false");
   url.searchParams.set("pageSize", "100");
   url.searchParams.set("fields", "files(id,name,mimeType,modifiedTime,webViewLink)");
   const result = await checkedJson<{ files?: DriveFile[] }>(await fetch(url, { headers: authHeaders("GOOGLE_DRIVE_API_KEY") }), "Master Allocation search");
@@ -56,15 +56,15 @@ async function ensureTargetTab(id: string) {
     body: JSON.stringify({ values: [["ID", "Allocation Type", "Bucket", "State", "City", "Main Target %", "Rollback Target %"]] }),
   }), "Initialize Performance Targets");
 }
-function norm(v: unknown) { return String(v ?? "").trim().toLowerCase().replace(/\\s+/g, " "); }
-function bucketKey(v: unknown) { return norm(v).replace(/^bucket\\s*/, "").replace(/^b\\s*/, "").replace(/[^0-9]/g, ""); }
+function norm(v: unknown) { return String(v ?? "").trim().toLowerCase().replace(/\s+/g, " "); }
+function bucketKey(v: unknown) { return norm(v).replace(/^bucket\s*/, "").replace(/^b\s*/, "").replace(/[^0-9]/g, ""); }
 function headerIndex(headers: string[], aliases: string[]) {
   const accepted = new Set(aliases.map(v => norm(v)));
   return headers.findIndex(v => accepted.has(norm(v)));
 }
 function numeric(v: unknown): number {
   if (v === null || v === undefined || String(v).trim() === "") return 0;
-  const raw = String(v).trim().replace(/[₹,\\s]/g, "").replace(/^\\((.*)\\)$/, "-$1");
+  const raw = String(v).trim().replace(/[₹,\s]/g, "").replace(/^\((.*)\)$/, "-$1");
   const n = Number(raw);
   if (!Number.isFinite(n)) throw new Error("Non-numeric value found in Master Data: " + String(v).slice(0, 40));
   return n;
@@ -164,7 +164,8 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       mainPaidCount: numeric(row[idx.paidCount]), pos: numeric(row[idx.pos]),
       main: numeric(row[idx.main]), rollback: numeric(row[idx.rollback]),
     };
-    const target = targetFor(rules, item.allocation, item.bucket, item.state, item.city);\n    parsed.push({ ...item, mainTarget: target.mainTarget, rollbackTarget: target.rollbackTarget });
+    const target = targetFor(rules, item.allocation, item.bucket, item.state, item.city);
+    parsed.push({ ...item, mainTarget: target.mainTarget, rollbackTarget: target.rollbackTarget });
   }
   const bucketNames = ["Bucket 1", "Bucket 2", "Bucket 3", "Bucket 4", "Bucket 5"];
   const buckets: BucketReport[] = bucketNames.map(bucket => {
