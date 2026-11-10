@@ -118,6 +118,9 @@ export function DraggableMobileNavButton({
     onToggle();
   }
 
+  // Keep the control anchored onscreen even before saved-position hydration.
+  // Without explicit inset coordinates, a fixed element at the end of the app shell
+  // can use its static position and appear below the visible viewport.
   const positionStyle = position
     ? {
         left: position.x,
@@ -131,7 +134,13 @@ export function DraggableMobileNavButton({
               ? `translateX(calc(100% - ${EDGE_VISIBLE}px))`
               : "none",
       }
-    : undefined;
+    : {
+        left: "auto" as const,
+        top: "auto" as const,
+        right: 16,
+        bottom: "calc(16px + env(safe-area-inset-bottom))",
+        transform: "none",
+      };
 
   return (
     <button
