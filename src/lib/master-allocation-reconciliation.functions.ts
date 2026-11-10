@@ -315,23 +315,39 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
 });
 
 export const resolveMasterAllocationReview = createServerFn({method:"POST"})
-.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),masterId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),loan:z.string().min(1),decision:z.literal("KEEP_ADMIN_TOTAL")}).parse(v))
+.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),masterId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),loan:z.string().min(1),decision:z.enum(["KEEP_ADMIN_TOTAL","AUTHORIZE_REVERSAL"])}).parse(v))
 .handler(async({data})=>{
   const session=await requireSession("Admin");
-  const [master, rawFile]=await Promise.all([driveGet(data.masterId),driveGet(data.fileId)]);
+  const [master,rawFile]=await Promise.all([driveGet(data.masterId),driveGet(data.fileId)]);
   if(master.mimeType!==SHEET_MIME||master.name!==monthTitle())throw new Error("Selected Master Allocation is no longer the current-month Google Sheet.");
   const file=identifyPaidFile(rawFile);
   if(!file)throw new Error("Selected Paid File is no longer available as a current-day Google Sheet.");
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions","Paid File Timeline"]);
   await ensureHeaders(master.id);
-  const result=await build(master.id,file), row=result.rows.find(r=>norm(r.loan)===norm(data.loan));
-  if(!row||!row.status.startsWith("Manual Review – Admin New Total exceeds Paid File by ")||!row.difference)throw new Error("This loan no longer has the expected positive difference. Refresh the preview.");
+  const result=await build(master.id,file);
+  const row=result.rows.find(r=>norm(r.loan)===norm(data.loan));
+  let reviewType="",resolvedDifference=0;
+  if(data.decision==="KEEP_ADMIN_TOTAL"){
+    if(!row||!row.status.startsWith("Manual Review – Admin New Total exceeds Paid File by ")||!row.difference)throw new Error("This loan no longer has the expected positive difference. Refresh the preview.");
+    reviewType="ADMIN_TOTAL_EXCEEDS_PAID_FILE";resolvedDifference=row.difference;
+  }else{
+    if(!row||!row.status.startsWith("Manual Review – Missing from Paid File")||!row.conditionFingerprint)throw new Error("This loan is no longer missing from the selected snapshot. Refresh the preview.");
+    reviewType="MISSING_LOAN";resolvedDifference=row.newTotal;
+  }
   const values=await sheetValues(master.id,"'Paid File Review Resolutions'!A1:J");
-  const already=values.slice(1).some(r=>norm(r[0])===norm(row.loan)&&String(r[1]??"")==="ADMIN_TOTAL_EXCEEDS_PAID_FILE"&&amount(r[2])===row.difference&&String(r[5]??"")==="KEEP_ADMIN_TOTAL"&&String(r[9]??"")===row.conditionFingerprint);
+  const already=values.slice(1).some(r=>norm(r[0])===norm(row.loan)&&String(r[1]??"")===reviewType&&String(r[5]??"")===data.decision&&String(r[9]??"")===row.conditionFingerprint);
   if(already)return {ok:true,alreadyResolved:true,loan:row.loan};
   const next=Math.max(values.length,1)+1;
-  await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data:[{range:"'Paid File Review Resolutions'!A"+next+":J"+next,values:[[row.loan,"ADMIN_TOTAL_EXCEEDS_PAID_FILE",row.difference,row.newTotal+row.difference,row.newTotal,"KEEP_ADMIN_TOTAL",session.name,new Date().toISOString(),file.name,row.conditionFingerprint??""]]}]})}),"Save review resolution");
-  return {ok:true,alreadyResolved:false,loan:row.loan,difference:row.difference};
+  const now=new Date().toISOString();
+  const adminTotal=data.decision==="AUTHORIZE_REVERSAL"?0:row.newTotal+(row.difference??0);
+  const decisionRow=[row.loan,reviewType,resolvedDifference,adminTotal,row.newTotal,data.decision,session.name,now,file.name,row.conditionFingerprint??""];
+  const timelineValues=await sheetValues(master.id,"'Paid File Timeline'!A1:N");
+  const timelineRow=[now,row.loan,file.sequence,file.id,file.name,data.decision==="AUTHORIZE_REVERSAL"?"REVERSAL_AUTHORIZED":"ADMIN_REVIEW_RESOLVED",data.decision==="AUTHORIZE_REVERSAL"?row.newTotal:adminTotal,data.decision==="AUTHORIZE_REVERSAL"?0:row.newTotal,"","","",data.decision,session.name,row.conditionFingerprint??""];
+  await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data:[
+    {range:"'Paid File Review Resolutions'!A"+next+":J"+next,values:[decisionRow]},
+    {range:"'Paid File Timeline'!A"+(Math.max(timelineValues.length,1)+1)+":N"+(Math.max(timelineValues.length,1)+1),values:[timelineRow]}
+  ]})}),"Save Admin review decision");
+  return {ok:true,alreadyResolved:false,loan:row.loan,decision:data.decision,difference:row.difference??0};
 });
 
 
