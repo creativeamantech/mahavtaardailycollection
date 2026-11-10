@@ -373,7 +373,7 @@ export const resolveMasterAllocationReview = createServerFn({method:"POST"})
   const adminTotal=data.decision==="AUTHORIZE_REVERSAL"?0:row.newTotal+(row.difference??0);
   const decisionRow=[row.loan,reviewType,resolvedDifference,adminTotal,row.newTotal,data.decision,session.name,now,file.name,row.conditionFingerprint??""];
   const timelineValues=await sheetValues(master.id,"'Paid File Timeline'!A1:N");
-  const timelineRow=[now,row.loan,file.sequence,file.id,file.name,data.decision==="AUTHORIZE_REVERSAL"?"REVERSAL_AUTHORIZED":data.decision==="APPROVE_CORRECTION"?"CORRECTION_APPROVED":"ADMIN_REVIEW_RESOLVED",data.decision==="AUTHORIZE_REVERSAL"?row.newTotal:data.decision==="APPROVE_CORRECTION"?row.newTotal:adminTotal,data.decision==="AUTHORIZE_REVERSAL"?0:row.newTotal,"","","",data.decision,session.name,row.conditionFingerprint??""];
+  const timelineRow=[now,row.loan,file.sequence,file.id,file.name,data.decision==="AUTHORIZE_REVERSAL"?"REVERSAL_AUTHORIZED":data.decision==="APPROVE_CORRECTION"?"CORRECTION_APPROVED":"ADMIN_REVIEW_RESOLVED",data.decision==="AUTHORIZE_REVERSAL"?resolvedDifference:data.decision==="APPROVE_CORRECTION"?row.newTotal:adminTotal,data.decision==="AUTHORIZE_REVERSAL"?0:row.newTotal,"","","",data.decision,session.name,row.conditionFingerprint??""];
   await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data:[
     {range:"'Paid File Review Resolutions'!A"+next+":J"+next,values:[decisionRow]},
     {range:"'Paid File Timeline'!A"+(Math.max(timelineValues.length,1)+1)+":N"+(Math.max(timelineValues.length,1)+1),values:[timelineRow]}
