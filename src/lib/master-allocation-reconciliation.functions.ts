@@ -226,16 +226,23 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
   for(const event of timeline.slice(1)){const loan=norm(event[1]);if(loan)latestEvent.set(loan,String(event[5]??""));}
   const timelineRows:(string|number)[][]=[];
   for(const [loan,prior] of previous){
-    if(paidById.has(loan)||latestEvent.get(loan)==="MISSING")continue;
+    if(paidById.has(loan)||latestEvent.get(loan)==="MISSING"||prior.amount<=0)continue;
     const masterRow=masterById.get(loan);
     if(!masterRow)continue;
     const oldTotal=amount(masterRow.row[mTotal])??0;
     const conditionHash=await conditionFingerprint([loan,prior.amount,file.id,seq,"MISSING"]);
-    const missingRow:RowPreview={loan,row:masterRow.rowNo,oldTotal,newTotal:prior.amount,remaining:oldTotal-prior.amount,date:"",dac:0,ecs:0,special:0,status:"Manual Review – Missing from Paid File; previous values held",conditionFingerprint:conditionHash};
+    const reversalApproved=resolutions.slice(1).some(r=>norm(r[0])===loan&&String(r[1]??"")==="MISSING_LOAN"&&String(r[5]??"")==="AUTHORIZE_REVERSAL"&&String(r[9]??"")===conditionHash);
+    const missingRow:RowPreview={loan,row:masterRow.rowNo,oldTotal,newTotal:reversalApproved?0:prior.amount,remaining:reversalApproved?oldTotal:oldTotal-prior.amount,date:"",dac:0,ecs:0,special:0,status:reversalApproved?"Resolved – Admin authorized reversal":"Manual Review – Missing from Paid File; previous values held",conditionFingerprint:conditionHash};
     preview.push(missingRow);
     if(!notFoundLoans.includes(loan))notFoundLoans.push(loan);
-    manualReview++;
-    if(actor&&!alreadyRecorded.has(loan))timelineRows.push([new Date().toISOString(),loan,seq,file.id,file.name,"MISSING",prior.amount,"","","","","Manual Review – missing loan; previous paid values retained",actor,conditionHash]);
+    if(reversalApproved){
+      writes.push({range:"Data!"+col(mNew)+masterRow.rowNo,values:[[0]]},{range:"Data!"+col(mRemain)+masterRow.rowNo,values:[[oldTotal]]},{range:"Data!"+col(mDac)+masterRow.rowNo,values:[[0]]});
+      if(mEcs>=0)writes.push({range:"Data!"+col(mEcs)+masterRow.rowNo,values:[[0]]});
+      if(mSpecial>=0)writes.push({range:"Data!"+col(mSpecial)+masterRow.rowNo,values:[[0]]});
+      if(mDate>=0)writes.push({range:"Data!"+col(mDate)+masterRow.rowNo,values:[[""]]});
+      stateWrites.push([loan,seq,0,file.id,new Date().toISOString(),file.name,dateKey()]);
+    }else manualReview++;
+    if(actor&&!alreadyRecorded.has(loan))timelineRows.push([new Date().toISOString(),loan,seq,file.id,file.name,reversalApproved?"REVERSAL_APPROVED":"MISSING",prior.amount,reversalApproved?0:"","","","",""+missingRow.status,actor,conditionHash]);
   }
   if(actor){
     for(const row of preview){
