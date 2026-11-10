@@ -1,3 +1,5 @@
+import * as XLSX from "xlsx";
+
 export function norm(v: unknown): string {
   return String(v ?? "").trim().toUpperCase().replace(/^['`]+/,"").replace(/[^A-Z0-9]/g,"");
 }
@@ -28,4 +30,37 @@ export function computePaidFileDac(paid: string[][]): { values: string[][]; dacI
     return copy;
   });
   return { values, dacIndex };
+}
+
+
+
+/** Canonical server-side CSV conversion shared by upload validation and tests. */
+export function normalizePaidFileSource(sourceBytes: Uint8Array, extension: string): string {
+  if (!["xlsx", "xls", "xlsb", "csv"].includes(extension.toLowerCase())) {
+    throw new Error("Unsupported Paid File format.");
+  }
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(sourceBytes, { type: "array", cellDates: true });
+  } catch {
+    throw new Error("Original Paid File could not be parsed.");
+  }
+  const firstSheet = workbook.SheetNames[0];
+  const worksheet = firstSheet ? workbook.Sheets[firstSheet] : undefined;
+  if (!worksheet) throw new Error("Paid File has no worksheet.");
+  const csv = XLSX.utils.sheet_to_csv(worksheet);
+  if (!csv.trim()) throw new Error("Paid File worksheet is empty.");
+  return csv;
+}
+
+const APPLY_ELIGIBLE_STATUSES = new Set([
+  "Ready",
+  "Resolved – Admin New Total preserved",
+  "Resolved – Admin authorized reversal",
+  "Resolved – Admin approved correction",
+]);
+
+/** Only explicitly ready or Admin-resolved rows may be written to Master Data. */
+export function isPaidFileRowApplyEligible(status: string): boolean {
+  return APPLY_ELIGIBLE_STATUSES.has(status);
 }

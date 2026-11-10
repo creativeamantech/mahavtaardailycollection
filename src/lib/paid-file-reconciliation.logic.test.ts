@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { amount, computePaidFileDac, headerIndex, norm } from "./paid-file-reconciliation.logic";
+import { amount, computePaidFileDac, headerIndex, norm, normalizePaidFileSource, isPaidFileRowApplyEligible } from "./paid-file-reconciliation.logic";
+import * as XLSX from "xlsx";
 
 describe("Paid File normalization", () => {
   test("parses Indian currency formatting and negative parentheses", () => {
@@ -29,5 +30,46 @@ describe("Paid File normalization", () => {
   test("requires both source columns and rejects an empty file", () => {
     expect(() => computePaidFileDac([])).toThrow("Paid File is empty");
     expect(() => computePaidFileDac([["Agreement ID", "SFDC"]])).toThrow("SFDC and Online");
+  });
+});
+
+
+
+describe("Paid File Excel format regression", () => {
+  const rows = [["Agreement ID", "SFDC", "Online"], ["LN-001", "1200.50", "300"]];
+  test("normalizes XLSX, XLS and XLSB while preserving cell values", () => {
+    for (const bookType of ["xlsx", "xls", "xlsb"] as const) {
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "Payments");
+      const bytes = XLSX.write(workbook, { type: "array", bookType });
+      expect(normalizePaidFileSource(new Uint8Array(bytes), bookType).includes("LN-001,1200.50,300")).toBe(true);
+    }
+  });
+  test("normalizes CSV source bytes", () => {
+    const csv = "Agreement ID,SFDC,Online\nLN-001,1200.50,300";
+    expect(normalizePaidFileSource(new TextEncoder().encode(csv), "csv").includes("LN-001,1200.50,300")).toBe(true);
+  });
+  test("rejects unsupported and empty inputs", () => {
+    expect(() => normalizePaidFileSource(new Uint8Array([1, 2]), "pdf")).toThrow("Unsupported");
+    expect(() => normalizePaidFileSource(new Uint8Array([]), "xlsx")).toThrow();
+  });
+});
+
+describe("Automatic Apply and Manual Review gate", () => {
+  test("permits only Ready or explicitly Admin-resolved rows", () => {
+    expect(isPaidFileRowApplyEligible("Ready")).toBe(true);
+    expect(isPaidFileRowApplyEligible("Resolved – Admin New Total preserved")).toBe(true);
+    expect(isPaidFileRowApplyEligible("Resolved – Admin authorized reversal")).toBe(true);
+    expect(isPaidFileRowApplyEligible("Resolved – Admin approved correction")).toBe(true);
+    for (const status of [
+      "Manual Review – Overpaid",
+      "Manual Review – Missing from Paid File",
+      "Manual Review – DAC, ECS, Special and Total are zero",
+      "Duplicate – manual review",
+      "Invalid – non-numeric amount",
+      "Pending – blank payment amount",
+      "Stale snapshot",
+      "Already applied – protected from duplicate processing",
+    ]) expect(isPaidFileRowApplyEligible(status)).toBe(false);
   });
 });
