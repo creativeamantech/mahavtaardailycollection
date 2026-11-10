@@ -135,9 +135,9 @@ export function DraggableMobileNavButton({
               : "none",
       }
     : {
-        left: "auto" as const,
+        left: 16,
         top: "auto" as const,
-        right: 16,
+        right: "auto" as const,
         bottom: "calc(16px + env(safe-area-inset-bottom))",
         transform: "none",
       };
