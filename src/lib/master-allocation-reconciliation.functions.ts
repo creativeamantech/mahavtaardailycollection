@@ -78,26 +78,23 @@ function amount(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 function col(n:number) { let x=n+1,s="";while(x){const r=(x-1)%26;s=String.fromCharCode(65+r)+s;x=Math.floor((x-1)/26);}return s; }
-async function ensurePaidFileDac(fileId:string, paid:string[][]):Promise<{values:string[][];dacIndex:number}> {
+function computePaidFileDac(paid:string[][]):{values:string[][];dacIndex:number} {
   if(!paid.length) throw new Error("Paid File is empty.");
   const header=paid[0]??[];
   const sfdcIndex=headerIndex(header,["SFDC"]), onlineIndex=headerIndex(header,["Online"]);
   if(sfdcIndex<0||onlineIndex<0) throw new Error("Paid File must contain both SFDC and Online columns so DAC can be calculated.");
   const existingDac=headerIndex(header,["DAC"]);
   const dacIndex=existingDac>=0?existingDac:header.length;
-  const values:(string|number)[][]=[];
-  values.push(["DAC"]);
-  for(let i=1;i<paid.length;i++) {
-    const row=paid[i]??[];
-    const rawSfdc=row[sfdcIndex], rawOnline=row[onlineIndex];
+  const values=paid.map((row,index)=>{
+    const copy=[...(row??[])];
+    if(index===0){copy[dacIndex]="DAC";return copy;}
+    const rawSfdc=copy[sfdcIndex], rawOnline=copy[onlineIndex];
     const sfdc=rawSfdc===undefined||String(rawSfdc).trim()===""?0:amount(rawSfdc);
     const online=rawOnline===undefined||String(rawOnline).trim()===""?0:amount(rawOnline);
-    values.push([sfdc===null||online===null?"INVALID":sfdc+online]);
-  }
-  const range=col(dacIndex)+"1:"+col(dacIndex)+Math.max(paid.length,1);
-  await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+encodeURIComponent(fileId)+"/values/"+encodeURIComponent(range)+"?valueInputOption=RAW",{method:"PUT",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({majorDimension:"ROWS",values})}),"Create or update Paid File DAC column");
-  const updated=paid.map((row,i)=>{const copy=[...(row??[])];copy[dacIndex]=i===0?"DAC":String(values[i]?.[0]??"");return copy;});
-  return {values:updated,dacIndex};
+    copy[dacIndex]=sfdc===null||online===null?"INVALID":String(sfdc+online);
+    return copy;
+  });
+  return {values,dacIndex};
 }
 type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number|undefined};
 type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
@@ -155,7 +152,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     readHistory(masterId)
   ]);
   const {audit,state,resolutions}=history;
-  const paidResult=await ensurePaidFileDac(file.id,rawPaid);
+  const paidResult=computePaidFileDac(rawPaid);
   const paid=paidResult.values;
   if(master.length<2||paid.length<2) throw new Error("Master Data or Paid File has no data rows.");
   const mh=master[0]!, ph=paid[0]!;
@@ -251,6 +248,15 @@ export const previewMasterAllocationReconciliation = createServerFn({method:"POS
   const result=await build(master.id,file);
   return {masterId:master.id,file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
 });
+async function applyBuiltReconciliation(masterId:string,file:DriveFile,result:Built,actor:string) {
+  const eligible=result.rows.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved"].includes(r.status));
+  if(!eligible.length)return {ok:true as const,applied:0,counts:result.counts,appliedBy:actor};
+  if(!result.writes.length)throw new Error("No write operations were generated for eligible payment rows.");
+  const res=await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+encodeURIComponent(masterId)+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"USER_ENTERED",data:result.writes})});
+  await json(res,"Reconciliation write-back");
+  return {ok:true as const,applied:eligible.length,counts:result.counts,appliedBy:actor,fileId:file.id};
+}
+
 export const applyMasterAllocationReconciliation = createServerFn({method:"POST"})
 .inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),masterId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),fingerprint:z.string().length(64),confirm:z.literal(true)}).parse(v))
 .handler(async({data})=>{
@@ -264,13 +270,7 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
   await ensureHeaders(master.id);
   const result=await build(master.id,file);
   if(result.fingerprint!==data.fingerprint)throw new Error("Master Allocation, Paid File, or reconciliation history changed after preview. Refresh preview and approve the new version.");
-  const eligible=result.rows.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved"].includes(r.status));
-  if(!eligible.length)throw new Error("No eligible payment rows were found. Pending, invalid, duplicate and manual-review rows are skipped.");
-  const payload=result.writes;
-  if(!payload.length)throw new Error("No write operations were generated.");
-  const res=await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+master.id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"USER_ENTERED",data:payload})});
-  await json(res,"Reconciliation write-back");
-  return {ok:true,applied:eligible.length,counts:result.counts,appliedBy:session.name};
+  return applyBuiltReconciliation(master.id,file,result,session.name);
 });
 
 export const resolveMasterAllocationReview = createServerFn({method:"POST"})
@@ -295,37 +295,51 @@ export const resolveMasterAllocationReview = createServerFn({method:"POST"})
 
 
 const uploadSchema = z.object({
-  fileName: z.string().trim().min(1).max(180),
-  mimeType: z.enum(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.ms-excel","text/csv","application/csv"]),
-  base64: z.string().min(1).max(22_000_000),
-  sequence: z.number().int().min(1).max(9999),
+  fileName:z.string().trim().min(1).max(180),
+  sourceMimeType:z.enum(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.ms-excel","application/vnd.ms-excel.sheet.binary.macroEnabled.12","text/csv","application/csv"]),
+  sourceBase64:z.string().min(1).max(22_000_000),
+  normalizedCsvBase64:z.string().min(1).max(22_000_000),
+  sequence:z.number().int().min(1).max(9999),
 });
 export const uploadPaidFileSnapshot = createServerFn({method:"POST"})
 .inputValidator((v:unknown)=>uploadSchema.parse(v))
 .handler(async({data})=>{
-  await requireSession("Admin");
-  const prefix=paidFilePrefix();
-  const extension=data.mimeType==="text/csv"||data.mimeType==="application/csv"?".csv":data.mimeType==="application/vnd.ms-excel"?".xls":".xlsx";
-  if(!data.fileName.toLowerCase().endsWith(extension)) throw new Error("File extension and file type do not match.");
-  const bytes=Buffer.from(data.base64,"base64");
-  if(!bytes.length||bytes.length>15*1024*1024)throw new Error("Upload must be between 1 byte and 15 MB.");
+  const session=await requireSession("Admin");
+  const extension=data.fileName.toLowerCase().split(".").pop()??"";
+  const expectedMime:Record<string,string>={xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",xls:"application/vnd.ms-excel",xlsb:"application/vnd.ms-excel.sheet.binary.macroEnabled.12",csv:"text/csv"};
+  if(expectedMime[extension]!==data.sourceMimeType)throw new Error("File extension and source file type do not match.");
+  const sourceBytes=Buffer.from(data.sourceBase64,"base64");
+  const csvBytes=Buffer.from(data.normalizedCsvBase64,"base64");
+  if(!sourceBytes.length||sourceBytes.length>15*1024*1024)throw new Error("Original Paid File must be between 1 byte and 15 MB.");
+  if(!csvBytes.length||csvBytes.length>15*1024*1024)throw new Error("Converted Paid File data must be between 1 byte and 15 MB.");
   const files=await paidFiles();
   if(files.some(f=>f.sequence===data.sequence))throw new Error("This snapshot sequence already exists. Select a different sequence number.");
-  const name=prefix+String(data.sequence).padStart(2,"0");
-  const boundary="mahaPaidUpload"+crypto.randomUUID().replace(/-/g,"");
-  const metadata=JSON.stringify({name,mimeType:SHEET_MIME});
+  const prefix=paidFilePrefix(), sequence=String(data.sequence).padStart(2,"0");
+  const originalName=prefix+sequence+" - original."+extension;
+  const sourceBoundary="mahaPaidSource"+crypto.randomUUID().replace(/-/g,"");
+  const sourceMetadata=JSON.stringify({name:originalName,mimeType:data.sourceMimeType});
+  const sourceBody=new Blob([
+    "--"+sourceBoundary+"\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n"+sourceMetadata+"\\r\\n",
+    "--"+sourceBoundary+"\\r\\nContent-Type: "+data.sourceMimeType+"\\r\\nContent-Transfer-Encoding: base64\\r\\n\\r\\n"+data.sourceBase64+"\\r\\n",
+    "--"+sourceBoundary+"--"
+  ]);
+  const sourceRes=await fetch(GATEWAY+"/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType",{method:"POST",headers:{...headers("GOOGLE_DRIVE_API_KEY"),"Content-Type":"multipart/related; boundary="+sourceBoundary},body:sourceBody,signal:AbortSignal.timeout(60000)});
+  const source=await json<{id:string;name:string;mimeType:string}>(sourceRes,"Original Paid File archive");
+  const sheetName=prefix+sequence;
+  const boundary="mahaPaidSheet"+crypto.randomUUID().replace(/-/g,"");
+  const metadata=JSON.stringify({name:sheetName,mimeType:SHEET_MIME,description:"Immutable converted snapshot. Original source file: "+source.id+" ("+data.fileName+"). DAC is computed in memory as SFDC + Online; this sheet is not modified during reconciliation."});
   const body=new Blob([
-    "--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+metadata+"\r\n",
-    "--"+boundary+"\r\nContent-Type: "+data.mimeType+"\r\nContent-Transfer-Encoding: base64\r\n\r\n"+data.base64+"\r\n",
+    "--"+boundary+"\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n"+metadata+"\\r\\n",
+    "--"+boundary+"\\r\\nContent-Type: text/csv\\r\\nContent-Transfer-Encoding: base64\\r\\n\\r\\n"+data.normalizedCsvBase64+"\\r\\n",
     "--"+boundary+"--"
   ]);
-  const res=await fetch(GATEWAY+"/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink",{
-    method:"POST",
-    headers:{...headers("GOOGLE_DRIVE_API_KEY"),"Content-Type":"multipart/related; boundary="+boundary},
-    body,
-    signal:AbortSignal.timeout(60000)
-  });
-  const uploaded=await json<{id:string;name:string;mimeType:string;webViewLink?:string}>(res,"Paid File upload and Google Sheets conversion");
-  if(uploaded.mimeType!==SHEET_MIME)throw new Error("Google Drive did not convert the uploaded file to a native Google Sheet. Remove the temporary upload and retry with XLSX or CSV.");
-  return {ok:true as const,id:uploaded.id,name:uploaded.name,url:uploaded.webViewLink??("https://docs.google.com/spreadsheets/d/"+uploaded.id+"/edit")};
+  const res=await fetch(GATEWAY+"/google_drive/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink,modifiedTime,version",{method:"POST",headers:{...headers("GOOGLE_DRIVE_API_KEY"),"Content-Type":"multipart/related; boundary="+boundary},body,signal:AbortSignal.timeout(60000)});
+  const uploaded=await json<DriveFile>(res,"Paid File CSV conversion to Google Sheets");
+  if(uploaded.mimeType!==SHEET_MIME)throw new Error("Google Drive did not convert the normalized CSV into a native Google Sheet. Original source was archived as "+source.id+".");
+  const master=await masterFile();
+  await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions"]);
+  await ensureHeaders(master.id);
+  const result=await build(master.id,uploaded);
+  const applied=await applyBuiltReconciliation(master.id,uploaded,result,session.name);
+  return {ok:true as const,id:uploaded.id,name:uploaded.name,url:uploaded.webViewLink??("https://docs.google.com/spreadsheets/d/"+uploaded.id+"/edit"),sourceFileId:source.id,sourceFileName:source.name,preview:{masterId:master.id,file:{id:uploaded.id,name:uploaded.name,sequence:data.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence,autoApplied:applied.applied>0},applied};
 });
