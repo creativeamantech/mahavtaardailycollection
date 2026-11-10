@@ -33,15 +33,6 @@ export function computePaidFileDac(paid: string[][]): { values: string[][]; dacI
 }
 
 
-/**
- * Tracks data-generation changes without treating an Admin decision as a new
- * payment-data generation. An approval must remain valid for the exact values
- * it reviewed; the decision's own timeline event must not invalidate it.
- */
-export function paidFileHistoryGeneration(eventTypes: string[]): number {
-  const transitions = eventTypes.filter(type => type === "REAPPEARED" || type === "AMOUNT_CHANGED").length;
-  return transitions + (["MISSING", "REVERSAL_AUTHORIZED", "REVERSAL_APPROVED"].includes(eventTypes.at(-1) ?? "") ? 1 : 0);
-}
 
 /** Canonical server-side CSV conversion shared by upload validation and tests. */
 export function normalizePaidFileSource(sourceBytes: Uint8Array, extension: string): string {
