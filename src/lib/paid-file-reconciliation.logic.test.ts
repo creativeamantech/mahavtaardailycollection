@@ -37,6 +37,8 @@ describe("Paid File review fingerprint generations", () => {
   test("does not invalidate an approval because its own reversal decision was recorded", () => {
     expect(paidFileHistoryGeneration(["PRESENT", "REVERSAL_AUTHORIZED"])).toBe(0);
     expect(paidFileHistoryGeneration(["PRESENT", "REVERSAL_APPROVED"])).toBe(0);
+    expect(paidFileHistoryGeneration(["PRESENT", "MISSING", "REVERSAL_AUTHORIZED"])).toBe(1);
+    expect(paidFileHistoryGeneration(["PRESENT", "MISSING", "REVERSAL_APPROVED"])).toBe(1);
   });
   test("increments only when payment data reappears or changes after a missing state", () => {
     expect(paidFileHistoryGeneration(["PRESENT", "MISSING"])).toBe(1);
