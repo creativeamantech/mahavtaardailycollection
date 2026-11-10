@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSession } from "./auth.functions";
 import * as XLSX from "xlsx";
-import { amount, computePaidFileDac, headerIndex, norm } from "./paid-file-reconciliation.logic";
+import { amount, computePaidFileDac, headerIndex, norm, paidFileHistoryGeneration } from "./paid-file-reconciliation.logic";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
@@ -174,7 +174,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     const adminDifference=adminNewTotal!==null&&adminNewTotal>total?adminNewTotal-total:0;
     const previousEvents=timeline.slice(1).filter(event=>norm(event[1])===id);
     const lastEventType=String(previousEvents[previousEvents.length-1]?.[5]??"");
-    const historyGeneration=previousEvents.filter(event=>["REAPPEARED","AMOUNT_CHANGED"].includes(String(event[5]??""))).length+(["MISSING","REVERSAL_AUTHORIZED","REVERSAL_APPROVED"].includes(lastEventType)?1:0);
+    const historyGeneration=paidFileHistoryGeneration(previousEvents.map(event=>String(event[5]??"")));
     const conditionHash=await conditionFingerprint([id,old,total,dac,ecs,special,pDate>=0?p[pDate]??"":"",adminNewTotal,historyGeneration]);
     const allPaymentValuesZero=total===0&&dac===0&&ecs===0&&special===0;
     if(allPaymentValuesZero){
