@@ -100,7 +100,7 @@ function targetFor(rules: TargetRule[], allocationType: string, bucket: string, 
   }
   return matches[0] ?? { mainTarget: DEFAULT_MAIN_TARGET, rollbackTarget: DEFAULT_ROLLBACK_TARGET };
 }
-function makeMetric(rows: { agreement: string; dac: number; mainPaidCount: number; unpaid: number; pos: number; main: number; rollback: number }[], mainTarget: number, rollbackTarget: number): Metric {
+function makeMetric(rows: { agreement: string; dac: number; mainPaidCount: number; unpaid: number; pos: number; main: number; rollback: number; mainTarget: number; rollbackTarget: number }[]): Metric {
   const totalCount = rows.length;
   const paidCount = rows.reduce((s, r) => s + r.mainPaidCount, 0);
   const unpaidCount = rows.reduce((s, r) => s + r.unpaid, 0);
@@ -148,7 +148,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
   if (missing.length) throw new Error("Required Master Data columns missing: " + missing.join(", "));
   const rules = readTargets(targetRows);
   const grouped = new Map<string, Map<string, Map<string, typeof parsed[number]>>>();
-  const parsed: { agreement: string; allocation: string; executive: string; city: string; bucket: string; state: string; dac: number; unpaid: number; mainPaidCount: number; pos: number; main: number; rollback: number }[] = [];
+  const parsed: { agreement: string; allocation: string; executive: string; city: string; bucket: string; state: string; dac: number; unpaid: number; mainPaidCount: number; pos: number; main: number; rollback: number; mainTarget: number; rollbackTarget: number }[] = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i] ?? [];
     const agreement = String(row[idx.agreement] ?? "").trim();
@@ -163,7 +163,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       mainPaidCount: numeric(row[idx.paidCount]), pos: numeric(row[idx.pos]),
       main: numeric(row[idx.main]), rollback: numeric(row[idx.rollback]),
     };
-    parsed.push(item);
+    const target = targetFor(rules, item.allocation, item.bucket, item.state, item.city);\n    parsed.push({ ...item, mainTarget: target.mainTarget, rollbackTarget: target.rollbackTarget });
   }
   const bucketNames = ["Bucket 1", "Bucket 2", "Bucket 3", "Bucket 4", "Bucket 5"];
   const buckets: BucketReport[] = bucketNames.map(bucket => {
@@ -188,7 +188,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     const bucketTarget = targetFor(rules, "", bucket, "", "");
     return { bucket, cities, total: makeMetric(rows, bucketTarget.mainTarget, bucketTarget.rollbackTarget) };
   });
-  const totals = makeMetric(parsed, DEFAULT_MAIN_TARGET, DEFAULT_ROLLBACK_TARGET);
+  const totals = makeMetric(parsed);
   const positiveNeededPos = buckets.flatMap(b => b.cities.filter(c => c.neededPos > 0).map(c => ({ bucket: b.bucket, city: c.city, totalCount: c.totalCount, neededPos: round(c.neededPos), mainPaidPos: round(c.mainPaidPos), targetPos: round(c.targetPos) })));
   const positiveNeededRollback = buckets.flatMap(b => b.cities.filter(c => c.neededRollbackPos > 0).map(c => ({ bucket: b.bucket, city: c.city, totalCount: c.totalCount, neededRollbackPos: round(c.neededRollbackPos), rollbackPos: round(c.rollbackPos), targetRollbackPos: round(c.targetRollbackPos) })));
   return {
