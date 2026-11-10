@@ -201,7 +201,7 @@ function AppShell() {
           <nav aria-label="Main navigation" className="grid gap-1">
             {visibleNav.map((n) => (
               <Link key={n.to} to={n.to as never} preload="intent" activeOptions={{ exact: n.to === "/" }} className={linkClass(pathname === n.to)}>
-                <span className="grid w-5 shrink-0 place-items-center text-base" aria-hidden="true">{n.icon}</span>
+                <span className="grid w-5 shrink-0 place-items-center text-base" aria-hidden="true">{("icon" in n ? n.icon : "⚙")}</span>
                 <span>{n.label}</span>
               </Link>
             ))}
@@ -261,7 +261,7 @@ function AppShell() {
         {primaryMobile.map((n) => (
           <Link key={n.to} to={n.to as never} preload="intent" activeOptions={{ exact: n.to === "/" }} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold ${pathname === n.to ? "text-[#292820]" : "text-[#737b84]"}`}>
             <span className={`grid size-7 place-items-center rounded-lg text-base ${pathname === n.to ? "bg-[#fff2c9] text-[#292820]" : ""}`} aria-hidden="true">{n.icon}</span>
-            <span>{n.short}</span>
+            <span>{("short" in n ? n.short : n.label)}</span>
           </Link>
         ))}
         <button type="button" aria-expanded={moreOpen} aria-controls="mobile-more-menu" onClick={() => setMoreOpen((v) => !v)} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold ${moreOpen || isSecondaryActive ? "text-[#292820]" : "text-[#737b84]"}`}>
