@@ -56,7 +56,8 @@ async function ensureTargetTab(id: string) {
     body: JSON.stringify({ values: [["ID", "Allocation Type", "Bucket", "State", "City", "Main Target %", "Rollback Target %"]] }),
   }), "Initialize Performance Targets");
 }
-function norm(v: unknown) { return String(v ?? "").trim().toLowerCase().replace(/\\s+/g, " "); }\nfunction bucketKey(v: unknown) { return norm(v).replace(/^bucket\\s*/, "").replace(/^b\\s*/, "").replace(/[^0-9]/g, ""); }
+function norm(v: unknown) { return String(v ?? "").trim().toLowerCase().replace(/\\s+/g, " "); }
+function bucketKey(v: unknown) { return norm(v).replace(/^bucket\\s*/, "").replace(/^b\\s*/, "").replace(/[^0-9]/g, ""); }
 function headerIndex(headers: string[], aliases: string[]) {
   const accepted = new Set(aliases.map(v => norm(v)));
   return headers.findIndex(v => accepted.has(norm(v)));
