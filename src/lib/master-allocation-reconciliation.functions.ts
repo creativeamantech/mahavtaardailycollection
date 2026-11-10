@@ -196,7 +196,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     const prior=previous.get(id);
     const adminNewTotal=amount(masterRow.row[mNew]);
     const adminDifference=adminNewTotal!==null&&adminNewTotal>total?adminNewTotal-total:0;
-    const conditionHash=await conditionFingerprint([id,old,total,dac,ecs,special,pDate>=0?p[pDate]??"":"",adminNewTotal,file.id,seq]);
+    const conditionHash=await conditionFingerprint([id,old,total,dac,ecs,special,pDate>=0?p[pDate]??"":"",adminNewTotal]);
     const allPaymentValuesZero=total===0&&dac===0&&ecs===0&&special===0;
     if(allPaymentValuesZero){
       zeroZero++;
