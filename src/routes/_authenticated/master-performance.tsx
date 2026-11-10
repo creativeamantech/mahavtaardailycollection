@@ -151,8 +151,8 @@ function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) 
     else next.add(cityName);
     return next;
   });
-  const headers = ["City / Executive","Total Count","Paid Count","Unpaid Count","Total POS","Collection","Main %","Main Paid POS","Main Target","Target POS","Needed POS","RB %","Rollback POS","RB Target","Target RB POS","Needed RB POS"];
-  const metricCells = (m: Metric) => [m.totalCount.toLocaleString("en-IN"),m.paidCount.toLocaleString("en-IN"),m.unpaidCount.toLocaleString("en-IN"),money(m.totalPos),money(m.collection),pct(m.mainPercent),money(m.mainPaidPos),pct(m.mainTarget),money(m.targetPos),money(m.neededPos),pct(m.rollbackPercent),money(m.rollbackPos),pct(m.rollbackTarget),money(m.targetRollbackPos),money(m.neededRollbackPos)];
+  const headers = ["City / Executive","Collection","Total %","Sum of RB %","Total Count","Paid Count","Total POS","Total Paid POS","Main Target %","Target POS","Needed POS","Rollback Target %","Target Rollback POS","Needed Rollback POS"];
+  const metricCells = (m: Metric) => [money(m.collection),pct(m.mainPercent),pct(m.rollbackPercent),m.totalCount.toLocaleString("en-IN"),m.paidCount.toLocaleString("en-IN"),money(m.totalPos),money(m.mainPaidPos),pct(m.mainTarget),money(m.targetPos),money(m.neededPos),pct(m.rollbackTarget),money(m.targetRollbackPos),money(m.neededRollbackPos)];
   return <div className="overflow-x-auto">
     <div className="mb-2 flex justify-end gap-2">
       <Button size="sm" variant="ghost" onClick={() => setExpandedCities(new Set(cities.map(city => city.city)))}>Expand all</Button>
