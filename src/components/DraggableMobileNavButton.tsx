@@ -36,11 +36,22 @@ export function DraggableMobileNavButton({
         Number.isFinite(parsed.y) &&
         (parsed.hidden === null || parsed.hidden === "left" || parsed.hidden === "right")
       ) {
-        setPosition({
-          x: Math.max(0, Math.min(parsed.x, window.innerWidth - BUTTON_SIZE)),
-          y: Math.max(0, Math.min(parsed.y, window.innerHeight - BUTTON_SIZE)),
-          hidden: parsed.hidden,
-        });
+        const x = Math.max(0, Math.min(parsed.x, window.innerWidth - BUTTON_SIZE));
+        const y = Math.max(0, Math.min(parsed.y, window.innerHeight - BUTTON_SIZE));
+        // Migrate legacy bottom-right placements that overlap the Lovable edit badge.
+        // Keep other intentionally saved positions and edge-snapped placements unchanged.
+        const overlapsLovableBadge =
+          x > window.innerWidth / 2 &&
+          y > window.innerHeight - BUTTON_SIZE - 180;
+        setPosition(
+          overlapsLovableBadge
+            ? {
+                x: 16,
+                y: Math.max(16, window.innerHeight - BUTTON_SIZE - 16),
+                hidden: null,
+              }
+            : { x, y, hidden: parsed.hidden },
+        );
       }
     } catch {
       // Ignore unavailable storage or invalid saved coordinates.
