@@ -67,6 +67,7 @@ async function ensureHeaders(id:string) {
   if(!resolutions.length)data.push({range:"'Paid File Review Resolutions'!A1:J1",values:[["Agreement ID","Review Type","Resolved Difference","Admin New Total","Paid File Total","Decision","Resolved By","Resolved At","Source Paid File","Condition Fingerprint"]]});
   else if(!(resolutions[0]??[])[9])data.push({range:"'Paid File Review Resolutions'!J1",values:[["Condition Fingerprint"]]});
   if(!timeline.length)data.push({range:"'Paid File Timeline'!A1:N1",values:[["Event At","Agreement ID","Snapshot Sequence","Paid File ID","Paid File Name","Event Type","Previous Paid Total","Observed Paid Total","DAC","ECS","Special","Status / Reason","Actor","Condition Fingerprint"]]});
+  else if(!(timeline[0]??[])[13])data.push({range:"'Paid File Timeline'!M1:N1",values:[["Actor","Condition Fingerprint"]]});
   if(data.length)await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data})}),"Initialize reconciliation headers");
 }
 function norm(v: unknown) { return String(v ?? "").trim().toUpperCase().replace(/^['`]+/,"").replace(/[^A-Z0-9]/g,""); }
@@ -198,7 +199,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
     const prior=previous.get(id);
     const adminNewTotal=amount(masterRow.row[mNew]);
     const adminDifference=adminNewTotal!==null&&adminNewTotal>total?adminNewTotal-total:0;
-    const conditionHash=await conditionFingerprint([id,old,total,dac,ecs,special,pDate>=0?p[pDate]??"":"",adminNewTotal]);
+    const conditionHash=await conditionFingerprint([id,old,total,dac,ecs,special,pDate>=0?p[pDate]??"":"",adminNewTotal,file.id,seq]);
     const resolvedDifference=adminDifference>0&&resolutions.slice(1).some(r=>norm(r[0])===id&&String(r[1]??"")==="ADMIN_TOTAL_EXCEEDS_PAID_FILE"&&amount(r[2])===adminDifference&&String(r[5]??"")==="KEEP_ADMIN_TOTAL"&&String(r[9]??"")===conditionHash);
     if(adminDifference>0&&!resolvedDifference){
       manualReview++;
@@ -252,7 +253,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
       const matches=paidById.get(loan)??[];
       const paidRow=matches.length===1?matches[0]:undefined;
       const observed=paidRow?amount(paidRow[pTotal]):null;
-      const eventType=latestEvent.get(loan)==="MISSING"?"REAPPEARED":prior&&observed!==null&&observed!==prior.amount?"AMOUNT_CHANGED":"PRESENT";
+      const eventType=["MISSING","REVERSAL_AUTHORIZED","REVERSAL_APPROVED"].includes(latestEvent.get(loan)??"")?"REAPPEARED":prior&&observed!==null&&observed!==prior.amount?"AMOUNT_CHANGED":"PRESENT";
       timelineRows.push([new Date().toISOString(),row.loan,seq,file.id,file.name,eventType,prior?.amount??"",observed??"",paidRow?amount(paidRow[pDac])??"": "",paidRow&&pEcs>=0?amount(paidRow[pEcs])??"": "",paidRow&&pSpecial>=0?amount(paidRow[pSpecial])??"": "",row.status,actor,row.conditionFingerprint??""]);
     }
     if(timelineRows.length)writes.push({range:"'Paid File Timeline'!A"+(Math.max(timeline.length,1)+1)+":N"+(Math.max(timeline.length,1)+timelineRows.length),values:timelineRows});
