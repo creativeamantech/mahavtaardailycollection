@@ -164,7 +164,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
   const mi=headerIndex(mh,["Agreement ID","Loan Number","Loan No"]), pi=headerIndex(ph,["Agreement ID","Loan Number","Loan No"]);
   const mTotal=headerIndex(mh,["Original Total","Total"]), mNew=headerIndex(mh,["New Total"]), mRemain=headerIndex(mh,["Remaining"]), mDate=headerIndex(mh,["Date","Payment Date"]), mDac=headerIndex(mh,["DAC"]), mEcs=headerIndex(mh,["ECS"]), mSpecial=headerIndex(mh,["Special"]);
   const pTotal=headerIndex(ph,["Total","Paid Amount","Payment Amount","New Total"]), pDate=headerIndex(ph,["Date","Payment Date","Paid Date"]), pDac=paidResult.dacIndex, pEcs=headerIndex(ph,["ECS"]), pSpecial=headerIndex(ph,["Special"]);
-  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pEcs].some(x=>x<0)) throw new Error("Required Agreement ID, SFDC, Online, ECS and Total columns in Paid File, plus Date, DAC, Total, New Total and Remaining columns in Master Data, are required. Special is optional and defaults to zero when absent.");
+  if([mi,mTotal,mNew,mRemain,mDate,mDac,pi,pTotal,pDate,pEcs].some(x=>x<0)) throw new Error("Required Agreement ID, SFDC, Online, ECS, Total and Payment Date columns in Paid File, plus Date, DAC, Total, New Total and Remaining columns in Master Data, are required. Special is optional and defaults to zero when absent.");
   const masterById=new Map<string,{row:string[];rowNo:number}>();
   for(let i=1;i<master.length;i++){const r=master[i]??[];const id=norm(r[mi]);if(id){if(masterById.has(id)) throw new Error("Duplicate loan number exists in Master Data: "+id+". Resolve it before reconciliation.");masterById.set(id,{row:r,rowNo:i+1});}}
   const paidById=new Map<string,string[][]>();
