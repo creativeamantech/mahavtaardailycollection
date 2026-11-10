@@ -9,7 +9,7 @@ import { getMasterAllocationReconciliation, previewMasterAllocationReconciliatio
 
 type FileItem={id:string;name:string;sequence:number;modifiedTime:string;url:string};
 type LoanRow={loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number};
-type Preview={masterId:string;file:{id:string;name:string;sequence:number};rows:LoanRow[];notFoundLoans:string[];counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number};fingerprint:string;sequence:number};
+type Preview={autoApplied?:boolean;masterId:string;file:{id:string;name:string;sequence:number};rows:LoanRow[];notFoundLoans:string[];counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number};fingerprint:string;sequence:number};
 const money=(v:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(v);
 export const Route=createFileRoute("/_authenticated/master-allocation-reconciliation")({component:ReconciliationPage});
 function ReconciliationPage(){
@@ -22,7 +22,7 @@ function ReconciliationPage(){
   const [uploadSequence,setUploadSequence]=useState(1);
   const previewMutation=useMutation({mutationFn:(fileId:string)=>previewFn({data:{fileId,masterId:data?.master.id??""}}),onSuccess:r=>{setSelected(r as Preview);toast.success("Read-only preview ready. Master Data has not been changed.");},onError:e=>toast.error(e.message)});
   const applyMutation=useMutation({mutationFn:()=>{if(!selected)throw new Error("Preview a Paid File first.");return applyFn({data:{fileId:selected.file.id,masterId:selected.masterId,fingerprint:selected.fingerprint,confirm:true}});},onSuccess:async r=>{toast.success("Applied "+r.applied+" Master Allocation loans. Audit and snapshot state recorded.");setSelected(null);await qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]});},onError:e=>toast.error(e.message)});
-  const resolveMutation=useMutation({mutationFn:async(loan:string)=>{if(!selected)throw new Error("Preview a Paid File first.");await resolveMasterAllocationReview({data:{fileId:selected.file.id,masterId:selected.masterId,loan,decision:"KEEP_ADMIN_TOTAL"}});return previewFn({data:{fileId:selected.file.id}});},onSuccess:r=>{setSelected(r as Preview);toast.success("Review resolved. Admin's verified New Total will be preserved; this exact difference will not be reviewed again.");},onError:e=>toast.error(e.message)});
+  const resolveMutation=useMutation({mutationFn:async(loan:string)=>{if(!selected)throw new Error("Preview a Paid File first.");await resolveMasterAllocationReview({data:{fileId:selected.file.id,masterId:selected.masterId,loan,decision:"KEEP_ADMIN_TOTAL"}});return previewFn({data:{fileId:selected.file.id,masterId:selected.masterId}});},onSuccess:r=>{setSelected(r as Preview);toast.success("Review resolved. Admin's verified New Total will be preserved; this exact difference will not be reviewed again.");},onError:e=>toast.error(e.message)});
   const files=(data?.files??[]) as FileItem[];
   const counts=selected?.counts;
   const eligibleCount=selected?.rows.filter(r=>r.status==="Ready"||r.status==="Overpaid"||r.status==="Resolved – Admin New Total preserved").length??0;
@@ -31,18 +31,31 @@ function ReconciliationPage(){
   const chosenFile=fileChoice==="auto"?autoFile:files.find(file=>file.id===fileChoice)??null;
   const uploadPaidFile=async(file:File)=>{
     const ext=file.name.toLowerCase().split(".").pop();
-    const types:Record<string,string>={xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",xls:"application/vnd.ms-excel",csv:"text/csv"};
+    const types:Record<string,string>={xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",xls:"application/vnd.ms-excel",xlsb:"application/vnd.ms-excel.sheet.binary.macroEnabled.12",csv:"text/csv"};
     const mimeType=types[ext??""];
-    if(!mimeType){toast.error("केवल .xlsx, .xls या .csv फ़ाइल चुनें।");return;}
-    if(file.size>15*1024*1024){toast.error("फ़ाइल 15 MB से छोटी होनी चाहिए।");return;}
+    if(!mimeType){toast.error("केवल .xlsx, .xls, .xlsb या .csv फ़ाइल चुनें।");return;}
+    if(file.size>15*1024*1024){toast.error("Original file 15 MB से छोटी होनी चाहिए।");return;}
     setUploading(true);
     try{
-      const bytes=new Uint8Array(await file.arrayBuffer());let binary="";
-      for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
-      const base64=btoa(binary);
-      const result=await uploadPaidFileSnapshot({data:{fileName:file.name,mimeType:mimeType as "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"|"application/vnd.ms-excel"|"text/csv",base64,sequence:uploadSequence}});
-      toast.success("Paid File Google Sheet में upload और convert हो गई: "+result.name);
-      setFileChoice(result.id);setSelected(null);
+      const sourceBuffer=await file.arrayBuffer();
+      const workbook=XLSX.read(sourceBuffer,{type:"array",cellDates:true});
+      const firstSheet=workbook.SheetNames[0];
+      if(!firstSheet)throw new Error("Paid File में कोई worksheet नहीं मिली।");
+      const worksheet=workbook.Sheets[firstSheet];
+      const csv=XLSX.utils.sheet_to_csv(worksheet);
+      if(!csv.trim())throw new Error("Paid File की पहली worksheet खाली है।");
+      const csvBytes=new TextEncoder().encode(csv);
+      if(csvBytes.byteLength>15*1024*1024)throw new Error("Converted CSV 15 MB से बड़ी है।");
+      const toBase64=(bytes:Uint8Array)=>{
+        let binary="";
+        for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+        return btoa(binary);
+      };
+      const sourceBase64=toBase64(new Uint8Array(sourceBuffer));
+      const normalizedCsvBase64=toBase64(csvBytes);
+      const result=await uploadPaidFileSnapshot({data:{fileName:file.name,sourceMimeType:mimeType as "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"|"application/vnd.ms-excel"|"application/vnd.ms-excel.sheet.binary.macroEnabled.12"|"text/csv",sourceBase64,normalizedCsvBase64,sequence:uploadSequence}});
+      toast.success("Paid File सुरक्षित snapshot के रूप में upload हुई। "+result.applied.applied+" valid loans अपने-आप apply हुए; "+result.applied.counts.manualReview+" loans Manual Review में हैं।");
+      setFileChoice(result.id);setSelected(result.preview as Preview);
       await qc.invalidateQueries({queryKey:["master-allocation-reconciliation"]});
     }catch(e){toast.error(e instanceof Error?e.message:"Paid File upload failed.");}
     finally{setUploading(false);}
@@ -55,7 +68,7 @@ function ReconciliationPage(){
     </header>
     {isLoading&&<p className="rounded-xl border bg-white p-4 text-sm">Loading Master Allocation and Paid Files…</p>}
     {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error.message}</p>}
-    <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5"><h2 className="font-bold">Upload Paid File manually</h2><p className="mt-1 text-xs text-muted-foreground">Admin upload only · XLSX, XLS या CSV · अधिकतम 15 MB. फ़ाइल Drive में native Google Sheet में convert होगी। Preview बनाते समय Paid File में DAC कॉलम अपने-आप बनेगा या update होगा: DAC = SFDC + Online। Master Allocation पर preview के दौरान कोई बदलाव नहीं होगा।</p><div className="mt-3 grid gap-3 sm:grid-cols-[150px_1fr] sm:items-end"><label className="grid gap-1 text-sm font-medium">Snapshot sequence<input type="number" min={1} max={9999} value={uploadSequence} onChange={e=>setUploadSequence(Math.max(1,Number(e.target.value)||1))} className="h-10 rounded-md border bg-background px-3"/></label><label className="grid gap-1 text-sm font-medium">Choose Paid File<input type="file" accept=".xlsx,.xls,.csv" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void uploadPaidFile(file);e.currentTarget.value="";}} className="block w-full rounded-md border bg-background p-2 text-sm"/></label></div>{uploading&&<p className="mt-2 text-sm">Uploading and converting to Google Sheets…</p>}</section>
+    <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5"><h2 className="font-bold">Upload Paid File manually</h2><p className="mt-1 text-xs text-muted-foreground">Admin upload only · XLSX, XLS, XLSB या CSV · अधिकतम 15 MB. Original file अलग से archive होगी और converted snapshot native Google Sheet बनेगा। DAC = SFDC + Online in-memory calculate होगा; original snapshot modify नहीं होगी। Valid rows automatic apply होंगे; exceptions Manual Review में जाएँगे।</p><div className="mt-3 grid gap-3 sm:grid-cols-[150px_1fr] sm:items-end"><label className="grid gap-1 text-sm font-medium">Snapshot sequence<input type="number" min={1} max={9999} value={uploadSequence} onChange={e=>setUploadSequence(Math.max(1,Number(e.target.value)||1))} className="h-10 rounded-md border bg-background px-3"/></label><label className="grid gap-1 text-sm font-medium">Choose Paid File<input type="file" accept=".xlsx,.xls,.xlsb,.csv" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void uploadPaidFile(file);e.currentTarget.value="";}} className="block w-full rounded-md border bg-background p-2 text-sm"/></label></div>{uploading&&<p className="mt-2 text-sm">Uploading and converting to Google Sheets…</p>}</section>
     <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
       <div><h2 className="font-bold">Available Paid File snapshots</h2><p className="text-xs text-muted-foreground">Only files matching today’s date and the exact Paid File naming pattern are listed. Extra loan IDs outside Master Data are ignored. This list loads on entry and refreshes only after a successful upload or apply.</p></div>
       {!isLoading&&!files.length&&<p className="mt-4 rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">No same-day Paid File Google Sheets found.</p>}
@@ -67,7 +80,7 @@ function ReconciliationPage(){
       <p className="text-xs text-muted-foreground">Matching iterates only Master Allocation loan numbers. Paid File में DAC कॉलम SFDC + Online से calculate होकर save होगा। Paid File loans absent from Master Allocation are not processed or counted. Not Found means a Master loan was absent from this Paid File.</p>
       {selected.notFoundLoans?.length>0&&<details className="rounded-xl border p-3"><summary className="cursor-pointer text-sm font-semibold">Not Found in Paid File — {selected.notFoundLoans.length} Master loan numbers</summary><div className="mt-3 max-h-56 overflow-auto rounded-lg bg-muted/40 p-3 font-mono text-xs leading-6">{selected.notFoundLoans.map((loan,i)=><span key={loan+"-"+i} className="mr-3 inline-block">{loan}</span>)}</div></details>}
       <div className="max-h-[480px] overflow-auto rounded-xl border"><table className="w-full min-w-[850px] text-left text-xs"><thead className="sticky top-0 bg-muted"><tr>{["Master Loan Number","Data Row","Original Total","New Paid Total","Remaining","Date","DAC","ECS","Special","Status"].map(h=><th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr></thead><tbody>{selected.rows.map((r,i)=><tr key={r.loan+"-"+i} className="border-t"><td className="px-3 py-2 font-semibold">{r.loan}</td><td className="px-3 py-2">{r.row}</td><td className="px-3 py-2">{money(r.oldTotal)}</td><td className="px-3 py-2">{money(r.newTotal)}</td><td className="px-3 py-2">{money(r.remaining)}</td><td className="px-3 py-2">{r.date||"—"}</td><td className="px-3 py-2">{money(r.dac)}</td><td className="px-3 py-2">{r.ecs===null?"—":money(r.ecs)}</td><td className="px-3 py-2">{r.special===null?"—":money(r.special)}</td><td className="px-3 py-2"><div className="flex flex-col items-start gap-1"><span>{r.status}</span>{r.status.startsWith("Manual Review – Admin New Total exceeds Paid File by ")&&<Button size="sm" variant="outline" disabled={busy} onClick={()=>resolveMutation.mutate(r.loan)}>Resolve — Keep Admin Total</Button>}{r.status==="Resolved – Admin New Total preserved"&&<span className="text-[11px] text-emerald-700">Resolved difference: {money(r.difference??0)}</span>}</div></td></tr>)}</tbody></table></div>
-      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Original Total is preserved. Admin approval is required. Ready, Overpaid and previously resolved Admin-total differences apply. Unresolved positive differences, blank, invalid, duplicate and all-zero rows are skipped. Resolved Admin New Total is preserved. Original Total remains unchanged.</p><Button disabled={busy||eligibleCount===0} onClick={()=>{if(window.confirm("Approve this snapshot and apply eligible payment rows, including previously resolved Admin-total differences? Unresolved positive differences, blank, invalid, duplicate and all-zero manual-review rows will be skipped. Original Total will remain untouched. This action will be audited."))applyMutation.mutate();}}>Approve & Apply</Button></div>
+      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Original Total is preserved. Newly uploaded snapshots automatically apply eligible rows. Unresolved positive differences, blank, invalid, duplicate and all-zero rows remain in Manual Review. Existing unapplied snapshots still require explicit Admin approval.</p><Button disabled={busy||eligibleCount===0||selected.autoApplied===true} onClick={()=>{if(window.confirm("Approve this snapshot and apply eligible payment rows, including previously resolved Admin-total differences? Unresolved positive differences, blank, invalid, duplicate and all-zero manual-review rows will be skipped. Original Total will remain untouched. This action will be audited."))applyMutation.mutate();}}>{selected.autoApplied?"Valid rows auto-applied":"Approve & Apply"}</Button></div>
     </section>}
   </main>;
 }
