@@ -54,19 +54,19 @@ async function readHistory(id:string) {
     names.has("Paid File Audit")?sheetValues(id,"'Paid File Audit'!A1:H"):Promise.resolve([] as string[][]),
     names.has("Paid File Snapshot State")?sheetValues(id,"'Paid File Snapshot State'!A1:G"):Promise.resolve([] as string[][]),
     names.has("Paid File Review Resolutions")?sheetValues(id,"'Paid File Review Resolutions'!A1:J"):Promise.resolve([] as string[][]),
-    names.has("Paid File Timeline")?sheetValues(id,"'Paid File Timeline'!A1:L"):Promise.resolve([] as string[][])
+    names.has("Paid File Timeline")?sheetValues(id,"'Paid File Timeline'!A1:N"):Promise.resolve([] as string[][])
   ]);
   return {audit,state,resolutions,timeline};
 }
 async function ensureHeaders(id:string) {
-  const [audit,state,resolutions,timeline]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:G1"),sheetValues(id,"'Paid File Review Resolutions'!A1:J1"),sheetValues(id,"'Paid File Timeline'!A1:L1")]);
+  const [audit,state,resolutions,timeline]=await Promise.all([sheetValues(id,"'Paid File Audit'!A1:H1"),sheetValues(id,"'Paid File Snapshot State'!A1:G1"),sheetValues(id,"'Paid File Review Resolutions'!A1:J1"),sheetValues(id,"'Paid File Timeline'!A1:N1")]);
   const data:{range:string;values:string[][]}[]=[];
   if(!audit.length)data.push({range:"'Paid File Audit'!A1:H1",values:[["Applied At","Paid File ID","Paid File Name","Agreement ID","New Total","Master Row","Status","Fingerprint"]]});
   if(!state.length)data.push({range:"'Paid File Snapshot State'!A1:G1",values:[["Agreement ID","Latest Sequence","Latest Cumulative Total","Paid File ID","Accepted At","Paid File Name","Snapshot Date"]]});
   else if(!(state[0]??[])[6])data.push({range:"'Paid File Snapshot State'!G1",values:[["Snapshot Date"]]});
   if(!resolutions.length)data.push({range:"'Paid File Review Resolutions'!A1:J1",values:[["Agreement ID","Review Type","Resolved Difference","Admin New Total","Paid File Total","Decision","Resolved By","Resolved At","Source Paid File","Condition Fingerprint"]]});
   else if(!(resolutions[0]??[])[9])data.push({range:"'Paid File Review Resolutions'!J1",values:[["Condition Fingerprint"]]});
-  if(!timeline.length)data.push({range:"'Paid File Timeline'!A1:L1",values:[["Event At","Agreement ID","Snapshot Sequence","Paid File ID","Paid File Name","Event Type","Previous Paid Total","Observed Paid Total","DAC","ECS","Special","Status / Reason"]]});
+  if(!timeline.length)data.push({range:"'Paid File Timeline'!A1:L1",values:[["Event At","Agreement ID","Snapshot Sequence","Paid File ID","Paid File Name","Event Type","Previous Paid Total","Observed Paid Total","DAC","ECS","Special","Status / Reason","Actor","Condition Fingerprint"]]});
   if(data.length)await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data})}),"Initialize reconciliation headers");
 }
 function norm(v: unknown) { return String(v ?? "").trim().toUpperCase().replace(/^['`]+/,"").replace(/[^A-Z0-9]/g,""); }
@@ -148,14 +148,14 @@ async function paidFiles() {
     return Number.isSafeInteger(sequence)&&sequence>0?[{...file,sequence}]:[];
   }).sort((a,b)=>a.sequence-b.sequence);
 }
-async function build(masterId:string,file:DriveFile):Promise<Built> {
+async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built> {
   if(file.mimeType!==SHEET_MIME) throw new Error("Paid File must be a native Google Sheet.");
   const [master,rawPaid,history]=await Promise.all([
     sheetValues(masterId,"Data!A1:GY"),
     sheetValues(file.id,"A1:ZZ"),
     readHistory(masterId)
   ]);
-  const {audit,state,resolutions}=history;
+  const {audit,state,resolutions,timeline}=history;
   const paidResult=computePaidFileDac(rawPaid);
   const paid=paidResult.values;
   if(master.length<2||paid.length<2) throw new Error("Master Data or Paid File has no data rows.");
@@ -175,7 +175,7 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
   const appliedSequences=audit.slice(1).filter(r=>String(r[2]??"").startsWith(todayPrefix)).map(r=>Number(String(r[2]??"").match(/ - (\d+)$/)?.[1]??0)).filter(n=>Number.isSafeInteger(n)&&n>0);
   const latestAppliedSequence=appliedSequences.length?Math.max(...appliedSequences):0;
   const previous=new Map<string,{sequence:number;amount:number}>();
-  for(const r of state.slice(1)){const snapshotName=String(r[5]??"");const sameDay=String(r[6]??"")===dateKey()||(!r[6]&&snapshotName.startsWith(todayPrefix));const id=norm(r[0]);const priorSeq=Number(r[1]);const amt=amount(r[2]);if(sameDay&&id&&Number.isFinite(priorSeq)&&amt!==null)previous.set(id,{sequence:priorSeq,amount:amt});}
+  for(const r of state.slice(1)){const id=norm(r[0]);const priorSeq=Number(r[1]);const amt=amount(r[2]);if(id&&Number.isFinite(priorSeq)&&amt!==null)previous.set(id,{sequence:priorSeq,amount:amt});}
   const preview:RowPreview[]=[]; const writes:{range:string;values:(string|number)[][]}[]=[];
   const notFoundLoans:string[]=[];
   let notFound=0,zeroZero=0,duplicates=0,invalid=0,pending=0,overpaid=0,manualReview=0,found=0;
@@ -221,13 +221,42 @@ async function build(masterId:string,file:DriveFile):Promise<Built> {
     if(mSpecial>=0&&special!==null)writes.push({range:"Data!"+col(mSpecial)+masterRow.rowNo,values:[[special]]});
     stateWrites.push([id,seq,total,file.id,new Date().toISOString(),file.name,dateKey()]);
   }
+  if(actor){
+    const alreadyRecorded=new Set(timeline.slice(1).filter(r=>String(r[3]??"")===file.id).map(r=>norm(r[1])));
+    const latestEvent=new Map<string,string>();
+    for(const event of timeline.slice(1)){const loan=norm(event[1]);if(loan)latestEvent.set(loan,String(event[5]??""));}
+    const timelineRows:(string|number)[][]=[];
+    for(const row of preview){
+      const loan=norm(row.loan);
+      if(alreadyRecorded.has(loan))continue;
+      const prior=previous.get(loan);
+      const matches=paidById.get(loan)??[];
+      const paidRow=matches.length===1?matches[0]:undefined;
+      const observed=paidRow?amount(paidRow[pTotal]):null;
+      const eventType=latestEvent.get(loan)==="MISSING"?"REAPPEARED":prior&&observed!==null&&observed!==prior.amount?"AMOUNT_CHANGED":"PRESENT";
+      timelineRows.push([new Date().toISOString(),row.loan,seq,file.id,file.name,eventType,prior?.amount??"",observed??"",paidRow?amount(paidRow[pDac])??"": "",paidRow&&pEcs>=0?amount(paidRow[pEcs])??"": "",paidRow&&pSpecial>=0?amount(paidRow[pSpecial])??"": "",row.status,actor,row.conditionFingerprint??""]);
+    }
+    for(const [loan,prior] of previous){
+      if(paidById.has(loan)||alreadyRecorded.has(loan)||latestEvent.get(loan)==="MISSING")continue;
+      const masterRow=masterById.get(loan);
+      if(!masterRow)continue;
+      const oldTotal=amount(masterRow.row[mTotal])??0;
+      const conditionHash=await conditionFingerprint([loan,prior.amount,file.id,seq,"MISSING"]);
+      const row:RowPreview={loan,row:masterRow.rowNo,oldTotal,newTotal:prior.amount,remaining:oldTotal-prior.amount,date:"",dac:0,ecs:0,special:0,status:"Manual Review – Missing from Paid File; previous values held",conditionFingerprint:conditionHash};
+      preview.push(row);
+      notFoundLoans.push(loan);
+      manualReview++;
+      timelineRows.push([new Date().toISOString(),loan,seq,file.id,file.name,"MISSING",prior.amount,"","","","","Manual Review – missing loan; previous paid values retained",actor,conditionHash]);
+    }
+    if(timelineRows.length)writes.push({range:"'Paid File Timeline'!A"+(Math.max(timeline.length,1)+1)+":N"+(Math.max(timeline.length,1)+timelineRows.length),values:timelineRows});
+  }
   if(latestAppliedSequence>seq){
     manualReview++;
     for(const row of preview) row.status="Stale snapshot – newer sequence already applied";
     writes.length=0;
     stateWrites.length=0;
   }
-  const ready=preview.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved"].includes(r.status));
+  const ready=preview.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved","Resolved – Admin authorized reversal"].includes(r.status));
   const counts={master:masterById.size,found,notFound,zeroZero,duplicates,invalid,pending,overpaid,manualReview};
   const digest=JSON.stringify([file.id,file.version??"",file.modifiedTime??"",paid,master,audit.slice(1),state.slice(1),resolutions.slice(1)]);
   const fingerprint=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(digest)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
@@ -254,9 +283,9 @@ export const previewMasterAllocationReconciliation = createServerFn({method:"POS
   return {masterId:master.id,file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
 });
 async function applyBuiltReconciliation(masterId:string,file:DriveFile,result:Built,actor:string) {
-  const eligible=result.rows.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved"].includes(r.status));
-  if(!eligible.length)return {ok:true as const,applied:0,counts:result.counts,appliedBy:actor};
-  if(!result.writes.length)throw new Error("No write operations were generated for eligible payment rows.");
+  const eligible=result.rows.filter(r=>["Ready","Overpaid","Resolved – Admin New Total preserved","Resolved – Admin authorized reversal"].includes(r.status));
+  if(!result.writes.length)return {ok:true as const,applied:0,counts:result.counts,appliedBy:actor};
+
   const res=await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+encodeURIComponent(masterId)+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"USER_ENTERED",data:result.writes})});
   await json(res,"Reconciliation write-back");
   return {ok:true as const,applied:eligible.length,counts:result.counts,appliedBy:actor,fileId:file.id};
