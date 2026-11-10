@@ -178,6 +178,7 @@ async function build(masterId:string,file:DriveFile,actor?:string):Promise<Built
   const preview:RowPreview[]=[]; const writes:{range:string;values:(string|number)[][]}[]=[];
   const notFoundLoans:string[]=[];
   let notFound=0,zeroZero=0,duplicates=0,invalid=0,pending=0,overpaid=0,manualReview=0,found=0;
+  for(let i=1;i<paid.length;i++){const row=paid[i]??[];if(row.some(v=>String(v??"").trim()!=="")&&!norm(row[pi]))invalid++;}
   const stateWrites:(string|number)[][]=[];
   for(const [id,masterRow] of masterById){
     const matches=paidById.get(id);
