@@ -360,6 +360,11 @@ export const resolveMasterAllocationReview = createServerFn({method:"POST"})
     else throw new Error("This loan no longer has an approvable correction review.");
     resolvedDifference=row.difference??0;
   }
+  if(data.decision==="AUTHORIZE_REVERSAL"){
+    const states=await sheetValues(master.id,"'Paid File Snapshot State'!A1:G");
+    const previousState=[...states.slice(1)].reverse().find(r=>norm(r[0])===norm(row.loan));
+    resolvedDifference=amount(previousState?.[2])??resolvedDifference;
+  }
   const values=await sheetValues(master.id,"'Paid File Review Resolutions'!A1:J");
   const already=values.slice(1).some(r=>norm(r[0])===norm(row.loan)&&String(r[1]??"")===reviewType&&String(r[5]??"")===data.decision&&String(r[9]??"")===row.conditionFingerprint);
   if(already)return {ok:true,alreadyResolved:true,loan:row.loan};
