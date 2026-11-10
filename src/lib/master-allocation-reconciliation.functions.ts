@@ -72,6 +72,7 @@ async function ensureHeaders(id:string) {
   if(data.length)await json(await fetch(GATEWAY+"/google_sheets/v4/spreadsheets/"+id+"/values:batchUpdate",{method:"POST",headers:headers("GOOGLE_SHEETS_API_KEY"),body:JSON.stringify({valueInputOption:"RAW",data})}),"Initialize reconciliation headers");
 }
 function col(n:number) { let x=n+1,s="";while(x){const r=(x-1)%26;s=String.fromCharCode(65+r)+s;x=Math.floor((x-1)/26);}return s; }
+async function conditionFingerprint(values:unknown[]) { const bytes=new TextEncoder().encode(JSON.stringify(values.map(v=>v===null||v===undefined?"":String(v).trim()))); const digest=await crypto.subtle.digest("SHA-256",bytes); return Array.from(new Uint8Array(digest)).map(v=>v.toString(16).padStart(2,"0")).join(""); }
 type RowPreview = {loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number|undefined;conditionFingerprint?:string};
 type Built = { rows:RowPreview[]; notFoundLoans:string[]; counts:{master:number;found:number;notFound:number;zeroZero:number;duplicates:number;invalid:number;pending:number;overpaid:number;manualReview:number}; writes:{range:string;values:(string|number)[][]}[]; fingerprint:string; sequence:number };
 async function masterFile() {
