@@ -29,3 +29,14 @@ export function computePaidFileDac(paid: string[][]): { values: string[][]; dacI
   });
   return { values, dacIndex };
 }
+
+
+/**
+ * Tracks data-generation changes without treating an Admin decision as a new
+ * payment-data generation. An approval must remain valid for the exact values
+ * it reviewed; the decision's own timeline event must not invalidate it.
+ */
+export function paidFileHistoryGeneration(eventTypes: string[]): number {
+  const transitions = eventTypes.filter(type => type === "REAPPEARED" || type === "AMOUNT_CHANGED").length;
+  return transitions + (eventTypes.at(-1) === "MISSING" ? 1 : 0);
+}
