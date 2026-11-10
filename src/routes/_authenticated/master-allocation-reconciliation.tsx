@@ -7,6 +7,7 @@ import { FileSpreadsheet, ShieldCheck } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { getMasterAllocationReconciliation, previewMasterAllocationReconciliation, applyMasterAllocationReconciliation, uploadPaidFileSnapshot, resolveMasterAllocationReview } from "@/lib/master-allocation-reconciliation.functions";
+import { isPaidFileRowApplyEligible } from "@/lib/paid-file-reconciliation.logic";
 
 type FileItem={id:string;name:string;sequence:number;modifiedTime:string;url:string};
 type LoanRow={loan:string;row:number;oldTotal:number;newTotal:number;remaining:number;date:string;dac:number;ecs:number|null;special:number|null;status:string;difference?:number};
@@ -28,7 +29,7 @@ function ReconciliationPage(){
   const nextSequence=Math.max(0,...files.map(file=>file.sequence))+1;
   const selectedSequence=uploadSequence||nextSequence;
   const counts=selected?.counts;
-  const eligibleCount=selected?.rows.filter(r=>r.status==="Ready"||r.status==="Overpaid"||r.status==="Resolved – Admin New Total preserved"||r.status==="Resolved – Admin authorized reversal"||r.status==="Resolved – Admin approved correction").length??0;
+  const eligibleCount=selected?.rows.filter(r=>isPaidFileRowApplyEligible(r.status)).length??0;
   const busy=previewMutation.isPending||applyMutation.isPending||resolveMutation.isPending||uploading;
   const autoFile=files.reduce<FileItem|null>((latest,file)=>!latest||file.sequence>latest.sequence?file:latest,null);
   const chosenFile=fileChoice==="auto"?autoFile:files.find(file=>file.id===fileChoice)??null;
