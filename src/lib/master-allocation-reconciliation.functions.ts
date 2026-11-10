@@ -21,6 +21,10 @@ async function json<T>(res: Response, label: string): Promise<T> {
   if (!res.ok) throw new Error(label + " failed (" + res.status + "): " + (await res.text()).slice(0, 400));
   return res.json() as Promise<T>;
 }
+async function driveGet(id: string): Promise<DriveFile> {
+  const url = GATEWAY + "/google_drive/drive/v3/files/" + encodeURIComponent(id) + "?fields=id,name,mimeType,modifiedTime,version,webViewLink";
+  return json<DriveFile>(await fetch(url, { headers: headers("GOOGLE_DRIVE_API_KEY") }), "Google Drive file lookup");
+}
 async function driveList(q: string) {
   const url = new URL(GATEWAY + "/google_drive/drive/v3/files");
   url.searchParams.set("q", q + " and trashed = false");
@@ -104,6 +108,15 @@ async function masterFile() {
   return files[0]!;
 }
 function paidFilePrefix() { const d=dateParts(); return "Paid File " + d.month + " " + d.day + " " + d.year + " - "; }
+function identifyPaidFile(file: DriveFile): (DriveFile & {sequence:number}) | null {
+  if (file.mimeType !== SHEET_MIME) return null;
+  const d = dateParts();
+  const match = file.name.match(/^Paid File\\s+([A-Za-z]+)\\s+(\\d{1,2})\\s+(\\d{4})\\s+-\\s+(\\d{2,})$/i);
+  if (!match || !adjacentTypoMonthMatches(match[1]!, d.month) || Number(match[2]) !== Number(d.day) || Number(match[3]) !== Number(d.year)) return null;
+  const sequence = Number(match[4]);
+  return Number.isSafeInteger(sequence) && sequence > 0 ? { ...file, sequence } : null;
+}
+
 function adjacentTypoMonthMatches(value:string, expected:string) {
   const candidate=value.toLowerCase(), target=expected.toLowerCase();
   if(candidate===target)return true;
@@ -222,20 +235,25 @@ export const getMasterAllocationReconciliation = createServerFn({method:"GET"}).
   return {master:{id:master.id,name:master.name,url:master.webViewLink??("https://docs.google.com/spreadsheets/d/"+master.id+"/edit")},files:files.map(f=>({id:f.id,name:f.name,sequence:f.sequence,modifiedTime:f.modifiedTime??"",url:f.webViewLink??("https://docs.google.com/spreadsheets/d/"+f.id+"/edit")}))};
 });
 export const previewMasterAllocationReconciliation = createServerFn({method:"POST"})
-.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/)}).parse(v))
+.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),masterId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/)}).parse(v))
 .handler(async({data})=>{
   await requireSession("Admin");
-  const master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
+  const [master, rawFile]=await Promise.all([driveGet(data.masterId),driveGet(data.fileId)]);
+  if(master.mimeType!==SHEET_MIME||master.name!==monthTitle())throw new Error("Selected Master Allocation is no longer the current-month Google Sheet.");
+  const file=identifyPaidFile(rawFile);
   if(!file)throw new Error("Selected file is not a current-day Paid File Google Sheet.");
   if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Rename the files to unique -01, -02, -03 sequence numbers.");
   const result=await build(master.id,file);
-  return {file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
+  return {masterId:master.id,file:{id:file.id,name:file.name,sequence:file.sequence},rows:result.rows,notFoundLoans:result.notFoundLoans,counts:result.counts,fingerprint:result.fingerprint,sequence:result.sequence};
 });
 export const applyMasterAllocationReconciliation = createServerFn({method:"POST"})
-.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),fingerprint:z.string().length(64),confirm:z.literal(true)}).parse(v))
+.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),masterId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),fingerprint:z.string().length(64),confirm:z.literal(true)}).parse(v))
 .handler(async({data})=>{
-  const session=await requireSession("Admin"), master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
-  if(!file)throw new Error("Selected file is no longer in the current-day Paid File list.");
+  const session=await requireSession("Admin");
+  const [master, rawFile]=await Promise.all([driveGet(data.masterId),driveGet(data.fileId)]);
+  if(master.mimeType!==SHEET_MIME||master.name!==monthTitle())throw new Error("Selected Master Allocation is no longer the current-month Google Sheet.");
+  const file=identifyPaidFile(rawFile);
+  if(!file)throw new Error("Selected file is no longer a current-day Paid File Google Sheet.");
   if(files.filter(f=>f.sequence===file.sequence).length>1)throw new Error("Two or more Paid Files use the same sequence number. Resolve the duplicate sequence before applying.");
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions"]);
   await ensureHeaders(master.id);
@@ -251,10 +269,13 @@ export const applyMasterAllocationReconciliation = createServerFn({method:"POST"
 });
 
 export const resolveMasterAllocationReview = createServerFn({method:"POST"})
-.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),loan:z.string().min(1),decision:z.literal("KEEP_ADMIN_TOTAL")}).parse(v))
+.inputValidator((v:unknown)=>z.object({fileId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),masterId:z.string().regex(/^[A-Za-z0-9_-]{15,120}$/),loan:z.string().min(1),decision:z.literal("KEEP_ADMIN_TOTAL")}).parse(v))
 .handler(async({data})=>{
-  const session=await requireSession("Admin"), master=await masterFile(), files=await paidFiles(), file=files.find(f=>f.id===data.fileId);
-  if(!file)throw new Error("Selected Paid File is no longer available.");
+  const session=await requireSession("Admin");
+  const [master, rawFile]=await Promise.all([driveGet(data.masterId),driveGet(data.fileId)]);
+  if(master.mimeType!==SHEET_MIME||master.name!==monthTitle())throw new Error("Selected Master Allocation is no longer the current-month Google Sheet.");
+  const file=identifyPaidFile(rawFile);
+  if(!file)throw new Error("Selected Paid File is no longer available as a current-day Google Sheet.");
   await ensureTabs(master.id,["Paid File Audit","Paid File Snapshot State","Paid File Review Resolutions"]);
   await ensureHeaders(master.id);
   const result=await build(master.id,file), row=result.rows.find(r=>norm(r.loan)===norm(data.loan));
