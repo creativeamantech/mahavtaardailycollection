@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { amount, computePaidFileDac, headerIndex, norm, paidFileHistoryGeneration } from "./paid-file-reconciliation.logic";
+import { amount, computePaidFileDac, headerIndex, norm, normalizePaidFileSource, paidFileHistoryGeneration } from "./paid-file-reconciliation.logic";
+import * as XLSX from "xlsx";
 
 describe("Paid File normalization", () => {
   test("parses Indian currency formatting and negative parentheses", () => {
@@ -44,5 +45,23 @@ describe("Paid File review fingerprint generations", () => {
     expect(paidFileHistoryGeneration(["PRESENT", "MISSING"])).toBe(1);
     expect(paidFileHistoryGeneration(["PRESENT", "MISSING", "REAPPEARED"])).toBe(1);
     expect(paidFileHistoryGeneration(["PRESENT", "AMOUNT_CHANGED"])).toBe(1);
+  });
+});
+
+describe("Paid File Excel format regression", () => {
+  const rows = [["Agreement ID", "SFDC", "Online"], ["LN-001", "1200.50", "300"]];
+  test.each(["xlsx", "xls", "xlsb"] as const)("normalizes %s while preserving cell values", (bookType) => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "Payments");
+    const bytes = XLSX.write(workbook, { type: "array", bookType });
+    expect(normalizePaidFileSource(new Uint8Array(bytes), bookType)).toContain("LN-001,1200.50,300");
+  });
+  test("normalizes CSV source bytes", () => {
+    const csv = "Agreement ID,SFDC,Online\nLN-001,1200.50,300";
+    expect(normalizePaidFileSource(new TextEncoder().encode(csv), "csv")).toContain("LN-001,1200.50,300");
+  });
+  test("rejects unsupported and empty inputs", () => {
+    expect(() => normalizePaidFileSource(new Uint8Array([1, 2]), "pdf")).toThrow("Unsupported");
+    expect(() => normalizePaidFileSource(new Uint8Array([]), "xlsx")).toThrow();
   });
 });
