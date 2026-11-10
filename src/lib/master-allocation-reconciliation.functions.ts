@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSession } from "./auth.functions";
 import * as XLSX from "xlsx";
-import { amount, computePaidFileDac, headerIndex, norm, paidFileHistoryGeneration } from "./paid-file-reconciliation.logic";
+import { amount, computePaidFileDac, headerIndex, norm, normalizePaidFileSource, paidFileHistoryGeneration } from "./paid-file-reconciliation.logic";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
@@ -381,19 +381,8 @@ export const uploadPaidFileSnapshot = createServerFn({method:"POST"})
   const submittedCsvBytes=Buffer.from(data.normalizedCsvBase64,"base64");
   if(!sourceBytes.length||sourceBytes.length>15*1024*1024)throw new Error("Original Paid File must be between 1 byte and 15 MB.");
   if(!submittedCsvBytes.length||submittedCsvBytes.length>15*1024*1024)throw new Error("Converted Paid File data must be between 1 byte and 15 MB.");
-  // Re-derive the normalized sheet on the server from the archived source bytes.
-  // Never trust a client-supplied CSV that could differ from the original file.
-  let workbook:XLSX.WorkBook;
-  try {
-    workbook=XLSX.read(new Uint8Array(sourceBytes),{type:"array",cellDates:true});
-  } catch {
-    throw new Error("Original Paid File could not be parsed. Check that the file is a valid XLSX, XLS, XLSB or CSV.");
-  }
-  const firstSheet=workbook.SheetNames[0];
-  const worksheet=firstSheet?workbook.Sheets[firstSheet]:undefined;
-  if(!worksheet)throw new Error("Paid File में कोई worksheet नहीं मिली।");
-  const canonicalCsv=XLSX.utils.sheet_to_csv(worksheet);
-  if(!canonicalCsv.trim())throw new Error("Paid File की पहली worksheet खाली है।");
+  // Re-derive normalized CSV on the server; never trust client conversion alone.
+  const canonicalCsv=normalizePaidFileSource(new Uint8Array(sourceBytes),extension);
   const csvBytes=Buffer.from(canonicalCsv,"utf8");
   if(!csvBytes.length||csvBytes.length>15*1024*1024)throw new Error("Converted Paid File data must be between 1 byte and 15 MB.");
   if(!csvBytes.equals(submittedCsvBytes))throw new Error("Uploaded conversion does not match the original Paid File. Please retry the upload.");
