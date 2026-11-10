@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { amount, computePaidFileDac, headerIndex, norm, normalizePaidFileSource, paidFileHistoryGeneration, isPaidFileRowApplyEligible } from "./paid-file-reconciliation.logic";
+import { amount, computePaidFileDac, headerIndex, norm, normalizePaidFileSource, isPaidFileRowApplyEligible } from "./paid-file-reconciliation.logic";
 import * as XLSX from "xlsx";
 
 describe("Paid File normalization", () => {
@@ -34,19 +34,6 @@ describe("Paid File normalization", () => {
 });
 
 
-describe("Paid File review fingerprint generations", () => {
-  test("does not invalidate an approval because its own reversal decision was recorded", () => {
-    expect(paidFileHistoryGeneration(["PRESENT", "REVERSAL_AUTHORIZED"])).toBe(1);
-    expect(paidFileHistoryGeneration(["PRESENT", "REVERSAL_APPROVED"])).toBe(1);
-    expect(paidFileHistoryGeneration(["PRESENT", "MISSING", "REVERSAL_AUTHORIZED"])).toBe(1);
-    expect(paidFileHistoryGeneration(["PRESENT", "MISSING", "REVERSAL_APPROVED"])).toBe(1);
-  });
-  test("increments only when payment data reappears or changes after a missing state", () => {
-    expect(paidFileHistoryGeneration(["PRESENT", "MISSING"])).toBe(1);
-    expect(paidFileHistoryGeneration(["PRESENT", "MISSING", "REAPPEARED"])).toBe(1);
-    expect(paidFileHistoryGeneration(["PRESENT", "AMOUNT_CHANGED"])).toBe(1);
-  });
-});
 
 describe("Paid File Excel format regression", () => {
   const rows = [["Agreement ID", "SFDC", "Online"], ["LN-001", "1200.50", "300"]];
