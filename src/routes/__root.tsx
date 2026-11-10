@@ -20,6 +20,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurrentSession, logoutCurrentSession } from "@/lib/auth.functions";
 import { LoginScreen } from "@/components/LoginScreen";
+import { DraggableMobileNavButton } from "@/components/DraggableMobileNavButton";
 
 function NotFoundComponent() {
   return (
@@ -247,16 +248,10 @@ function AppShell() {
       </div>
 
       {/* One global mobile navigation drawer is shared by every authenticated route. */}
-      <button
-        type="button"
-        aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
-        aria-expanded={mobileNavOpen}
-        aria-controls="global-mobile-navigation"
-        onClick={() => setMobileNavOpen((open) => !open)}
-        className="fixed right-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[10000] grid size-12 place-items-center rounded-xl border border-[#26313d] bg-[#101722] text-2xl text-white shadow-lg transition hover:bg-[#202b39] active:scale-95 md:hidden print:hidden"
-      >
-        <span aria-hidden="true">{mobileNavOpen ? "×" : "☰"}</span>
-      </button>
+      <DraggableMobileNavButton
+        open={mobileNavOpen}
+        onToggle={() => setMobileNavOpen((open) => !open)}
+      />
 
       {mobileNavOpen && (
         <div className="fixed inset-0 z-[9999] md:hidden print:hidden">
