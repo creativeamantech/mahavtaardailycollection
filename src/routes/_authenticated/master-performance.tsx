@@ -18,7 +18,7 @@ type Rule = { id: string; allocationType: string; bucket: string; state: string;
 type Metric = { totalCount: number; paidCount: number; unpaidCount: number; totalPos: number; collection: number; mainPaidPos: number; rollbackPos: number; mainPercent: number; rollbackPercent: number; mainTarget: number; targetPos: number; neededPos: number; rollbackTarget: number; targetRollbackPos: number; neededRollbackPos: number };
 type Executive = Metric & { executive: string };
 type City = Metric & { city: string; executives: Executive[] };
-type Report = { master: { name: string; url: string; modifiedTime: string | null }; rowCount: number; buckets: { bucket: string; cities: City[]; total: Metric }[]; rules: Rule[]; positiveNeededPos: { bucket: string; city: string; totalCount: number; neededPos: number; mainPaidPos: number; targetPos: number }[]; positiveNeededRollback: { bucket: string; city: string; totalCount: number; neededRollbackPos: number; rollbackPos: number; targetRollbackPos: number }[]; defaults: { mainTarget: number; rollbackTarget: number } };
+type Report = { dimensionOptions: { allocationTypes: string[]; buckets: string[]; states: string[]; cities: string[] }; master: { name: string; url: string; modifiedTime: string | null }; rowCount: number; buckets: { bucket: string; cities: City[]; total: Metric }[]; rules: Rule[]; positiveNeededPos: { bucket: string; city: string; totalCount: number; neededPos: number; mainPaidPos: number; targetPos: number }[]; positiveNeededRollback: { bucket: string; city: string; totalCount: number; neededRollbackPos: number; rollbackPos: number; targetRollbackPos: number }[]; defaults: { mainTarget: number; rollbackTarget: number } };
 
 const money = (n: number) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const pct = (n: number) => Number(n || 0).toFixed(2) + "%";
@@ -102,15 +102,15 @@ function MasterPerformancePage() {
 
         <section className="space-y-3 rounded-xl border bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div><h2 className="font-bold">Target Manager</h2><p className="text-xs text-muted-foreground">Blank dimensions mean “all”. More specific rules override broader rules.</p></div>
+            <div><h2 className="font-bold">Target Manager</h2><p className="text-xs text-muted-foreground">Options are loaded from the current Master Allocation file. Blank dimensions mean “all”; more specific rules override broader rules.</p></div>
             <Button size="sm" variant="outline" onClick={() => setRules([...activeRules, emptyRule()])}><Plus className="mr-1 size-4" />Add rule</Button>
           </div>
           {activeRules.length === 0 && <p className="text-sm text-muted-foreground">No custom rules. Defaults are Main 60% and Rollback 18%.</p>}
           {activeRules.map((rule, i) => <div key={rule.id} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-7">
-            <Field label="Allocation Type"><Input value={rule.allocationType} placeholder="All" onChange={e => updateRule(i, { allocationType: e.target.value })} /></Field>
-            <Field label="Bucket"><Input value={rule.bucket} placeholder="All" onChange={e => updateRule(i, { bucket: e.target.value })} /></Field>
-            <Field label="State"><Input value={rule.state} placeholder="All" onChange={e => updateRule(i, { state: e.target.value })} /></Field>
-            <Field label="City"><Input value={rule.city} placeholder="All" onChange={e => updateRule(i, { city: e.target.value })} /></Field>
+            <Field label="Allocation Type"><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm" value={rule.allocationType} onChange={e => updateRule(i, { allocationType: e.target.value })}><option value="">All</option>{data.dimensionOptions.allocationTypes.map(v => <option key={v} value={v}>{v}</option>)}</select></Field>
+            <Field label="Bucket"><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm" value={rule.bucket} onChange={e => updateRule(i, { bucket: e.target.value })}><option value="">All</option>{data.dimensionOptions.buckets.map(v => <option key={v} value={v}>{v}</option>)}</select></Field>
+            <Field label="State"><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm" value={rule.state} onChange={e => updateRule(i, { state: e.target.value })}><option value="">All</option>{data.dimensionOptions.states.map(v => <option key={v} value={v}>{v}</option>)}</select></Field>
+            <Field label="City"><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm" value={rule.city} onChange={e => updateRule(i, { city: e.target.value })}><option value="">All</option>{data.dimensionOptions.cities.map(v => <option key={v} value={v}>{v}</option>)}</select></Field>
             <Field label="Main Target %"><Input type="number" min="0" max="100" value={rule.mainTarget} onChange={e => updateRule(i, { mainTarget: Number(e.target.value) })} /></Field>
             <Field label="Rollback Target %"><Input type="number" min="0" max="100" value={rule.rollbackTarget} onChange={e => updateRule(i, { rollbackTarget: Number(e.target.value) })} /></Field>
             <div className="flex items-end"><Button size="icon" variant="ghost" aria-label="Delete target rule" onClick={() => setRules(activeRules.filter((_, n) => n !== i))}><Trash2 className="size-4 text-red-600" /></Button></div>

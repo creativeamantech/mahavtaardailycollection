@@ -187,12 +187,19 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     }).sort((a,b) => b.totalCount-a.totalCount || a.city.localeCompare(b.city));
     return { bucket, cities, total: makeMetric(rows) };
   });
+  const uniqueValues = (values: string[]) => [...new Set(values.map(v => v.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "en-IN", { sensitivity: "base" }));
+  const dimensionOptions = {
+    allocationTypes: uniqueValues(parsed.map(r => r.allocation)),
+    buckets: uniqueValues(parsed.map(r => r.bucket)),
+    states: uniqueValues(parsed.map(r => r.state)),
+    cities: uniqueValues(parsed.map(r => r.city)),
+  };
   const totals = makeMetric(parsed);
   const positiveNeededPos = buckets.flatMap(b => b.cities.filter(c => c.neededPos > 0).map(c => ({ bucket: b.bucket, city: c.city, totalCount: c.totalCount, neededPos: round(c.neededPos), mainPaidPos: round(c.mainPaidPos), targetPos: round(c.targetPos) })));
   const positiveNeededRollback = buckets.flatMap(b => b.cities.filter(c => c.neededRollbackPos > 0).map(c => ({ bucket: b.bucket, city: c.city, totalCount: c.totalCount, neededRollbackPos: round(c.neededRollbackPos), rollbackPos: round(c.rollbackPos), targetRollbackPos: round(c.targetRollbackPos) })));
   return {
     master: { id: master.id, name: master.name, url: master.webViewLink ?? "https://docs.google.com/spreadsheets/d/" + master.id + "/edit", modifiedTime: master.modifiedTime ?? null },
-    rowCount: parsed.length, buckets, totals, rules,
+    rowCount: parsed.length, buckets, totals, rules, dimensionOptions,
     positiveNeededPos, positiveNeededRollback,
     defaults: { mainTarget: DEFAULT_MAIN_TARGET, rollbackTarget: DEFAULT_ROLLBACK_TARGET },
   };
