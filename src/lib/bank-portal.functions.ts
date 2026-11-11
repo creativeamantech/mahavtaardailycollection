@@ -279,9 +279,11 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
     const batchReserved = nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30;
 
     if (!isAdmin) {
-      if (batchReserved) throw new Error("6:30 PM–7:30 PM is reserved for batch work. Executive access is paused.");
+      if (batchReserved && session.name !== "Ankita") {
+        throw new Error("6:30 PM–7:30 PM is Ankita's reserved batch-work slot. Other executives cannot use the portal during this period.");
+      }
 
-      const ownSlot = presets.some((r) => r[1] === session.name
+      const ownSlot = (batchReserved && session.name === "Ankita") || presets.some((r) => r[1] === session.name
         && nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
       if (!ownSlot) {
         const outsideOfficeHours = nowMinutes < 10 * 60 || nowMinutes >= 19 * 60 + 30;
