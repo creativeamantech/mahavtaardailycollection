@@ -11,6 +11,7 @@ const TABS = {
   warnings: "Portal_Warnings",
   bans: "Portal_Bans",
   audit: "Portal_Audit",
+  accessRequests: "Portal_Access_Requests",
 } as const;
 
 function connectorHeaders() {
@@ -89,18 +90,34 @@ async function audit(action: string, executive: string, details: string) {
 
 export const getBankPortalData = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireSession();
-  const [sessions, schedules, complaints, warnings, bans] = await Promise.all([
+  const [sessions, schedules, complaints, warnings, bans, accessRequests] = await Promise.all([
     readTab(TABS.sessions), readTab(TABS.schedules), readTab(TABS.complaints),
     session.role === "Admin" ? readTab(TABS.warnings) : Promise.resolve([]),
-    readTab(TABS.bans),
+    readTab(TABS.bans), readTab(TABS.accessRequests),
   ]);
   const activeSession = sessions.find((r) => r[1] === session.name && isActive(r[7]));
   const today = indiaDate();
   const todaySchedules = schedules.filter((r) => r[1] === session.name && r[2] === today);
+  const nowMinutes = (() => { const t = indiaTime().split(":"); return Number(t[0]) * 60 + Number(t[1]); })();
+  const todaysAll = schedules.filter((r) => r[2] === today && r[1] && r[3] && r[4]);
+  const slotOwner = todaysAll.find((r) => {
+    const start = Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5));
+    const end = Number(r[4].slice(0, 2)) * 60 + Number(r[4].slice(3, 5));
+    return nowMinutes >= start && nowMinutes < end;
+  }) ?? todaysAll.filter((r) => Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5)) > nowMinutes)
+    .sort((a, b) => a[3].localeCompare(b[3]))[0];
+  const relevantRequests = accessRequests.map((r, i) => ({
+    row: i + 2, id: r[0] ?? "", requester: r[1] ?? "", recipient: r[2] ?? "",
+    dateTime: r[3] ?? "", reason: r[4] ?? "", duration: r[5] ?? "",
+    status: r[6] ?? "", approvedAt: r[7] ?? "", expiresAt: r[8] ?? "",
+  })).filter((r) => r.requester === session.name || r.recipient === session.name);
   return {
     session,
     activeSession: activeSession ? { id: activeSession[0] ?? "", loginDate: activeSession[2] ?? "", loginTime: activeSession[3] ?? "" } : null,
     schedules: todaySchedules.map((r) => ({ id: r[0] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
+    isAdmin: session.role === "Admin",
+    slotOwner: slotOwner ? { name: slotOwner[1] ?? "", start: slotOwner[3] ?? "", end: slotOwner[4] ?? "" } : null,
+    accessRequests: relevantRequests,
     complaints: complaints.filter((r) => session.role === "Admin" || r[2] === session.name).map((r) => ({
       id: r[0] ?? "", executive: r[2] ?? "", dateTime: r[3] ?? "", type: r[4] ?? "", description: r[5] ?? "", status: r[6] ?? "", remark: r[7] ?? "",
     })),
@@ -114,12 +131,71 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   };
 });
 
+
+export const requestBankPortalAccess = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ reason: z.string().trim().min(3).max(500), duration: z.enum(["10", "15", "30"]) }).parse(d))
+  .handler(async ({ data }) => {
+    const session = await requireSession();
+    if (session.role === "Admin") throw new Error("Admin does not need to request access.");
+    const [schedules, requests] = await Promise.all([readTab(TABS.schedules), readTab(TABS.accessRequests)]);
+    const today = indiaDate();
+    const nowMinutes = (() => { const t = indiaTime().split(":"); return Number(t[0]) * 60 + Number(t[1]); })();
+    const todays = schedules.filter((r) => r[2] === today && r[1] && r[3] && r[4]);
+    const owner = todays.find((r) => {
+      const start = Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5));
+      const end = Number(r[4].slice(0, 2)) * 60 + Number(r[4].slice(3, 5));
+      return nowMinutes >= start && nowMinutes < end;
+    }) ?? todays.filter((r) => Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5)) > nowMinutes)
+      .sort((a, b) => a[3].localeCompare(b[3]))[0];
+    if (!owner?.[1] || owner[1] === session.name) throw new Error("There is no other Executive slot owner to receive this request right now.");
+    if (requests.some((r) => r[1] === session.name && r[6] === "Pending" && r[2] === owner[1]))
+      throw new Error("You already have a pending request for this slot.");
+    const id = `BPAR-${crypto.randomUUID()}`;
+    await appendTab(TABS.accessRequests, [[id, session.name, owner[1], isoNow(), data.reason, data.duration, "Pending", "", ""]]);
+    await audit("ACCESS_REQUESTED", session.name, `${id} -> ${owner[1]}`);
+    return { ok: true, id, recipient: owner[1] };
+  });
+
+export const respondBankPortalAccessRequest = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ requestId: z.string().min(1).max(100), decision: z.enum(["Approved", "Rejected"]) }).parse(d))
+  .handler(async ({ data }) => {
+    const session = await requireSession();
+    if (session.role === "Admin") throw new Error("Admin is not an access-request approver.");
+    const rows = await readTab(TABS.accessRequests);
+    const index = rows.findIndex((r) => r[0] === data.requestId);
+    if (index < 0) throw new Error("Access request not found.");
+    const row = rows[index]!;
+    if (row[2] !== session.name) throw new Error("Only the assigned slot Executive can respond to this request.");
+    if (row[6] !== "Pending") throw new Error("This request has already been handled.");
+    const approvedAt = data.decision === "Approved" ? isoNow() : "";
+    const expiresAt = data.decision === "Approved"
+      ? new Date(Date.now() + Number(row[5]) * 60_000).toISOString() : "";
+    await updateTab(TABS.accessRequests, index + 2, "G:I", [[data.decision, approvedAt, expiresAt]]);
+    await audit(`ACCESS_REQUEST_${data.decision.toUpperCase()}`, session.name, data.requestId);
+    return { ok: true };
+  });
+
 export const startBankPortalSession = createServerFn({ method: "POST" }).handler(async () => {
   const session = await requireSession();
   const [sessions, bans] = await Promise.all([readTab(TABS.sessions), readTab(TABS.bans)]);
   const banned = bans.some((r) => r[1] === session.name && isActive(r[5]) &&
     (!r[3] || new Date(r[3]).getTime() >= Date.now()));
   if (banned) throw new Error("Bank Portal access is currently suspended. Contact Admin.");
+  if (session.role !== "Admin") {
+    const today = indiaDate();
+    const nowMinutes = (() => { const t = indiaTime().split(":"); return Number(t[0]) * 60 + Number(t[1]); })();
+    const schedules = await readTab(TABS.schedules);
+    const ownSlot = schedules.some((r) => {
+      if (r[1] !== session.name || r[2] !== today || !r[3] || !r[4]) return false;
+      const start = Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5));
+      const end = Number(r[4].slice(0, 2)) * 60 + Number(r[4].slice(3, 5));
+      return nowMinutes >= start && nowMinutes < end;
+    });
+    const requests = await readTab(TABS.accessRequests);
+    const approved = requests.some((r) => r[1] === session.name && r[6] === "Approved" &&
+      r[7] && r[8] && new Date(r[7]).getTime() <= Date.now() && new Date(r[8]).getTime() > Date.now());
+    if (!ownSlot && !approved) throw new Error("Access is available only during your assigned slot or after the slot owner approves your request.");
+  }
   if (sessions.some((r) => r[1] === session.name && isActive(r[7])))
     throw new Error("You already have an active Bank Portal session.");
   const now = new Date();
