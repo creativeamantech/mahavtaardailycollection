@@ -66,7 +66,7 @@ async function updateTab(tab: string, row: number, range: string, values: (strin
   if (row < 2) throw new Error("Header row cannot be changed.");
   const id = await spreadsheetId();
   const columns = range.split(":");
-  const a1 = columns.length > 1 ? columns[0] + row + ":" + columns[1] + row : range + row;
+  const a1 = columns.length > 1 ? columns[0]! + row + ":" + columns[1]! + row : range + row;
   const url = GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id) + "/values/" + encodeURIComponent(tab) + "!" + a1 + "?valueInputOption=RAW";
   return responseJson(await fetch(url, { method: "PUT", headers: connectorHeaders(), body: JSON.stringify({ values }) }), "Update " + tab);
 }
