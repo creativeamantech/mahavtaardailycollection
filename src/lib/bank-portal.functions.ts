@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSession } from "./auth.functions";
-import { EXECUTIVES } from "./executives";
 import { withSheetMutex } from "./mahavtaar.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const MAX_SESSION_MINUTES = 60;
+const BANK_PORTAL_EXECUTIVES = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 const TABS = {
   sessions: "Portal_Sessions",
   schedules: "Portal_Schedules",
@@ -269,7 +269,7 @@ export const endBankPortalSession = createServerFn({ method: "POST" })
     const index = rows.findIndex((r) => r[0] === data.sessionId);
     if (index < 0 || !isActive(rows[index]?.[7])) throw new Error("Active Bank Portal session not found.");
     const target = rows[index]!;
-    if (caller.name !== target[1]) await requirePortalAdmin(data.settingsPassword);
+    if (caller.name !== target[1]) throw new Error("Admins must use the reason-required Force Close action for another executive’s session.");
     const now = new Date();
     const duration = Math.max(0, Math.round((now.getTime() - sessionStartMs(target)) / 60_000));
     await updateTab(TABS.sessions, index + 2, "E:H", [[indiaDate(now), indiaTime(now), duration, "Ended"]]);
@@ -293,7 +293,7 @@ export const forceEndBankPortalSession = createServerFn({ method: "POST" })
   }));
 
 export const createBankPortalSchedule = createServerFn({ method: "POST" })
-  .validator((d: unknown) => z.object({ executive: z.enum(EXECUTIVES), date: z.string(), start: z.string(), end: z.string() }).parse(d))
+  .validator((d: unknown) => z.object({ executive: z.enum(BANK_PORTAL_EXECUTIVES), date: z.string(), start: z.string(), end: z.string() }).parse(d))
   .handler(async ({ data }) => {
     await requirePortalAdmin();
     validateSchedule(data.date, data.start, data.end);
@@ -308,7 +308,7 @@ export const createBankPortalSchedule = createServerFn({ method: "POST" })
   });
 
 export const updateBankPortalSchedule = createServerFn({ method: "POST" })
-  .validator((d: unknown) => z.object({ scheduleId: z.string().min(1).max(100), executive: z.enum(EXECUTIVES), date: z.string(), start: z.string(), end: z.string() }).parse(d))
+  .validator((d: unknown) => z.object({ scheduleId: z.string().min(1).max(100), executive: z.enum(BANK_PORTAL_EXECUTIVES), date: z.string(), start: z.string(), end: z.string() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requirePortalAdmin();
     validateSchedule(data.date, data.start, data.end);
@@ -360,7 +360,7 @@ export const resolveBankPortalComplaint = createServerFn({ method: "POST" })
   });
 
 export const issueBankPortalWarning = createServerFn({ method: "POST" })
-  .validator((d: unknown) => z.object({ executiveName: z.enum(EXECUTIVES), reason: z.string().trim().min(1).max(1000) }).parse(d))
+  .validator((d: unknown) => z.object({ executiveName: z.enum(BANK_PORTAL_EXECUTIVES), reason: z.string().trim().min(1).max(1000) }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requirePortalAdmin();
     const id = "BPW-" + crypto.randomUUID();
