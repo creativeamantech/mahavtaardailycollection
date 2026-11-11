@@ -13,8 +13,16 @@ import { shortEmiRows, summariseLoans, type CollectionRow, type LoanSummary } fr
  */
 export function sanitizeCsvCell(value: unknown): string {
   let text = value === null || value === undefined ? "" : String(value);
-  if (typeof value === "string" && /^[\u0000-\u0020\uFEFF]*[=+\-@]/.test(text)) {
-    text = "'" + text;
+  if (typeof value === "string") {
+    let firstMeaningful = 0;
+    while (firstMeaningful < text.length) {
+      const code = text.charCodeAt(firstMeaningful);
+      if (code > 0x20 && code !== 0xfeff) break;
+      firstMeaningful += 1;
+    }
+    if ("=+-@".includes(text[firstMeaningful] ?? "")) {
+      text = "'" + text;
+    }
   }
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
