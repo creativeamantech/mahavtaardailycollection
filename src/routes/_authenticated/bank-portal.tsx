@@ -76,7 +76,6 @@ function BankPortalPage() {
   const [busy, setBusy] = useState(false);
 
   const active = data?.activeSession;
-  const ownLive = data?.liveSessions.find((s) => s.id === active?.id);
   useEffect(() => {
     if (!active) { setElapsed(0); return; }
     const started = new Date(active.loginDate + "T" + active.loginTime + "+05:30").getTime();
@@ -94,9 +93,10 @@ function BankPortalPage() {
   const capMinutes = active?.capMinutes ?? 60;
   const warningAt = Math.max(1, Math.min(45, capMinutes - 5));
   const nearingTimeout = Boolean(active && elapsedMinutes >= warningAt && elapsedMinutes < capMinutes);
-  const otherLive = data?.liveSessions.find((s) => s.executive !== data.session.name);
-  const hasApprovedAccess = Boolean(data?.accessRequests.some((r) => r.requester === data.session.name && r.status === "Approved" && r.expiresAt && new Date(r.expiresAt).getTime() > Date.now()));
-  const ownCurrentSlot = data?.currentSlotOwner?.name === data.session.name;
+  const currentName = data?.session.name ?? "";
+  const otherLive = data?.liveSessions.find((s) => s.executive !== currentName);
+  const hasApprovedAccess = Boolean(data?.accessRequests.some((r) => r.requester === currentName && r.status === "Approved" && r.expiresAt && new Date(r.expiresAt).getTime() > Date.now()));
+  const ownCurrentSlot = data?.currentSlotOwner?.name === currentName;
   const canStart = Boolean(data && (data.session.role === "Admin" || ownCurrentSlot || hasApprovedAccess));
   const nextSlot = data?.nextSlotOwner;
   const portalInUse = data?.liveSessions[0];
