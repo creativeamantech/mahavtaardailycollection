@@ -270,6 +270,25 @@ function BankPortalPage() {
       </div>}
 
       {tab === "admin" && data.isAdmin && <div className="space-y-4">
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-bold">Admin time · Aman</h2>
+            <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-amber-900">58 minutes total</span>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-amber-200 bg-white p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Slot 1</p>
+              <p className="mt-1 text-sm font-semibold tabular-nums">12:54–1:15 PM</p>
+              <p className="text-sm font-semibold tabular-nums">1:45–1:53 PM</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-white p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Slot 2</p>
+              <p className="mt-1 text-sm font-semibold tabular-nums">2:22–2:30 PM</p>
+              <p className="text-sm font-semibold tabular-nums">2:40–3:01 PM</p>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-amber-950">Admin timings are informational and separate from executive slot allocation.</p>
+        </section>
         <section className="rounded-2xl border border-amber-300 bg-amber-50/40 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">Schedule allocator</h2><span className="text-xs text-muted-foreground">Admin only · Google Sheets</span></div>
           <form onSubmit={submitSchedule} className="mt-3 grid gap-3 sm:grid-cols-2">
