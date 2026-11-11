@@ -56,8 +56,13 @@ async function readState(name: string, isAdmin: boolean) {
   const myCredits = creditRows.filter(r => (r[2] ?? "").trim().toLowerCase() === name.toLowerCase());
   const myRequests = requestRows.filter(r => (r[2] ?? "").trim().toLowerCase() === name.toLowerCase());
   const creditTotal = myCredits.reduce((sum, r) => sum + money(r[3]), 0);
-  const used = myRequests.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0);
-  const pending = myRequests.filter(r => (r[7] ?? "").toLowerCase() === "pending").reduce((sum, r) => sum + money(r[4]), 0);
+  const used = myRequests.filter(r => ["approved", "completed"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0);
+  const slotCycles = [1, 2].map(slot => {
+    const latest = myRequests.filter(r => (r[11] ?? "") === String(slot) && (r[7] ?? "").toLowerCase() !== "rejected")
+      .map(r => Date.parse(r[6] ?? "")).filter(Number.isFinite).sort((a, b) => b - a)[0];
+    const nextAt = latest ? latest + 28 * 24 * 60 * 60 * 1000 : 0;
+    return { slot, lastRechargeAt: latest ? new Date(latest).toISOString() : null, nextAvailableAt: nextAt ? new Date(nextAt).toISOString() : null, available: !nextAt || Date.now() >= nextAt };
+  });
   const allCredits = creditRows.map(r => ({
     id: r[0] ?? "", name: r[2] ?? "", amount: money(r[3]), date: r[4] ?? "", month: r[5] ?? "",
     by: r[6] ?? "", screenshot: r[7] ?? "", reference: r[8] ?? "", note: r[11] ?? "",
@@ -70,7 +75,8 @@ async function readState(name: string, isAdmin: boolean) {
     numbers: [numbers?.[2] ?? "", numbers?.[3] ?? ""].filter(Boolean),
     creditTotal: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) : creditTotal,
     used: isAdmin ? requestRows.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0) : used,
-    balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used,
+    balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => ["approved", "completed"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used,
+    slotCycles: isAdmin ? [] : slotCycles,
     credits: isAdmin ? allCredits : allCredits.filter(r => r.name.toLowerCase() === name.toLowerCase()),
     requests: isAdmin ? allRequests : allRequests.filter(r => r.executive.toLowerCase() === name.toLowerCase()),
   };
@@ -109,16 +115,23 @@ export const createRechargeCredit = createServerFn({ method: "POST" })
     return { ok: true, id };
   });
 export const createRechargeRequest = createServerFn({ method: "POST" })
-  .inputValidator((v: unknown) => z.object({ number: z.string().trim().min(8).max(20), amount: z.number().positive().max(100000), image: imageInput }).parse(v))
+  .inputValidator((v: unknown) => z.object({ slot: z.enum(["1", "2"]), number: z.string().trim().min(8).max(20), amount: z.number().positive().max(100000), image: imageInput }).parse(v))
   .handler(async ({ data }) => {
     const session = await requireSession("Executive");
     const state = await readState(session.name, false);
     const number = data.number.replace(/[() -]/g, "");
-    if (!state.numbers.map(n => n.replace(/[() -]/g, "")).includes(number)) throw new Error("Please select one of your saved calling numbers.");
+    if (state.numbers[data.slot === "1" ? 0 : 1]?.replace(/[() -]/g, "") !== number) throw new Error("Selected number is not saved in this recharge slot.");
+    const slotRows = await readTab("Sheet1");
+    const lastSlotRecharge = slotRows.filter(r => (r[2] ?? "").trim().toLowerCase() === session.name.toLowerCase() && (r[11] ?? "") === data.slot && (r[7] ?? "").toLowerCase() !== "rejected")
+      .map(r => Date.parse(r[6] ?? "")).filter(Number.isFinite).sort((a, b) => b - a)[0];
+    if (lastSlotRecharge && Date.now() < lastSlotRecharge + 28 * 24 * 60 * 60 * 1000) {
+      const availableOn = new Date(lastSlotRecharge + 28 * 24 * 60 * 60 * 1000).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+      throw new Error("Slot " + data.slot + " ka next recharge " + availableOn + " ke baad allowed hai.");
+    }
     const screenshot = await uploadProof(data.image);
     const now = new Date();
     const id = "RQ-" + now.getTime();
-    await appendRow("Sheet1", [id, "EX-" + session.name, session.name, data.number, data.amount, screenshot, now.toISOString(), "Pending", "", now.toISOString(), ""]);
+    await appendRow("Sheet1", [id, "EX-" + session.name, session.name, data.number, data.amount, screenshot, now.toISOString(), "Completed", "Self-recorded recharge", now.toISOString(), session.name, data.slot]);
     return { ok: true, id };
   });
 export const reviewRechargeRequest = createServerFn({ method: "POST" })
