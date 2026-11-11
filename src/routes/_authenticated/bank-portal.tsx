@@ -257,11 +257,11 @@ function BankPortalPage() {
       </div>}
 
       {tab === "timeline" && <section className="rounded-2xl border bg-white p-4">
-        <div className="flex items-center justify-between gap-2"><div><h2 className="font-semibold">Today's portal timeline</h2><p className="text-xs text-muted-foreground">{data.today} · Shared portal schedule</p></div><span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold">{data.portalTimings.length} slots</span></div>
-        {data.portalTimings.length ? <div className="mt-4 space-y-3">{data.portalTimings.map((slot) => <article key={slot.id} className={"relative rounded-xl border p-3 " + (slot.executive === data.session.name ? "border-amber-300 bg-amber-50" : "bg-white")}>
-          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold">{slot.executive}{slot.executive === data.session.name ? " · You" : ""}</p><p className="mt-1 text-sm tabular-nums text-slate-600">{slot.start} – {slot.end}</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{slot.status}</span></div>
+        <div className="flex items-center justify-between gap-2"><div><h2 className="font-semibold">Permanent daily portal slots</h2><p className="text-xs text-muted-foreground">Repeats every day · Admin-managed timings</p></div><span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold">{data.schedulePresets.length} slots</span></div>
+        {data.schedulePresets.length ? <div className="mt-4 space-y-3">{data.schedulePresets.slice().sort((a, b) => a.start.localeCompare(b.start)).map((slot) => <article key={slot.id} className={"relative rounded-xl border p-3 " + (slot.executive === data.session.name ? "border-amber-300 bg-amber-50" : "bg-white")}>
+          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold">{slot.executive}{slot.executive === data.session.name ? " · You" : ""} · {slot.slot === "SLOT_1" ? "Slot 1" : "Slot 2"}</p><p className="mt-1 text-sm tabular-nums text-slate-600">{slot.start} – {slot.end}</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">Permanent</span></div>
           <div className="mt-3 h-1.5 rounded-full bg-slate-100"><div className={"h-1.5 rounded-full " + (slot.executive === data.session.name ? "bg-amber-400" : "bg-slate-400")} style={{ width: "100%" }} /></div>
-        </article>)}</div> : <p className="mt-4 text-sm text-muted-foreground">No slots have been allocated for today.</p>}
+        </article>)}</div> : <p className="mt-4 text-sm text-muted-foreground">No permanent slots configured. Contact Admin.</p>}
       </section>}
 
       {tab === "issues" && <div className="space-y-4">
