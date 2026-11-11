@@ -9,6 +9,7 @@ export function PortalTimingsPanel({ className = "" }: Props) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["bank-portal"],
     queryFn: () => load(),
+    refetchOnWindowFocus: true,
     retry: false,
   });
 
