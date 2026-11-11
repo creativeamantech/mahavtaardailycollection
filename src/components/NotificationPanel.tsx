@@ -69,3 +69,25 @@ export function toDirectDriveUrl(url: string) {
   }
   return /^[A-Za-z0-9_-]{20,100}$/.test(fileId) ? `/receipt/${fileId}` : url;
 }
+
+
+export function toDriveViewUrl(url: string) {
+  if (!url) return "";
+  let fileId = url.startsWith("/receipt/") ? url.slice("/receipt/".length) : "";
+  try {
+    const parsed = new URL(url);
+    fileId ||= parsed.searchParams.get("id") ?? "";
+    if (!fileId) {
+      const parts = parsed.pathname.split("/");
+      const marker = parts.findIndex((part) => part === "d");
+      if (marker >= 0) fileId = parts[marker + 1] ?? "";
+    }
+  } catch {
+    const parts = url.split("/");
+    const marker = parts.findIndex((part) => part === "d");
+    if (marker >= 0) fileId ||= parts[marker + 1] ?? "";
+  }
+  return /^[A-Za-z0-9_-]{20,100}$/.test(fileId)
+    ? `https://drive.google.com/file/d/${fileId}/view`
+    : url;
+}
