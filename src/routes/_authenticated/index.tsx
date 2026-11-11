@@ -1,5 +1,5 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
-import { NotificationPanel } from "@/components/NotificationPanel";
+import { NotificationPanel, toDirectDriveUrl } from "@/components/NotificationPanel";
 import { PortalTimingsPanel } from "@/components/PortalTimingsPanel";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
@@ -82,14 +82,6 @@ type ExistingEntry = {
   entryType?: string;
   receiptLinks?: string[];
 };
-
-function getReceiptPreviewUrl(url: string): string {
-  if (!url) return "";
-  const match = url.match(/(?:[?&]id=|\/file\/d\/|\/d\/)([a-zA-Z0-9_-]{20,100})/);
-  const fileId = match?.[1];
-  if (fileId) return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`;
-  return url;
-}
 
 function normaliseLoanId(v: string) {
   return String(v ?? "")
@@ -865,10 +857,11 @@ function EntryPage() {
                               title="Tap to view full receipt"
                             >
                               <img
-                                src={getReceiptPreviewUrl(link)}
+                                src={toDirectDriveUrl(link)}
                                 alt={`Receipt ${index + 1} for loan ${entry.loanId}`}
                                 loading="lazy"
-                                className="h-24 w-20 rounded-lg border border-[#d9e4df] bg-[#f3faf6] object-cover shadow-sm transition group-hover:shadow-md"
+                                decoding="async"
+                                className="max-h-48 w-full max-w-xs rounded-lg border border-[#e8d98f] bg-white object-contain shadow-sm transition group-hover:shadow-md"
                                 onError={(event) => {
                                   event.currentTarget.style.display = "none";
                                 }}
