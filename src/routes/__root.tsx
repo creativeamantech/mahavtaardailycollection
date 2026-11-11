@@ -126,7 +126,6 @@ const ADMIN_NAV = [
   { to: "/admin-loan-audit", label: "Productivity Desk", key: "adminLoanAudit" },
   { to: "/conflicts", label: "Conflicts", key: "conflicts" },
   { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
-  { to: "/master-allocation-reconciliation", label: "Paid File", key: "paidFileReconciliation" },
   { to: "/excluded-loans", label: "Excluded Loans", key: "report" },
   { to: "/receipt-gallery", label: "Receipt Gallery", key: "receiptGallery" },
 ] as const;
