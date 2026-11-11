@@ -183,7 +183,7 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
 
       if (l.settlement) l.status = "Settlement Paid";
       else if (l.emiPaid) l.status = "EMI Paid";
-      else if (l.posPaid) l.status = "POS Paid — Not Main Paid";
+      else if (l.posPaid) l.status = "POS Paid";
       else if (l.foreclosurePaid) l.status = "Foreclosure Paid";
       else if (l.shortAmount !== null) l.status = "EMI Short Amount";
       else l.status = "—";
