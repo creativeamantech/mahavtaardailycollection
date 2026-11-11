@@ -67,6 +67,8 @@ async function updateTab(tab: string, row: number, range: string, values: (strin
 }
 
 function isoNow() { return new Date().toISOString(); }
+function indiaDate(now = new Date()) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now); }
+function indiaTime(now = new Date()) { return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(now); }
 function isActive(value: string | undefined) { return (value ?? "").trim().toLowerCase() === "active"; }
 function equalSecret(input: string, secret: string) {
   if (!input || !secret || input.length !== secret.length) return false;
@@ -93,7 +95,7 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
     readTab(TABS.bans),
   ]);
   const activeSession = sessions.find((r) => r[1] === session.name && isActive(r[7]));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = indiaDate();
   const todaySchedules = schedules.filter((r) => r[1] === session.name && r[2] === today);
   return {
     session,
@@ -122,7 +124,7 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
     throw new Error("You already have an active Bank Portal session.");
   const now = new Date();
   const id = `BPS-${crypto.randomUUID()}`;
-  await appendTab(TABS.sessions, [[id, session.name, now.toISOString().slice(0,10), now.toLocaleTimeString("en-IN", { hour12: true, timeZone: "Asia/Kolkata" }), "", "", "", "Active", "", ""]]);
+  await appendTab(TABS.sessions, [[id, session.name, indiaDate(now), indiaTime(now), "", "", "", "Active", "", ""]]);
   await audit("SESSION_STARTED", session.name, id);
   return { ok: true, id };
 });
@@ -137,7 +139,7 @@ export const endBankPortalSession = createServerFn({ method: "POST" })
     const target = rows[index]!;
     if (caller.name !== target[1]) await requirePortalAdmin(data.settingsPassword);
     const now = new Date();
-    const loginAt = new Date(`${target[2]} ${target[3]}`);
+    const loginAt = new Date(`${target[2]}T${target[3]}+05:30`);
     const duration = Number.isFinite(loginAt.getTime()) ? Math.max(0, Math.round((now.getTime() - loginAt.getTime()) / 60000)) : "";
     await updateTab(TABS.sessions, index + 2, "E:H", [[now.toISOString().slice(0,10), now.toLocaleTimeString("en-IN", { hour12: true, timeZone: "Asia/Kolkata" }), duration, "Ended"]]);
     await audit("SESSION_ENDED", target[1] ?? caller.name, data.sessionId);
