@@ -117,6 +117,7 @@ const NAV = [
   { to: "/pending", label: "Pending", short: "Pending", icon: "◷", key: "pending" },
   { to: "/ecs", label: "ECS / Special", short: "ECS", icon: "₹", key: "ecs" },
   { to: "/notifications", label: "Notifications", short: "Alerts", icon: "♧", key: "notifications" },
+  { to: "/bank-portal", label: "Bank Portal", short: "Bank Portal", icon: "▣", key: "bankPortal" },
   { to: "/recharge", label: "Recharge", short: "Recharge", icon: "₹", key: "recharge" },
 ] as const;
 
