@@ -257,7 +257,7 @@ function BankPortalPage() {
 
         {!active && !canStart && !data.banned && !otherLive && data.session.role !== "Admin" && <form onSubmit={submitAccessRequest} className="rounded-2xl border bg-white p-4">
           <h3 className="font-semibold">Request emergency access</h3>
-          <p className="mt-1 text-xs text-muted-foreground">The current slot owner must approve before you can start.</p>
+          <p className="mt-1 text-xs text-muted-foreground">When the portal is free, request access from the current slot owner. You can start only after they approve.</p>
           <div className="mt-3 flex gap-2">{(["15", "30"] as const).map((minutes) => <button key={minutes} type="button" onClick={() => setAccessDuration(minutes)} className={"rounded-lg border px-4 py-2 text-sm font-semibold " + (accessDuration === minutes ? "border-amber-400 bg-amber-100" : "bg-white")}>{minutes} min</button>)}</div>
           <Textarea className="mt-3" value={accessReason} onChange={(e) => setAccessReason(e.target.value)} placeholder="Reason (e.g. urgent customer settlement verification)" maxLength={500} required />
           <Button className="mt-3 w-full sm:w-auto" type="submit" disabled={busy || accessReason.trim().length < 3}>Send Access Request</Button>
