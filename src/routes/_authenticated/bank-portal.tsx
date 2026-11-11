@@ -48,7 +48,7 @@ function BankPortalPage() {
     update();
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
-  }, [active?.id, active?.loginDate, active?.loginTime]);
+  }, [active, active?.id, active?.loginDate, active?.loginTime]);
 
   const elapsedLabel = useMemo(() => {
     const h = Math.floor(elapsed / 3600).toString().padStart(2, "0");
