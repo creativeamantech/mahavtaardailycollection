@@ -130,7 +130,7 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
 });
 
 export const endBankPortalSession = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ sessionId: z.string().min(1).max(100), settingsPassword: z.string().max(200).optional() }).parse(d))
+  .validator((d: unknown) => z.object({ sessionId: z.string().min(1).max(100), settingsPassword: z.string().max(200).optional() }).parse(d))
   .handler(async ({ data }) => {
     const caller = await requireSession();
     const rows = await readTab(TABS.sessions);
@@ -147,7 +147,7 @@ export const endBankPortalSession = createServerFn({ method: "POST" })
   });
 
 export const submitBankPortalComplaint = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ sessionId: z.string().max(100).optional(), issueType: z.string().trim().min(1).max(80), description: z.string().trim().min(3).max(2000) }).parse(d))
+  .validator((d: unknown) => z.object({ sessionId: z.string().max(100).optional(), issueType: z.string().trim().min(1).max(80), description: z.string().trim().min(3).max(2000) }).parse(d))
   .handler(async ({ data }) => {
     const session = await requireSession();
     const id = `BPC-${crypto.randomUUID()}`;
@@ -157,7 +157,7 @@ export const submitBankPortalComplaint = createServerFn({ method: "POST" })
   });
 
 export const resolveBankPortalComplaint = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ complaintId: z.string().min(1).max(100), remark: z.string().trim().min(1).max(1000), settingsPassword: z.string().max(200).optional() }).parse(d))
+  .validator((d: unknown) => z.object({ complaintId: z.string().min(1).max(100), remark: z.string().trim().min(1).max(1000), settingsPassword: z.string().max(200).optional() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requirePortalAdmin(data.settingsPassword);
     const rows = await readTab(TABS.complaints);
@@ -169,7 +169,7 @@ export const resolveBankPortalComplaint = createServerFn({ method: "POST" })
   });
 
 export const issueBankPortalWarning = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ executiveName: z.string().trim().min(1).max(100), reason: z.string().trim().min(1).max(1000), settingsPassword: z.string().max(200).optional() }).parse(d))
+  .validator((d: unknown) => z.object({ executiveName: z.string().trim().min(1).max(100), reason: z.string().trim().min(1).max(1000), settingsPassword: z.string().max(200).optional() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requirePortalAdmin(data.settingsPassword);
     const id = `BPW-${crypto.randomUUID()}`;
