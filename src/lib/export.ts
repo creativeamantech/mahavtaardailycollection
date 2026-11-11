@@ -6,7 +6,7 @@ import { shortEmiRows, summariseLoans, type CollectionRow, type LoanSummary } fr
 function cell(v: unknown) {
   let s = v === null || v === undefined ? "" : String(v);
   // Excel/LibreOffice formula injection: only untrusted string cells are prefixed.
-  if (typeof v === "string" && /^[=+\\-@\\t\\r]/.test(s)) s = "'" + s;
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
