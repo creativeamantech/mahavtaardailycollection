@@ -24,16 +24,6 @@ import { toast } from "sonner";
 
 const BANK_PORTAL_EXECUTIVES = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 
-const BANK_PORTAL_EXECUTIVE_PRESETS: Record<(typeof BANK_PORTAL_EXECUTIVES)[number], { morning: [string, string]; afternoon: [string, string] }> = {
-  Aarti: { morning: ["10:00", "10:29"], afternoon: ["15:01", "15:30"] },
-  Bharti: { morning: ["10:29", "10:58"], afternoon: ["15:30", "15:59"] },
-  Pooja: { morning: ["10:58", "11:27"], afternoon: ["15:59", "16:28"] },
-  Vinita: { morning: ["11:27", "11:56"], afternoon: ["16:28", "16:57"] },
-  Ankita: { morning: ["11:56", "12:25"], afternoon: ["16:57", "17:26"] },
-  Sunanda: { morning: ["12:25", "12:54"], afternoon: ["17:26", "17:55"] },
-  Julee: { morning: ["13:53", "14:22"], afternoon: ["17:55", "18:24"] },
-};
-
 export const Route = createFileRoute("/_authenticated/bank-portal")({
   component: BankPortalPage,
 });
