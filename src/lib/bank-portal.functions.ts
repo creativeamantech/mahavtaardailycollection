@@ -60,7 +60,8 @@ async function appendTab(tab: string, values: (string | number)[][]) {
 async function updateTab(tab: string, row: number, range: string, values: (string | number)[][]) {
   if (row < 2) throw new Error("Header row cannot be changed.");
   const id = await spreadsheetId();
-  const url = `${GATEWAY}/google_sheets/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(tab)}!${range}${row}?valueInputOption=RAW`;
+  const a1 = range.includes(":") ? range.replace(/\\d+/g, String(row)) : `${range}${row}`;
+  const url = `${GATEWAY}/google_sheets/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(tab)}!${a1}?valueInputOption=RAW`;
   const res = await fetch(url, { method: "PUT", headers: connectorHeaders(), body: JSON.stringify({ values }) });
   return responseJson(res, `Update ${tab}`);
 }
@@ -121,7 +122,7 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
     throw new Error("You already have an active Bank Portal session.");
   const now = new Date();
   const id = `BPS-${crypto.randomUUID()}`;
-  await appendTab(TABS.sessions, [[id, session.name, now.toISOString().slice(0,10), now.toLocaleTimeString("en-IN", { hour12: true }), "", "", "", "Active", "", ""]]);
+  await appendTab(TABS.sessions, [[id, session.name, now.toISOString().slice(0,10), now.toLocaleTimeString("en-IN", { hour12: true, timeZone: "Asia/Kolkata" }), "", "", "", "Active", "", ""]]);
   await audit("SESSION_STARTED", session.name, id);
   return { ok: true, id };
 });
@@ -138,7 +139,7 @@ export const endBankPortalSession = createServerFn({ method: "POST" })
     const now = new Date();
     const loginAt = new Date(`${target[2]} ${target[3]}`);
     const duration = Number.isFinite(loginAt.getTime()) ? Math.max(0, Math.round((now.getTime() - loginAt.getTime()) / 60000)) : "";
-    await updateTab(TABS.sessions, index + 2, "E", [[now.toISOString().slice(0,10), now.toLocaleTimeString("en-IN", { hour12: true }), duration, "Ended"]]);
+    await updateTab(TABS.sessions, index + 2, "E:H", [[now.toISOString().slice(0,10), now.toLocaleTimeString("en-IN", { hour12: true, timeZone: "Asia/Kolkata" }), duration, "Ended"]]);
     await audit("SESSION_ENDED", target[1] ?? caller.name, data.sessionId);
     return { ok: true };
   });
