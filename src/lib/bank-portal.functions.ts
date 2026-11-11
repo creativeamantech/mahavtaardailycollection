@@ -71,6 +71,7 @@ async function ensureAccessRequestsTab() {
 }
 
 async function readTab(tab: string) {
+  if (tab === TABS.accessRequests) await ensureAccessRequestsTab();
   const id = await spreadsheetId();
   const url = `${GATEWAY}/google_sheets/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(tab)}!A2:Z`;
   const res = await fetch(url, { headers: connectorHeaders() });
