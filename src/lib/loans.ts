@@ -146,7 +146,7 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
         l.foreclosurePaid;
 
       const emi = l.emiAmount;
-      const limit = l.applicableEmiCount;
+      const limit = l.bucketTargetEmis;
 
       if (emi !== null && emi > 0 && limit !== null) {
         // Sequential EMI evaluation, one EMI at a time.
