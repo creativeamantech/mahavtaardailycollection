@@ -3,15 +3,36 @@
 
 import { shortEmiRows, summariseLoans, type CollectionRow, type LoanSummary } from "@/lib/loans";
 
-function cell(v: unknown) {
-  let s = v === null || v === undefined ? "" : String(v);
-  // Excel/LibreOffice formula injection: only untrusted string cells are prefixed.
-  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+/**
+ * Neutralize spreadsheet formulas in every untrusted CSV cell.
+ *
+ * Spreadsheet applications may ignore leading whitespace/control characters
+ * before formula markers, so inspect the first meaningful character rather
+ * than only the literal first character. Prefixing an apostrophe keeps the
+ * original displayed value as text when the CSV is opened in Excel/Sheets.
+ */
+export function sanitizeCsvCell(value: unknown): string {
+  let text = value === null || value === undefined ? "" : String(value);
+  if (typeof value === "string") {
+    let firstMeaningful = 0;
+    while (firstMeaningful < text.length) {
+      const code = text.charCodeAt(firstMeaningful);
+      if (code > 0x20 && code !== 0xfeff) break;
+      firstMeaningful += 1;
+    }
+    if ("=+-@".includes(text[firstMeaningful] ?? "")) {
+      text = "'" + text;
+    }
+  }
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function cell(value: unknown) {
+  return sanitizeCsvCell(value);
 }
 
 export function toCsv(headers: string[], rows: (string | number)[][]) {
-  return [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
+  return [headers, ...rows].map((row) => row.map(cell).join(",")).join("\r\n");
 }
 
 export function downloadCsv(filename: string, csv: string) {
