@@ -56,7 +56,7 @@ type Entry = {
 
 function receiptImage(url: string) {
   const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
-  return match?.[1] ? `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1200` : url;
+  return match?.[1] ? `/receipt/${match[1]}` : url;
 }
 
 function parseLoanNumbers(value: string) {

@@ -573,14 +573,10 @@ function LoanCard({ loan }: { loan: LoanSummary }) {
         <Field k="City" v={loan.city} />
         <Field k="EMI Amount" v={money(loan.emiAmount)} />
         <Field
-          k="Bucket Target EMIs (Monthly)"
-          v={loan.bucketTargetEmis === 0 ? "0 EMIs" : `${loan.bucketTargetEmis} EMIs`}
+          k="Applicable EMI Count"
+          v={loan.applicableEmiCount === null ? "" : `${loan.applicableEmiCount} EMI`}
         />
-        <Field
-          k="Remaining Loan EMIs"
-          v={`${loan.remainingLoanEmis.toFixed(1)} EMIs`}
-        />
-        <Field k="Monthly EMI Demand" v={money(loan.totalEmiRequired)} />
+        <Field k="Total EMI Required" v={money(loan.totalEmiRequired)} />
         <Field k="Total Amount Paid" v={`${formatAmount(loan.totalPaid)} (${loan.payments})`} />
         <Field
           k="Current / Next Short EMI"

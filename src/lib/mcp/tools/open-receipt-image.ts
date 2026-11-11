@@ -35,9 +35,9 @@ function buildDriveLinks(rawUrl: string) {
   return {
     rawUrl,
     fileId,
-    driveViewUrl: `https://drive.google.com/file/d/${fileId}/view`,
+    driveViewUrl: `https://mahavtaardailycollection.lovable.app/receipt/${fileId}`,
     driveFolderUrl: "https://drive.google.com/drive/folders/1iBlXqe09aG5kA_hHf3WtFILnA1RibCf7",
-    previewUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`,
+    previewUrl: `https://mahavtaardailycollection.lovable.app/receipt/${fileId}`,
     thumbnailUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`,
     directDownloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
   };
