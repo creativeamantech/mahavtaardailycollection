@@ -54,14 +54,14 @@ function RechargePage() {
       <select value={executive} onChange={e => setExecutive(e.target.value)} className="w-full rounded-lg border bg-background p-3"><option value="">Select executive</option>{data.executives.map(n => <option key={n}>{n}</option>)}</select>
       <input type="number" min="1" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} placeholder="Total amount transferred" className="w-full rounded-lg border bg-background p-3"/>
       <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Transfer reference / note (optional)" className="w-full rounded-lg border bg-background p-3"/>
-      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setCreditFile(e.target.files?.[0] ?? null)} className="w-full text-sm"/>
+      <FileDrop label="Transfer receipt / screenshot" file={creditFile} onFile={setCreditFile}/>
       <button disabled={!executive || !creditAmount || Number(creditAmount) <= 0 || !creditFile} onClick={() => void act(async () => { await credit({ data: { executive, amount: Number(creditAmount), image: await proof(creditFile), reference } }); setCreditAmount(""); setReference(""); setCreditFile(null); })} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Save credit + screenshot</button>
       <p className="text-xs text-muted-foreground">Ek executive ko total credit. Dono calling numbers isi balance ko share karenge.</p>
     </section> : <section className="space-y-3 rounded-2xl border bg-card p-4">
       <h2 className="font-semibold">Record recharge</h2>
       <select value={selectedSlot} onChange={e => setSelectedSlot(e.target.value)} className="w-full rounded-lg border bg-background p-3">{[1,2].map(slot => { const cycle = data.slotCycles?.find((item: {slot:number;available:boolean;nextAvailableAt:string|null}) => item.slot === slot); const number = data.numbers[slot-1]; return <option key={slot} value={String(slot)} disabled={!number || !cycle?.available}>Slot {slot} · {number || "Number not saved"}{cycle?.available ? " · Available" : " · Next: " + new Date(cycle?.nextAvailableAt ?? "").toLocaleDateString("en-IN")}</option>; })}</select>
       <input type="number" min="1" value={requestAmount} onChange={e => setRequestAmount(e.target.value)} placeholder="Recharge amount" className="w-full rounded-lg border bg-background p-3"/>
-      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setRequestFile(e.target.files?.[0] ?? null)} className="w-full text-sm"/>
+      <FileDrop label="Recharge receipt / screenshot" file={requestFile} onFile={setRequestFile}/>
       <button disabled={!data.numbers[Number(selectedSlot)-1] || !data.slotCycles?.find((item: {slot:number}) => item.slot === Number(selectedSlot))?.available || !requestAmount || !Number.isFinite(Number(requestAmount)) || Number(requestAmount) <= 0 || !requestFile} onClick={() => void act(async () => { await submit({ data: { slot: selectedSlot, number: data.numbers[Number(selectedSlot)-1], amount: Number(requestAmount), image: await proof(requestFile) } }); setRequestAmount(""); setRequestFile(null); })} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Save recharge record</button>
       <div className="space-y-1 text-xs text-muted-foreground">{data.slotCycles?.map((cycle: {slot:number;lastRechargeAt:string|null;nextAvailableAt:string|null;available:boolean}) => <p key={cycle.slot}>Slot {cycle.slot}: {cycle.lastRechargeAt ? "Last recharge " + new Date(cycle.lastRechargeAt).toLocaleDateString("en-IN") + " · " : ""}{cycle.available ? "Available now" : "Next recharge " + new Date(cycle.nextAvailableAt ?? "").toLocaleDateString("en-IN")}</p>)}<p>Har slot ka 28-day cycle alag hai. Next cycle ke liye number badal sakte hain; purane records safe rahenge.</p></div>
     </section>}
@@ -76,3 +76,11 @@ function RechargePage() {
   </main>;
 }
 function Metric({label,value}:{label:string;value:number}) { return <div className="rounded-xl border bg-card p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-bold">₹{value.toLocaleString("en-IN")}</p></div>; }
+
+function FileDrop({label,file,onFile}:{label:string;file:File|null;onFile:(file:File|null)=>void}) {
+  return <label onDragOver={e => { e.preventDefault(); e.stopPropagation(); }} onDrop={e => { e.preventDefault(); e.stopPropagation(); onFile(e.dataTransfer.files?.[0] ?? null); }} className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted/20 p-4 text-center transition-colors hover:border-primary">
+    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => onFile(e.target.files?.[0] ?? null)} className="sr-only"/>
+    <span className="text-sm font-medium">{file ? file.name : label}</span>
+    <span className="text-xs text-muted-foreground">{file ? "Tap to change · JPEG, PNG, WebP · Max 12 MB" : "Drag & drop image here, or tap to browse · JPEG, PNG, WebP · Max 12 MB"}</span>
+  </label>;
+}
