@@ -113,7 +113,7 @@ function BankPortalPage() {
   const otherLive = data?.liveSessions.find((s) => s.executive !== currentName);
   const hasApprovedAccess = Boolean(data?.accessRequests.some((r) => r.requester === currentName && r.status === "Approved" && r.expiresAt && new Date(r.expiresAt).getTime() > Date.now()));
   const ownCurrentSlot = data?.currentSlotOwner?.name === currentName;
-  const canStart = Boolean(data && (data.session.role === "Admin" || ownCurrentSlot || hasApprovedAccess));
+  const canStart = Boolean(data && (data.session.role === "Admin" || ownCurrentSlot || hasApprovedAccess || (data.outsideOfficeHours && !data.batchReserved)));
   const nextSlot = data?.nextSlotOwner;
   const portalInUse = data?.liveSessions[0];
 
@@ -206,6 +206,16 @@ function BankPortalPage() {
         <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">{data.session.name} · {data.session.role}</span>
       </header>
 
+      <section className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+        <p className="font-semibold">Bank Portal operating rules</p>
+        <ul className="mt-1 list-disc space-y-1 pl-5 text-xs sm:text-sm">
+          <li>6:30 PM–7:30 PM is Ankita's exclusive batch-work slot; other executives cannot access the portal during this window.</li>
+          <li>Outside office hours (before 10:00 AM or from 7:30 PM), executive sessions are limited to 10 minutes.</li>
+          <li>Admin can activate the portal for urgent or important work, including during reserved time.</li>
+          <li>All executives must remain active and attentive in the group.</li>
+        </ul>
+      </section>
+
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:p-4" aria-live="polite">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -247,7 +257,7 @@ function BankPortalPage() {
 
         {!active && !canStart && !data.banned && !otherLive && data.session.role !== "Admin" && <form onSubmit={submitAccessRequest} className="rounded-2xl border bg-white p-4">
           <h3 className="font-semibold">Request emergency access</h3>
-          <p className="mt-1 text-xs text-muted-foreground">The current slot owner must approve before you can start.</p>
+          <p className="mt-1 text-xs text-muted-foreground">When the portal is free, request access from the current slot owner. You can start only after they approve.</p>
           <div className="mt-3 flex gap-2">{(["15", "30"] as const).map((minutes) => <button key={minutes} type="button" onClick={() => setAccessDuration(minutes)} className={"rounded-lg border px-4 py-2 text-sm font-semibold " + (accessDuration === minutes ? "border-amber-400 bg-amber-100" : "bg-white")}>{minutes} min</button>)}</div>
           <Textarea className="mt-3" value={accessReason} onChange={(e) => setAccessReason(e.target.value)} placeholder="Reason (e.g. urgent customer settlement verification)" maxLength={500} required />
           <Button className="mt-3 w-full sm:w-auto" type="submit" disabled={busy || accessReason.trim().length < 3}>Send Access Request</Button>
@@ -257,11 +267,11 @@ function BankPortalPage() {
       </div>}
 
       {tab === "timeline" && <section className="rounded-2xl border bg-white p-4">
-        <div className="flex items-center justify-between gap-2"><div><h2 className="font-semibold">Today's portal timeline</h2><p className="text-xs text-muted-foreground">{data.today} · Shared portal schedule</p></div><span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold">{data.portalTimings.length} slots</span></div>
-        {data.portalTimings.length ? <div className="mt-4 space-y-3">{data.portalTimings.map((slot) => <article key={slot.id} className={"relative rounded-xl border p-3 " + (slot.executive === data.session.name ? "border-amber-300 bg-amber-50" : "bg-white")}>
-          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold">{slot.executive}{slot.executive === data.session.name ? " · You" : ""}</p><p className="mt-1 text-sm tabular-nums text-slate-600">{slot.start} – {slot.end}</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{slot.status}</span></div>
+        <div className="flex items-center justify-between gap-2"><div><h2 className="font-semibold">Permanent daily portal slots</h2><p className="text-xs text-muted-foreground">Repeats every day · Admin-managed timings</p></div><span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold">{data.schedulePresets.length} slots</span></div>
+        {data.schedulePresets.length ? <div className="mt-4 space-y-3">{data.schedulePresets.slice().sort((a, b) => a.start.localeCompare(b.start)).map((slot) => <article key={slot.id} className={"relative rounded-xl border p-3 " + (slot.executive === data.session.name ? "border-amber-300 bg-amber-50" : "bg-white")}>
+          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold">{slot.executive}{slot.executive === data.session.name ? " · You" : ""} · {slot.slot === "SLOT_1" ? "Slot 1" : "Slot 2"}</p><p className="mt-1 text-sm tabular-nums text-slate-600">{slot.start} – {slot.end}</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">Permanent</span></div>
           <div className="mt-3 h-1.5 rounded-full bg-slate-100"><div className={"h-1.5 rounded-full " + (slot.executive === data.session.name ? "bg-amber-400" : "bg-slate-400")} style={{ width: "100%" }} /></div>
-        </article>)}</div> : <p className="mt-4 text-sm text-muted-foreground">No slots have been allocated for today.</p>}
+        </article>)}</div> : <p className="mt-4 text-sm text-muted-foreground">No permanent slots configured. Contact Admin.</p>}
       </section>}
 
       {tab === "issues" && <div className="space-y-4">

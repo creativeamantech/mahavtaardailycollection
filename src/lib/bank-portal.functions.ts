@@ -154,10 +154,10 @@ async function cleanupExpiredSessionsLocked() {
   }
   return closed;
 }
-function findCurrentSlot(rows: string[][], today: string, nowMinutes: number) {
-  const todays = rows.filter((r) => r[2] === today && r[1] && r[3] && r[4] && (r[5] ?? "").toLowerCase() !== "cancelled");
-  return todays.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]))
-    ?? todays.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
+function findCurrentPreset(rows: string[][], nowMinutes: number) {
+  const presets = rows.filter((r) => r[1] && r[3] && r[4]);
+  return presets.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]))
+    ?? presets.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
 }
 function validateSchedule(date: string, start: string, end: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(new Date(date + "T00:00:00+05:30").getTime())) throw new Error("Choose a valid schedule date.");
@@ -184,8 +184,11 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   const parts = indiaTime().split(":");
   const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
   const todaysAll = schedules.filter((r) => r[2] === today && Boolean(r[1] && r[3] && r[4]) && (r[5] ?? "").toLowerCase() !== "cancelled");
-  const currentSlot = todaysAll.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
-  const nextSlot = todaysAll.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
+  const batchReserved = nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30;
+  const currentSlot = batchReserved
+    ? ["ANKITA-BATCH", "Ankita", "SLOT_BATCH", "18:30", "19:30", "Reserved"]
+    : presetRows.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
+  const nextSlot = presetRows.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
   const slotOwner = currentSlot ?? nextSlot;
   const activeSession = sessions.find((r) => r[1] === session.name && isActive(r[7]));
   const relevantRequests = accessRequests.map((r, i) => ({
@@ -203,6 +206,8 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
     schedules: todaysAll.filter((r) => r[1] === session.name).map((r) => ({ id: r[0] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     portalTimings: todaysAll.sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? "")).map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     isAdmin: session.role === "Admin",
+    outsideOfficeHours: nowMinutes < 10 * 60 || nowMinutes >= 19 * 60 + 30,
+    batchReserved,
     schedulePresets: presetRows.map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", slot: r[2] ?? "", start: r[3] ?? "", end: r[4] ?? "" })),
     slotOwner: slotOwner ? { name: slotOwner[1] ?? "", start: slotOwner[3] ?? "", end: slotOwner[4] ?? "" } : null,
     currentSlotOwner: currentSlot ? { name: currentSlot[1] ?? "", start: currentSlot[3] ?? "", end: currentSlot[4] ?? "" } : null,
@@ -226,12 +231,19 @@ export const requestBankPortalAccess = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requireSession();
     if (session.role === "Admin") throw new Error("Admin does not need to request access.");
-    const [schedules, requests] = await Promise.all([readTab(TABS.schedules), readTab(TABS.accessRequests)]);
+    const [presets, requests, sessions] = await Promise.all([
+      readTab(TABS.presets), readTab(TABS.accessRequests), readTab(TABS.sessions),
+    ]);
+    if (sessions.some((row) => isActive(row[7]))) {
+      throw new Error("The Bank Portal is currently in use. Access requests are available only when the portal is free.");
+    }
     const now = new Date();
-    const today = indiaDate(now);
     const parts = indiaTime(now).split(":");
     const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
-    const owner = findCurrentSlot(schedules, today, nowMinutes);
+    const batchReserved = nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30;
+    const owner = batchReserved
+      ? ["ANKITA-BATCH", "Ankita", "SLOT_BATCH", "18:30", "19:30"]
+      : findCurrentPreset(presets, nowMinutes);
     if (!owner?.[1] || owner[1] === session.name) throw new Error("There is no other Executive slot owner to receive this request right now.");
     if (requests.some((r) => r[1] === session.name && r[6] === "Pending" && r[2] === owner[1]))
       throw new Error("You already have a pending request for this slot.");
@@ -262,8 +274,8 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
   const session = await requireSession();
   return withSheetMutex("bank-portal-session-write", async () => {
     await cleanupExpiredSessionsLocked();
-    const [sessions, bans, schedules, requests] = await Promise.all([
-      readTab(TABS.sessions), readTab(TABS.bans), readTab(TABS.schedules), readTab(TABS.accessRequests),
+    const [sessions, bans, presets, requests] = await Promise.all([
+      readTab(TABS.sessions), readTab(TABS.bans), readTab(TABS.presets), readTab(TABS.accessRequests),
     ]);
     const banned = bans.some((r) => r[1] === session.name && isActive(r[5]) && (!r[3] || new Date(r[3]).getTime() >= Date.now()));
     if (banned) throw new Error("Bank Portal access is currently suspended. Contact Admin.");
@@ -271,22 +283,36 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
     if (active) throw new Error("Bank Portal is currently in use by " + (active[1] ?? "another executive") + ". Please wait until the session ends.");
     let capMinutes = MAX_SESSION_MINUTES;
     let accessRequestIndex = -1;
-    if (session.role !== "Admin") {
-      const today = indiaDate();
-      const parts = indiaTime().split(":");
-      const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
-      const ownSlot = schedules.some((r) => r[1] === session.name && r[2] === today && (r[5] ?? "").toLowerCase() !== "cancelled"
+    const now = new Date();
+    const parts = indiaTime(now).split(":");
+    const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
+    const isAdmin = session.role === "Admin";
+    const batchReserved = nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30;
+
+    if (!isAdmin) {
+      if (batchReserved && session.name !== "Ankita") {
+        throw new Error("6:30 PM–7:30 PM is Ankita's reserved batch-work slot. Other executives cannot use the portal during this period.");
+      }
+
+      const ownSlot = (batchReserved && session.name === "Ankita") || presets.some((r) => r[1] === session.name
         && nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
       if (!ownSlot) {
-        accessRequestIndex = requests.findIndex((r) => r[1] === session.name && r[6] === "Approved" && r[7] && r[8]
-          && new Date(r[7]).getTime() <= Date.now() && new Date(r[8]).getTime() > Date.now());
-        if (accessRequestIndex < 0) throw new Error("Access is available only during your assigned slot or after the slot owner approves an emergency request.");
-        capMinutes = Math.min(MAX_SESSION_MINUTES, Number(requests[accessRequestIndex]?.[5]) || 15);
+        const outsideOfficeHours = nowMinutes < 10 * 60 || nowMinutes >= 19 * 60 + 30;
+        if (outsideOfficeHours) {
+          capMinutes = 10;
+        } else {
+          accessRequestIndex = requests.findIndex((r) => r[1] === session.name && r[6] === "Approved" && r[7] && r[8]
+            && new Date(r[7]).getTime() <= Date.now() && new Date(r[8]).getTime() > Date.now());
+          if (accessRequestIndex < 0) throw new Error("Access is available during your assigned slot, for 10 minutes outside office hours, or after the slot owner approves an emergency request.");
+          capMinutes = Math.min(MAX_SESSION_MINUTES, Number(requests[accessRequestIndex]?.[5]) || 15);
+        }
       }
     }
-    const now = new Date();
     const id = "BPS-" + crypto.randomUUID();
-    const notes = accessRequestIndex >= 0 ? "MAX_MINUTES=" + capMinutes + "; ACCESS_REQUEST_ID=" + requests[accessRequestIndex]?.[0] : "MAX_MINUTES=60";
+    const notes = "MAX_MINUTES=" + capMinutes
+      + (isAdmin ? "; ADMIN_OVERRIDE=YES" : "")
+      + (accessRequestIndex >= 0 ? "; ACCESS_REQUEST_ID=" + requests[accessRequestIndex]?.[0] : "")
+      + (capMinutes === 10 && !isAdmin ? "; OUTSIDE_OFFICE_LIMIT=10" : "");
     await appendTab(TABS.sessions, [[id, session.name, indiaDate(now), indiaTime(now), "", "", "", "Active", "", notes]]);
     if (accessRequestIndex >= 0) await updateTab(TABS.accessRequests, accessRequestIndex + 2, "G", [["Used"]]);
     await audit("SESSION_STARTED", session.name, id + (accessRequestIndex >= 0 ? " · emergency " + capMinutes + "m" : ""));
