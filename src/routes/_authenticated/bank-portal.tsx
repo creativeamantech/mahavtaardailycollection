@@ -113,7 +113,7 @@ function BankPortalPage() {
   const otherLive = data?.liveSessions.find((s) => s.executive !== currentName);
   const hasApprovedAccess = Boolean(data?.accessRequests.some((r) => r.requester === currentName && r.status === "Approved" && r.expiresAt && new Date(r.expiresAt).getTime() > Date.now()));
   const ownCurrentSlot = data?.currentSlotOwner?.name === currentName;
-  const canStart = Boolean(data && (data.session.role === "Admin" || ownCurrentSlot || hasApprovedAccess));
+  const canStart = Boolean(data && (data.session.role === "Admin" || ownCurrentSlot || hasApprovedAccess || (data.outsideOfficeHours && !data.batchReserved)));
   const nextSlot = data?.nextSlotOwner;
   const portalInUse = data?.liveSessions[0];
 
