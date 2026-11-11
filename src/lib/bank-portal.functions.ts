@@ -99,6 +99,10 @@ function isoNow() { return new Date().toISOString(); }
 function indiaDate(now = new Date()) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now); }
 function indiaTime(now = new Date()) { return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(now); }
 function isActive(value: string | undefined) { return (value ?? "").trim().toLowerCase() === "active"; }
+function timeToMinutes(value: string | undefined) {
+  const time = value ?? "";
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+}
 function equalSecret(input: string, secret: string) {
   if (!input || !secret || input.length !== secret.length) return false;
   let diff = 0;
@@ -127,13 +131,13 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   const today = indiaDate();
   const todaySchedules = schedules.filter((r) => r[1] === session.name && r[2] === today);
   const nowMinutes = (() => { const t = indiaTime().split(":"); return Number(t[0]) * 60 + Number(t[1]); })();
-  const todaysAll = schedules.filter((r) => r[2] === today && r[1] && r[3] && r[4]);
+  const todaysAll = schedules.filter((r) => r[2] === today && Boolean(r[1] && r[3] && r[4]));
   const slotOwner = todaysAll.find((r) => {
-    const start = Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5));
-    const end = Number(r[4].slice(0, 2)) * 60 + Number(r[4].slice(3, 5));
+    const start = timeToMinutes(r[3]);
+    const end = timeToMinutes(r[4]);
     return nowMinutes >= start && nowMinutes < end;
-  }) ?? todaysAll.filter((r) => Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5)) > nowMinutes)
-    .sort((a, b) => a[3].localeCompare(b[3]))[0];
+  }) ?? todaysAll.filter((r) => timeToMinutes(r[3]) > nowMinutes)
+    .sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
   const relevantRequests = accessRequests.map((r, i) => ({
     row: i + 2, id: r[0] ?? "", requester: r[1] ?? "", recipient: r[2] ?? "",
     dateTime: r[3] ?? "", reason: r[4] ?? "", duration: r[5] ?? "",
@@ -168,13 +172,13 @@ export const requestBankPortalAccess = createServerFn({ method: "POST" })
     const [schedules, requests] = await Promise.all([readTab(TABS.schedules), readTab(TABS.accessRequests)]);
     const today = indiaDate();
     const nowMinutes = (() => { const t = indiaTime().split(":"); return Number(t[0]) * 60 + Number(t[1]); })();
-    const todays = schedules.filter((r) => r[2] === today && r[1] && r[3] && r[4]);
+    const todays = schedules.filter((r) => r[2] === today && Boolean(r[1] && r[3] && r[4]));
     const owner = todays.find((r) => {
-      const start = Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5));
-      const end = Number(r[4].slice(0, 2)) * 60 + Number(r[4].slice(3, 5));
+      const start = timeToMinutes(r[3]);
+      const end = timeToMinutes(r[4]);
       return nowMinutes >= start && nowMinutes < end;
-    }) ?? todays.filter((r) => Number(r[3].slice(0, 2)) * 60 + Number(r[3].slice(3, 5)) > nowMinutes)
-      .sort((a, b) => a[3].localeCompare(b[3]))[0];
+    }) ?? todays.filter((r) => timeToMinutes(r[3]) > nowMinutes)
+      .sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
     if (!owner?.[1] || owner[1] === session.name) throw new Error("There is no other Executive slot owner to receive this request right now.");
     if (requests.some((r) => r[1] === session.name && r[6] === "Pending" && r[2] === owner[1]))
       throw new Error("You already have a pending request for this slot.");
