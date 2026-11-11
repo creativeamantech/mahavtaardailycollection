@@ -30,6 +30,8 @@ export type LoanSummary = {
   pos: number | null;
   foreclosure: number | null;
   applicableEmiCount: number | null;
+  bucketTargetEmis: number;
+  remainingLoanEmis: number;
   totalEmiRequired: number | null;
   totalPaid: number;
   payments: number;
@@ -93,6 +95,8 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
         pos: null,
         foreclosure: null,
         applicableEmiCount: null,
+        bucketTargetEmis: 0,
+        remainingLoanEmis: 0,
         totalEmiRequired: null,
         totalPaid: 0,
         payments: 0,
@@ -129,10 +133,12 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
     .map((l) => {
       l.executive = l.executives.join(", ");
       l.applicableEmiCount = emiCountForBucket(l.bucket);
-      l.totalEmiRequired =
-        l.emiAmount !== null && l.applicableEmiCount !== null
-          ? l.emiAmount * l.applicableEmiCount
-          : null;
+      const validBalance = l.pos !== null && l.pos > 0 && l.emiAmount !== null && l.emiAmount > 0;
+      l.remainingLoanEmis = validBalance ? l.pos! / l.emiAmount! : 0;
+      l.bucketTargetEmis = validBalance && l.applicableEmiCount !== null
+        ? Math.min(l.applicableEmiCount, Math.ceil(l.remainingLoanEmis))
+        : 0;
+      l.totalEmiRequired = validBalance ? l.bucketTargetEmis * l.emiAmount! : null;
 
       l.posPaid = l.pos !== null && l.pos > 0 && l.totalPaid >= l.pos;
       l.foreclosurePaid =
@@ -165,9 +171,9 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
             l.shortAmount = emi - remainder;
           }
         }
-        l.remainingEmiCount = Math.max(limit - l.paidEmiCount, 0);
+        l.remainingEmiCount = Math.max(l.bucketTargetEmis - l.paidEmiCount, 0);
       } else if (limit !== null) {
-        l.remainingEmiCount = limit;
+        l.remainingEmiCount = l.bucketTargetEmis;
       }
 
       // SINGLE master rule: one complete EMI, valid settlement, or valid
@@ -177,9 +183,9 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
 
       if (l.settlement) l.status = "Settlement Paid";
       else if (l.emiPaid) l.status = "EMI Paid";
+      else if (l.posPaid) l.status = "POS Paid — Not Main Paid";
       else if (l.foreclosurePaid) l.status = "Foreclosure Paid";
       else if (l.shortAmount !== null) l.status = "EMI Short Amount";
-      else if (l.posPaid) l.status = "POS Paid — Not Main Paid";
       else l.status = "—";
 
       if (l.settlement || l.emiPaid) {
