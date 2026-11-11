@@ -45,7 +45,7 @@ export function PortalTimingsPanel({ className = "" }: Props) {
             <div key={slot.id || `${slot.executive}-${slot.start}-${index}`} className={`flex items-center justify-between gap-3 rounded-lg border p-3 text-sm ${current?.id === slot.id ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300" : "bg-slate-50"}`}>
               <div className="min-w-0">
                 <p className="font-semibold text-slate-900">{slot.executive}</p>
-                <p className="text-xs text-muted-foreground">{slot.status || "Scheduled"}</p>
+                <p className="text-xs text-muted-foreground">{"slot" in slot ? (slot.slot === "SLOT_1" ? "Slot 1 · Permanent" : "Slot 2 · Permanent") : slot.status || "Scheduled"}</p>
               </div>
               <p className="shrink-0 font-mono font-semibold tabular-nums">{slot.start} – {slot.end}</p>
             </div>
