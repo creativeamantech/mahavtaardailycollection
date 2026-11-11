@@ -203,6 +203,8 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
     schedules: todaysAll.filter((r) => r[1] === session.name).map((r) => ({ id: r[0] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     portalTimings: todaysAll.sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? "")).map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     isAdmin: session.role === "Admin",
+    outsideOfficeHours: nowMinutes < 10 * 60 || nowMinutes >= 19 * 60 + 30,
+    batchReserved: nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30,
     schedulePresets: presetRows.map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", slot: r[2] ?? "", start: r[3] ?? "", end: r[4] ?? "" })),
     slotOwner: slotOwner ? { name: slotOwner[1] ?? "", start: slotOwner[3] ?? "", end: slotOwner[4] ?? "" } : null,
     currentSlotOwner: currentSlot ? { name: currentSlot[1] ?? "", start: currentSlot[3] ?? "", end: currentSlot[4] ?? "" } : null,
