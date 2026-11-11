@@ -115,7 +115,6 @@ export const createRechargeRequest = createServerFn({ method: "POST" })
     const state = await readState(session.name, false);
     const number = data.number.replace(/[() -]/g, "");
     if (!state.numbers.map(n => n.replace(/[() -]/g, "")).includes(number)) throw new Error("Please select one of your saved calling numbers.");
-    if (data.amount > state.balance) throw new Error("Recharge amount exceeds your available credit.");
     const screenshot = await uploadProof(data.image);
     const now = new Date();
     const id = "RQ-" + now.getTime();
