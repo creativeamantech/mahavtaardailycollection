@@ -9,6 +9,7 @@ import { getCollections } from "@/lib/mahavtaar.functions";
 import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 import { normaliseLoanId } from "@/lib/loans";
 import { formatAmount } from "@/lib/executives";
+import { sanitizeCsvCell } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -249,11 +250,7 @@ function CollectionSheetPage() {
       if (typeof value === "number") return value;
       return String(value);
     };
-    const escapeCsv = (value: unknown) => {
-      let text = String(value ?? "");
-      if (typeof value === "string" && /^[=+@\-\t\r]/.test(text)) text = "'" + text;
-      return '"' + text.replace(/"/g, '""') + '"';
-    };
+    const escapeCsv = sanitizeCsvCell;
     const lines = [
       headers.map(escapeCsv).join(","),
       ...rows.map((row, index) => [
