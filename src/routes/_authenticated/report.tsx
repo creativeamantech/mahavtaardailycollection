@@ -1645,7 +1645,6 @@ function ReportPage() {
     <main className="mx-auto w-full max-w-[1600px] px-3 pb-[calc(10rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-16 sm:pt-6 lg:px-8 lg:pb-12 lg:pt-7 xl:px-10">
       <NotificationPanel className="mb-4" />
       <PortalTimingsPanel className="mb-5" />
-      <NotificationPanel className="mb-4" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#a07b0a]">Performance &amp; collection intelligence</div>
