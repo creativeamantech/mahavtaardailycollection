@@ -83,6 +83,14 @@ type ExistingEntry = {
   receiptLinks?: string[];
 };
 
+function getReceiptPreviewUrl(url: string): string {
+  if (!url) return "";
+  const match = url.match(/(?:[?&]id=|\/file\/d\/|\/d\/)([a-zA-Z0-9_-]{20,100})/);
+  const fileId = match?.[1];
+  if (fileId) return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`;
+  return url;
+}
+
 function normaliseLoanId(v: string) {
   return String(v ?? "")
     .replace(/^['`\u2018\u2019]+/, "")
@@ -849,7 +857,7 @@ function EntryPage() {
                           {entry.receiptLinks.map((link, index) => (
                             <a
                               key={`${entry.row}-receipt-${index}`}
-                              href={link}
+                              href={link.startsWith("/receipt/") ? link : link}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="group flex w-20 flex-col gap-1.5"
@@ -857,7 +865,7 @@ function EntryPage() {
                               title="Tap to view full receipt"
                             >
                               <img
-                                src={link}
+                                src={getReceiptPreviewUrl(link)}
                                 alt={`Receipt ${index + 1} for loan ${entry.loanId}`}
                                 loading="lazy"
                                 className="h-24 w-20 rounded-lg border border-[#d9e4df] bg-[#f3faf6] object-cover shadow-sm transition group-hover:shadow-md"
