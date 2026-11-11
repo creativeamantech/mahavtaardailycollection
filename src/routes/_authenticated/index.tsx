@@ -85,7 +85,7 @@ type ExistingEntry = {
 
 function getReceiptPreviewUrl(url: string): string {
   if (!url) return "";
-  const match = url.match(/(?:[?&]id=|\\/file\\/d\\/|\\/d\\/)([a-zA-Z0-9_-]{20,100})/);
+  const match = url.match(/(?:[?&]id=|\/file\/d\/|\/d\/)([a-zA-Z0-9_-]{20,100})/);
   const fileId = match?.[1];
   if (fileId) return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`;
   return url;
