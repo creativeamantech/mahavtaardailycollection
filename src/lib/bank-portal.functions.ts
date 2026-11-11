@@ -154,10 +154,10 @@ async function cleanupExpiredSessionsLocked() {
   }
   return closed;
 }
-function findCurrentSlot(rows: string[][], today: string, nowMinutes: number) {
-  const todays = rows.filter((r) => r[2] === today && r[1] && r[3] && r[4] && (r[5] ?? "").toLowerCase() !== "cancelled");
-  return todays.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]))
-    ?? todays.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
+function findCurrentPreset(rows: string[][], nowMinutes: number) {
+  const presets = rows.filter((r) => r[1] && r[3] && r[4]);
+  return presets.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]))
+    ?? presets.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
 }
 function validateSchedule(date: string, start: string, end: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(new Date(date + "T00:00:00+05:30").getTime())) throw new Error("Choose a valid schedule date.");
@@ -184,8 +184,8 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   const parts = indiaTime().split(":");
   const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
   const todaysAll = schedules.filter((r) => r[2] === today && Boolean(r[1] && r[3] && r[4]) && (r[5] ?? "").toLowerCase() !== "cancelled");
-  const currentSlot = todaysAll.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
-  const nextSlot = todaysAll.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
+  const currentSlot = presetRows.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
+  const nextSlot = presetRows.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
   const slotOwner = currentSlot ?? nextSlot;
   const activeSession = sessions.find((r) => r[1] === session.name && isActive(r[7]));
   const relevantRequests = accessRequests.map((r, i) => ({
@@ -226,12 +226,11 @@ export const requestBankPortalAccess = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requireSession();
     if (session.role === "Admin") throw new Error("Admin does not need to request access.");
-    const [schedules, requests] = await Promise.all([readTab(TABS.schedules), readTab(TABS.accessRequests)]);
+    const [presets, requests] = await Promise.all([readTab(TABS.presets), readTab(TABS.accessRequests)]);
     const now = new Date();
-    const today = indiaDate(now);
     const parts = indiaTime(now).split(":");
     const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
-    const owner = findCurrentSlot(schedules, today, nowMinutes);
+    const owner = findCurrentPreset(presets, nowMinutes);
     if (!owner?.[1] || owner[1] === session.name) throw new Error("There is no other Executive slot owner to receive this request right now.");
     if (requests.some((r) => r[1] === session.name && r[6] === "Pending" && r[2] === owner[1]))
       throw new Error("You already have a pending request for this slot.");
@@ -262,8 +261,8 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
   const session = await requireSession();
   return withSheetMutex("bank-portal-session-write", async () => {
     await cleanupExpiredSessionsLocked();
-    const [sessions, bans, schedules, requests] = await Promise.all([
-      readTab(TABS.sessions), readTab(TABS.bans), readTab(TABS.schedules), readTab(TABS.accessRequests),
+    const [sessions, bans, presets, requests] = await Promise.all([
+      readTab(TABS.sessions), readTab(TABS.bans), readTab(TABS.presets), readTab(TABS.accessRequests),
     ]);
     const banned = bans.some((r) => r[1] === session.name && isActive(r[5]) && (!r[3] || new Date(r[3]).getTime() >= Date.now()));
     if (banned) throw new Error("Bank Portal access is currently suspended. Contact Admin.");
@@ -272,10 +271,9 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
     let capMinutes = MAX_SESSION_MINUTES;
     let accessRequestIndex = -1;
     if (session.role !== "Admin") {
-      const today = indiaDate();
       const parts = indiaTime().split(":");
       const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
-      const ownSlot = schedules.some((r) => r[1] === session.name && r[2] === today && (r[5] ?? "").toLowerCase() !== "cancelled"
+      const ownSlot = presets.some((r) => r[1] === session.name
         && nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
       if (!ownSlot) {
         accessRequestIndex = requests.findIndex((r) => r[1] === session.name && r[6] === "Approved" && r[7] && r[8]
