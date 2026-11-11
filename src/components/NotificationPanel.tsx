@@ -55,6 +55,8 @@ export function toDirectDriveUrl(url: string) {
   if (!url) return "";
   const id =
     /[?&]id=([A-Za-z0-9_-]+)/.exec(url)?.[1] ??
-    /\/(?:file\/)?d\/([A-Za-z0-9_-]+)/.exec(url)?.[1];
-  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w600` : url;
+    /\\/(?:file\\/)?d\\/([A-Za-z0-9_-]+)/.exec(url)?.[1];
+  // Use the app's authenticated image endpoint. Drive's thumbnail endpoint
+  // can reject browser image requests even when the file is shared publicly.
+  return id ? `/receipt/${id}` : url;
 }
