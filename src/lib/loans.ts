@@ -148,7 +148,7 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
       const emi = l.emiAmount;
       const limit = l.bucketTargetEmis;
 
-      if (emi !== null && emi > 0 && limit !== null) {
+      if (emi !== null && emi > 0 && limit > 0) {
         // Sequential EMI evaluation, one EMI at a time.
         const completed = Math.min(Math.floor(l.totalPaid / emi), limit);
         const remainder = l.totalPaid - completed * emi;
