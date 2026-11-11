@@ -16,7 +16,7 @@ import {
   updateBankPortalSchedule,
   cancelBankPortalSchedule,
 } from "@/lib/bank-portal.functions";
-import { EXECUTIVES } from "@/lib/executives";
+const BANK_PORTAL_BANK_PORTAL_EXECUTIVES = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_authenticated/bank-portal")({
 });
 
 type PortalTab = "session" | "timeline" | "issues" | "admin";
-type ScheduleForm = { executive: (typeof EXECUTIVES)[number]; date: string; start: string; end: string };
+type ScheduleForm = { executive: (typeof BANK_PORTAL_EXECUTIVES)[number]; date: string; start: string; end: string };
 
 function formatElapsed(seconds: number) {
   const h = Math.floor(seconds / 3600).toString().padStart(2, "0");
@@ -67,12 +67,12 @@ function BankPortalPage() {
   const [accessReason, setAccessReason] = useState("");
   const [accessDuration, setAccessDuration] = useState<"15" | "30">("15");
   const [remarks, setRemarks] = useState<Record<string, string>>({});
-  const [warningName, setWarningName] = useState<(typeof EXECUTIVES)[number]>(EXECUTIVES[0]);
+  const [warningName, setWarningName] = useState<(typeof BANK_PORTAL_EXECUTIVES)[number]>(BANK_PORTAL_EXECUTIVES[0]);
   const [warningReason, setWarningReason] = useState("");
   const [forceReasons, setForceReasons] = useState<Record<string, string>>({});
   const [cancelReasons, setCancelReasons] = useState<Record<string, string>>({});
   const [scheduleEditingId, setScheduleEditingId] = useState("");
-  const [schedule, setSchedule] = useState<ScheduleForm>({ executive: EXECUTIVES[0], date: "", start: "10:00", end: "11:30" });
+  const [schedule, setSchedule] = useState<ScheduleForm>({ executive: BANK_PORTAL_EXECUTIVES[0], date: "", start: "10:00", end: "11:30" });
   const [busy, setBusy] = useState(false);
 
   const active = data?.activeSession;
@@ -163,7 +163,7 @@ function BankPortalPage() {
   }
   function editSlot(slot: { id: string; executive: string; start: string; end: string }) {
     setScheduleEditingId(slot.id);
-    setSchedule({ executive: (EXECUTIVES as readonly string[]).includes(slot.executive) ? slot.executive as (typeof EXECUTIVES)[number] : EXECUTIVES[0], date: data?.today ?? "", start: slot.start, end: slot.end });
+    setSchedule({ executive: (BANK_PORTAL_EXECUTIVES as readonly string[]).includes(slot.executive) ? slot.executive as (typeof BANK_PORTAL_EXECUTIVES)[number] : BANK_PORTAL_EXECUTIVES[0], date: data?.today ?? "", start: slot.start, end: slot.end });
     setTab("admin");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -262,7 +262,7 @@ function BankPortalPage() {
         <section className="rounded-2xl border border-amber-300 bg-amber-50/40 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">Schedule allocator</h2><span className="text-xs text-muted-foreground">Admin only · Google Sheets</span></div>
           <form onSubmit={submitSchedule} className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs font-semibold text-slate-600">Executive<select className="h-11 rounded-md border bg-white px-3 text-sm font-normal text-slate-900" value={schedule.executive} onChange={(e) => setSchedule((old) => ({ ...old, executive: e.target.value as (typeof EXECUTIVES)[number] }))}>{EXECUTIVES.map((name) => <option key={name}>{name}</option>)}</select></label>
+            <label className="grid gap-1 text-xs font-semibold text-slate-600">Executive<select className="h-11 rounded-md border bg-white px-3 text-sm font-normal text-slate-900" value={schedule.executive} onChange={(e) => setSchedule((old) => ({ ...old, executive: e.target.value as (typeof BANK_PORTAL_EXECUTIVES)[number] }))}>{BANK_PORTAL_EXECUTIVES.map((name) => <option key={name}>{name}</option>)}</select></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">Date<Input type="date" value={schedule.date} onChange={(e) => setSchedule((old) => ({ ...old, date: e.target.value }))} required /></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">Start time<Input type="time" value={schedule.start} onChange={(e) => setSchedule((old) => ({ ...old, start: e.target.value }))} required /></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">End time<Input type="time" value={schedule.end} onChange={(e) => setSchedule((old) => ({ ...old, end: e.target.value }))} required /></label>
@@ -284,7 +284,7 @@ function BankPortalPage() {
 
         <form onSubmit={issueWarning} className="rounded-2xl border bg-white p-4">
           <h3 className="font-semibold">Issue executive warning</h3>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2"><select className="h-11 rounded-md border bg-white px-3 text-sm" value={warningName} onChange={(e) => setWarningName(e.target.value as (typeof EXECUTIVES)[number])}>{EXECUTIVES.map((name) => <option key={name}>{name}</option>)}</select><Input value={warningReason} onChange={(e) => setWarningReason(e.target.value)} placeholder="Reason for warning" required /></div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2"><select className="h-11 rounded-md border bg-white px-3 text-sm" value={warningName} onChange={(e) => setWarningName(e.target.value as (typeof BANK_PORTAL_EXECUTIVES)[number])}>{BANK_PORTAL_EXECUTIVES.map((name) => <option key={name}>{name}</option>)}</select><Input value={warningReason} onChange={(e) => setWarningReason(e.target.value)} placeholder="Reason for warning" required /></div>
           <Button className="mt-3" type="submit" disabled={busy || !warningReason.trim()}>Issue Warning</Button>
         </form>
       </div>}
