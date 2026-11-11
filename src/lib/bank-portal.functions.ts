@@ -60,7 +60,8 @@ async function appendTab(tab: string, values: (string | number)[][]) {
 async function updateTab(tab: string, row: number, range: string, values: (string | number)[][]) {
   if (row < 2) throw new Error("Header row cannot be changed.");
   const id = await spreadsheetId();
-  const a1 = range.includes(":") ? `${range.split(":")[0]}${row}:${range.split(":")[1]}${row}` : `${range}${row}`;
+  const [firstColumn, lastColumn] = range.split(":");
+  const a1 = lastColumn ? `${firstColumn}${row}:${lastColumn}${row}` : `${range}${row}`;
   const url = `${GATEWAY}/google_sheets/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(tab)}!${a1}?valueInputOption=RAW`;
   const res = await fetch(url, { method: "PUT", headers: connectorHeaders(), body: JSON.stringify({ values }) });
   return responseJson(res, `Update ${tab}`);
@@ -99,18 +100,18 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   const todaySchedules = schedules.filter((r) => r[1] === session.name && r[2] === today);
   return {
     session,
-    activeSession: activeSession ? { id: activeSession[0], loginDate: activeSession[2], loginTime: activeSession[3] } : null,
-    schedules: todaySchedules.map((r) => ({ id: r[0], start: r[3], end: r[4], status: r[5] })),
+    activeSession: activeSession ? { id: activeSession[0] ?? "", loginDate: activeSession[2] ?? "", loginTime: activeSession[3] ?? "" } : null,
+    schedules: todaySchedules.map((r) => ({ id: r[0] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     complaints: complaints.filter((r) => session.role === "Admin" || r[2] === session.name).map((r) => ({
-      id: r[0], executive: r[2], dateTime: r[3], type: r[4], description: r[5], status: r[6], remark: r[7],
+      id: r[0] ?? "", executive: r[2] ?? "", dateTime: r[3] ?? "", type: r[4] ?? "", description: r[5] ?? "", status: r[6] ?? "", remark: r[7] ?? "",
     })),
     sessions: session.role === "Admin" ? sessions.map((r, i) => ({
-      row: i + 2, id: r[0], executive: r[1], loginDate: r[2], loginTime: r[3],
-      logoutDate: r[4], logoutTime: r[5], duration: r[6], status: r[7], device: r[8], notes: r[9],
+      row: i + 2, id: r[0] ?? "", executive: r[1] ?? "", loginDate: r[2] ?? "", loginTime: r[3] ?? "",
+      logoutDate: r[4] ?? "", logoutTime: r[5] ?? "", duration: r[6] ?? "", status: r[7] ?? "", device: r[8] ?? "", notes: r[9] ?? "",
     })) : [],
     warnings: warnings.map((r) => ({ id: r[0], executive: r[1], dateTime: r[2], reason: r[3], issuedBy: r[4], acknowledged: r[5] })),
     banned: bans.some((r) => r[0] && r[1] === session.name && isActive(r[5]) &&
-      (!r[3] || new Date(r[3]).getTime() >= Date.now())),
+      (!r[2] || new Date(r[2]).getTime() <= Date.now()) && (!r[3] || new Date(r[3]).getTime() >= Date.now())),
   };
 });
 
@@ -163,7 +164,7 @@ export const resolveBankPortalComplaint = createServerFn({ method: "POST" })
     const rows = await readTab(TABS.complaints);
     const index = rows.findIndex((r) => r[0] === data.complaintId);
     if (index < 0) throw new Error("Complaint not found.");
-    await updateTab(TABS.complaints, index + 2, "G", [["Resolved", data.remark, isoNow()]]);
+    await updateTab(TABS.complaints, index + 2, "G:I", [["Resolved", data.remark, isoNow()]]);
     await audit("COMPLAINT_RESOLVED", admin.name, data.complaintId);
     return { ok: true };
   });
