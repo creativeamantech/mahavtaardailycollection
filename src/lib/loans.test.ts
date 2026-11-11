@@ -35,6 +35,12 @@ describe("loan EMI calculation rules", () => {
     expect(summary?.shortAmount).toBe(800);
   });
 
+  test("flags the full first EMI when nothing has been paid", () => {
+    const [summary] = summariseLoans([loan(0)]);
+    expect(summary?.currentShortEmi).toBe(1);
+    expect(summary?.shortAmount).toBe(1000);
+  });
+
   test("flags second EMI only at 50 percent or more", () => {
     const below = summariseLoans([loan(1499)])[0];
     const atThreshold = summariseLoans([loan(1500)])[0];
