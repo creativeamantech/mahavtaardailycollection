@@ -14,6 +14,7 @@ const TABS = {
   bans: "Portal_Bans",
   audit: "Portal_Audit",
   accessRequests: "Portal_Access_Requests",
+  presets: "Portal_Schedule_Presets",
 } as const;
 
 function connectorHeaders() {
@@ -50,8 +51,33 @@ async function ensureAccessRequestsTab() {
   const headerUrl = GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id) + "/values/" + encodeURIComponent(TABS.accessRequests) + "!A1:I1?valueInputOption=RAW";
   await responseJson(await fetch(headerUrl, { method: "PUT", headers: connectorHeaders(), body: JSON.stringify({ values: [headers] }) }), "Initialize Portal_Access_Requests headers");
 }
+async function ensureSchedulePresetsTab() {
+  const id = await spreadsheetId();
+  const headers = ["Preset_ID", "Preset_Name", "Start_Time", "End_Time", "Updated_At", "Updated_By"];
+  const metadataRes = await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id), { headers: connectorHeaders() });
+  const metadata = await responseJson(metadataRes, "Inspect Bank Portal spreadsheet") as { sheets?: { properties?: { title?: string } }[] };
+  if (!metadata.sheets?.some((sheet) => sheet.properties?.title === TABS.presets)) {
+    const createRes = await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id) + ":batchUpdate", {
+      method: "POST", headers: connectorHeaders(),
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TABS.presets, gridProperties: { rowCount: 100, columnCount: headers.length } } } }] }),
+    });
+    await responseJson(createRes, "Create Portal_Schedule_Presets tab");
+    const headerUrl = GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id) + "/values/" + encodeURIComponent(TABS.presets) + "!A1:F1?valueInputOption=RAW";
+    await responseJson(await fetch(headerUrl, { method: "PUT", headers: connectorHeaders(), body: JSON.stringify({ values: [headers] }) }), "Initialize schedule preset headers");
+  }
+  const valuesUrl = GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id) + "/values/" + encodeURIComponent(TABS.presets) + "!A2:F";
+  const values = await responseJson(await fetch(valuesUrl, { headers: connectorHeaders() }), "Read schedule presets") as { values?: string[][] };
+  if (!(values.values ?? []).length) {
+    const appendUrl = GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id) + "/values/" + encodeURIComponent(TABS.presets) + "!A:F:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS";
+    await responseJson(await fetch(appendUrl, { method: "POST", headers: connectorHeaders(), body: JSON.stringify({ values: [
+      ["MORNING", "Morning", "10:00", "11:30", isoNow(), "System"],
+      ["AFTERNOON", "Afternoon", "14:00", "15:30", isoNow(), "System"],
+    ] }) }), "Initialize default schedule presets");
+  }
+}
 async function readTab(tab: string) {
   if (tab === TABS.accessRequests) await ensureAccessRequestsTab();
+  if (tab === TABS.presets) await ensureSchedulePresetsTab();
   const id = await spreadsheetId();
   const url = GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id) + "/values/" + encodeURIComponent(tab) + "!A2:Z";
   const json = await responseJson(await fetch(url, { headers: connectorHeaders() }), "Read " + tab) as { values?: string[][] };
@@ -143,10 +169,10 @@ function assertNoScheduleOverlap(rows: string[][], date: string, start: string, 
 export const getBankPortalData = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireSession();
   await withSheetMutex("bank-portal-session-write", cleanupExpiredSessionsLocked);
-  const [sessions, schedules, complaints, warnings, bans, accessRequests] = await Promise.all([
+  const [sessions, schedules, complaints, warnings, bans, accessRequests, presetRows] = await Promise.all([
     readTab(TABS.sessions), readTab(TABS.schedules), readTab(TABS.complaints),
     session.role === "Admin" ? readTab(TABS.warnings) : Promise.resolve([]),
-    readTab(TABS.bans), readTab(TABS.accessRequests),
+    readTab(TABS.bans), readTab(TABS.accessRequests), readTab(TABS.presets),
   ]);
   const today = indiaDate();
   const parts = indiaTime().split(":");
@@ -171,6 +197,7 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
     schedules: todaysAll.filter((r) => r[1] === session.name).map((r) => ({ id: r[0] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     portalTimings: todaysAll.sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? "")).map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     isAdmin: session.role === "Admin",
+    schedulePresets: presetRows.map((r) => ({ id: r[0] ?? "", name: r[1] ?? "", start: r[2] ?? "", end: r[3] ?? "" })),
     slotOwner: slotOwner ? { name: slotOwner[1] ?? "", start: slotOwner[3] ?? "", end: slotOwner[4] ?? "" } : null,
     currentSlotOwner: currentSlot ? { name: currentSlot[1] ?? "", start: currentSlot[3] ?? "", end: currentSlot[4] ?? "" } : null,
     nextSlotOwner: nextSlot ? { name: nextSlot[1] ?? "", start: nextSlot[3] ?? "", end: nextSlot[4] ?? "" } : null,
@@ -292,6 +319,28 @@ export const forceEndBankPortalSession = createServerFn({ method: "POST" })
     await audit("SESSION_FORCE_ENDED", admin.name, (target[1] ?? "Unknown") + " · " + data.reason);
     return { ok: true };
   }));
+
+
+export const updateBankPortalPreset = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({
+    presetId: z.enum(["MORNING", "AFTERNOON"]),
+    start: z.string(),
+    end: z.string(),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    await requireSession();
+    const admin = await requirePortalAdmin();
+    validateSchedule(indiaDate(), data.start, data.end);
+    return withSheetMutex("bank-portal-preset-write", async () => {
+      const rows = await readTab(TABS.presets);
+      const index = rows.findIndex((r) => r[0] === data.presetId);
+      if (index < 0) throw new Error("Schedule preset not found.");
+      const name = rows[index]?.[1] ?? data.presetId;
+      await updateTab(TABS.presets, index + 2, "C:F", [[data.start, data.end, isoNow(), admin.name]]);
+      await audit("SCHEDULE_PRESET_UPDATED", admin.name, name + " · " + data.start + "–" + data.end);
+      return { ok: true };
+    });
+  });
 
 export const createBankPortalSchedule = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ executive: z.enum(BANK_PORTAL_EXECUTIVES), date: z.string(), start: z.string(), end: z.string() }).parse(d))
