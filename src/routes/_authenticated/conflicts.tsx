@@ -112,36 +112,35 @@ type ConflictGroup = {
 
 function extractDriveFileId(url: string): string | null {
   if (!url) return null;
-  const match = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]+)/);
-  return match?.[1] ?? null;
+  let pathname = url;
+  let queryId = "";
+  try {
+    const parsed = new URL(url);
+    pathname = parsed.pathname;
+    queryId = parsed.searchParams.get("id") ?? "";
+  } catch {
+    // Relative /receipt/<fileId> paths are handled by the path matcher below.
+  }
+  const match = pathname.match(/\/(?:receipt|d)\/([A-Za-z0-9_-]{20,100})(?:\/|$)/);
+  const id = queryId || match?.[1] || "";
+  return /^[A-Za-z0-9_-]{20,100}$/.test(id) ? id : null;
 }
 
 function getReceiptImageUrl(url: string): string | null {
   const id = extractDriveFileId(url);
-  if (id) {
-    return `https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
-  }
-  if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
-    return url;
-  }
-  return null;
+  if (id) return `/receipt/${id}`;
+  return url && (url.startsWith("http://") || url.startsWith("https://")) ? url : null;
 }
 
 function getReceiptViewUrl(url: string): string {
   if (!url) return "#";
   const id = extractDriveFileId(url);
-  if (id) {
-    return `https://drive.google.com/file/d/${id}/view`;
-  }
-  return url;
+  return id ? `https://drive.google.com/file/d/${id}/view` : url;
 }
 
 function getReceiptPreviewUrl(url: string): string | null {
   const id = extractDriveFileId(url);
-  if (id) {
-    return `https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
-  }
-  return null;
+  return id ? `/receipt/${id}` : null;
 }
 
 export function ConflictsPage() {
