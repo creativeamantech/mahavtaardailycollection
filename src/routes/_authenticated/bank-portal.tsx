@@ -16,11 +16,12 @@ import {
   updateBankPortalSchedule,
   cancelBankPortalSchedule,
 } from "@/lib/bank-portal.functions";
-const BANK_PORTAL_EXECUTIVES = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+
+const BANK_PORTAL_EXECUTIVES = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 
 export const Route = createFileRoute("/_authenticated/bank-portal")({
   component: BankPortalPage,
