@@ -59,7 +59,8 @@ function BankPortalPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["bank-portal"],
     queryFn: () => load(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
     retry: false,
   });
 
