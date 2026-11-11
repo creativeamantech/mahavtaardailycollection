@@ -72,7 +72,7 @@ async function readState(name: string, isAdmin: boolean) {
     screenshot: r[5] ?? "", date: r[6] ?? "", status: r[7] || "Pending", note: r[8] ?? "",
   }));
   return {
-    numbers: [numbers?.[2] ?? "", numbers?.[3] ?? ""].filter(Boolean),
+    numbers: [numbers?.[2] ?? "", numbers?.[3] ?? ""],
     creditTotal: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) : creditTotal,
     used: isAdmin ? requestRows.filter(r => ["approved", "completed"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : used,
     balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => ["approved", "completed"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used,
@@ -87,10 +87,11 @@ export const getRechargeData = createServerFn({ method: "GET" }).handler(async (
   return { ...state, session, executives: session.role === "Admin" ? configuredExecutives().map(u => u.name) : [] };
 });
 export const saveRechargeNumbers = createServerFn({ method: "POST" })
-  .inputValidator((v: unknown) => z.object({ numbers: z.array(z.string().trim().regex(/^[0-9+() -]{8,20}$/)).max(2) }).parse(v))
+  .inputValidator((v: unknown) => z.object({ numbers: z.array(z.string().trim().refine(v => v === "" || /^[0-9+() -]{8,20}$/.test(v), "Invalid calling number")).max(2) }).parse(v))
   .handler(async ({ data }) => {
     const session = await requireSession("Executive");
-    const clean = [...new Set(data.numbers.map(n => n.replace(/[() -]/g, "")))];
+    const clean = data.numbers.map(n => n.trim() ? n.replace(/[() -]/g, "") : "");
+    if (clean.filter(Boolean).length !== new Set(clean.filter(Boolean)).size) throw new Error("Dono slots mein same number save nahi kar sakte.");
     const rows = await readTab("Executive Numbers");
     const index = rows.findIndex(r => (r[1] ?? "").trim().toLowerCase() === session.name.toLowerCase());
     const record = ["EX-" + session.name, session.name, clean[0] ?? "", clean[1] ?? "", "TRUE", new Date().toISOString(), session.name, ""];
