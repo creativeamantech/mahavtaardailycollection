@@ -9,6 +9,8 @@ import {
   submitBankPortalComplaint,
   resolveBankPortalComplaint,
   issueBankPortalWarning,
+  requestBankPortalAccess,
+  respondBankPortalAccessRequest,
 } from "@/lib/bank-portal.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,8 @@ function BankPortalPage() {
   const complain = useServerFn(submitBankPortalComplaint);
   const resolve = useServerFn(resolveBankPortalComplaint);
   const warn = useServerFn(issueBankPortalWarning);
+  const requestAccess = useServerFn(requestBankPortalAccess);
+  const respondAccess = useServerFn(respondBankPortalAccessRequest);
   const { data, isLoading, error } = useQuery({
     queryKey: ["bank-portal"],
     queryFn: () => load(),
@@ -39,6 +43,8 @@ function BankPortalPage() {
   const [warningReason, setWarningReason] = useState("");
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [elapsed, setElapsed] = useState(0);
+  const [accessReason, setAccessReason] = useState("");
+  const [accessDuration, setAccessDuration] = useState("15");
   const active = data?.activeSession;
 
   useEffect(() => {
