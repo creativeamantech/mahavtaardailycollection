@@ -184,7 +184,10 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   const parts = indiaTime().split(":");
   const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
   const todaysAll = schedules.filter((r) => r[2] === today && Boolean(r[1] && r[3] && r[4]) && (r[5] ?? "").toLowerCase() !== "cancelled");
-  const currentSlot = presetRows.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
+  const batchReserved = nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30;
+  const currentSlot = batchReserved
+    ? ["ANKITA-BATCH", "Ankita", "SLOT_BATCH", "18:30", "19:30", "Reserved"]
+    : presetRows.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
   const nextSlot = presetRows.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
   const slotOwner = currentSlot ?? nextSlot;
   const activeSession = sessions.find((r) => r[1] === session.name && isActive(r[7]));
@@ -204,7 +207,7 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
     portalTimings: todaysAll.sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? "")).map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     isAdmin: session.role === "Admin",
     outsideOfficeHours: nowMinutes < 10 * 60 || nowMinutes >= 19 * 60 + 30,
-    batchReserved: nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30,
+    batchReserved,
     schedulePresets: presetRows.map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", slot: r[2] ?? "", start: r[3] ?? "", end: r[4] ?? "" })),
     slotOwner: slotOwner ? { name: slotOwner[1] ?? "", start: slotOwner[3] ?? "", end: slotOwner[4] ?? "" } : null,
     currentSlotOwner: currentSlot ? { name: currentSlot[1] ?? "", start: currentSlot[3] ?? "", end: currentSlot[4] ?? "" } : null,
