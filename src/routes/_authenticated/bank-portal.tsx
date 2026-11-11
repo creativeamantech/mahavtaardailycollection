@@ -79,6 +79,11 @@ function BankPortalPage() {
   const [presetDrafts, setPresetDrafts] = useState<Record<string, { start: string; end: string }>>({});
   const [schedule, setSchedule] = useState<ScheduleForm>({ executive: BANK_PORTAL_EXECUTIVES[0], date: "", start: "10:00", end: "11:30" });
   const [busy, setBusy] = useState(false);
+  const [portalClock, setPortalClock] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setPortalClock(new Date()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const active = data?.activeSession;
   useEffect(() => {
@@ -116,6 +121,8 @@ function BankPortalPage() {
   const canStart = Boolean(data && (data.session.role === "Admin" || ownCurrentSlot || hasApprovedAccess || (data.outsideOfficeHours && !data.batchReserved)));
   const nextSlot = data?.nextSlotOwner;
   const portalInUse = data?.liveSessions[0];
+  const currentTime = portalClock.toTimeString().slice(0, 5);
+  const currentPresetSlot = data?.schedulePresets.find((slot) => slot.start <= currentTime && currentTime < slot.end);
 
   async function refresh() { await queryClient.invalidateQueries({ queryKey: ["bank-portal"] }); }
   async function runAction(action: () => Promise<unknown>, success: string) {
@@ -268,8 +275,8 @@ function BankPortalPage() {
 
       {tab === "timeline" && <section className="rounded-2xl border bg-white p-4">
         <div className="flex items-center justify-between gap-2"><div><h2 className="font-semibold">Permanent daily portal slots</h2><p className="text-xs text-muted-foreground">Repeats every day · Admin-managed timings</p></div><span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold">{data.schedulePresets.length} slots</span></div>
-        {data.schedulePresets.length ? <div className="mt-4 space-y-3">{data.schedulePresets.slice().sort((a, b) => a.start.localeCompare(b.start)).map((slot) => <article key={slot.id} className={"relative rounded-xl border p-3 " + (slot.executive === data.session.name ? "border-amber-300 bg-amber-50" : "bg-white")}>
-          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold">{slot.executive}{slot.executive === data.session.name ? " · You" : ""} · {slot.slot === "SLOT_1" ? "Slot 1" : "Slot 2"}</p><p className="mt-1 text-sm tabular-nums text-slate-600">{slot.start} – {slot.end}</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">Permanent</span></div>
+        {data.schedulePresets.length ? <div className="mt-4 space-y-3">{data.schedulePresets.slice().sort((a, b) => a.start.localeCompare(b.start)).map((slot) => <article key={slot.id} className={"relative rounded-xl border p-3 " + (currentPresetSlot?.id === slot.id ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300" : slot.executive === data.session.name ? "border-amber-300 bg-amber-50" : "bg-white")}>
+          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold">{slot.executive}{slot.executive === data.session.name ? " · You" : ""} · {slot.slot === "SLOT_1" ? "Slot 1" : "Slot 2"}</p><p className="mt-1 text-sm tabular-nums text-slate-600">{slot.start} – {slot.end}</p></div><span className={"rounded-full px-2 py-1 text-xs font-semibold " + (currentPresetSlot?.id === slot.id ? "bg-amber-300 text-amber-950" : "bg-slate-100 text-slate-600")}>{currentPresetSlot?.id === slot.id ? "CURRENT SLOT" : "Permanent"}</span></div>
           <div className="mt-3 h-1.5 rounded-full bg-slate-100"><div className={"h-1.5 rounded-full " + (slot.executive === data.session.name ? "bg-amber-400" : "bg-slate-400")} style={{ width: "100%" }} /></div>
         </article>)}</div> : <p className="mt-4 text-sm text-muted-foreground">No permanent slots configured. Contact Admin.</p>}
       </section>}
