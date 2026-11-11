@@ -74,7 +74,7 @@ async function readState(name: string, isAdmin: boolean) {
   return {
     numbers: [numbers?.[2] ?? "", numbers?.[3] ?? ""].filter(Boolean),
     creditTotal: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) : creditTotal,
-    used: isAdmin ? requestRows.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0) : used,
+    used: isAdmin ? requestRows.filter(r => ["approved", "completed"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : used,
     balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => ["approved", "completed"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used,
     slotCycles: isAdmin ? [] : slotCycles,
     credits: isAdmin ? allCredits : allCredits.filter(r => r.name.toLowerCase() === name.toLowerCase()),
