@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { getRechargeData, saveRechargeNumbers, createRechargeCredit, createRechargeRequest, reviewRechargeRequest } from "@/lib/recharge.functions";
+import { getRechargeData, saveRechargeNumbers, createRechargeCredit, createRechargeRequest } from "@/lib/recharge.functions";
 
 export const Route = createFileRoute("/_authenticated/recharge")({ component: RechargePage });
 function RechargePage() {
@@ -12,17 +12,15 @@ function RechargePage() {
   const save = useServerFn(saveRechargeNumbers);
   const credit = useServerFn(createRechargeCredit);
   const submit = useServerFn(createRechargeRequest);
-  const review = useServerFn(reviewRechargeRequest);
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({ queryKey: ["recharge"], queryFn: () => load(), retry: 1, retryDelay: 1500 });
   const [numbers, setNumbers] = useState(["", ""]);
   const [executive, setExecutive] = useState("");
   const [creditAmount, setCreditAmount] = useState("");
   const [requestAmount, setRequestAmount] = useState("");
-  const [selectedNumber, setSelectedNumber] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState("1");
   const [reference, setReference] = useState("");
   const [creditFile, setCreditFile] = useState<File | null>(null);
   const [requestFile, setRequestFile] = useState<File | null>(null);
-  const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
   const admin = data?.session.role === "Admin";
   async function proof(file: File | null) {
     if (!file) throw new Error("Payment screenshot select karein.");
@@ -48,7 +46,7 @@ function RechargePage() {
     {!admin && <section className="space-y-3 rounded-2xl border bg-card p-4">
       <h2 className="font-semibold">My calling numbers</h2><p className="text-sm text-muted-foreground">Apne maximum 2 calling numbers khud enter karein. Admin inhe sirf view kar sakta hai.</p>
       {numbers.map((n, i) => <input key={i} value={n} onChange={e => setNumbers(old => old.map((v,j) => i === j ? e.target.value : v))} placeholder={"Calling number " + (i+1)} className="w-full rounded-lg border bg-background p-3"/>)}
-      <button onClick={() => void act(async () => save({ data: { numbers: numbers.filter(Boolean) } }))} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">Save numbers</button>
+      <button onClick={() => void act(async () => save({ data: { numbers } }))} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">Save numbers</button>
       <p className="text-sm">Saved: {data.numbers.join(" · ") || "No numbers saved"}</p>
     </section>}
     {admin ? <section className="space-y-3 rounded-2xl border bg-card p-4">
@@ -56,25 +54,33 @@ function RechargePage() {
       <select value={executive} onChange={e => setExecutive(e.target.value)} className="w-full rounded-lg border bg-background p-3"><option value="">Select executive</option>{data.executives.map(n => <option key={n}>{n}</option>)}</select>
       <input type="number" min="1" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} placeholder="Total amount transferred" className="w-full rounded-lg border bg-background p-3"/>
       <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Transfer reference / note (optional)" className="w-full rounded-lg border bg-background p-3"/>
-      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setCreditFile(e.target.files?.[0] ?? null)} className="w-full text-sm"/>
+      <FileDrop label="Transfer receipt / screenshot" file={creditFile} onFile={setCreditFile}/>
       <button disabled={!executive || !creditAmount || Number(creditAmount) <= 0 || !creditFile} onClick={() => void act(async () => { await credit({ data: { executive, amount: Number(creditAmount), image: await proof(creditFile), reference } }); setCreditAmount(""); setReference(""); setCreditFile(null); })} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Save credit + screenshot</button>
       <p className="text-xs text-muted-foreground">Ek executive ko total credit. Dono calling numbers isi balance ko share karenge.</p>
     </section> : <section className="space-y-3 rounded-2xl border bg-card p-4">
-      <h2 className="font-semibold">Request recharge</h2>
-      <select value={selectedNumber} onChange={e => setSelectedNumber(e.target.value)} className="w-full rounded-lg border bg-background p-3"><option value="">Select your calling number</option>{data.numbers.map(n => <option key={n}>{n}</option>)}</select>
-      <input type="number" min="1" max={data.balance} value={requestAmount} onChange={e => setRequestAmount(e.target.value)} placeholder="Recharge amount" className="w-full rounded-lg border bg-background p-3"/>
-      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setRequestFile(e.target.files?.[0] ?? null)} className="w-full text-sm"/>
-      <button disabled={!selectedNumber || !requestAmount || Number(requestAmount) <= 0 || Number(requestAmount) > data.balance || !requestFile} onClick={() => void act(async () => { await submit({ data: { number: selectedNumber, amount: Number(requestAmount), image: await proof(requestFile) } }); setRequestAmount(""); setRequestFile(null); })} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Submit recharge request</button>
-      <p className="text-xs text-muted-foreground">Pending request balance se tab kategi jab Admin approve karega.</p>
+      <h2 className="font-semibold">Record recharge</h2>
+      <select value={selectedSlot} onChange={e => setSelectedSlot(e.target.value)} className="w-full rounded-lg border bg-background p-3">{[1,2].map(slot => { const cycle = data.slotCycles?.find((item: {slot:number;available:boolean;nextAvailableAt:string|null}) => item.slot === slot); const number = data.numbers[slot-1]; return <option key={slot} value={String(slot)} disabled={!number || !cycle?.available}>Slot {slot} · {number || "Number not saved"}{cycle?.available ? " · Available" : " · Next: " + new Date(cycle?.nextAvailableAt ?? "").toLocaleDateString("en-IN")}</option>; })}</select>
+      <input type="number" min="1" value={requestAmount} onChange={e => setRequestAmount(e.target.value)} placeholder="Recharge amount" className="w-full rounded-lg border bg-background p-3"/>
+      <FileDrop label="Recharge receipt / screenshot" file={requestFile} onFile={setRequestFile}/>
+      <button disabled={!data.numbers[Number(selectedSlot)-1] || !data.slotCycles?.find((item: {slot:number}) => item.slot === Number(selectedSlot))?.available || !requestAmount || !Number.isFinite(Number(requestAmount)) || Number(requestAmount) <= 0 || !requestFile} onClick={() => void act(async () => { await submit({ data: { slot: selectedSlot, number: data.numbers[Number(selectedSlot)-1], amount: Number(requestAmount), image: await proof(requestFile) } }); setRequestAmount(""); setRequestFile(null); })} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Save recharge record</button>
+      <div className="space-y-1 text-xs text-muted-foreground">{data.slotCycles?.map((cycle: {slot:number;lastRechargeAt:string|null;nextAvailableAt:string|null;available:boolean}) => <p key={cycle.slot}>Slot {cycle.slot}: {cycle.lastRechargeAt ? "Last recharge " + new Date(cycle.lastRechargeAt).toLocaleDateString("en-IN") + " · " : ""}{cycle.available ? "Available now" : "Next recharge " + new Date(cycle.nextAvailableAt ?? "").toLocaleDateString("en-IN")}</p>)}<p>Har slot ka 28-day cycle alag hai. Next cycle ke liye number badal sakte hain; purane records safe rahenge.</p></div>
     </section>}
     <section className="space-y-3"><h2 className="font-semibold">Recharge requests</h2>
       {data.requests.length === 0 ? <p className="rounded-xl border p-4 text-sm text-muted-foreground">No requests yet.</p> : data.requests.slice().reverse().map(r => <article key={r.id} className="space-y-2 rounded-xl border bg-card p-3">
-        <div className="flex flex-wrap justify-between gap-2"><b>{r.executive} · ₹{r.amount.toLocaleString("en-IN")}</b><span className="text-sm">{r.status}</span></div><p className="text-xs text-muted-foreground">{r.number} · {r.date}</p>
+        <div className="flex flex-wrap justify-between gap-2"><b>{r.executive} · Slot {r.slot || "—"} · ₹{r.amount.toLocaleString("en-IN")}</b><span className="text-sm">{r.status}</span></div><p className="text-xs text-muted-foreground">{r.number} · {r.date}</p>
         {r.screenshot && <a href={r.screenshot} target="_blank" rel="noreferrer" className="text-sm underline">View screenshot</a>}
-        {admin && r.status.toLowerCase() === "pending" && <div className="space-y-2"><input value={reviewNote[r.id] ?? ""} onChange={e => setReviewNote(old => ({...old,[r.id]:e.target.value}))} placeholder="Admin note (optional)" className="w-full rounded-lg border bg-background p-2 text-sm"/><div className="flex gap-2"><button onClick={() => void act(() => review({ data: { id:r.id,status:"Approved",note:reviewNote[r.id] } }))} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">Approve</button><button onClick={() => void act(() => review({ data: { id:r.id,status:"Rejected",note:reviewNote[r.id] } }))} className="rounded-lg border px-3 py-2 text-sm">Reject</button></div></div>}
+        
       </article>)}
     </section>
     <section className="space-y-2"><h2 className="font-semibold">Admin credit history</h2>{data.credits.slice().reverse().map(c => <div key={c.id} className="rounded-xl border bg-card p-3 text-sm"><b>{c.name} · ₹{c.amount.toLocaleString("en-IN")}</b><p className="text-xs text-muted-foreground">{c.date} · {c.by}</p>{c.screenshot && <a href={c.screenshot} target="_blank" rel="noreferrer" className="underline">View transfer proof</a>}</div>)}</section>
   </main>;
 }
 function Metric({label,value}:{label:string;value:number}) { return <div className="rounded-xl border bg-card p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-bold">₹{value.toLocaleString("en-IN")}</p></div>; }
+
+function FileDrop({label,file,onFile}:{label:string;file:File|null;onFile:(file:File|null)=>void}) {
+  return <label onDragOver={e => { e.preventDefault(); e.stopPropagation(); }} onDrop={e => { e.preventDefault(); e.stopPropagation(); onFile(e.dataTransfer.files?.[0] ?? null); }} className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted/20 p-4 text-center transition-colors hover:border-primary">
+    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => onFile(e.target.files?.[0] ?? null)} className="sr-only"/>
+    <span className="text-sm font-medium">{file ? file.name : label}</span>
+    <span className="text-xs text-muted-foreground">{file ? "Tap to change · JPEG, PNG, WebP · Max 12 MB" : "Drag & drop image here, or tap to browse · JPEG, PNG, WebP · Max 12 MB"}</span>
+  </label>;
+}
