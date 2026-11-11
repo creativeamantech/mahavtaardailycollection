@@ -53,8 +53,19 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
 
 export function toDirectDriveUrl(url: string) {
   if (!url) return "";
-  const id =
-    /[?&]id=([A-Za-z0-9_-]+)/.exec(url)?.[1] ??
-    /\/(?:file\/)?d\/([A-Za-z0-9_-]+)/.exec(url)?.[1];
-  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w600` : url;
+  let fileId = "";
+  try {
+    const parsed = new URL(url);
+    fileId = parsed.searchParams.get("id") ?? "";
+    if (!fileId) {
+      const parts = parsed.pathname.split("/");
+      const marker = parts.findIndex((part) => part === "d");
+      if (marker >= 0) fileId = parts[marker + 1] ?? "";
+    }
+  } catch {
+    const parts = url.split("/");
+    const marker = parts.findIndex((part) => part === "d");
+    if (marker >= 0) fileId = parts[marker + 1] ?? "";
+  }
+  return /^[A-Za-z0-9_-]{20,100}$/.test(fileId) ? `/receipt/${fileId}` : url;
 }
