@@ -29,7 +29,7 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
       )}
       {activeNotification.imageUrl !== "" && (
         <a
-          href={activeNotification.imageUrl}
+          href={toDriveViewUrl(activeNotification.imageUrl)}
           target="_blank"
           rel="noreferrer"
           className="mt-2 inline-block max-w-full text-sm font-semibold text-[#765b00] underline"
@@ -51,43 +51,30 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
   );
 }
 
-export function toDirectDriveUrl(url: string) {
+function extractDriveFileId(url: string): string {
   if (!url) return "";
-  let fileId = "";
+  let pathname = url;
+  let queryId = "";
   try {
     const parsed = new URL(url);
-    fileId = parsed.searchParams.get("id") ?? "";
-    if (!fileId) {
-      const parts = parsed.pathname.split("/");
-      const marker = parts.findIndex((part) => part === "d");
-      if (marker >= 0) fileId = parts[marker + 1] ?? "";
-    }
+    pathname = parsed.pathname;
+    queryId = parsed.searchParams.get("id") ?? "";
   } catch {
-    const parts = url.split("/");
-    const marker = parts.findIndex((part) => part === "d");
-    if (marker >= 0) fileId = parts[marker + 1] ?? "";
+    // Relative /receipt/<fileId> paths are handled by the path matcher below.
   }
-  return /^[A-Za-z0-9_-]{20,100}$/.test(fileId) ? `/receipt/${fileId}` : url;
+  const match = pathname.match(/\/(?:receipt|d)\/([A-Za-z0-9_-]{20,100})(?:\/|$)/);
+  const fileId = queryId || match?.[1] || "";
+  return /^[A-Za-z0-9_-]{20,100}$/.test(fileId) ? fileId : "";
 }
 
+export function toDirectDriveUrl(url: string) {
+  if (!url) return "";
+  const fileId = extractDriveFileId(url);
+  return fileId ? `/receipt/${fileId}` : url;
+}
 
 export function toDriveViewUrl(url: string) {
   if (!url) return "";
-  let fileId = url.startsWith("/receipt/") ? url.slice("/receipt/".length) : "";
-  try {
-    const parsed = new URL(url);
-    fileId ||= parsed.searchParams.get("id") ?? "";
-    if (!fileId) {
-      const parts = parsed.pathname.split("/");
-      const marker = parts.findIndex((part) => part === "d");
-      if (marker >= 0) fileId = parts[marker + 1] ?? "";
-    }
-  } catch {
-    const parts = url.split("/");
-    const marker = parts.findIndex((part) => part === "d");
-    if (marker >= 0) fileId ||= parts[marker + 1] ?? "";
-  }
-  return /^[A-Za-z0-9_-]{20,100}$/.test(fileId)
-    ? `https://drive.google.com/file/d/${fileId}/view`
-    : url;
+  const fileId = extractDriveFileId(url);
+  return fileId ? `https://drive.google.com/file/d/${fileId}/view` : url;
 }
