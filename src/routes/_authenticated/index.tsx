@@ -1,5 +1,5 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
-import { NotificationPanel, toDirectDriveUrl } from "@/components/NotificationPanel";
+import { NotificationPanel, toDirectDriveUrl, toDriveViewUrl } from "@/components/NotificationPanel";
 import { PortalTimingsPanel } from "@/components/PortalTimingsPanel";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
@@ -849,7 +849,7 @@ function EntryPage() {
                           {entry.receiptLinks.map((link, index) => (
                             <a
                               key={`${entry.row}-receipt-${index}`}
-                              href={link.startsWith("/receipt/") ? link : link}
+                              href={toDriveViewUrl(link)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="group flex w-20 flex-col gap-1.5"
