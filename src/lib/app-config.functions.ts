@@ -16,7 +16,6 @@ export const FEATURES = [
   { key: "notifications", label: "Notifications", path: "/notifications" },
   { key: "recharge", label: "Recharge Management", path: "/recharge" },
   { key: "alreadyPaid", label: "Already Paid", path: "/already-paid" },
-  { key: "paidFileReconciliation", label: "Paid File", path: "/master-allocation-reconciliation" },
   { key: "conflicts", label: "Conflicts", path: "/conflicts" },
   { key: "receiptGallery", label: "Receipt Gallery", path: "/receipt-gallery" },
   { key: "remarks", label: "Remarks", path: null },
