@@ -15,6 +15,7 @@ import {
   createBankPortalSchedule,
   updateBankPortalSchedule,
   cancelBankPortalSchedule,
+  updateBankPortalPreset,
 } from "@/lib/bank-portal.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,16 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 const BANK_PORTAL_EXECUTIVES = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
-
-const BANK_PORTAL_EXECUTIVE_PRESETS: Record<(typeof BANK_PORTAL_EXECUTIVES)[number], { morning: [string, string]; afternoon: [string, string] }> = {
-  Aarti: { morning: ["10:00", "10:29"], afternoon: ["15:01", "15:30"] },
-  Bharti: { morning: ["10:29", "10:58"], afternoon: ["15:30", "15:59"] },
-  Pooja: { morning: ["10:58", "11:27"], afternoon: ["15:59", "16:28"] },
-  Vinita: { morning: ["11:27", "11:56"], afternoon: ["16:28", "16:57"] },
-  Ankita: { morning: ["11:56", "12:25"], afternoon: ["16:57", "17:26"] },
-  Sunanda: { morning: ["12:25", "12:54"], afternoon: ["17:26", "17:55"] },
-  Julee: { morning: ["13:53", "14:22"], afternoon: ["17:55", "18:24"] },
-};
 
 export const Route = createFileRoute("/_authenticated/bank-portal")({
   component: BankPortalPage,
@@ -64,10 +55,12 @@ function BankPortalPage() {
   const createSchedule = useServerFn(createBankPortalSchedule);
   const updateSchedule = useServerFn(updateBankPortalSchedule);
   const cancelSchedule = useServerFn(cancelBankPortalSchedule);
+  const savePreset = useServerFn(updateBankPortalPreset);
   const { data, isLoading, error } = useQuery({
     queryKey: ["bank-portal"],
     queryFn: () => load(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
     retry: false,
   });
 
@@ -83,6 +76,7 @@ function BankPortalPage() {
   const [forceReasons, setForceReasons] = useState<Record<string, string>>({});
   const [cancelReasons, setCancelReasons] = useState<Record<string, string>>({});
   const [scheduleEditingId, setScheduleEditingId] = useState("");
+  const [presetDrafts, setPresetDrafts] = useState<Record<string, { start: string; end: string }>>({});
   const [schedule, setSchedule] = useState<ScheduleForm>({ executive: BANK_PORTAL_EXECUTIVES[0], date: "", start: "10:00", end: "11:30" });
   const [busy, setBusy] = useState(false);
 
@@ -98,6 +92,17 @@ function BankPortalPage() {
   useEffect(() => {
     if (data?.today && !schedule.date) setSchedule((old) => ({ ...old, date: data.today }));
   }, [data?.today, schedule.date]);
+  useEffect(() => {
+    if (data?.schedulePresets?.length) {
+      setPresetDrafts((old) => {
+        const next = { ...old };
+        for (const preset of data.schedulePresets) {
+          if (!next[preset.id]) next[preset.id] = { start: preset.start, end: preset.end };
+        }
+        return next;
+      });
+    }
+  }, [data?.schedulePresets]);
 
   const elapsedLabel = useMemo(() => formatElapsed(elapsed), [elapsed]);
   const elapsedMinutes = Math.floor(elapsed / 60);
@@ -146,6 +151,11 @@ function BankPortalPage() {
       setScheduleEditingId("");
       setSchedule((old) => ({ ...old, start: "10:00", end: "11:30" }));
     }, scheduleEditingId ? "Schedule updated." : "Slot allocated.");
+  }
+  async function persistPreset(executive: string, slot: "SLOT_1" | "SLOT_2", presetId: string) {
+    const preset = presetDrafts[presetId];
+    if (!preset) return;
+    await runAction(() => savePreset({ data: { executive: executive as (typeof BANK_PORTAL_EXECUTIVES)[number], slot, start: preset.start, end: preset.end } }), "Executive preset saved permanently.");
   }
   async function forceClose(sessionId: string) {
     const reason = forceReasons[sessionId]?.trim();
@@ -296,7 +306,20 @@ function BankPortalPage() {
             <label className="grid gap-1 text-xs font-semibold text-slate-600">Date<Input type="date" value={schedule.date} onChange={(e) => setSchedule((old) => ({ ...old, date: e.target.value }))} required /></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">Start time<Input type="time" value={schedule.start} onChange={(e) => setSchedule((old) => ({ ...old, start: e.target.value }))} required /></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">End time<Input type="time" value={schedule.end} onChange={(e) => setSchedule((old) => ({ ...old, end: e.target.value }))} required /></label>
-            <div className="flex flex-wrap gap-2 sm:col-span-2"><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: BANK_PORTAL_EXECUTIVE_PRESETS[old.executive].morning[0], end: BANK_PORTAL_EXECUTIVE_PRESETS[old.executive].morning[1] }))}>Slot 1 · {schedule.executive} ({BANK_PORTAL_EXECUTIVE_PRESETS[schedule.executive].morning[0]}–{BANK_PORTAL_EXECUTIVE_PRESETS[schedule.executive].morning[1]})</Button><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: BANK_PORTAL_EXECUTIVE_PRESETS[old.executive].afternoon[0], end: BANK_PORTAL_EXECUTIVE_PRESETS[old.executive].afternoon[1] }))}>Slot 2 · {schedule.executive} ({BANK_PORTAL_EXECUTIVE_PRESETS[schedule.executive].afternoon[0]}–{BANK_PORTAL_EXECUTIVE_PRESETS[schedule.executive].afternoon[1]})</Button></div>
+            <div className="sm:col-span-2 space-y-3">
+              {(["SLOT_1", "SLOT_2"] as const).map((slot) => {
+                const preset = data.schedulePresets.find((item) => item.executive === schedule.executive && item.slot === slot);
+                const draft = preset ? presetDrafts[preset.id] ?? { start: preset.start, end: preset.end } : { start: "", end: "" };
+                return <div key={slot} className="rounded-lg border bg-white p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{slot === "SLOT_1" ? "Slot 1" : "Slot 2"} · {schedule.executive}</p><Button type="button" size="sm" variant="outline" disabled={!preset} onClick={() => setSchedule((old) => ({ ...old, start: draft.start, end: draft.end }))}>Use preset ({draft.start}–{draft.end})</Button></div>
+                  {data.isAdmin && preset && <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="grid gap-1 text-xs text-slate-600">Preset start<Input type="time" value={draft.start} onChange={(e) => setPresetDrafts((old) => ({ ...old, [preset.id]: { ...draft, start: e.target.value } }))} /></label>
+                    <label className="grid gap-1 text-xs text-slate-600">Preset end<Input type="time" value={draft.end} onChange={(e) => setPresetDrafts((old) => ({ ...old, [preset.id]: { ...draft, end: e.target.value } }))} /></label>
+                    <Button type="button" size="sm" className="col-span-2 sm:col-span-1" onClick={() => persistPreset(schedule.executive, slot, preset.id)} disabled={busy || (draft.start === preset.start && draft.end === preset.end)}>Save preset permanently</Button>
+                  </div>}
+                </div>;
+              })}
+            </div>
             <div className="flex gap-2 sm:col-span-2"><Button type="submit" disabled={busy || !schedule.date}>{scheduleEditingId ? "Save Changes" : "Allocate Slot"}</Button>{scheduleEditingId && <Button type="button" variant="outline" onClick={() => { setScheduleEditingId(""); setSchedule((old) => ({ ...old, start: "10:00", end: "11:30" })); }}>Cancel Edit</Button>}</div>
           </form>
           <p className="mt-2 text-xs text-muted-foreground">Overlapping slots are blocked. To reallocate, edit the existing slot or cancel it with a reason.</p>
