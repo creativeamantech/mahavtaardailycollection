@@ -165,7 +165,7 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
           const nextEmi = completed + 1;
           // First EMI: any shortfall counts. Second and later: only once at
           // least 50% of that EMI has been paid.
-          const show = completed === 0 ? l.totalPaid > 0 : remainder >= emi * 0.5;
+          const show = completed === 0 ? true : remainder >= emi * 0.5;
           if (show && remainder < emi) {
             l.currentShortEmi = nextEmi;
             l.shortAmount = emi - remainder;
