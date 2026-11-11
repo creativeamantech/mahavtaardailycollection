@@ -4,7 +4,6 @@ import { requireSession } from "./auth.functions";
 import { sheetsGet } from "./mahavtaar.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
-const PORTAL_SPREADSHEET_FALLBACK = "1C1u_4nTIN-_KbhJ2RrXeIDIg0cWSNpIxN8N_hDIn-yo";
 const TABS = {
   sessions: "Portal_Sessions",
   schedules: "Portal_Schedules",
@@ -39,7 +38,7 @@ async function spreadsheetId() {
   } catch (error) {
     console.warn("Could not read Bank Portal spreadsheet setting:", error);
   }
-  return PORTAL_SPREADSHEET_FALLBACK;
+  throw new Error("BANK_PORTAL_SPREADSHEET_ID is not configured and AppSettings.bankPortalSpreadsheetId is empty.");
 }
 
 async function readTab(tab: string) {
