@@ -1,4 +1,5 @@
 import { NotificationPanel } from "@/components/NotificationPanel";
+import { PortalTimingsPanel } from "@/components/PortalTimingsPanel";
 import { createFileRoute } from "@tanstack/react-router";
 import { getCurrentSession } from "@/lib/auth.functions";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -36,7 +37,7 @@ import {
 import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
-import { downloadCollectionExport, downloadFullCollectionCsv } from "@/lib/export";
+import { downloadCollectionExport, downloadFullCollectionCsv, toCsv } from "@/lib/export";
 import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter, AllocationTypeFilter, allocationTypeMatches, uniqueAllocationTypes, useAllocationTypeFilter } from "@/components/AllocationFilters";
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
@@ -209,33 +210,26 @@ function BucketFilter({ value, onChange }: { value: string; onChange: (v: string
 
 // Loan-level figures, computed from the same already-fetched dataset.
 function LoanStatsCards({ rows }: { rows: Collection[] }) {
-  const stats = useMemo(
-    () =>
-      loanStats(
-        summariseLoans(
-          rows.map((r) => ({
-            executive: r.executive,
-            loanId: r.loanId ?? "",
-            amount: r.amount,
-            date: r.date,
-            settlement: r.settlement ?? false,
-            settlementType: r.settlementType,
-            foreclosureEntry: r.foreclosureEntry,
-            bucket: r.bucket ?? "",
-            city: r.city ?? "",
-            emiAmount: r.emiAmount ?? null,
-            pos: r.pos ?? null,
-            foreclosure: r.foreclosure ?? null,
-          })),
-        ),
-      ),
-    [rows],
-  );
+  const stats = useMemo(() => {
+    const loans = summariseLoans(rows.map((r) => ({
+      executive: r.executive, loanId: r.loanId ?? "", amount: r.amount, date: r.date,
+      settlement: r.settlement ?? false, settlementType: r.settlementType,
+      foreclosureEntry: r.foreclosureEntry, bucket: r.bucket ?? "", city: r.city ?? "",
+      emiAmount: r.emiAmount ?? null, pos: r.pos ?? null, foreclosure: r.foreclosure ?? null,
+    })));
+    return {
+      ...loanStats(loans),
+      bucketTargetEmis: loans.reduce((sum, loan) => sum + loan.bucketTargetEmis, 0),
+      remainingLoanEmis: loans.reduce((sum, loan) => sum + loan.remainingLoanEmis, 0),
+    };
+  }, [rows]);
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
       <StatCard label="Main Paid Cases" value={String(stats.mainPaidCases)} />
       <StatCard label="Main Paid EMI Count" value={String(stats.mainPaidEmiCount)} />
       <StatCard label="POS Paid — Not Main Paid" value={String(stats.posPaidNotMainPaid)} />
+      <StatCard label="Bucket Target EMIs (Monthly)" value={String(stats.bucketTargetEmis)} />
+      <StatCard label="Remaining Loan EMIs (Full Tenure)" value={stats.remainingLoanEmis.toFixed(1)} />
     </div>
   );
 }
@@ -668,8 +662,7 @@ type PTPReportRow = {
 };
 
 function downloadDetailCsv(filename: string, headers: string[], rows: (string | number)[][]) {
-  const quote = (value: string | number) => '"' + String(value ?? "").replace(/"/g, '""') + '"';
-  const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(quote).join(",")).join("\r\n");
+  const csv = "\uFEFF" + toCsv(headers, rows);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -1651,6 +1644,7 @@ function ReportPage() {
   return (
     <main className="mx-auto w-full max-w-[1600px] px-3 pb-[calc(10rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-16 sm:pt-6 lg:px-8 lg:pb-12 lg:pt-7 xl:px-10">
       <NotificationPanel className="mb-4" />
+      <PortalTimingsPanel className="mb-5" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#a07b0a]">Performance &amp; collection intelligence</div>

@@ -1,5 +1,6 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
-import { NotificationPanel } from "@/components/NotificationPanel";
+import { NotificationPanel, toDirectDriveUrl } from "@/components/NotificationPanel";
+import { PortalTimingsPanel } from "@/components/PortalTimingsPanel";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -428,6 +429,7 @@ function EntryPage() {
   return (
     <main className="mx-auto w-full max-w-[1440px] min-w-0 px-3 pb-20 pt-4 text-[#20242b] sm:px-5 sm:pt-6 lg:px-8 lg:pb-16">
       <NotificationPanel className="mb-4" />
+      <PortalTimingsPanel className="mb-5" />
       <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#eadb9d] bg-white p-5 text-[#29271f] shadow-sm sm:mb-6 sm:rounded-xl sm:p-6 lg:p-7"><div aria-hidden="true" className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f2c400]/20" /><div className="relative"><p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#967300]">Mahavtaar Enterprises · Daily Operations</p><h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
       <p className="mt-1 text-sm leading-6 text-[#737b86] sm:text-base">
         Record and verify a payment collected by an executive.
@@ -847,7 +849,7 @@ function EntryPage() {
                           {entry.receiptLinks.map((link, index) => (
                             <a
                               key={`${entry.row}-receipt-${index}`}
-                              href={link}
+                              href={link.startsWith("/receipt/") ? link : link}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="group flex w-20 flex-col gap-1.5"
@@ -855,10 +857,11 @@ function EntryPage() {
                               title="Tap to view full receipt"
                             >
                               <img
-                                src={link}
+                                src={toDirectDriveUrl(link)}
                                 alt={`Receipt ${index + 1} for loan ${entry.loanId}`}
                                 loading="lazy"
-                                className="h-24 w-20 rounded-lg border border-[#d9e4df] bg-[#f3faf6] object-cover shadow-sm transition group-hover:shadow-md"
+                                decoding="async"
+                                className="max-h-48 w-full max-w-xs rounded-lg border border-[#e8d98f] bg-white object-contain shadow-sm transition group-hover:shadow-md"
                                 onError={(event) => {
                                   event.currentTarget.style.display = "none";
                                 }}
