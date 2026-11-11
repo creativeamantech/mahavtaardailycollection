@@ -67,7 +67,7 @@ function RechargePage() {
     </section>}
     <section className="space-y-3"><h2 className="font-semibold">Recharge requests</h2>
       {data.requests.length === 0 ? <p className="rounded-xl border p-4 text-sm text-muted-foreground">No requests yet.</p> : data.requests.slice().reverse().map(r => <article key={r.id} className="space-y-2 rounded-xl border bg-card p-3">
-        <div className="flex flex-wrap justify-between gap-2"><b>{r.executive} · ₹{r.amount.toLocaleString("en-IN")}</b><span className="text-sm">{r.status}</span></div><p className="text-xs text-muted-foreground">{r.number} · {r.date}</p>
+        <div className="flex flex-wrap justify-between gap-2"><b>{r.executive} · Slot {r.slot || "—"} · ₹{r.amount.toLocaleString("en-IN")}</b><span className="text-sm">{r.status}</span></div><p className="text-xs text-muted-foreground">{r.number} · {r.date}</p>
         {r.screenshot && <a href={r.screenshot} target="_blank" rel="noreferrer" className="text-sm underline">View screenshot</a>}
         
       </article>)}
