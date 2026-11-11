@@ -15,6 +15,7 @@ import {
   createBankPortalSchedule,
   updateBankPortalSchedule,
   cancelBankPortalSchedule,
+  updateBankPortalPreset,
 } from "@/lib/bank-portal.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ function BankPortalPage() {
   const createSchedule = useServerFn(createBankPortalSchedule);
   const updateSchedule = useServerFn(updateBankPortalSchedule);
   const cancelSchedule = useServerFn(cancelBankPortalSchedule);
+  const savePreset = useServerFn(updateBankPortalPreset);
   const { data, isLoading, error } = useQuery({
     queryKey: ["bank-portal"],
     queryFn: () => load(),
@@ -73,6 +75,7 @@ function BankPortalPage() {
   const [forceReasons, setForceReasons] = useState<Record<string, string>>({});
   const [cancelReasons, setCancelReasons] = useState<Record<string, string>>({});
   const [scheduleEditingId, setScheduleEditingId] = useState("");
+  const [presetDrafts, setPresetDrafts] = useState<Record<string, { start: string; end: string }>>({});
   const [schedule, setSchedule] = useState<ScheduleForm>({ executive: BANK_PORTAL_EXECUTIVES[0], date: "", start: "10:00", end: "11:30" });
   const [busy, setBusy] = useState(false);
 
@@ -88,6 +91,11 @@ function BankPortalPage() {
   useEffect(() => {
     if (data?.today && !schedule.date) setSchedule((old) => ({ ...old, date: data.today }));
   }, [data?.today, schedule.date]);
+  useEffect(() => {
+    if (data?.schedulePresets?.length) {
+      setPresetDrafts(Object.fromEntries(data.schedulePresets.map((preset) => [preset.id, { start: preset.start, end: preset.end }])));
+    }
+  }, [data?.schedulePresets]);
 
   const elapsedLabel = useMemo(() => formatElapsed(elapsed), [elapsed]);
   const elapsedMinutes = Math.floor(elapsed / 60);
@@ -136,6 +144,11 @@ function BankPortalPage() {
       setScheduleEditingId("");
       setSchedule((old) => ({ ...old, start: "10:00", end: "11:30" }));
     }, scheduleEditingId ? "Schedule updated." : "Slot allocated.");
+  }
+  async function persistPreset(presetId: string) {
+    const preset = presetDrafts[presetId];
+    if (!preset) return;
+    await runAction(() => savePreset({ data: { presetId: presetId as "MORNING" | "AFTERNOON", start: preset.start, end: preset.end } }), "Schedule preset saved permanently.");
   }
   async function forceClose(sessionId: string) {
     const reason = forceReasons[sessionId]?.trim();
@@ -267,7 +280,19 @@ function BankPortalPage() {
             <label className="grid gap-1 text-xs font-semibold text-slate-600">Date<Input type="date" value={schedule.date} onChange={(e) => setSchedule((old) => ({ ...old, date: e.target.value }))} required /></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">Start time<Input type="time" value={schedule.start} onChange={(e) => setSchedule((old) => ({ ...old, start: e.target.value }))} required /></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">End time<Input type="time" value={schedule.end} onChange={(e) => setSchedule((old) => ({ ...old, end: e.target.value }))} required /></label>
-            <div className="flex flex-wrap gap-2 sm:col-span-2"><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: "10:00", end: "11:30" }))}>Morning · 10:00–11:30</Button><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: "14:00", end: "15:30" }))}>Afternoon · 14:00–15:30</Button></div>
+            <div className="sm:col-span-2 space-y-3">
+              {data.schedulePresets.map((preset) => {
+                const draft = presetDrafts[preset.id] ?? { start: preset.start, end: preset.end };
+                return <div key={preset.id} className="rounded-lg border bg-white p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{preset.name} preset</p><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: draft.start, end: draft.end }))}>Use {preset.name}</Button></div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="grid gap-1 text-xs text-slate-600">Start<Input type="time" value={draft.start} onChange={(e) => setPresetDrafts((old) => ({ ...old, [preset.id]: { ...draft, start: e.target.value } }))} /></label>
+                    <label className="grid gap-1 text-xs text-slate-600">End<Input type="time" value={draft.end} onChange={(e) => setPresetDrafts((old) => ({ ...old, [preset.id]: { ...draft, end: e.target.value } }))} /></label>
+                  </div>
+                  <Button type="button" size="sm" className="mt-2" onClick={() => persistPreset(preset.id)} disabled={busy || draft.start === preset.start && draft.end === preset.end}>Save preset permanently</Button>
+                </div>;
+              })}
+            </div>
             <div className="flex gap-2 sm:col-span-2"><Button type="submit" disabled={busy || !schedule.date}>{scheduleEditingId ? "Save Changes" : "Allocate Slot"}</Button>{scheduleEditingId && <Button type="button" variant="outline" onClick={() => { setScheduleEditingId(""); setSchedule((old) => ({ ...old, start: "10:00", end: "11:30" })); }}>Cancel Edit</Button>}</div>
           </form>
           <p className="mt-2 text-xs text-muted-foreground">Overlapping slots are blocked. To reallocate, edit the existing slot or cancel it with a reason.</p>
