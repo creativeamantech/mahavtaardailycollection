@@ -42,6 +42,34 @@ async function spreadsheetId() {
   throw new Error("BANK_PORTAL_SPREADSHEET_ID is not configured and AppSettings.bankPortalSpreadsheetId is empty.");
 }
 
+async function ensureAccessRequestsTab() {
+  const id = await spreadsheetId();
+  const headers = ["Request_ID", "Requester", "Slot_Owner", "Requested_At", "Reason", "Duration_Minutes", "Status", "Approved_At", "Expires_At"];
+  const metadataUrl = `${GATEWAY}/google_sheets/v4/spreadsheets/${encodeURIComponent(id)}`;
+  const metadataRes = await fetch(metadataUrl, { headers: connectorHeaders() });
+  const metadata = await responseJson(metadataRes, "Inspect Bank Portal spreadsheet") as {
+    sheets?: { properties?: { title?: string } }[];
+  };
+  const exists = metadata.sheets?.some((sheet) => sheet.properties?.title === TABS.accessRequests);
+  if (exists) return;
+
+  const createUrl = `${GATEWAY}/google_sheets/v4/spreadsheets/${encodeURIComponent(id)}:batchUpdate`;
+  const createRes = await fetch(createUrl, {
+    method: "POST",
+    headers: connectorHeaders(),
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TABS.accessRequests, gridProperties: { rowCount: 1000, columnCount: headers.length } } } }] }),
+  });
+  await responseJson(createRes, "Create Portal_Access_Requests tab");
+
+  const headerUrl = `${GATEWAY}/google_sheets/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(TABS.accessRequests)}!A1:I1?valueInputOption=RAW`;
+  const headerRes = await fetch(headerUrl, {
+    method: "PUT",
+    headers: connectorHeaders(),
+    body: JSON.stringify({ values: [headers] }),
+  });
+  await responseJson(headerRes, "Initialize Portal_Access_Requests headers");
+}
+
 async function readTab(tab: string) {
   const id = await spreadsheetId();
   const url = `${GATEWAY}/google_sheets/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(tab)}!A2:Z`;
