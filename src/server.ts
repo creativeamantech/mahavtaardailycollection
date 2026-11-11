@@ -83,7 +83,7 @@ function applySecurityHeaders(response: Response): Response {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      const hasSessionCookie = (request.headers.get("cookie") ?? "").includes("mahavtaar_session=");
+      const hasSessionCookie = (request.headers.get("cookie") ?? "").includes("mahavtaar_auth=");
       if (hasSessionCookie && ["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
         const origin = request.headers.get("origin");
         if (!origin || new URL(origin).origin !== new URL(request.url).origin) {

@@ -35,9 +35,6 @@ const CACHE_TTL_MS = 60_000;
 const readCache = new Map<string, { at: number; rows: string[][] }>();
 const inFlight = new Map<string, Promise<string[][]>>();
 
-// In-memory fallback overlay when direct gateway writes/credentials are unavailable
-const localAppended = new Map<string, string[][]>();
-const localUpdated = new Map<string, Map<string, string>>();
 
 export function requireGoogleSheetsWriteAccess() {
   if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
@@ -171,30 +168,7 @@ async function fetchFromPublicSheet(range: string): Promise<string[][]> {
     console.warn(`Public Google Sheets fetch failed for ${sheetTitle}:`, err);
   }
 
-  // Deep clone to apply local overlays
   const allRows: string[][] = baseRows.map((r) => [...r]);
-
-  // Apply any locally updated cells
-  const updates = localUpdated.get(sheetTitle);
-  if (updates) {
-    for (const [key, val] of updates.entries()) {
-      const [rStr, cStr] = key.split(",");
-      const rIdx = parseInt(rStr ?? "0", 10);
-      const cIdx = parseInt(cStr ?? "0", 10);
-      while (allRows.length <= rIdx) allRows.push([]);
-      const rowArr = allRows[rIdx]!;
-      while (rowArr.length <= cIdx) rowArr.push("");
-      rowArr[cIdx] = val;
-    }
-  }
-
-  // Append any locally added rows
-  const appended = localAppended.get(sheetTitle);
-  if (appended) {
-    for (const r of appended) {
-      allRows.push([...r]);
-    }
-  }
 
   // Row 1 in sheet is index 0 in allRows. Range startRow 2 means index 1.
   const rowStartIdx = Math.max(0, startRow - 1);
@@ -351,45 +325,8 @@ export async function sheetsGetFresh(range: string): Promise<string[][]> {
 }
 
 export async function sheetsAppend(range: string, values: (string | number)[][]) {
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    try {
-      const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-        {
-          method: "POST",
-          headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-          body: JSON.stringify({ values }),
-        },
-      );
-      invalidateSheetsCache();
-      return ok(res, "Sheets append");
-    } catch (err) {
-      if (process.env["NODE_ENV"] === "production") throw err;
-      console.warn("Gateway append failed, using development-only local overlay:", err);
-    }
-  } else if (process.env["NODE_ENV"] === "production") {
-    throw new Error("Google Sheets connector is not configured in production.");
-  }
-
-  const { sheetTitle } = parseRange(range);
-  if (!localAppended.has(sheetTitle)) {
-    localAppended.set(sheetTitle, []);
-  }
-  const strRows = values.map((r) => r.map((c) => (c === null || c === undefined ? "" : String(c))));
-  localAppended.get(sheetTitle)!.push(...strRows);
-
-  // Compute calculated row number
-  let baseCount = 37;
-  try {
-    const publicData = await fetchFromPublicSheet(`${sheetTitle}!A1:A`);
-    baseCount = publicData.length;
-  } catch {
-    // fallback base count
-  }
-  const rowNum = baseCount + (localAppended.get(sheetTitle)?.length ?? 1);
-  invalidateSheetsCache();
-
-  return { updates: { updatedRange: `${sheetTitle}!A${rowNum}:J${rowNum}` } };
+  // Never report a simulated/local write as a successful Google Sheets write.
+  return sheetsAppendStrict(range, values);
 }
 
 export async function sheetsAppendStrict(range: string, values: (string | number)[][]) {
@@ -442,42 +379,8 @@ export async function sheetsBatchUpdateValuesStrict(
 }
 
 export async function sheetsUpdate(range: string, values: (string | number)[][]) {
-  if (hasCredentials("GOOGLE_SHEETS_API_KEY")) {
-    try {
-      const res = await fetch(
-        `${GATEWAY}/google_sheets/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
-        {
-          method: "PUT",
-          headers: { ...headers("GOOGLE_SHEETS_API_KEY"), "Content-Type": "application/json" },
-          body: JSON.stringify({ values }),
-        },
-      );
-      invalidateSheetsCache();
-      return ok(res, "Sheets update");
-    } catch (err) {
-      if (process.env["NODE_ENV"] === "production") throw err;
-      console.warn("Gateway update failed, using development-only local overlay:", err);
-    }
-  } else if (process.env["NODE_ENV"] === "production") {
-    throw new Error("Google Sheets connector is not configured in production.");
-  }
-
-  const { sheetTitle, startRow, startCol } = parseRange(range);
-  if (!localUpdated.has(sheetTitle)) {
-    localUpdated.set(sheetTitle, new Map());
-  }
-  const updates = localUpdated.get(sheetTitle)!;
-  for (let r = 0; r < values.length; r++) {
-    const rowValues = values[r] ?? [];
-    for (let c = 0; c < rowValues.length; c++) {
-      const targetRowIdx = startRow - 1 + r;
-      const targetColIdx = startCol + c;
-      const val = rowValues[c] === null || rowValues[c] === undefined ? "" : String(rowValues[c]);
-      updates.set(`${targetRowIdx},${targetColIdx}`, val);
-    }
-  }
-  invalidateSheetsCache();
-  return { ok: true };
+  // All writes must reach the configured Google Sheets connector or fail loudly.
+  return sheetsUpdateStrict(range, values);
 }
 
 let sheetIdCache: Record<string, number> = {};
@@ -577,14 +480,17 @@ export async function driveUpload(name: string, mimeType: string, base64: string
       );
       const file = (await ok(res, "Drive upload")) as { id: string; webViewLink?: string };
 
-      // Receipt files remain private; the application serves them through an authenticated proxy.
-      /* await fetch(`${GATEWAY}/google_drive/drive/v3/files/${file.id}/permissions`, {
-        method: "POST",
-        headers: { ...headers("GOOGLE_DRIVE_API_KEY"), "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "reader", type: "anyone" }),
-      }).catch((e) => console.error("Drive share failed", e)); */
-
-      return `/receipt/${file.id}`;
+      // User requirement: receipt/slip URLs must remain directly viewable from Drive.
+      const permissionResponse = await fetch(
+        `${GATEWAY}/google_drive/drive/v3/files/${encodeURIComponent(file.id)}/permissions`,
+        {
+          method: "POST",
+          headers: { ...headers("GOOGLE_DRIVE_API_KEY"), "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "reader", type: "anyone" }),
+        },
+      );
+      await ok(permissionResponse, "Drive public receipt permission");
+      return file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
     } catch (err) {
       if (process.env["NODE_ENV"] === "production") throw err;
       console.warn("Google Drive upload failed; using development-only data URI fallback:", err);
