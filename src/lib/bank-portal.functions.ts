@@ -280,6 +280,7 @@ export const endBankPortalSession = createServerFn({ method: "POST" })
 export const forceEndBankPortalSession = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ sessionId: z.string().min(1).max(100), reason: z.string().trim().min(3).max(500) }).parse(d))
   .handler(async ({ data }) => withSheetMutex("bank-portal-session-write", async () => {
+    await requireSession();
     const admin = await requirePortalAdmin();
     const rows = await readTab(TABS.sessions);
     const index = rows.findIndex((r) => r[0] === data.sessionId);
@@ -295,6 +296,7 @@ export const forceEndBankPortalSession = createServerFn({ method: "POST" })
 export const createBankPortalSchedule = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ executive: z.enum(BANK_PORTAL_EXECUTIVES), date: z.string(), start: z.string(), end: z.string() }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     await requirePortalAdmin();
     validateSchedule(data.date, data.start, data.end);
     return withSheetMutex("bank-portal-schedule-write", async () => {
@@ -310,6 +312,7 @@ export const createBankPortalSchedule = createServerFn({ method: "POST" })
 export const updateBankPortalSchedule = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ scheduleId: z.string().min(1).max(100), executive: z.enum(BANK_PORTAL_EXECUTIVES), date: z.string(), start: z.string(), end: z.string() }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const admin = await requirePortalAdmin();
     validateSchedule(data.date, data.start, data.end);
     return withSheetMutex("bank-portal-schedule-write", async () => {
@@ -326,6 +329,7 @@ export const updateBankPortalSchedule = createServerFn({ method: "POST" })
 export const cancelBankPortalSchedule = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ scheduleId: z.string().min(1).max(100), reason: z.string().trim().min(3).max(300) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const admin = await requirePortalAdmin();
     return withSheetMutex("bank-portal-schedule-write", async () => {
       const rows = await readTab(TABS.schedules);
@@ -350,6 +354,7 @@ export const submitBankPortalComplaint = createServerFn({ method: "POST" })
 export const resolveBankPortalComplaint = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ complaintId: z.string().min(1).max(100), remark: z.string().trim().min(1).max(1000), settingsPassword: z.string().max(200).optional() }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const admin = await requirePortalAdmin(data.settingsPassword);
     const rows = await readTab(TABS.complaints);
     const index = rows.findIndex((r) => r[0] === data.complaintId);
@@ -362,6 +367,7 @@ export const resolveBankPortalComplaint = createServerFn({ method: "POST" })
 export const issueBankPortalWarning = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ executiveName: z.enum(BANK_PORTAL_EXECUTIVES), reason: z.string().trim().min(1).max(1000) }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession();
     const admin = await requirePortalAdmin();
     const id = "BPW-" + crypto.randomUUID();
     await appendTab(TABS.warnings, [[id, data.executiveName, isoNow(), data.reason, admin.name, "No"]]);
