@@ -70,7 +70,7 @@ async function readState(name: string, isAdmin: boolean) {
     numbers: [numbers?.[2] ?? "", numbers?.[3] ?? ""].filter(Boolean),
     creditTotal: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) : creditTotal,
     used: isAdmin ? requestRows.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0) : used,
-    balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => ["approved", "pending"].includes((r[7] ?? "").toLowerCase())).reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used - pending,
+    balance: isAdmin ? creditRows.reduce((sum, r) => sum + money(r[3]), 0) - requestRows.filter(r => (r[7] ?? "").toLowerCase() === "approved").reduce((sum, r) => sum + money(r[4]), 0) : creditTotal - used,
     credits: isAdmin ? allCredits : allCredits.filter(r => r.name.toLowerCase() === name.toLowerCase()),
     requests: isAdmin ? allRequests : allRequests.filter(r => r.executive.toLowerCase() === name.toLowerCase()),
   };
