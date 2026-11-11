@@ -231,11 +231,19 @@ export const requestBankPortalAccess = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requireSession();
     if (session.role === "Admin") throw new Error("Admin does not need to request access.");
-    const [presets, requests] = await Promise.all([readTab(TABS.presets), readTab(TABS.accessRequests)]);
+    const [presets, requests, sessions] = await Promise.all([
+      readTab(TABS.presets), readTab(TABS.accessRequests), readTab(TABS.sessions),
+    ]);
+    if (sessions.some((row) => isActive(row[7]))) {
+      throw new Error("The Bank Portal is currently in use. Access requests are available only when the portal is free.");
+    }
     const now = new Date();
     const parts = indiaTime(now).split(":");
     const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
-    const owner = findCurrentPreset(presets, nowMinutes);
+    const batchReserved = nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30;
+    const owner = batchReserved
+      ? ["ANKITA-BATCH", "Ankita", "SLOT_BATCH", "18:30", "19:30"]
+      : findCurrentPreset(presets, nowMinutes);
     if (!owner?.[1] || owner[1] === session.name) throw new Error("There is no other Executive slot owner to receive this request right now.");
     if (requests.some((r) => r[1] === session.name && r[6] === "Pending" && r[2] === owner[1]))
       throw new Error("You already have a pending request for this slot.");
