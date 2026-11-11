@@ -18,18 +18,16 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAdminLoanAuditRouteImport } from './routes/_authenticated/admin-loan-audit'
 import { Route as AuthenticatedAlreadyPaidRouteImport } from './routes/_authenticated/already-paid'
 import { Route as AuthenticatedBankPortalRouteImport } from './routes/_authenticated/bank-portal'
-import { Route as AuthenticatedCollectionSheetRouteImport } from './routes/_authenticated/collection-sheet'
 import { Route as AuthenticatedConflictsRouteImport } from './routes/_authenticated/conflicts'
+import { Route as AuthenticatedCollectionSheetRouteImport } from './routes/_authenticated/collection-sheet'
 import { Route as AuthenticatedEcsRouteImport } from './routes/_authenticated/ecs'
 import { Route as AuthenticatedExcludedLoansRouteImport } from './routes/_authenticated/excluded-loans'
 import { Route as AuthenticatedExecutiveCitiesRouteImport } from './routes/_authenticated/executive-cities'
 import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
-import { Route as AuthenticatedMasterPerformanceRouteImport } from './routes/_authenticated/master-performance'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedPendingRouteImport } from './routes/_authenticated/pending'
-import { Route as AuthenticatedReceiptGalleryRouteImport } from './routes/_authenticated/receipt-gallery'
-import { Route as AuthenticatedRechargeRouteImport } from './routes/_authenticated/recharge'
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
+import { Route as AuthenticatedReceiptGalleryRouteImport } from './routes/_authenticated/receipt-gallery'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as ReceiptFileIdRouteImport } from './routes/receipt.$fileId'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -81,12 +79,11 @@ const AuthenticatedBankPortalRoute = AuthenticatedBankPortalRouteImport.update({
   path: '/bank-portal',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCollectionSheetRoute =
-  AuthenticatedCollectionSheetRouteImport.update({
-    id: '/collection-sheet',
-    path: '/collection-sheet',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
+const AuthenticatedCollectionSheetRoute = AuthenticatedCollectionSheetRouteImport.update({
+  id: '/collection-sheet',
+  path: '/collection-sheet',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConflictsRoute = AuthenticatedConflictsRouteImport.update({
   id: '/conflicts',
   path: '/conflicts',
@@ -114,12 +111,6 @@ const AuthenticatedLoansRoute = AuthenticatedLoansRouteImport.update({
   path: '/loans',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedMasterPerformanceRoute =
-  AuthenticatedMasterPerformanceRouteImport.update({
-    id: '/master-performance',
-    path: '/master-performance',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedNotificationsRoute =
   AuthenticatedNotificationsRouteImport.update({
     id: '/notifications',
@@ -131,15 +122,9 @@ const AuthenticatedPendingRoute = AuthenticatedPendingRouteImport.update({
   path: '/pending',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedReceiptGalleryRoute =
-  AuthenticatedReceiptGalleryRouteImport.update({
-    id: '/receipt-gallery',
-    path: '/receipt-gallery',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedRechargeRoute = AuthenticatedRechargeRouteImport.update({
-  id: '/recharge',
-  path: '/recharge',
+const AuthenticatedReceiptGalleryRoute = AuthenticatedReceiptGalleryRouteImport.update({
+  id: '/receipt-gallery',
+  path: '/receipt-gallery',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedReportRoute = AuthenticatedReportRouteImport.update({
@@ -178,11 +163,9 @@ export interface FileRoutesByFullPath {
   '/excluded-loans': typeof AuthenticatedExcludedLoansRoute
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
-  '/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pending': typeof AuthenticatedPendingRoute
   '/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
-  '/recharge': typeof AuthenticatedRechargeRoute
   '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/receipt/$fileId': typeof ReceiptFileIdRoute
@@ -198,15 +181,13 @@ export interface FileRoutesByTo {
   '/bank-portal': typeof AuthenticatedBankPortalRoute
   '/collection-sheet': typeof AuthenticatedCollectionSheetRoute
   '/conflicts': typeof AuthenticatedConflictsRoute
+  '/conflicts': typeof AuthenticatedConflictsRoute
   '/ecs': typeof AuthenticatedEcsRoute
   '/excluded-loans': typeof AuthenticatedExcludedLoansRoute
   '/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/loans': typeof AuthenticatedLoansRoute
-  '/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pending': typeof AuthenticatedPendingRoute
-  '/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
-  '/recharge': typeof AuthenticatedRechargeRoute
   '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/receipt/$fileId': typeof ReceiptFileIdRoute
@@ -229,11 +210,9 @@ export interface FileRoutesById {
   '/_authenticated/excluded-loans': typeof AuthenticatedExcludedLoansRoute
   '/_authenticated/executive-cities': typeof AuthenticatedExecutiveCitiesRoute
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
-  '/_authenticated/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/pending': typeof AuthenticatedPendingRoute
   '/_authenticated/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
-  '/_authenticated/recharge': typeof AuthenticatedRechargeRoute
   '/_authenticated/report': typeof AuthenticatedReportRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/receipt/$fileId': typeof ReceiptFileIdRoute
@@ -257,11 +236,9 @@ export interface FileRouteTypes {
     | '/excluded-loans'
     | '/executive-cities'
     | '/loans'
-    | '/master-performance'
     | '/notifications'
     | '/pending'
     | '/receipt-gallery'
-    | '/recharge'
     | '/report'
     | '/settings'
     | '/receipt/$fileId'
@@ -281,11 +258,8 @@ export interface FileRouteTypes {
     | '/excluded-loans'
     | '/executive-cities'
     | '/loans'
-    | '/master-performance'
     | '/notifications'
     | '/pending'
-    | '/receipt-gallery'
-    | '/recharge'
     | '/report'
     | '/settings'
     | '/receipt/$fileId'
@@ -307,11 +281,8 @@ export interface FileRouteTypes {
     | '/_authenticated/excluded-loans'
     | '/_authenticated/executive-cities'
     | '/_authenticated/loans'
-    | '/_authenticated/master-performance'
     | '/_authenticated/notifications'
     | '/_authenticated/pending'
-    | '/_authenticated/receipt-gallery'
-    | '/_authenticated/recharge'
     | '/_authenticated/report'
     | '/_authenticated/settings'
     | '/receipt/$fileId'
@@ -436,13 +407,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLoansRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/master-performance': {
-      id: '/_authenticated/master-performance'
-      path: '/master-performance'
-      fullPath: '/master-performance'
-      preLoaderRoute: typeof AuthenticatedMasterPerformanceRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/notifications': {
       id: '/_authenticated/notifications'
       path: '/notifications'
@@ -462,13 +426,6 @@ declare module '@tanstack/react-router' {
       path: '/receipt-gallery'
       fullPath: '/receipt-gallery'
       preLoaderRoute: typeof AuthenticatedReceiptGalleryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/recharge': {
-      id: '/_authenticated/recharge'
-      path: '/recharge'
-      fullPath: '/recharge'
-      preLoaderRoute: typeof AuthenticatedRechargeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/report': {
@@ -512,12 +469,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedExcludedLoansRoute: typeof AuthenticatedExcludedLoansRoute
   AuthenticatedExecutiveCitiesRoute: typeof AuthenticatedExecutiveCitiesRoute
   AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
-  AuthenticatedMasterPerformanceRoute: typeof AuthenticatedMasterPerformanceRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPendingRoute: typeof AuthenticatedPendingRoute
-  AuthenticatedReceiptGalleryRoute: typeof AuthenticatedReceiptGalleryRoute
-  AuthenticatedRechargeRoute: typeof AuthenticatedRechargeRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
+  AuthenticatedReceiptGalleryRoute: typeof AuthenticatedReceiptGalleryRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
@@ -532,12 +487,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedExcludedLoansRoute: AuthenticatedExcludedLoansRoute,
   AuthenticatedExecutiveCitiesRoute: AuthenticatedExecutiveCitiesRoute,
   AuthenticatedLoansRoute: AuthenticatedLoansRoute,
-  AuthenticatedMasterPerformanceRoute: AuthenticatedMasterPerformanceRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPendingRoute: AuthenticatedPendingRoute,
-  AuthenticatedReceiptGalleryRoute: AuthenticatedReceiptGalleryRoute,
-  AuthenticatedRechargeRoute: AuthenticatedRechargeRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,
+  AuthenticatedReceiptGalleryRoute: AuthenticatedReceiptGalleryRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
