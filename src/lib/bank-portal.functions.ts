@@ -148,6 +148,7 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
     session,
     activeSession: activeSession ? { id: activeSession[0] ?? "", loginDate: activeSession[2] ?? "", loginTime: activeSession[3] ?? "" } : null,
     schedules: todaySchedules.map((r) => ({ id: r[0] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
+    portalTimings: todaysAll.sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? "")).map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     isAdmin: session.role === "Admin",
     slotOwner: slotOwner ? { name: slotOwner[1] ?? "", start: slotOwner[3] ?? "", end: slotOwner[4] ?? "" } : null,
     accessRequests: relevantRequests,
