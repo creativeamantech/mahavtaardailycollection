@@ -209,7 +209,7 @@ function BankPortalPage() {
       <section className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
         <p className="font-semibold">Bank Portal operating rules</p>
         <ul className="mt-1 list-disc space-y-1 pl-5 text-xs sm:text-sm">
-          <li>6:30 PM–7:30 PM is reserved for batch work; executive sessions are paused.</li>
+          <li>6:30 PM–7:30 PM is Ankita's exclusive batch-work slot; other executives cannot access the portal during this window.</li>
           <li>Outside office hours (before 10:00 AM or from 7:30 PM), executive sessions are limited to 10 minutes.</li>
           <li>Admin can activate the portal for urgent or important work, including during reserved time.</li>
           <li>All executives must remain active and attentive in the group.</li>
