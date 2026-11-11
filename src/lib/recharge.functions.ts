@@ -69,7 +69,7 @@ async function readState(name: string, isAdmin: boolean) {
   }));
   const allRequests = requestRows.map(r => ({
     id: r[0] ?? "", executive: r[2] ?? "", number: r[3] ?? "", amount: money(r[4]),
-    screenshot: r[5] ?? "", date: r[6] ?? "", status: r[7] || "Pending", note: r[8] ?? "",
+    screenshot: r[5] ?? "", date: r[6] ?? "", status: r[7] || "Completed", note: r[8] ?? "", slot: r[11] ?? "",
   }));
   return {
     numbers: [numbers?.[2] ?? "", numbers?.[3] ?? ""],
