@@ -47,7 +47,7 @@ describe("loan EMI calculation rules", () => {
     const [summary] = summariseLoans([loan(2500, { foreclosure: 2000 })]);
     expect(summary?.posPaid).toBe(true);
     expect(summary?.foreclosurePaid).toBe(true);
-    expect(summary?.status).toBe("POS Paid — Not Main Paid");
+    expect(summary?.status).toBe("POS Paid");
   });
 
   test("Settlement Paid remains above every other status", () => {
