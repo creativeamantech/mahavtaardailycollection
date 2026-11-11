@@ -159,6 +159,7 @@ export const submitBankPortalComplaint = createServerFn({ method: "POST" })
 export const resolveBankPortalComplaint = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ complaintId: z.string().min(1).max(100), remark: z.string().trim().min(1).max(1000), settingsPassword: z.string().max(200).optional() }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession(); // Explicit guard for server-function auth coverage.
     const admin = await requirePortalAdmin(data.settingsPassword);
     const rows = await readTab(TABS.complaints);
     const index = rows.findIndex((r) => r[0] === data.complaintId);
@@ -171,6 +172,7 @@ export const resolveBankPortalComplaint = createServerFn({ method: "POST" })
 export const issueBankPortalWarning = createServerFn({ method: "POST" })
   .validator((d: unknown) => z.object({ executiveName: z.string().trim().min(1).max(100), reason: z.string().trim().min(1).max(1000), settingsPassword: z.string().max(200).optional() }).parse(d))
   .handler(async ({ data }) => {
+    await requireSession(); // Explicit guard for server-function auth coverage.
     const admin = await requirePortalAdmin(data.settingsPassword);
     const id = `BPW-${crypto.randomUUID()}`;
     await appendTab(TABS.warnings, [[id, data.executiveName, isoNow(), data.reason, admin.name, "No"]]);
