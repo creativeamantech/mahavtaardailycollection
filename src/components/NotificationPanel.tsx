@@ -73,7 +73,7 @@ export function toDirectDriveUrl(url: string) {
 
 export function toDriveViewUrl(url: string) {
   if (!url) return "";
-  let fileId = /^\/receipt\\/([A-Za-z0-9_-]{20,100})$/.exec(url)?.[1] ?? "";
+  let fileId = url.startsWith("/receipt/") ? url.slice("/receipt/".length) : "";
   try {
     const parsed = new URL(url);
     fileId ||= parsed.searchParams.get("id") ?? "";
@@ -83,8 +83,9 @@ export function toDriveViewUrl(url: string) {
       if (marker >= 0) fileId = parts[marker + 1] ?? "";
     }
   } catch {
-    const match = /\/d\\/([A-Za-z0-9_-]{20,100})/.exec(url);
-    fileId ||= match?.[1] ?? "";
+    const parts = url.split("/");
+    const marker = parts.findIndex((part) => part === "d");
+    if (marker >= 0) fileId ||= parts[marker + 1] ?? "";
   }
   return /^[A-Za-z0-9_-]{20,100}$/.test(fileId)
     ? `https://drive.google.com/file/d/${fileId}/view`
