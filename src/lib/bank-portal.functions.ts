@@ -152,7 +152,9 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   const parts = indiaTime().split(":");
   const nowMinutes = Number(parts[0]) * 60 + Number(parts[1]);
   const todaysAll = schedules.filter((r) => r[2] === today && Boolean(r[1] && r[3] && r[4]) && (r[5] ?? "").toLowerCase() !== "cancelled");
-  const slotOwner = findCurrentSlot(schedules, today, nowMinutes);
+  const currentSlot = todaysAll.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
+  const nextSlot = todaysAll.filter((r) => timeToMinutes(r[3]) > nowMinutes).sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? ""))[0];
+  const slotOwner = currentSlot ?? nextSlot;
   const activeSession = sessions.find((r) => r[1] === session.name && isActive(r[7]));
   const relevantRequests = accessRequests.map((r, i) => ({
     row: i + 2, id: r[0] ?? "", requester: r[1] ?? "", recipient: r[2] ?? "",
@@ -170,6 +172,8 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
     portalTimings: todaysAll.sort((a, b) => (a[3] ?? "").localeCompare(b[3] ?? "")).map((r) => ({ id: r[0] ?? "", executive: r[1] ?? "", start: r[3] ?? "", end: r[4] ?? "", status: r[5] ?? "" })),
     isAdmin: session.role === "Admin",
     slotOwner: slotOwner ? { name: slotOwner[1] ?? "", start: slotOwner[3] ?? "", end: slotOwner[4] ?? "" } : null,
+    currentSlotOwner: currentSlot ? { name: currentSlot[1] ?? "", start: currentSlot[3] ?? "", end: currentSlot[4] ?? "" } : null,
+    nextSlotOwner: nextSlot ? { name: nextSlot[1] ?? "", start: nextSlot[3] ?? "", end: nextSlot[4] ?? "" } : null,
     accessRequests: relevantRequests,
     complaints: complaints.filter((r) => session.role === "Admin" || r[2] === session.name).map((r) => ({
       id: r[0] ?? "", executive: r[2] ?? "", dateTime: r[3] ?? "", type: r[4] ?? "", description: r[5] ?? "", status: r[6] ?? "", remark: r[7] ?? "",
