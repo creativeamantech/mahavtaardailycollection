@@ -23,6 +23,16 @@ import { toast } from "sonner";
 
 const BANK_PORTAL_EXECUTIVES = ["Aarti", "Ankita", "Bharti", "Julee", "Pooja", "Sunanda", "Vinita"] as const;
 
+const BANK_PORTAL_EXECUTIVE_PRESETS: Record<(typeof BANK_PORTAL_EXECUTIVES)[number], { morning: [string, string]; afternoon: [string, string] }> = {
+  Aarti: { morning: ["10:00", "10:29"], afternoon: ["15:01", "15:30"] },
+  Bharti: { morning: ["10:29", "10:58"], afternoon: ["15:30", "15:59"] },
+  Pooja: { morning: ["10:58", "11:27"], afternoon: ["15:59", "16:28"] },
+  Vinita: { morning: ["11:27", "11:56"], afternoon: ["16:28", "16:57"] },
+  Ankita: { morning: ["11:56", "12:25"], afternoon: ["16:57", "17:26"] },
+  Sunanda: { morning: ["12:25", "12:54"], afternoon: ["17:26", "17:55"] },
+  Julee: { morning: ["13:53", "14:22"], afternoon: ["17:55", "18:24"] },
+};
+
 export const Route = createFileRoute("/_authenticated/bank-portal")({
   component: BankPortalPage,
 });
@@ -267,7 +277,7 @@ function BankPortalPage() {
             <label className="grid gap-1 text-xs font-semibold text-slate-600">Date<Input type="date" value={schedule.date} onChange={(e) => setSchedule((old) => ({ ...old, date: e.target.value }))} required /></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">Start time<Input type="time" value={schedule.start} onChange={(e) => setSchedule((old) => ({ ...old, start: e.target.value }))} required /></label>
             <label className="grid gap-1 text-xs font-semibold text-slate-600">End time<Input type="time" value={schedule.end} onChange={(e) => setSchedule((old) => ({ ...old, end: e.target.value }))} required /></label>
-            <div className="flex flex-wrap gap-2 sm:col-span-2"><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: "10:00", end: "11:30" }))}>Morning · 10:00–11:30</Button><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: "14:00", end: "15:30" }))}>Afternoon · 14:00–15:30</Button></div>
+            <div className="flex flex-wrap gap-2 sm:col-span-2"><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: BANK_PORTAL_EXECUTIVE_PRESETS[old.executive].morning[0], end: BANK_PORTAL_EXECUTIVE_PRESETS[old.executive].morning[1] }))}>Slot 1 · {schedule.executive} ({BANK_PORTAL_EXECUTIVE_PRESETS[schedule.executive].morning[0]}–{BANK_PORTAL_EXECUTIVE_PRESETS[schedule.executive].morning[1]})</Button><Button type="button" size="sm" variant="outline" onClick={() => setSchedule((old) => ({ ...old, start: BANK_PORTAL_EXECUTIVE_PRESETS[old.executive].afternoon[0], end: BANK_PORTAL_EXECUTIVE_PRESETS[old.executive].afternoon[1] }))}>Slot 2 · {schedule.executive} ({BANK_PORTAL_EXECUTIVE_PRESETS[schedule.executive].afternoon[0]}–{BANK_PORTAL_EXECUTIVE_PRESETS[schedule.executive].afternoon[1]})</Button></div>
             <div className="flex gap-2 sm:col-span-2"><Button type="submit" disabled={busy || !schedule.date}>{scheduleEditingId ? "Save Changes" : "Allocate Slot"}</Button>{scheduleEditingId && <Button type="button" variant="outline" onClick={() => { setScheduleEditingId(""); setSchedule((old) => ({ ...old, start: "10:00", end: "11:30" })); }}>Cancel Edit</Button>}</div>
           </form>
           <p className="mt-2 text-xs text-muted-foreground">Overlapping slots are blocked. To reallocate, edit the existing slot or cancel it with a reason.</p>
