@@ -26,7 +26,7 @@ function readUsers(): User[] {
   if (!raw?.trim()) throw new Error("LOGIN_CREDENTIALS secret is not configured.");
   const users: User[] = [];
   const seen = new Set<string>();
-  const entries = raw.split(/[;\\r\\n]+/);
+  const entries = raw.split(/[;\r\n]+/);
   for (const [index, line] of entries.entries()) {
     const entry = line.trim();
     if (!entry) continue;
