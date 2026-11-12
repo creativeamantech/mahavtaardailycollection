@@ -119,7 +119,7 @@ function PaidFilePage() {
   async function onFile(file?: File) {
     if (!file) return;
     if (!/\.(xlsb|xlsx|xls|csv)$/i.test(file.name)) { toast.error("Choose an XLSB, XLSX, XLS or CSV file."); return; }
-    setBusy(true); setApplied(false); setRows([]); setSheets([]); setProgress(0);
+    setBusy(true); setApplied(false); setRows([]); setSheets([]); setExpandedId(null); setProgress(0);
     setFileName(file.name);
     try {
       setLoadingMaster(true);
@@ -188,7 +188,10 @@ function PaidFilePage() {
           <div className="self-end text-sm text-muted-foreground">Confirm detected column names or select the correct column manually.</div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {fields.map(field => <div key={field.key}><label className="mb-1 block text-xs font-semibold">{field.label}{field.required ? " *" : " (optional)"}</label><select className="h-10 w-full min-w-0 rounded-md border bg-white px-2 text-sm" value={mapping[field.key]} onChange={e=>setMapping(prev=>({...prev,[field.key]:Number(e.target.value)}))}><option value={-1}>Not mapped</option>{(sheets.find(s=>s.name===sheetName)?.headers ?? []).map((h,i)=><option key={i} value={i}>{h || "Column "+(i+1)}</option>)}</select></div>)}
+          <p className="col-span-full text-xs font-bold uppercase tracking-wide text-amber-800">Identity & payment amounts</p>
+          {fields.slice(0, 4).map(field => <div key={field.key} className="min-w-0 rounded-lg border bg-slate-50/60 p-2"><label className="mb-1 block text-xs font-semibold">{field.label}{field.required ? " *" : " (optional)"}</label><select className="h-10 w-full min-w-0 rounded-md border bg-white px-2 text-sm" value={mapping[field.key]} onChange={e=>setMapping(prev=>({...prev,[field.key]:Number(e.target.value)}))}><option value={-1}>Not mapped</option>{(sheets.find(s=>s.name===sheetName)?.headers ?? []).map((h,i)=><option key={i} value={i}>{h || "Column "+(i+1)}</option>)}</select></div>)}
+          <p className="col-span-full pt-1 text-xs font-bold uppercase tracking-wide text-amber-800">Optional allocation amounts</p>
+          {fields.slice(4).map(field => <div key={field.key} className="min-w-0 rounded-lg border bg-slate-50/60 p-2"><label className="mb-1 block text-xs font-semibold">{field.label} (optional)</label><select className="h-10 w-full min-w-0 rounded-md border bg-white px-2 text-sm" value={mapping[field.key]} onChange={e=>setMapping(prev=>({...prev,[field.key]:Number(e.target.value)}))}><option value={-1}>Not mapped</option>{(sheets.find(s=>s.name===sheetName)?.headers ?? []).map((h,i)=><option key={i} value={i}>{h || "Column "+(i+1)}</option>)}</select></div>)}
         </div>
         <Button onClick={processSheet} disabled={busy || !sheetName}>Process selected worksheet</Button>
       </section>}
