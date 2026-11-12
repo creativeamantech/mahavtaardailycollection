@@ -135,6 +135,8 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     const admin = await requireSession("Admin");
     const master = await readMaster(data.target);
     const { file, cols } = master;
+    const calculatedDac = data.changes.reduce((sum, change) => sum + change.dac, 0);
+    if (Math.abs(calculatedDac - data.totalDac) > 0.01) throw new Error("Submitted DAC total does not match the validated change set.");
     const fingerprint = createHash("sha256").update([data.fileName, data.totalDac.toFixed(2), String(data.changes.length), data.fileDate].join("|")).digest("hex");
     await ensureAuditTab(file.id);
     const auditRows = await values(file.id, "'Paid_File_Audit_Log'!A:H");
