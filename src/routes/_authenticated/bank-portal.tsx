@@ -231,7 +231,7 @@ function BankPortalPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Live portal status</p>
-            {portalInUse ? <p className="mt-1 truncate text-sm font-bold text-slate-900">{portalInUse.executive} is using the Bank Portal</p> : <p className="mt-1 text-sm font-bold text-slate-900">Portal Free</p>}
+            {portalInUse ? <p className="mt-1 truncate text-sm font-bold text-slate-900">{portalInUse.isAdminSession ? "Admin is using the Bank Portal" : portalInUse.executive + " is using the Bank Portal"}</p> : <p className="mt-1 text-sm font-bold text-slate-900">Portal Free</p>}
             <p className="mt-1 text-xs text-slate-600">{portalInUse ? "Started " + portalInUse.loginTime + " · active for " + formatMinutes(Math.max(0, Math.floor((Date.now() - portalInUse.startedAt) / 60_000))) : nextSlot ? "Next slot: " + nextSlot.name + " at " + nextSlot.start : "No further slot scheduled today"}</p>
           </div>
           <span className={"shrink-0 rounded-full px-3 py-1 text-xs font-bold " + (portalInUse ? "bg-amber-200 text-amber-950" : "bg-white text-slate-700 border border-slate-200")}>{portalInUse ? "IN USE" : "AVAILABLE"}</span>
