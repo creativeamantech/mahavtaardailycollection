@@ -121,21 +121,22 @@ async function ensureAuditTab(id: string) {
   await checked(sheetsUrl(id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!A1:H1") + "?valueInputOption=RAW"), "GOOGLE_SHEETS_API_KEY", { method: "PUT", body: JSON.stringify({ values: [["Timestamp (IST)", "Admin Name", "File Name", "Records Applied", "Total DAC (₹)", "Total SFDC (₹)", "Total Online (₹)", "Batch Fingerprint"]] }) });
 }
 async function retryFetch(url: string, init: RequestInit) {
-  let lastError: unknown;
   for (let attempt = 0; attempt < 4; attempt++) {
+    let response: Response;
     try {
-      const response = await fetch(url, init);
-      if (response.ok) return;
-      const body = await response.text();
-      const retryable = response.status === 429 || response.status >= 500;
-      if (!retryable || attempt === 3) throw new Error("Google Sheets batch update failed (" + response.status + "): " + body.slice(0, 300));
+      response = await fetch(url, init);
     } catch (error) {
-      lastError = error;
-      if (attempt === 3 || (error instanceof Error && /^Google Sheets batch update failed \((?!429|5\\d\\d)/.test(error.message))) throw error;
+      if (attempt === 3) throw error;
+      await new Promise(resolve => setTimeout(resolve, 500 * 2 ** attempt));
+      continue;
     }
+    if (response.ok) return;
+    const body = await response.text();
+    const retryable = response.status === 429 || response.status >= 500;
+    if (!retryable || attempt === 3) throw new Error("Google Sheets batch update failed (" + response.status + "): " + body.slice(0, 300));
     await new Promise(resolve => setTimeout(resolve, 500 * 2 ** attempt));
   }
-  throw lastError instanceof Error ? lastError : new Error("Google Sheets retry limit exceeded.");
+  throw new Error("Google Sheets retry limit exceeded.");
 }
 export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => applySchema.parse(v))
