@@ -6,8 +6,8 @@ import { SPREADSHEET_ID } from "./mahavtaar.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
-type Target = "monthly-master" | "daily-collections";
-type DriveFile = { id: string; name: string; webViewLink?: string };
+type Target = "monthly-master";
+type DriveFile = { id: string; name: string; webViewLink?: string; modifiedTime?: string };
 type MasterRow = { row: number; agreementId: string; existingTotal: number; existingDac: number; bucket: string; city: string; customer?: string; executive?: string };
 const changeSchema = z.object({
   row: z.number().int().positive(),
@@ -18,7 +18,7 @@ const changeSchema = z.object({
   special: z.number().finite().optional().default(0),
 });
 const applySchema = z.object({
-  target: z.enum(["monthly-master", "daily-collections"]),
+  target: z.literal("monthly-master"),
   fileName: z.string().trim().min(1).max(240),
   fileDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   totalDac: z.number().finite(),
@@ -44,15 +44,31 @@ async function findMonthlyMaster(): Promise<DriveFile> {
   const url = new URL(GATEWAY + "/google_drive/drive/v3/files");
   url.searchParams.set("q", "name = '" + monthTitle().replace(/'/g, "\\'") + "' and mimeType = '" + SHEET_MIME + "' and trashed = false");
   url.searchParams.set("pageSize", "20");
-  url.searchParams.set("fields", "files(id,name,webViewLink)");
+  url.searchParams.set("orderBy", "modifiedTime desc");\n  url.searchParams.set("fields", "files(id,name,webViewLink,modifiedTime,mimeType,trashed)");
   const result = await checked<{ files?: DriveFile[] }>(url.toString(), "GOOGLE_DRIVE_API_KEY");
   if ((result.files ?? []).length !== 1) throw new Error("Expected exactly one current-month Master Allocation file. Found " + (result.files ?? []).length + ".");
   return result.files![0]!;
 }
-async function resolveTarget(target: Target) {
-  if (target === "daily-collections") return { id: SPREADSHEET_ID, name: "Main Daily Collection", tab: "Collections", url: "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID };
+async function resolveTarget(_target: Target) {
   const file = await findMonthlyMaster();
-  return { id: file.id, name: file.name, tab: "Master Allocation Data", url: file.webViewLink ?? "https://docs.google.com/spreadsheets/d/" + file.id };
+  const metadata = await checked<{ sheets?: { properties?: { title?: string } }[] }>(
+    sheetsUrl(file.id, "?fields=sheets.properties.title"),
+    "GOOGLE_SHEETS_API_KEY",
+  );
+  const tabs = (metadata.sheets ?? []).map(sheet => sheet.properties?.title).filter((title): title is string => Boolean(title));
+  const preferred = ["Data", "Master Allocation Data"];
+  let tab = preferred.find(name => tabs.includes(name));
+  if (!tab) {
+    for (const candidate of tabs) {
+      const header = await values(file.id, "'" + candidate.replace(/'/g, "''") + "'!A1:ZZ1");
+      if (findCol(header[0] ?? [], ["Agreement ID", "AgreementID", "Agreement_Id", "Loan No", "Loan Number", "Account No", "LAN", "Loan ID"]) >= 0) {
+        tab = candidate;
+        break;
+      }
+    }
+  }
+  if (!tab) throw new Error("No Master Allocation data tab found. Expected Data, Master Allocation Data, or a worksheet with an Agreement ID header.");
+  return { id: file.id, name: file.name, tab, url: file.webViewLink ?? "https://docs.google.com/spreadsheets/d/" + file.id };
 }
 async function values(id: string, range: string): Promise<string[][]> {
   const result = await checked<{ values?: string[][] }>(sheetsUrl(id, "/values/" + encodeURIComponent(range)), "GOOGLE_SHEETS_API_KEY");
@@ -77,7 +93,7 @@ function columnLetter(index: number) {
   for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) result = String.fromCharCode(65 + ((n - 1) % 26)) + result;
   return result;
 }
-async function readMaster(target: Target) {
+async function readMaster(target: Target = "monthly-master") {
   const file = await resolveTarget(target);
   const headerRows = await values(file.id, "'" + file.tab + "'!A1:ZZ1");
   if (!headerRows.length) throw new Error("The target sheet has no header row.");
@@ -107,7 +123,7 @@ async function readMaster(target: Target) {
   return { file, cols, data };
 }
 export const fetchMasterMatchingData = createServerFn({ method: "POST" })
-  .inputValidator((v: unknown) => z.object({ target: z.enum(["monthly-master", "daily-collections"]) }).parse(v))
+  .inputValidator((v: unknown) => z.object({ target: z.literal("monthly-master") }).parse(v))
   .handler(async ({ data }) => {
     await requireSession("Admin");
     const master = await readMaster(data.target);
