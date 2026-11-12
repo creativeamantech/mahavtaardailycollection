@@ -41,7 +41,7 @@ function monthTitle() {
 }
 async function findMonthlyMaster(): Promise<DriveFile> {
   const url = new URL(GATEWAY + "/google_drive/drive/v3/files");
-  url.searchParams.set("q", "name = '" + monthTitle().replace(/'/g, "\\'") + "' and mimeType = '" + SHEET_MIME + "' and trashed = false");
+  url.searchParams.set("q", "name contains '" + monthTitle().replace(/'/g, "\\'") + "' and mimeType = '" + SHEET_MIME + "' and trashed = false");
   url.searchParams.set("pageSize", "20");
   url.searchParams.set("orderBy", "modifiedTime desc");
   url.searchParams.set("fields", "files(id,name,webViewLink,modifiedTime,mimeType,trashed)");
