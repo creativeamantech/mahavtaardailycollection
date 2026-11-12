@@ -142,7 +142,7 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     if (duplicate) throw new Error("This Paid File has already been applied on " + String(duplicate[0] ?? "an earlier date") + " by " + String(duplicate[1] ?? "an Admin") + ".");
     const masterByRow = new Map(master.data.map(r => [r.row, r]));
     const seen = new Set<number>();
-    const ranges: { range: string; values: (string | number)[][] }[] = [];
+    const rowRanges: { range: string; values: (string | number)[][] }[][] = [];
     const colLetter = (n: number) => { let s = ""; for (let x = n + 1; x; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + (x - 1) % 26) + s; return s; };
     for (const change of data.changes) {
       if (seen.has(change.row)) throw new Error("Duplicate target row in submitted change set: " + change.row);
@@ -152,13 +152,15 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
       const current = masterByRow.get(change.row);
       if (!current || current.agreementId !== normaliseId(change.agreementId)) throw new Error("Master Sheet changed after preview. Refresh and reconcile again (row " + change.row + ").");
       if (Math.abs((current.existingTotal + change.dac) - change.newTotal) > 0.01) throw new Error("Invalid New Total for Agreement ID " + change.agreementId + ".");
-      ranges.push({ range: "'" + file.tab + "'!" + colLetter(cols.newTotal) + change.row, values: [[change.newTotal]] });
-      if (cols.dac >= 0) ranges.push({ range: "'" + file.tab + "'!" + colLetter(cols.dac) + change.row, values: [[change.dac]] });
-      if (change.ecs && cols.ecs >= 0) ranges.push({ range: "'" + file.tab + "'!" + colLetter(cols.ecs) + change.row, values: [[change.ecs]] });
-      if (change.special && cols.special >= 0) ranges.push({ range: "'" + file.tab + "'!" + colLetter(cols.special) + change.row, values: [[change.special]] });
+      const updates: { range: string; values: (string | number)[][] }[] = [];
+      updates.push({ range: "'" + file.tab + "'!" + colLetter(cols.newTotal) + change.row, values: [[change.newTotal]] });
+      if (cols.dac >= 0) updates.push({ range: "'" + file.tab + "'!" + colLetter(cols.dac) + change.row, values: [[change.dac]] });
+      if (change.ecs && cols.ecs >= 0) updates.push({ range: "'" + file.tab + "'!" + colLetter(cols.ecs) + change.row, values: [[change.ecs]] });
+      if (change.special && cols.special >= 0) updates.push({ range: "'" + file.tab + "'!" + colLetter(cols.special) + change.row, values: [[change.special]] });
+      rowRanges.push(updates);
     }
-    const chunks: typeof ranges[] = [];
-    for (let i = 0; i < ranges.length; i += 1200) chunks.push(ranges.slice(i, i + 1200));
+    const chunks: { range: string; values: (string | number)[][] }[][] = [];
+    for (let i = 0; i < rowRanges.length; i += 300) chunks.push(rowRanges.slice(i, i + 300).flat());
     for (let i = 0; i < chunks.length; i++) {
       await retryFetch(sheetsUrl(file.id, "/values:batchUpdate"), { method: "POST", headers: authHeaders("GOOGLE_SHEETS_API_KEY"), body: JSON.stringify({ valueInputOption: "RAW", data: chunks[i] }) });
     }
