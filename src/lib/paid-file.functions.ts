@@ -92,7 +92,7 @@ async function readMaster(target: Target) {
     newTotal: findCol(headers, ["New Total"]), ecs: findCol(headers, ["ECS Amount", "ECS"]),
     special: findCol(headers, ["Special Amount", "Special"]),
   };
-  if (cols.agreement < 0 || cols.total < 0 || cols.newTotal < 0) throw new Error("Required columns missing. Agreement ID, Total and New Total must exist in " + file.tab + ".");
+  if (cols.agreement < 0 || cols.total < 0 || cols.newTotal < 0 || cols.dac < 0) throw new Error("Required columns missing. Agreement ID, Total, DAC and New Total must exist in " + file.tab + ".");
   const selected = [...new Set([cols.agreement, cols.total, cols.dac, cols.bucket, cols.city, cols.customer, cols.executive].filter(i => i >= 0))];
   const columns = await Promise.all(selected.map(async index => ({ index, rows: await values(file.id, "'" + file.tab + "'!" + columnLetter(index) + "2:" + columnLetter(index)) })));
   const byColumn = new Map(columns.map(c => [c.index, c.rows]));
@@ -147,6 +147,8 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     for (const change of data.changes) {
       if (seen.has(change.row)) throw new Error("Duplicate target row in submitted change set: " + change.row);
       seen.add(change.row);
+      if (change.ecs !== 0 && cols.ecs < 0) throw new Error("ECS Amount column is missing from " + file.tab + ".");
+      if (change.special !== 0 && cols.special < 0) throw new Error("Special Amount column is missing from " + file.tab + ".");
       const current = masterByRow.get(change.row);
       if (!current || current.agreementId !== normaliseId(change.agreementId)) throw new Error("Master Sheet changed after preview. Refresh and reconcile again (row " + change.row + ").");
       if (Math.abs((current.existingTotal + change.dac) - change.newTotal) > 0.01) throw new Error("Invalid New Total for Agreement ID " + change.agreementId + ".");
