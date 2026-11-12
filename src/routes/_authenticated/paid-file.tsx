@@ -21,7 +21,7 @@ type Target = "monthly-master" | "daily-collections";
 type Mapping = { agreementId: number; sfdc: number; online: number; ecs: number; special: number };
 type MasterRow = { row: number; agreementId: string; existingTotal: number; existingDac: number; bucket: string; city: string; customer?: string; executive?: string };
 type ParsedRow = { agreementId: string; sfdc: number; online: number; ecs: number; special: number; sourceRows: number; dac: number };
-type PreviewRow = ParsedRow & { master?: MasterRow; newTotal?: number };
+type PreviewRow = ParsedRow & { master?: MasterRow | undefined; newTotal?: number | undefined };
 type SheetInfo = { name: string; rowCount: number; headers: string[]; mapping: Mapping };
 type WorkerEvent =
   | { type: "progress"; percent: number; label: string }
