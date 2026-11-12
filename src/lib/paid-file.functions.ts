@@ -72,29 +72,37 @@ function numeric(value: unknown) {
 function normaliseId(value: unknown) {
   return String(value ?? "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/^['"\x60‘’]+|['"\x60‘’]+$/g, "").replace(/\s+/g, "").toUpperCase();
 }
+function columnLetter(index: number) {
+  let result = "";
+  for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) result = String.fromCharCode(65 + ((n - 1) % 26)) + result;
+  return result;
+}
 async function readMaster(target: Target) {
   const file = await resolveTarget(target);
-  const rows = await values(file.id, "'" + file.tab + "'!A:ZZ");
-  if (!rows.length) throw new Error("The target sheet is empty.");
-  const headers = rows[0] ?? [];
+  const headerRows = await values(file.id, "'" + file.tab + "'!A1:ZZ1");
+  if (!headerRows.length) throw new Error("The target sheet has no header row.");
+  const headers = headerRows[0] ?? [];
   const cols = {
     agreement: findCol(headers, ["Agreement ID", "AgreementID", "Agreement_Id", "Loan No", "Loan Number", "Account No"]),
     total: findCol(headers, ["Existing Total", "Total", "Total Amount", "Paid Total"]),
     dac: findCol(headers, ["DAC", "DAC Amount", "Collection DAC"]),
-    bucket: findCol(headers, ["Bucket"]),
-    city: findCol(headers, ["City"]),
+    bucket: findCol(headers, ["Bucket"]), city: findCol(headers, ["City"]),
     customer: findCol(headers, ["Customer", "Customer Name", "Borrower Name"]),
     executive: findCol(headers, ["Executive", "Executive Name", "Allocated To"]),
-    newTotal: findCol(headers, ["New Total"]),
-    ecs: findCol(headers, ["ECS Amount", "ECS"]),
+    newTotal: findCol(headers, ["New Total"]), ecs: findCol(headers, ["ECS Amount", "ECS"]),
     special: findCol(headers, ["Special Amount", "Special"]),
   };
   if (cols.agreement < 0 || cols.total < 0 || cols.newTotal < 0) throw new Error("Required columns missing. Agreement ID, Total and New Total must exist in " + file.tab + ".");
+  const selected = [...new Set([cols.agreement, cols.total, cols.dac, cols.bucket, cols.city, cols.customer, cols.executive].filter(i => i >= 0))];
+  const columns = await Promise.all(selected.map(async index => ({ index, rows: await values(file.id, "'" + file.tab + "'!" + columnLetter(index) + "2:" + columnLetter(index)) })));
+  const byColumn = new Map(columns.map(c => [c.index, c.rows]));
+  const rowCount = Math.max(0, ...columns.map(c => c.rows.length));
   const data: MasterRow[] = [];
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i] ?? [], agreementId = normaliseId(r[cols.agreement]);
+  for (let i = 0; i < rowCount; i++) {
+    const cell = (index: number) => byColumn.get(index)?.[i]?.[0] ?? "";
+    const agreementId = normaliseId(cell(cols.agreement));
     if (!agreementId) continue;
-    data.push({ row: i + 1, agreementId, existingTotal: numeric(r[cols.total]), existingDac: cols.dac >= 0 ? numeric(r[cols.dac]) : 0, bucket: String(r[cols.bucket] ?? ""), city: String(r[cols.city] ?? ""), customer: cols.customer >= 0 ? String(r[cols.customer] ?? "") : "", executive: cols.executive >= 0 ? String(r[cols.executive] ?? "") : "" });
+    data.push({ row: i + 2, agreementId, existingTotal: numeric(cell(cols.total)), existingDac: cols.dac >= 0 ? numeric(cell(cols.dac)) : 0, bucket: String(cell(cols.bucket) ?? ""), city: String(cell(cols.city) ?? ""), customer: cols.customer >= 0 ? String(cell(cols.customer) ?? "") : "", executive: cols.executive >= 0 ? String(cell(cols.executive) ?? "") : "" });
   }
   return { file, cols, data };
 }
