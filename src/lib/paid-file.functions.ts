@@ -103,7 +103,7 @@ async function readMaster(target: Target = "monthly-master") {
   if (!headerRows.length) throw new Error("The target sheet has no header row.");
   const headers = headerRows[0] ?? [];
   const cols = {
-    agreement: findCol(headers, ["Agreement ID", "AgreementID", "Agreement_Id", "Loan No", "Loan Number", "Account No"]),
+    agreement: findCol(headers, ["Agreement ID", "AgreementID", "Agreement_Id", "Loan No", "Loan Number", "Loan ID", "Account No", "LAN", "AGMT_NO", "AGMT NO", "CONTRACT NO", "PROPOSAL NO", "CASE ID", "AGREEMENTNO"]),
     total: findCol(headers, ["Existing Total", "Total", "Total Amount", "Paid Total"]),
     dac: findCol(headers, ["DAC", "DAC Amount", "Collection DAC"]),
     bucket: findCol(headers, ["Bucket"]), city: findCol(headers, ["City"]),
