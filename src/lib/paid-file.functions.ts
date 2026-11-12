@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { requireSession } from "./auth.functions";
-import { SPREADSHEET_ID } from "./mahavtaar.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
@@ -44,10 +43,12 @@ async function findMonthlyMaster(): Promise<DriveFile> {
   const url = new URL(GATEWAY + "/google_drive/drive/v3/files");
   url.searchParams.set("q", "name = '" + monthTitle().replace(/'/g, "\\'") + "' and mimeType = '" + SHEET_MIME + "' and trashed = false");
   url.searchParams.set("pageSize", "20");
-  url.searchParams.set("orderBy", "modifiedTime desc");\n  url.searchParams.set("fields", "files(id,name,webViewLink,modifiedTime,mimeType,trashed)");
+  url.searchParams.set("orderBy", "modifiedTime desc");
+  url.searchParams.set("fields", "files(id,name,webViewLink,modifiedTime,mimeType,trashed)");
   const result = await checked<{ files?: DriveFile[] }>(url.toString(), "GOOGLE_DRIVE_API_KEY");
-  if ((result.files ?? []).length !== 1) throw new Error("Expected exactly one current-month Master Allocation file. Found " + (result.files ?? []).length + ".");
-  return result.files![0]!;
+  const candidates = (result.files ?? []).filter(file => Boolean(file.id));
+  if (!candidates.length) throw new Error("No active current-month Master Allocation spreadsheet was found: " + monthTitle() + ".");
+  return candidates.sort((a, b) => Date.parse(b.modifiedTime ?? "") - Date.parse(a.modifiedTime ?? ""))[0]!;
 }
 async function resolveTarget(_target: Target) {
   const file = await findMonthlyMaster();
@@ -56,15 +57,18 @@ async function resolveTarget(_target: Target) {
     "GOOGLE_SHEETS_API_KEY",
   );
   const tabs = (metadata.sheets ?? []).map(sheet => sheet.properties?.title).filter((title): title is string => Boolean(title));
-  const preferred = ["Data", "Master Allocation Data"];
-  let tab = preferred.find(name => tabs.includes(name));
+  const agreementAliases = ["Agreement ID", "AgreementID", "Agreement_Id", "Loan No", "Loan Number", "Account No", "LAN", "Loan ID"];
+  const hasAgreementHeader = async (name: string) => {
+    const header = await values(file.id, "'" + name.replace(/'/g, "''") + "'!A1:ZZ1");
+    return findCol(header[0] ?? [], agreementAliases) >= 0;
+  };
+  let tab: string | undefined;
+  for (const preferred of ["Data", "Master Allocation Data"]) {
+    if (tabs.includes(preferred) && await hasAgreementHeader(preferred)) { tab = preferred; break; }
+  }
   if (!tab) {
     for (const candidate of tabs) {
-      const header = await values(file.id, "'" + candidate.replace(/'/g, "''") + "'!A1:ZZ1");
-      if (findCol(header[0] ?? [], ["Agreement ID", "AgreementID", "Agreement_Id", "Loan No", "Loan Number", "Account No", "LAN", "Loan ID"]) >= 0) {
-        tab = candidate;
-        break;
-      }
+      if (await hasAgreementHeader(candidate)) { tab = candidate; break; }
     }
   }
   if (!tab) throw new Error("No Master Allocation data tab found. Expected Data, Master Allocation Data, or a worksheet with an Agreement ID header.");
