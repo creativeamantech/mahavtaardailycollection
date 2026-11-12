@@ -124,8 +124,9 @@ function BankPortalPage() {
   const portalInUse = data?.liveSessions[0];
   const currentTime = portalClock.toTimeString().slice(0, 5);
   const currentPresetSlot = data?.schedulePresets.find((slot) => slot.start <= currentTime && currentTime < slot.end);
-  const currentSlotEnd = currentPresetSlot ? new Date(portalClock.toDateString() + "T" + currentPresetSlot.end + ":00+05:30") : null;
-  const remainingSlotMinutes = currentSlotEnd ? Math.max(0, Math.ceil((currentSlotEnd.getTime() - portalClock.getTime()) / 60_000)) : 0;
+  const activeSlotEndTime = data?.batchReserved ? "19:30" : currentPresetSlot?.end;
+  const currentSlotEnd = activeSlotEndTime ? new Date(portalClock.getFullYear() + "-" + String(portalClock.getMonth() + 1).padStart(2, "0") + "-" + String(portalClock.getDate()).padStart(2, "0") + "T" + activeSlotEndTime + ":00+05:30") : null;
+  const remainingSlotMinutes = currentSlotEnd ? Math.max(0, Math.floor((currentSlotEnd.getTime() - portalClock.getTime()) / 60_000)) : 0;
 
   async function refresh() { await queryClient.invalidateQueries({ queryKey: ["bank-portal"] }); }
   async function runAction(action: () => Promise<unknown>, success: string) {
