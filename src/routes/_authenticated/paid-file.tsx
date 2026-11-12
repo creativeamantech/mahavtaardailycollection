@@ -218,7 +218,7 @@ function PaidFilePage() {
               <tbody className="divide-y">{visibleRows.slice(0,1000).map(r=><tr key={r.agreementId}>
                 <td className="px-2 py-2 font-semibold">{r.agreementId}{r.sourceRows>1&&<div className="text-amber-700">Aggregated ({r.sourceRows} rows)</div>}</td>
                 <td className="px-2 py-2">{r.master ? [r.master.customer,r.master.executive].filter(Boolean).join(" / ") || "—" : "—"}</td>
-                <td className="px-2 py-2 tabular-nums">{money(r.sfdc)}</td><td className="px-2 py-2 tabular-nums">{money(r.online)}</td><td className="px-2 py-2 tabular-nums font-semibold">{money(r.dac)}</td>
+                <td className="px-2 py-2 tabular-nums">{money(r.sfdc)}</td><td className="px-2 py-2 tabular-nums">{money(r.online)}</td><td className="px-2 py-2 tabular-nums font-semibold">{r.master ? <input aria-label={"Override DAC for " + r.agreementId} type="number" step="0.01" className="h-8 w-28 rounded border px-2 text-xs" value={r.dac} onChange={e => { const value = Number(e.target.value); setRows(prev => prev.map(item => item.agreementId === r.agreementId ? { ...item, dac: value, newTotal: item.master ? item.master.existingTotal + value : undefined } : item)); }} /> : money(r.dac)}</td>
                 <td className="px-2 py-2 tabular-nums">{r.master?money(r.master.existingTotal):"—"}</td><td className="px-2 py-2 tabular-nums">{r.newTotal===undefined?"—":money(r.newTotal)}</td>
                 <td className="px-2 py-2"><span className={r.master?"rounded-full bg-amber-100 px-2 py-1 text-amber-900":"rounded-full bg-red-100 px-2 py-1 text-red-800"}>{r.master?"Ready":"Unmatched"}</span></td>
               </tr>)}</tbody>
