@@ -116,9 +116,11 @@ export const fetchMasterMatchingData = createServerFn({ method: "POST" })
 
 async function ensureAuditTab(id: string) {
   const meta = await checked<{ sheets?: { properties?: { title?: string } }[] }>(sheetsUrl(id, "?fields=sheets.properties"), "GOOGLE_SHEETS_API_KEY");
-  if ((meta.sheets ?? []).some(s => s.properties?.title === "Paid_File_Audit_Log")) return;
-  await checked(sheetsUrl(id, ":batchUpdate"), "GOOGLE_SHEETS_API_KEY", { method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title: "Paid_File_Audit_Log" } } }] }) });
-  await checked(sheetsUrl(id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!A1:H1") + "?valueInputOption=RAW"), "GOOGLE_SHEETS_API_KEY", { method: "PUT", body: JSON.stringify({ values: [["Timestamp (IST)", "Admin Name", "File Name", "Records Applied", "Total DAC (₹)", "Total SFDC (₹)", "Total Online (₹)", "Batch Fingerprint", "Apply Status", "Completed Batches"]] }) });
+  if (!(meta.sheets ?? []).some(s => s.properties?.title === "Paid_File_Audit_Log")) {
+    await checked(sheetsUrl(id, ":batchUpdate"), "GOOGLE_SHEETS_API_KEY", { method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title: "Paid_File_Audit_Log" } } }] }) });
+  }
+  const headers = ["Timestamp (IST)", "Admin Name", "File Name", "Records Applied", "Total DAC (₹)", "Total SFDC (₹)", "Total Online (₹)", "Batch Fingerprint", "Apply Status", "Completed Batches"];
+  await checked(sheetsUrl(id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!A1:J1") + "?valueInputOption=RAW"), "GOOGLE_SHEETS_API_KEY", { method: "PUT", body: JSON.stringify({ values: [headers] }) });
 }
 async function retryFetch(url: string, init: RequestInit) {
   for (let attempt = 0; attempt < 4; attempt++) {
