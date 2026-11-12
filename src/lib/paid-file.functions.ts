@@ -70,7 +70,7 @@ function numeric(value: unknown) {
   return Number.isFinite(n) ? n : 0;
 }
 function normaliseId(value: unknown) {
-  return String(value ?? "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/^['"\x60‘’]+|['"\x60‘’]+$/g, "").replace(/\s+/g, "").toUpperCase();
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/^['"\x60‘’]+|['"\x60‘’]+$/g, "").replace(/\s+/g, "").toUpperCase();
 }
 function columnLetter(index: number) {
   let result = "";
