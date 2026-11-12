@@ -1,43 +1,27 @@
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getBankPortalData } from "@/lib/bank-portal.functions";
 
 type Props = { className?: string };
 
-function formatElapsed(minutes: number) {
-  if (minutes < 1) return "less than 1 min";
-  if (minutes < 60) return `${minutes} min`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-}
-
 /**
  * Shows actual Bank Portal session occupancy, not the executive's scheduled slot.
- * The same component is shared by Entry and Reports so both pages use one source
- * of truth and identical status semantics.
+ * The shared panel refreshes when it mounts, when the app/tab regains focus, or
+ * when the network reconnects. It deliberately does not poll Google Sheets.
  */
 export function PortalTimingsPanel({ className = "" }: Props) {
   const load = useServerFn(getBankPortalData);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["bank-portal"],
     queryFn: () => load(),
-    refetchInterval: 15_000,
+    refetchOnMount: true,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: false,
     retry: false,
   });
-  const [clock, setClock] = useState(() => Date.now());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setClock(Date.now()), 15_000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   const activeSession = data?.liveSessions?.[0] ?? null;
-  const startedAt = activeSession?.startedAt;
-  const elapsedMinutes =
-    typeof startedAt === "number" && Number.isFinite(startedAt)
-      ? Math.max(0, Math.floor((clock - startedAt) / 60_000))
-      : null;
 
   return (
     <section
@@ -48,7 +32,7 @@ export function PortalTimingsPanel({ className = "" }: Props) {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-semibold text-slate-900">Current Bank Portal Status</h2>
-          <p className="text-xs text-muted-foreground">Actual session status · Live · IST</p>
+          <p className="text-xs text-muted-foreground">Actual session status · IST</p>
         </div>
         {!isLoading && !isError && (
           <span
@@ -69,7 +53,7 @@ export function PortalTimingsPanel({ className = "" }: Props) {
         </p>
       ) : isError || !data ? (
         <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Portal status is temporarily unavailable. Please retry shortly.
+          Portal status is temporarily unavailable. Reopen the page or try again.
         </p>
       ) : activeSession ? (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
@@ -78,7 +62,6 @@ export function PortalTimingsPanel({ className = "" }: Props) {
           </p>
           <p className="mt-1 text-xs text-amber-900">
             Session started at {activeSession.loginTime}
-            {elapsedMinutes !== null ? ` · Active for ${formatElapsed(elapsedMinutes)}` : ""}
           </p>
         </div>
       ) : (
