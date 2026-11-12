@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { fetchMasterMatchingData, applyPaidFileChangeSet } from "@/lib/paid-file.functions";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { downloadCsv, toCsv } from "@/lib/export";
 
 export const Route = createFileRoute("/_authenticated/paid-file")({
   beforeLoad: async () => {
@@ -17,10 +18,11 @@ export const Route = createFileRoute("/_authenticated/paid-file")({
   component: PaidFilePage,
 });
 
-type Target = "monthly-master" | "daily-collections";
-type Mapping = { agreementId: number; sfdc: number; online: number; ecs: number; special: number };
+type Target = "monthly-master";
+type Mapping = { agreementId: number; sfdc: number; online: number; paidAmount: number; ecs: number; special: number };
 type MasterRow = { row: number; agreementId: string; existingTotal: number; existingDac: number; bucket: string; city: string; customer?: string; executive?: string };
-type ParsedRow = { agreementId: string; sfdc: number; online: number; ecs: number; special: number; sourceRows: number; dac: number };
+type Transaction = { row: number; sfdc: number; online: number; paidAmount: number; ecs: number; special: number };
+type ParsedRow = { agreementId: string; sfdc: number; online: number; ecs: number; special: number; sourceRows: number; dac: number; transactions: Transaction[] };
 type PreviewRow = ParsedRow & { master?: MasterRow | undefined; newTotal?: number | undefined };
 type SheetInfo = { name: string; rowCount: number; headers: string[]; mapping: Mapping };
 type WorkerEvent =
@@ -38,9 +40,10 @@ const today = () => {
   return part("year") + "-" + part("month") + "-" + part("day");
 };
 const fields: { key: keyof Mapping; label: string; required: boolean }[] = [
-  { key: "agreementId", label: "Agreement ID", required: true },
-  { key: "sfdc", label: "SFDC", required: true },
-  { key: "online", label: "Online", required: true },
+  { key: "agreementId", label: "Agreement / Loan ID", required: true },
+  { key: "sfdc", label: "SFDC", required: false },
+  { key: "online", label: "Online", required: false },
+  { key: "paidAmount", label: "Unified Paid Amount / Amount", required: false },
   { key: "ecs", label: "ECS", required: false },
   { key: "special", label: "Special", required: false },
 ];
@@ -50,10 +53,11 @@ function PaidFilePage() {
   const applyChanges = useServerFn(applyPaidFileChangeSet);
   const workerRef = useRef<Worker | null>(null);
   const masterRowsRef = useRef<MasterRow[]>([]);
-  const [target, setTarget] = useState<Target>("monthly-master");
+  const target: Target = "monthly-master";
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
   const [sheetName, setSheetName] = useState("");
-  const [mapping, setMapping] = useState<Mapping>({ agreementId: -1, sfdc: -1, online: -1, ecs: -1, special: -1 });
+  const [mapping, setMapping] = useState<Mapping>({ agreementId: -1, sfdc: -1, online: -1, paidAmount: -1, ecs: -1, special: -1 });
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [invalidRows, setInvalidRows] = useState(0);
@@ -115,7 +119,7 @@ function PaidFilePage() {
   async function onFile(file?: File) {
     if (!file) return;
     if (!/\.(xlsb|xlsx|xls|csv)$/i.test(file.name)) { toast.error("Choose an XLSB, XLSX, XLS or CSV file."); return; }
-    setBusy(true); setApplied(false); setRows([]); setSheets([]); setProgress(0);
+    setBusy(true); setApplied(false); setRows([]); setSheets([]); setExpandedId(null); setProgress(0);
     setFileName(file.name);
     try {
       setLoadingMaster(true);
@@ -131,8 +135,8 @@ function PaidFilePage() {
   }
 
   function processSheet() {
-    const requiredMissing = fields.filter(f => f.required && mapping[f.key] < 0);
-    if (requiredMissing.length) { toast.error("Map required columns: " + requiredMissing.map(f => f.label).join(", ")); return; }
+    if (mapping.agreementId < 0) { toast.error("Map the Agreement ID / Loan ID column."); return; }
+    if (mapping.sfdc < 0 && mapping.online < 0 && mapping.paidAmount < 0) { toast.error("Map SFDC, Online, or a unified Paid Amount / Amount column."); return; }
     if (!sheetName || !workerRef.current) { toast.error("Choose a worksheet first."); return; }
     setBusy(true); setRows([]); setProgress(40); setProgressLabel("Processing selected worksheet");
     workerRef.current.postMessage({ type: "process", sheetName, mapping });
@@ -145,7 +149,7 @@ function PaidFilePage() {
     setBusy(true); setProgress(0); setProgressLabel("Validating changes with Master Sheet");
     try {
       const result = await applyChanges({ data: {
-        target, fileName, fileDate: today(), totalDac, totalSfdc, totalOnline,
+        target: "monthly-master", fileName, fileDate: today(), totalDac, totalSfdc, totalOnline,
         changes: ready.map(r => ({ row: r.master!.row, agreementId: r.agreementId, dac: r.dac, newTotal: r.newTotal!, ecs: r.ecs, special: r.special })),
       } });
       setApplied(true); setProgress(100); setProgressLabel("Applied successfully");
@@ -166,19 +170,10 @@ function PaidFilePage() {
         {applied && <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">Applied</span>}
       </header>
 
-      <section className="grid gap-3 rounded-xl border bg-white p-4 md:grid-cols-[1fr_2fr]">
-        <div>
-          <label className="mb-1 block text-sm font-semibold">Target spreadsheet</label>
-          <select className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={target} disabled={busy || rows.length > 0} onChange={e => setTarget(e.target.value as Target)}>
-            <option value="monthly-master">Monthly Master Allocation · Master Allocation Data</option>
-            <option value="daily-collections">Main Daily Collection · Collections</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-semibold">Choose bank file (processed locally)</label>
-          <input type="file" accept=".xlsb,.xlsx,.xls,.csv" disabled={busy || loadingMaster} onChange={e => void onFile(e.target.files?.[0])} className="block w-full rounded-md border bg-white p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-amber-100 file:px-3 file:py-1.5 file:font-semibold" />
-          <p className="mt-1 text-xs text-muted-foreground">Supported: XLSB, XLSX, XLS and CSV. No raw file or CSV is uploaded.</p>
-        </div>
+      <section className="rounded-xl border bg-white p-4">
+        <label className="mb-1 block text-sm font-semibold">Choose bank file (processed locally)</label>
+        <input type="file" accept=".xlsb,.xlsx,.xls,.csv" disabled={busy || loadingMaster} onChange={e => void onFile(e.target.files?.[0])} className="block w-full rounded-md border bg-white p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-amber-100 file:px-3 file:py-1.5 file:font-semibold" />
+        <p className="mt-1 text-xs text-muted-foreground">Supported: XLSB, XLSX, XLS and CSV. No raw file or CSV is uploaded. Target: current-month Master Allocation.</p>
       </section>
 
       {(busy || progress > 0) && <section className="space-y-2 rounded-xl border bg-white p-4">
@@ -192,8 +187,11 @@ function PaidFilePage() {
           <div><label className="mb-1 block text-sm font-semibold">Worksheet</label><select className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={sheetName} onChange={e => { setSheetName(e.target.value); const s=sheets.find(x=>x.name===e.target.value); if(s) setMapping(s.mapping); }}><option value="">Select sheet</option>{sheets.map(s=><option key={s.name} value={s.name}>{s.name} ({s.rowCount.toLocaleString("en-IN")} rows)</option>)}</select></div>
           <div className="self-end text-sm text-muted-foreground">Confirm detected column names or select the correct column manually.</div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {fields.map(field => <div key={field.key}><label className="mb-1 block text-xs font-semibold">{field.label}{field.required ? " *" : " (optional)"}</label><select className="h-10 w-full rounded-md border bg-white px-2 text-sm" value={mapping[field.key]} onChange={e=>setMapping(prev=>({...prev,[field.key]:Number(e.target.value)}))}><option value={-1}>Not mapped</option>{(sheets.find(s=>s.name===sheetName)?.headers ?? []).map((h,i)=><option key={i} value={i}>{h || "Column "+(i+1)}</option>)}</select></div>)}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="col-span-full text-xs font-bold uppercase tracking-wide text-amber-800">Identity & payment amounts</p>
+          {fields.slice(0, 4).map(field => <div key={field.key} className="min-w-0 rounded-lg border bg-slate-50/60 p-2"><label className="mb-1 block text-xs font-semibold">{field.label}{field.required ? " *" : " (optional)"}</label><select className="h-10 w-full min-w-0 rounded-md border bg-white px-2 text-sm" value={mapping[field.key]} onChange={e=>setMapping(prev=>({...prev,[field.key]:Number(e.target.value)}))}><option value={-1}>Not mapped</option>{(sheets.find(s=>s.name===sheetName)?.headers ?? []).map((h,i)=><option key={i} value={i}>{h || "Column "+(i+1)}</option>)}</select></div>)}
+          <p className="col-span-full pt-1 text-xs font-bold uppercase tracking-wide text-amber-800">Optional allocation amounts</p>
+          {fields.slice(4).map(field => <div key={field.key} className="min-w-0 rounded-lg border bg-slate-50/60 p-2"><label className="mb-1 block text-xs font-semibold">{field.label} (optional)</label><select className="h-10 w-full min-w-0 rounded-md border bg-white px-2 text-sm" value={mapping[field.key]} onChange={e=>setMapping(prev=>({...prev,[field.key]:Number(e.target.value)}))}><option value={-1}>Not mapped</option>{(sheets.find(s=>s.name===sheetName)?.headers ?? []).map((h,i)=><option key={i} value={i}>{h || "Column "+(i+1)}</option>)}</select></div>)}
         </div>
         <Button onClick={processSheet} disabled={busy || !sheetName}>Process selected worksheet</Button>
       </section>}
@@ -208,6 +206,10 @@ function PaidFilePage() {
           <Kpi label="Total DAC" value={money(totalDac)} />
         </section>
         <section className="space-y-3 rounded-xl border bg-white p-3 sm:p-4">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => downloadCsv("paid-file-reconciliation-summary.csv", toCsv(["Agreement ID","SFDC","Online","DAC","Source Row Count","Status","Old Total","New Total"], rows.map(r => [r.agreementId,r.sfdc,r.online,r.dac,r.sourceRows,r.master ? (applied ? "Applied" : "Ready") : "Unmatched",r.master?.existingTotal ?? "",r.newTotal ?? ""])))}>Export Reconciliation Summary CSV {applied ? "(Applied)" : "(Preview)"}</Button>
+            <Button size="sm" variant="outline" disabled={!unmatched.length} onClick={() => downloadCsv("paid-file-unmatched.csv", toCsv(["Agreement ID","SFDC","Online","DAC","Source Row Count"], unmatched.map(r => [r.agreementId,r.sfdc,r.online,r.dac,r.sourceRows])))}>Export Unmatched CSV ({unmatched.length})</Button>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h2 className="font-bold">Reconciliation preview</h2><p className="text-xs text-muted-foreground">{fileName} · {rows.length} unique Agreement IDs</p></div>
             <Button onClick={() => void apply()} disabled={busy || !ready.length || applied}>{applied ? "Updates Applied" : "Apply Validated Updates to Master Sheet"}</Button>
@@ -220,7 +222,7 @@ function PaidFilePage() {
             <table className="w-full min-w-[1050px] text-left text-xs">
               <thead className="border-b bg-amber-50 text-[11px] uppercase text-slate-700"><tr>{["Agreement ID","Customer / Executive","SFDC","Online","Calculated DAC","Old Total","New Total","Status"].map(h=><th key={h} className="whitespace-nowrap px-2 py-3">{h}</th>)}</tr></thead>
               <tbody className="divide-y">{visibleRows.slice(0,1000).map(r=><tr key={r.agreementId}>
-                <td className="px-2 py-2 font-semibold">{r.agreementId}{r.sourceRows>1&&<div className="text-amber-700">Aggregated ({r.sourceRows} rows)</div>}</td>
+                <td className="px-2 py-2 font-semibold">{r.agreementId}{r.sourceRows>1&&<button type="button" className="mt-1 block text-left text-amber-700 underline underline-offset-2" onClick={() => setExpandedId(expandedId === r.agreementId ? null : r.agreementId)}>Aggregated ({r.sourceRows} rows) · {expandedId === r.agreementId ? "Hide" : "View transactions"}</button>}{expandedId === r.agreementId && <div className="mt-2 min-w-[220px] space-y-1 rounded bg-amber-50 p-2 font-normal">{r.transactions.map((tx,index)=><div key={tx.row + "-" + index} className="flex justify-between gap-2"><span>Source row {tx.row}</span><span className="tabular-nums">SFDC {money(tx.sfdc)} · Online {money(tx.online)}{tx.paidAmount ? " · Paid " + money(tx.paidAmount) : ""}</span></div>)}</div>}</td>
                 <td className="px-2 py-2">{r.master ? [r.master.customer,r.master.executive].filter(Boolean).join(" / ") || "—" : "—"}</td>
                 <td className="px-2 py-2 tabular-nums">{money(r.sfdc)}</td><td className="px-2 py-2 tabular-nums">{money(r.online)}</td><td className="px-2 py-2 tabular-nums font-semibold">{r.master ? <input aria-label={"Override DAC for " + r.agreementId} type="number" step="0.01" className="h-8 w-28 rounded border px-2 text-xs" value={r.dac} onChange={e => { const value = Number(e.target.value); setRows(prev => prev.map(item => item.agreementId === r.agreementId ? { ...item, dac: value, newTotal: item.master ? item.master.existingTotal + value : undefined } : item)); }} /> : money(r.dac)}</td>
                 <td className="px-2 py-2 tabular-nums">{r.master?money(r.master.existingTotal):"—"}</td><td className="px-2 py-2 tabular-nums">{r.newTotal===undefined?"—":money(r.newTotal)}</td>
@@ -229,7 +231,7 @@ function PaidFilePage() {
             </table>
           </div>
           {visibleRows.length>1000&&<p className="text-xs text-muted-foreground">Showing first 1,000 filtered rows. Search to narrow the preview.</p>}
-          <p className="text-xs text-muted-foreground">ECS and Special are kept in separate Master columns. Existing Total is not overwritten; New Total receives Existing Total + DAC.</p>
+          <p className="text-xs text-muted-foreground">ECS and Special are kept in separate Master columns. Existing Total is not overwritten; New Total receives Existing Total + DAC. Workbook remains in this device worker while you switch worksheets or adjust mappings.</p>
         </section>
       </>}
     </main>
