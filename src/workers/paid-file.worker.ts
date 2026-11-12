@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 
 type Mapping = { agreementId: number; sfdc: number; online: number; ecs: number; special: number };
 type WorkerMessage =
-  | { type: "inspect"; buffer: ArrayBuffer }
+  | { type: "inspect"; buffer: ArrayBuffer; fileName: string }
   | { type: "process"; sheetName: string; mapping: Mapping };
 let workbook: XLSX.WorkBook | null = null;
 let fileName = "";
@@ -37,6 +37,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
   try {
     const message = event.data;
     if (message.type === "inspect") {
+      fileName = message.fileName;
       progress(0, "Reading File");
       workbook = XLSX.read(message.buffer, { type: "array", cellDates: false, dense: true });
       progress(40, "Parsing Sheets");
