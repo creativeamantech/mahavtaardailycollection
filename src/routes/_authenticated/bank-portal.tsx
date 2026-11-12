@@ -144,7 +144,7 @@ function BankPortalPage() {
   }
   async function submitAccessRequest(event: React.FormEvent) {
     event.preventDefault();
-    await runAction(async () => { await requestAccess({ data: { reason: accessReason, duration: accessDuration } }); setAccessReason(""); }, "Emergency access request sent.");
+    await runAction(async () => { await requestAccess({ data: { reason: accessReason, duration: accessDuration } }); setAccessReason(""); }, "Access request sent.");
   }
   async function replyAccess(requestId: string, decision: "Approved" | "Rejected") {
     await runAction(() => respondAccess({ data: { requestId, decision } }), decision === "Approved" ? "Emergency access approved." : "Request declined.");
@@ -256,21 +256,28 @@ function BankPortalPage() {
         </section>
 
         {data.accessRequests.filter((r) => r.recipient === data.session.name && r.status === "Pending").map((request) => <section key={request.id} className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-          <p className="text-sm font-bold">{request.requester} requested {request.duration} minutes of emergency access</p>
+          <p className="text-sm font-bold">{request.requester} requested {request.duration} minutes of portal access</p>
           <p className="mt-1 text-sm">{request.reason}</p>
           <p className="mt-1 text-xs text-muted-foreground">Approve only if you have finished your portal work.</p>
           <div className="mt-3 flex gap-2"><Button size="sm" onClick={() => replyAccess(request.id, "Approved")} disabled={busy}>Approve</Button><Button size="sm" variant="outline" onClick={() => replyAccess(request.id, "Rejected")} disabled={busy}>Decline</Button></div>
         </section>)}
 
-        {!active && !canStart && !data.banned && !otherLive && data.session.role !== "Admin" && <form onSubmit={submitAccessRequest} className="rounded-2xl border bg-white p-4">
-          <h3 className="font-semibold">Request emergency access</h3>
-          <p className="mt-1 text-xs text-muted-foreground">When the portal is free, request access from the current slot owner. You can start only after they approve.</p>
-          <div className="mt-3 flex gap-2">{(["15", "30"] as const).map((minutes) => <button key={minutes} type="button" onClick={() => setAccessDuration(minutes)} className={"rounded-lg border px-4 py-2 text-sm font-semibold " + (accessDuration === minutes ? "border-amber-400 bg-amber-100" : "bg-white")}>{minutes} min</button>)}</div>
-          <Textarea className="mt-3" value={accessReason} onChange={(e) => setAccessReason(e.target.value)} placeholder="Reason (e.g. urgent customer settlement verification)" maxLength={500} required />
-          <Button className="mt-3 w-full sm:w-auto" type="submit" disabled={busy || accessReason.trim().length < 3}>Send Access Request</Button>
+        {!active && !data.banned && data.session.role !== "Admin" && <form onSubmit={submitAccessRequest} className="rounded-2xl border border-amber-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold">Request access</h3>
+            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">Executive request</span>
+          </div>
+          {canStart
+            ? <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">You already have portal access through your slot or an approved access request. You already have access to the portal, so you do not need to send a request right now.</p>
+            : otherLive
+              ? <p className="mt-2 rounded-lg border bg-slate-50 p-3 text-xs text-slate-600">{otherLive.executive} is currently using the portal. Requests can be sent only after the active session ends.</p>
+              : <p className="mt-2 text-xs text-muted-foreground">Ask the current slot owner to share access. You can start once they approve your request.</p>}
+          <div className="mt-3 flex gap-2">{(["15", "30"] as const).map((minutes) => <button key={minutes} type="button" onClick={() => setAccessDuration(minutes)} disabled={busy || canStart || Boolean(otherLive)} className={"rounded-lg border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 " + (accessDuration === minutes ? "border-amber-400 bg-amber-100" : "bg-white")}>{minutes} min</button>)}</div>
+          <Textarea className="mt-3" value={accessReason} onChange={(e) => setAccessReason(e.target.value)} placeholder="Reason (e.g. urgent customer settlement verification)" maxLength={500} required disabled={busy || canStart || Boolean(otherLive)} />
+          <Button className="mt-3 w-full sm:w-auto" type="submit" disabled={busy || canStart || Boolean(otherLive) || accessReason.trim().length < 3}>Send Access Request</Button>
         </form>}
 
-        {data.accessRequests.filter((r) => r.requester === data.session.name).length > 0 && <section className="rounded-xl border bg-white p-4"><h3 className="font-semibold">My emergency requests</h3><div className="mt-2 space-y-2">{data.accessRequests.filter((r) => r.requester === data.session.name).map((r) => <div key={r.id} className="flex flex-wrap justify-between gap-2 border-b pb-2 text-sm last:border-0"><span>{r.recipient} · {r.duration} min</span><span className="font-semibold">{r.status}</span></div>)}</div></section>}
+        {data.accessRequests.filter((r) => r.requester === data.session.name).length > 0 && <section className="rounded-xl border bg-white p-4"><h3 className="font-semibold">My access requests</h3><div className="mt-2 space-y-2">{data.accessRequests.filter((r) => r.requester === data.session.name).map((r) => <div key={r.id} className="flex flex-wrap justify-between gap-2 border-b pb-2 text-sm last:border-0"><span>{r.recipient} · {r.duration} min</span><span className="font-semibold">{r.status}</span></div>)}</div></section>}
       </div>}
 
       {tab === "timeline" && <section className="rounded-2xl border bg-white p-4">
