@@ -118,7 +118,7 @@ async function ensureAuditTab(id: string) {
   const meta = await checked<{ sheets?: { properties?: { title?: string } }[] }>(sheetsUrl(id, "?fields=sheets.properties"), "GOOGLE_SHEETS_API_KEY");
   if ((meta.sheets ?? []).some(s => s.properties?.title === "Paid_File_Audit_Log")) return;
   await checked(sheetsUrl(id, ":batchUpdate"), "GOOGLE_SHEETS_API_KEY", { method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title: "Paid_File_Audit_Log" } } }] }) });
-  await checked(sheetsUrl(id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!A1:H1") + "?valueInputOption=RAW"), "GOOGLE_SHEETS_API_KEY", { method: "PUT", body: JSON.stringify({ values: [["Timestamp (IST)", "Admin Name", "File Name", "Records Applied", "Total DAC (₹)", "Total SFDC (₹)", "Total Online (₹)", "Batch Fingerprint"]] }) });
+  await checked(sheetsUrl(id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!A1:H1") + "?valueInputOption=RAW"), "GOOGLE_SHEETS_API_KEY", { method: "PUT", body: JSON.stringify({ values: [["Timestamp (IST)", "Admin Name", "File Name", "Records Applied", "Total DAC (₹)", "Total SFDC (₹)", "Total Online (₹)", "Batch Fingerprint", "Apply Status", "Completed Batches"]] }) });
 }
 async function retryFetch(url: string, init: RequestInit) {
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -146,11 +146,28 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     const { file, cols } = master;
     const calculatedDac = data.changes.reduce((sum, change) => sum + change.dac, 0);
     if (Math.abs(calculatedDac - data.totalDac) > 0.01) throw new Error("Submitted DAC total does not match the validated change set.");
-    const fingerprint = createHash("sha256").update([data.fileName, data.totalDac.toFixed(2), String(data.changes.length), data.fileDate].join("|")).digest("hex");
+    // Fingerprint the normalized change set, not the filename/date alone. This prevents
+    // renamed copies and same-name files with different contents from sharing an identity.
+    const canonicalChanges = [...data.changes]
+      .map(change => ({
+        row: change.row,
+        agreementId: normaliseId(change.agreementId),
+        dac: Number(change.dac.toFixed(2)),
+        newTotal: Number(change.newTotal.toFixed(2)),
+        ecs: Number(change.ecs.toFixed(2)),
+        special: Number(change.special.toFixed(2)),
+      }))
+      .sort((a, b) => a.row - b.row || a.agreementId.localeCompare(b.agreementId));
+    const fingerprint = createHash("sha256")
+      .update(JSON.stringify({ target: data.target, changes: canonicalChanges }))
+      .digest("hex");
     await ensureAuditTab(file.id);
-    const auditRows = await values(file.id, "'Paid_File_Audit_Log'!A:H");
+    const auditRows = await values(file.id, "'Paid_File_Audit_Log'!A:J");
     const duplicate = auditRows.slice(1).find(r => String(r[7] ?? "") === fingerprint);
-    if (duplicate) throw new Error("This Paid File has already been applied on " + String(duplicate[0] ?? "an earlier date") + " by " + String(duplicate[1] ?? "an Admin") + ".");
+    if (duplicate) {
+      const status = String(duplicate[8] ?? "LEGACY");
+      throw new Error("This exact Paid File change set already has an audit entry (status: " + status + "). Do not reapply it. Check the audit log before retrying.");
+    }
     const masterByRow = new Map(master.data.map(r => [r.row, r]));
     const seen = new Set<number>();
     const rowRanges: { range: string; values: (string | number)[][] }[][] = [];
@@ -172,11 +189,32 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     }
     const chunks: { range: string; values: (string | number)[][] }[][] = [];
     for (let i = 0; i < rowRanges.length; i += 300) chunks.push(rowRanges.slice(i, i + 300).flat());
+    const timestamp = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "short", timeStyle: "medium" }).format(new Date());
+    // Reserve the fingerprint before the first write. If a later batch fails, the
+    // APPLYING row remains as a recovery warning and blocks an unsafe blind replay.
+    const appendResult = await checked<{ updates?: { updatedRange?: string } }>(
+      sheetsUrl(file.id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!A:J") + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS"),
+      "GOOGLE_SHEETS_API_KEY",
+      { method: "POST", body: JSON.stringify({ values: [[timestamp, admin.name, data.fileName, data.changes.length, data.totalDac, data.totalSfdc, data.totalOnline, fingerprint, "APPLYING", 0]] }) },
+    );
+    const auditRow = Number(appendResult.updates?.updatedRange?.match(/![A-Z]+(\\d+):?/i)?.[1]);
+    if (!Number.isInteger(auditRow) || auditRow < 2) {
+      throw new Error("Audit reservation was written but its row could not be confirmed. Check Paid_File_Audit_Log before retrying.");
+    }
+    let completedBatches = 0;
     for (let i = 0; i < chunks.length; i++) {
       await retryFetch(sheetsUrl(file.id, "/values:batchUpdate"), { method: "POST", headers: authHeaders("GOOGLE_SHEETS_API_KEY"), body: JSON.stringify({ valueInputOption: "RAW", data: chunks[i]! }) });
+      completedBatches++;
+      await checked(
+        sheetsUrl(file.id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!J" + auditRow) + "?valueInputOption=RAW"),
+        "GOOGLE_SHEETS_API_KEY",
+        { method: "PUT", body: JSON.stringify({ values: [[completedBatches]] }) },
+      );
     }
-    const timestamp = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "short", timeStyle: "medium" }).format(new Date());
-    const totalSfdc = data.totalSfdc, totalOnline = data.totalOnline;
-    await checked(sheetsUrl(file.id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!A:H") + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS"), "GOOGLE_SHEETS_API_KEY", { method: "POST", body: JSON.stringify({ values: [[timestamp, admin.name, data.fileName, data.changes.length, data.totalDac, totalSfdc, totalOnline, fingerprint]] }) });
+    await checked(
+      sheetsUrl(file.id, "/values/" + encodeURIComponent("'Paid_File_Audit_Log'!I" + auditRow) + "?valueInputOption=RAW"),
+      "GOOGLE_SHEETS_API_KEY",
+      { method: "PUT", body: JSON.stringify({ values: [["COMPLETE"]] }) },
+    );
     return { ok: true as const, applied: data.changes.length, batches: chunks.length, fingerprint, spreadsheetName: file.name };
   });
