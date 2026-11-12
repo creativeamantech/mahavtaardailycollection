@@ -26,6 +26,7 @@ import { Route as AuthenticatedExecutiveCitiesRouteImport } from './routes/_auth
 import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
 import { Route as AuthenticatedMasterPerformanceRouteImport } from './routes/_authenticated/master-performance'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedPaidFileRouteImport } from './routes/_authenticated/paid-file'
 import { Route as AuthenticatedPendingRouteImport } from './routes/_authenticated/pending'
 import { Route as AuthenticatedReceiptGalleryRouteImport } from './routes/_authenticated/receipt-gallery'
 import { Route as AuthenticatedRechargeRouteImport } from './routes/_authenticated/recharge'
@@ -126,6 +127,11 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPaidFileRoute = AuthenticatedPaidFileRouteImport.update({
+  id: '/paid-file',
+  path: '/paid-file',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPendingRoute = AuthenticatedPendingRouteImport.update({
   id: '/pending',
   path: '/pending',
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/loans': typeof AuthenticatedLoansRoute
   '/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
+  '/paid-file': typeof AuthenticatedPaidFileRoute
   '/pending': typeof AuthenticatedPendingRoute
   '/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
   '/recharge': typeof AuthenticatedRechargeRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/loans': typeof AuthenticatedLoansRoute
   '/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
+  '/paid-file': typeof AuthenticatedPaidFileRoute
   '/pending': typeof AuthenticatedPendingRoute
   '/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
   '/recharge': typeof AuthenticatedRechargeRoute
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
   '/_authenticated/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/paid-file': typeof AuthenticatedPaidFileRoute
   '/_authenticated/pending': typeof AuthenticatedPendingRoute
   '/_authenticated/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
   '/_authenticated/recharge': typeof AuthenticatedRechargeRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/loans'
     | '/master-performance'
     | '/notifications'
+    | '/paid-file'
     | '/pending'
     | '/receipt-gallery'
     | '/recharge'
@@ -283,6 +293,7 @@ export interface FileRouteTypes {
     | '/loans'
     | '/master-performance'
     | '/notifications'
+    | '/paid-file'
     | '/pending'
     | '/receipt-gallery'
     | '/recharge'
@@ -309,6 +320,7 @@ export interface FileRouteTypes {
     | '/_authenticated/loans'
     | '/_authenticated/master-performance'
     | '/_authenticated/notifications'
+    | '/_authenticated/paid-file'
     | '/_authenticated/pending'
     | '/_authenticated/receipt-gallery'
     | '/_authenticated/recharge'
@@ -450,6 +462,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/paid-file': {
+      id: '/_authenticated/paid-file'
+      path: '/paid-file'
+      fullPath: '/paid-file'
+      preLoaderRoute: typeof AuthenticatedPaidFileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/pending': {
       id: '/_authenticated/pending'
       path: '/pending'
@@ -514,6 +533,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
   AuthenticatedMasterPerformanceRoute: typeof AuthenticatedMasterPerformanceRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedPaidFileRoute: typeof AuthenticatedPaidFileRoute
   AuthenticatedPendingRoute: typeof AuthenticatedPendingRoute
   AuthenticatedReceiptGalleryRoute: typeof AuthenticatedReceiptGalleryRoute
   AuthenticatedRechargeRoute: typeof AuthenticatedRechargeRoute
@@ -534,6 +554,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLoansRoute: AuthenticatedLoansRoute,
   AuthenticatedMasterPerformanceRoute: AuthenticatedMasterPerformanceRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedPaidFileRoute: AuthenticatedPaidFileRoute,
   AuthenticatedPendingRoute: AuthenticatedPendingRoute,
   AuthenticatedReceiptGalleryRoute: AuthenticatedReceiptGalleryRoute,
   AuthenticatedRechargeRoute: AuthenticatedRechargeRoute,
