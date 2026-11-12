@@ -51,7 +51,6 @@ function PaidFilePage() {
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
   const [sheetName, setSheetName] = useState("");
   const [mapping, setMapping] = useState<Mapping>({ agreementId: -1, sfdc: -1, online: -1, ecs: -1, special: -1 });
-  const [masterRows, setMasterRows] = useState<MasterRow[]>([]);
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [invalidRows, setInvalidRows] = useState(0);
@@ -117,7 +116,6 @@ function PaidFilePage() {
     try {
       setLoadingMaster(true);
       const master = await fetchMaster({ data: { target } });
-      setMasterRows(master.rows as MasterRow[]);
       masterRowsRef.current = master.rows as MasterRow[];
       setLoadingMaster(false);
       const worker = attachWorker();
