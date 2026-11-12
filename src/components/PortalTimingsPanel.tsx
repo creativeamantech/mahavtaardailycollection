@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -48,6 +48,52 @@ export function PortalTimingsPanel({ className = "" }: Props) {
   const currentSlot = data?.schedulePresets?.find(
     (slot) => slot.start <= currentTimeIST && currentTimeIST < slot.end,
   ) ?? null;
+
+  // Refresh exactly at permanent executive slot boundaries (start/end), not by polling.
+  // The special Ankita batch window is included as well.
+  useEffect(() => {
+    let timer: ReturnType<typeof window.setTimeout> | undefined;
+    let cancelled = false;
+
+    const scheduleNextBoundaryRefresh = () => {
+      if (cancelled) return;
+      const boundaries = new Set<string>(["18:30", "19:30"]);
+      for (const slot of data?.schedulePresets ?? []) {
+        if (slot.start) boundaries.add(slot.start);
+        if (slot.end) boundaries.add(slot.end);
+      }
+
+      const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).formatToParts(new Date());
+      const getPart = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+      const nowMinutes = getPart("hour") * 60 + getPart("minute") + getPart("second") / 60;
+      const nextDelta = [...boundaries].reduce((nearest, value) => {
+        const match = value.match(/^(\\d{1,2}):(\\d{2})$/);
+        if (!match) return nearest;
+        const target = Number(match[1]) * 60 + Number(match[2]);
+        let delta = target - nowMinutes;
+        if (delta <= 0) delta += 24 * 60;
+        return Math.min(nearest, delta);
+      }, 24 * 60);
+
+      const delay = Math.max(250, Math.ceil(nextDelta * 60_000));
+      timer = window.setTimeout(() => {
+        void queryClient.invalidateQueries({ queryKey: ["bank-portal"] });
+        scheduleNextBoundaryRefresh();
+      }, delay);
+    };
+
+    scheduleNextBoundaryRefresh();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [queryClient, data?.schedulePresets]);
 
   async function handleStart() {
     setBusy(true);
