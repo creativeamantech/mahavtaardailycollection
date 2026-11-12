@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { fetchMasterMatchingData, applyPaidFileChangeSet } from "@/lib/paid-file.functions";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { Progress } from "@/components/ui/progress";\nimport { downloadCsv, toCsv } from "@/lib/export";
 
 export const Route = createFileRoute("/_authenticated/paid-file")({
   beforeLoad: async () => {
@@ -17,10 +17,10 @@ export const Route = createFileRoute("/_authenticated/paid-file")({
   component: PaidFilePage,
 });
 
-type Target = "monthly-master" | "daily-collections";
-type Mapping = { agreementId: number; sfdc: number; online: number; ecs: number; special: number };
+type Target = "monthly-master";
+type Mapping = { agreementId: number; sfdc: number; online: number; paidAmount: number; ecs: number; special: number };
 type MasterRow = { row: number; agreementId: string; existingTotal: number; existingDac: number; bucket: string; city: string; customer?: string; executive?: string };
-type ParsedRow = { agreementId: string; sfdc: number; online: number; ecs: number; special: number; sourceRows: number; dac: number };
+type Transaction = { row: number; sfdc: number; online: number; paidAmount: number; ecs: number; special: number };\ntype ParsedRow = { agreementId: string; sfdc: number; online: number; ecs: number; special: number; sourceRows: number; dac: number; transactions: Transaction[] };
 type PreviewRow = ParsedRow & { master?: MasterRow | undefined; newTotal?: number | undefined };
 type SheetInfo = { name: string; rowCount: number; headers: string[]; mapping: Mapping };
 type WorkerEvent =
@@ -50,10 +50,10 @@ function PaidFilePage() {
   const applyChanges = useServerFn(applyPaidFileChangeSet);
   const workerRef = useRef<Worker | null>(null);
   const masterRowsRef = useRef<MasterRow[]>([]);
-  const [target, setTarget] = useState<Target>("monthly-master");
+  const target: Target = "monthly-master";\n  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
   const [sheetName, setSheetName] = useState("");
-  const [mapping, setMapping] = useState<Mapping>({ agreementId: -1, sfdc: -1, online: -1, ecs: -1, special: -1 });
+  const [mapping, setMapping] = useState<Mapping>({ agreementId: -1, sfdc: -1, online: -1, paidAmount: -1, ecs: -1, special: -1 });
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [invalidRows, setInvalidRows] = useState(0);
@@ -145,7 +145,7 @@ function PaidFilePage() {
     setBusy(true); setProgress(0); setProgressLabel("Validating changes with Master Sheet");
     try {
       const result = await applyChanges({ data: {
-        target, fileName, fileDate: today(), totalDac, totalSfdc, totalOnline,
+        target: "monthly-master", fileName, fileDate: today(), totalDac, totalSfdc, totalOnline,
         changes: ready.map(r => ({ row: r.master!.row, agreementId: r.agreementId, dac: r.dac, newTotal: r.newTotal!, ecs: r.ecs, special: r.special })),
       } });
       setApplied(true); setProgress(100); setProgressLabel("Applied successfully");
@@ -207,7 +207,7 @@ function PaidFilePage() {
           <Kpi label="Invalid / Errors" value={invalidRows.toLocaleString("en-IN")} />
           <Kpi label="Total DAC" value={money(totalDac)} />
         </section>
-        <section className="space-y-3 rounded-xl border bg-white p-3 sm:p-4">
+        <section className="space-y-3 rounded-xl border bg-white p-3 sm:p-4">\n          <div className="flex flex-wrap gap-2">\n            <Button size="sm" variant="outline" onClick={() => downloadCsv("paid-file-reconciliation-summary.csv", toCsv(["Agreement ID","SFDC","Online","DAC","Source Row Count","Status","Old Total","New Total"], rows.map(r => [r.agreementId,r.sfdc,r.online,r.dac,r.sourceRows,r.master ? (applied ? "Applied" : "Ready") : "Unmatched",r.master?.existingTotal ?? "",r.newTotal ?? ""])))}>Export Reconciliation Summary CSV {applied ? "(Applied)" : "(Preview)"}</Button>\n            <Button size="sm" variant="outline" disabled={!unmatched.length} onClick={() => downloadCsv("paid-file-unmatched.csv", toCsv(["Agreement ID","SFDC","Online","DAC","Source Row Count"], unmatched.map(r => [r.agreementId,r.sfdc,r.online,r.dac,r.sourceRows])))}>Export Unmatched CSV ({unmatched.length})</Button>\n          </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h2 className="font-bold">Reconciliation preview</h2><p className="text-xs text-muted-foreground">{fileName} · {rows.length} unique Agreement IDs</p></div>
             <Button onClick={() => void apply()} disabled={busy || !ready.length || applied}>{applied ? "Updates Applied" : "Apply Validated Updates to Master Sheet"}</Button>
@@ -220,7 +220,7 @@ function PaidFilePage() {
             <table className="w-full min-w-[1050px] text-left text-xs">
               <thead className="border-b bg-amber-50 text-[11px] uppercase text-slate-700"><tr>{["Agreement ID","Customer / Executive","SFDC","Online","Calculated DAC","Old Total","New Total","Status"].map(h=><th key={h} className="whitespace-nowrap px-2 py-3">{h}</th>)}</tr></thead>
               <tbody className="divide-y">{visibleRows.slice(0,1000).map(r=><tr key={r.agreementId}>
-                <td className="px-2 py-2 font-semibold">{r.agreementId}{r.sourceRows>1&&<div className="text-amber-700">Aggregated ({r.sourceRows} rows)</div>}</td>
+                <td className="px-2 py-2 font-semibold">{r.agreementId}{r.sourceRows>1&&<button type="button" className="mt-1 block text-left text-amber-700 underline underline-offset-2" onClick={() => setExpandedId(expandedId === r.agreementId ? null : r.agreementId)}>Aggregated ({r.sourceRows} rows) · {expandedId === r.agreementId ? "Hide" : "View transactions"}</button>}{expandedId === r.agreementId && <div className="mt-2 min-w-[220px] space-y-1 rounded bg-amber-50 p-2 font-normal">{r.transactions.map((tx,index)=><div key={tx.row + "-" + index} className="flex justify-between gap-2"><span>Source row {tx.row}</span><span className="tabular-nums">SFDC {money(tx.sfdc)} · Online {money(tx.online)}{tx.paidAmount ? " · Paid " + money(tx.paidAmount) : ""}</span></div>)}</div>}</td>
                 <td className="px-2 py-2">{r.master ? [r.master.customer,r.master.executive].filter(Boolean).join(" / ") || "—" : "—"}</td>
                 <td className="px-2 py-2 tabular-nums">{money(r.sfdc)}</td><td className="px-2 py-2 tabular-nums">{money(r.online)}</td><td className="px-2 py-2 tabular-nums font-semibold">{r.master ? <input aria-label={"Override DAC for " + r.agreementId} type="number" step="0.01" className="h-8 w-28 rounded border px-2 text-xs" value={r.dac} onChange={e => { const value = Number(e.target.value); setRows(prev => prev.map(item => item.agreementId === r.agreementId ? { ...item, dac: value, newTotal: item.master ? item.master.existingTotal + value : undefined } : item)); }} /> : money(r.dac)}</td>
                 <td className="px-2 py-2 tabular-nums">{r.master?money(r.master.existingTotal):"—"}</td><td className="px-2 py-2 tabular-nums">{r.newTotal===undefined?"—":money(r.newTotal)}</td>
@@ -229,7 +229,7 @@ function PaidFilePage() {
             </table>
           </div>
           {visibleRows.length>1000&&<p className="text-xs text-muted-foreground">Showing first 1,000 filtered rows. Search to narrow the preview.</p>}
-          <p className="text-xs text-muted-foreground">ECS and Special are kept in separate Master columns. Existing Total is not overwritten; New Total receives Existing Total + DAC.</p>
+          <p className="text-xs text-muted-foreground">ECS and Special are kept in separate Master columns. Existing Total is not overwritten; New Total receives Existing Total + DAC. Workbook remains in this device worker while you switch worksheets or adjust mappings.</p>
         </section>
       </>}
     </main>
