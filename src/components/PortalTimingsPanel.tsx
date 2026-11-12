@@ -5,9 +5,9 @@ import { getBankPortalData } from "@/lib/bank-portal.functions";
 type Props = { className?: string };
 
 /**
- * Shows actual Bank Portal session occupancy, not the executive's scheduled slot.
- * The shared panel refreshes when it mounts, when the app/tab regains focus, or
- * when the network reconnects. It deliberately does not poll Google Sheets.
+ * Shows actual Bank Portal session occupancy and the executive's currently
+ * scheduled slot. The panel refreshes on mount, focus, or network reconnect;
+ * it deliberately does not poll Google Sheets.
  */
 export function PortalTimingsPanel({ className = "" }: Props) {
   const load = useServerFn(getBankPortalData);
@@ -23,6 +23,18 @@ export function PortalTimingsPanel({ className = "" }: Props) {
 
   const latestSession = data?.latestPortalSession ?? null;
   const activeSession = latestSession?.status?.trim().toLowerCase() === "active" ? latestSession : null;
+
+  // Keep the previously displayed "whose time is currently running" detail.
+  // This is the scheduled slot, separate from actual FREE / IN USE occupancy.
+  const currentTimeIST = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  const currentSlot = data?.schedulePresets?.find(
+    (slot) => slot.start <= currentTimeIST && currentTimeIST < slot.end,
+  ) ?? null;
 
   return (
     <section
@@ -56,19 +68,43 @@ export function PortalTimingsPanel({ className = "" }: Props) {
         <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Portal status is temporarily unavailable. Reopen the page or try again.
         </p>
-      ) : activeSession ? (
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="truncate text-base font-semibold text-slate-900">
-            {activeSession.executive} is using the Bank Portal
-          </p>
-          <p className="mt-1 text-xs text-amber-900">
-            Session started at {activeSession.loginDate} {activeSession.loginTime}
-          </p>
-        </div>
       ) : (
-        <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
-          Portal is not currently in use.
-        </p>
+        <>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Currently running time
+            </p>
+            {currentSlot ? (
+              <>
+                <p className="mt-1 truncate text-base font-semibold text-slate-900">
+                  {currentSlot.executive}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Scheduled slot: {currentSlot.start} – {currentSlot.end} IST
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-sm font-medium text-slate-700">
+                No executive time slot is currently running.
+              </p>
+            )}
+          </div>
+
+          {activeSession ? (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="truncate text-base font-semibold text-slate-900">
+                {activeSession.executive} is using the Bank Portal
+              </p>
+              <p className="mt-1 text-xs text-amber-900">
+                Session started at {activeSession.loginDate} {activeSession.loginTime} IST
+              </p>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
+              Portal is not currently in use.
+            </p>
+          )}
+        </>
       )}
     </section>
   );
