@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { getCurrentSession } from "@/lib/auth.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { fetchMasterMatchingData, applyPaidFileChangeSet } from "@/lib/paid-file.functions";
@@ -7,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 export const Route = createFileRoute("/_authenticated/paid-file")({
+  beforeLoad: async () => {
+    const session = await getCurrentSession();
+    if (!session) throw redirect({ to: "/auth" });
+    if (session.role !== "Admin") throw redirect({ to: "/" });
+  },
   head: () => ({ meta: [{ title: "Paid File Reconciliation — Mahavtaar Daily Collection" }] }),
   component: PaidFilePage,
 });
@@ -40,6 +46,7 @@ function PaidFilePage() {
   const fetchMaster = useServerFn(fetchMasterMatchingData);
   const applyChanges = useServerFn(applyPaidFileChangeSet);
   const workerRef = useRef<Worker | null>(null);
+  const masterRowsRef = useRef<MasterRow[]>([]);
   const [target, setTarget] = useState<Target>("monthly-master");
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
   const [sheetName, setSheetName] = useState("");
@@ -57,7 +64,6 @@ function PaidFilePage() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  const masterIndex = useMemo(() => new Map(masterRows.map(r => [r.agreementId, r])), [masterRows]);
   const ready = useMemo(() => rows.filter(r => r.master), [rows]);
   const unmatched = rows.filter(r => !r.master);
   const totalDac = ready.reduce((sum, r) => sum + r.dac, 0);
@@ -90,7 +96,7 @@ function PaidFilePage() {
         setInvalidRows(message.invalidRows);
         setTotalRows(message.totalRows);
         setRows(message.records.map(record => {
-          const master = masterIndex.get(record.agreementId);
+          const master = masterRowsRef.current.find(r => r.agreementId === record.agreementId);
           return { ...record, master, newTotal: master ? master.existingTotal + record.dac : undefined };
         }));
         setProgress(100); setProgressLabel("Ready for reconciliation preview");
@@ -112,10 +118,10 @@ function PaidFilePage() {
       setLoadingMaster(true);
       const master = await fetchMaster({ data: { target } });
       setMasterRows(master.rows as MasterRow[]);
+      masterRowsRef.current = master.rows as MasterRow[];
       setLoadingMaster(false);
-      const buffer = await file.arrayBuffer();
       const worker = attachWorker();
-      worker.postMessage({ type: "inspect", buffer, fileName: file.name }, [buffer]);
+      worker.postMessage({ type: "inspect", file, fileName: file.name });
     } catch (error) {
       setLoadingMaster(false); setBusy(false);
       toast.error(error instanceof Error ? error.message : "Could not load Master Sheet or local file.");
