@@ -122,6 +122,7 @@ const NAV = [
 ] as const;
 
 const ADMIN_NAV = [
+  { to: "/paid-file", label: "Paid File Reconciliation", short: "Paid File", icon: "₹", key: "paidFile" },
   { to: "/master-performance", label: "IDFC Main Performance", short: "Performance", icon: "▥", key: "report" },
   { to: "/settings", label: "Settings", key: "settings" },
   { to: "/admin-loan-audit", label: "Productivity Desk", key: "adminLoanAudit" },
