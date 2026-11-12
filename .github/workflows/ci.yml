@@ -26,6 +26,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Regenerate MCP manifest
         run: bunx lovable-mcp-extract-manifest
+      - name: Unit tests
+        run: bun test
       - name: Production build (regenerates TanStack route tree)
         run: bun run build
       - name: TypeScript
