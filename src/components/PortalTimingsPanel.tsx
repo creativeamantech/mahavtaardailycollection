@@ -1,66 +1,73 @@
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getBankPortalData } from "@/lib/bank-portal.functions";
 
 type Props = { className?: string };
 
+/**
+ * Shows actual Bank Portal session occupancy, not the executive's scheduled slot.
+ * The shared panel refreshes when it mounts, when the app/tab regains focus, or
+ * when the network reconnects. It deliberately does not poll Google Sheets.
+ */
 export function PortalTimingsPanel({ className = "" }: Props) {
   const load = useServerFn(getBankPortalData);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["bank-portal"],
     queryFn: () => load(),
-    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchInterval: false,
     retry: false,
   });
-  const [clock, setClock] = useState(() => new Date());
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setClock(new Date()), 15_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  // Permanent presets are the recurring daily schedule; fall back to today's
-  // allocated timings for older configurations that have no presets yet.
-  const timings = data?.schedulePresets?.length ? data.schedulePresets : data?.portalTimings ?? [];
-  const now = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(clock);
-  const current = timings.find((slot) => now >= slot.start && now < slot.end);
+  const latestSession = data?.latestPortalSession ?? null;
+  const activeSession = latestSession?.status?.trim().toLowerCase() === "active" ? latestSession : null;
 
   return (
-    <section className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>
+    <section
+      className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}
+      aria-live="polite"
+      aria-label="Current Bank Portal usage status"
+    >
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-slate-900">Current Bank Portal Slot</h2>
-          <p className="text-xs text-muted-foreground">Live status · India Standard Time</p>
+        <div className="min-w-0">
+          <h2 className="font-semibold text-slate-900">Current Bank Portal Status</h2>
+          <p className="text-xs text-muted-foreground">Actual session status · IST</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${current ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
-          {current ? "ACTIVE NOW" : "NO ACTIVE SLOT"}
-        </span>
+        {!isLoading && !isError && (
+          <span
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+              activeSession
+                ? "bg-amber-100 text-amber-900"
+                : "border border-slate-200 bg-slate-50 text-slate-700"
+            }`}
+          >
+            {activeSession ? "IN USE" : "FREE"}
+          </span>
+        )}
       </div>
 
       {isLoading ? (
-        <p className="mt-3 text-sm text-muted-foreground">Loading current slot…</p>
-      ) : isError ? (
-        <p className="mt-3 text-sm text-muted-foreground">Current slot is temporarily unavailable.</p>
-      ) : current ? (
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-slate-900">{current.executive}</p>
-            <p className="text-xs text-amber-800">Executive on duty</p>
-          </div>
-          <p className="shrink-0 font-mono text-base font-semibold tabular-nums text-slate-900">
-            {current.start} – {current.end}
+        <p className="mt-3 rounded-lg border bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+          Loading portal status…
+        </p>
+      ) : isError || !data ? (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Portal status is temporarily unavailable. Reopen the page or try again.
+        </p>
+      ) : activeSession ? (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="truncate text-base font-semibold text-slate-900">
+            {activeSession.executive} is using the Bank Portal
+          </p>
+          <p className="mt-1 text-xs text-amber-900">
+            Session started at {activeSession.loginDate} {activeSession.loginTime}
           </p>
         </div>
       ) : (
-        <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
-          Abhi koi executive slot active nahi hai.
+        <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
+          Portal is not currently in use.
         </p>
       )}
     </section>
