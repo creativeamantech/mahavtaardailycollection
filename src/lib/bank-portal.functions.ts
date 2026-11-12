@@ -200,7 +200,11 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
     session, today,
     activeSession: activeSession ? { id: activeSession[0] ?? "", loginDate: activeSession[2] ?? "", loginTime: activeSession[3] ?? "", capMinutes: sessionCapMinutes(activeSession) } : null,
     latestPortalSession: sessions.length ? (() => {
-      const row = sessions[sessions.length - 1]!;
+      // Pick by the recorded IST start timestamp, not physical row position.
+      // This remains correct if an administrator sorts the Google Sheet.
+      const row = sessions.reduce((latest, candidate) =>
+        !latest || sessionStartMs(candidate) >= sessionStartMs(latest) ? candidate : latest
+      );
       return {
         id: row[0] ?? "", executive: row[1] ?? "", loginDate: row[2] ?? "", loginTime: row[3] ?? "",
         logoutDate: row[4] ?? "", logoutTime: row[5] ?? "", status: row[7] ?? "",
