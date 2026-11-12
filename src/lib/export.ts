@@ -22,7 +22,7 @@ export function sanitizeCsvCell(value: unknown): string {
     }
     const firstNonSpace = text.search(/[^ \uFEFF]/);
     const firstChar = firstNonSpace >= 0 ? text[firstNonSpace] : "";
-    if (firstChar === "\t" || firstChar === "\r" || "=+-@".includes(text[firstMeaningful] ?? ""))
+    if (firstChar === "\t" || firstChar === "\r" || "=+-@".includes(text[firstMeaningful] ?? "")) {
       text = "'" + text;
     }
   }
