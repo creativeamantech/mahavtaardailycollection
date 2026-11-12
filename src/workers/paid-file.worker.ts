@@ -22,7 +22,7 @@ function detect(headers: unknown[], keys: string[]) {
   return headers.findIndex(value => accepted.has(headerKey(value)));
 }
 function normaliseId(value: unknown) {
-  return String(value ?? "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/^['"\x60‘’]+|['"\x60‘’]+$/g, "").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").toUpperCase();
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/^['"\x60‘’]+|['"\x60‘’]+$/g, "").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").toUpperCase();
 }
 function amount(value: unknown) {
   if (value === null || value === undefined || String(value).trim() === "") return 0;
