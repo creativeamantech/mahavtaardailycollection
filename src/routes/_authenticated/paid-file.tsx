@@ -31,8 +31,11 @@ type WorkerEvent =
 
 const money = (n: number) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const today = () => {
-  const d = new Date();
-  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
+  return part("year") + "-" + part("month") + "-" + part("day");
 };
 const fields: { key: keyof Mapping; label: string; required: boolean }[] = [
   { key: "agreementId", label: "Agreement ID", required: true },
@@ -94,8 +97,9 @@ function PaidFilePage() {
         setFileName(message.fileName);
         setInvalidRows(message.invalidRows);
         setTotalRows(message.totalRows);
+        const masterByAgreement = new Map(masterRowsRef.current.map(master => [master.agreementId, master]));
         setRows(message.records.map(record => {
-          const master = masterRowsRef.current.find(r => r.agreementId === record.agreementId);
+          const master = masterByAgreement.get(record.agreementId);
           return { ...record, master, newTotal: master ? master.existingTotal + record.dac : undefined };
         }));
         setProgress(100); setProgressLabel("Ready for reconciliation preview");
