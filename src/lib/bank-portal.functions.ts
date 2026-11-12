@@ -199,6 +199,13 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   return {
     session, today,
     activeSession: activeSession ? { id: activeSession[0] ?? "", loginDate: activeSession[2] ?? "", loginTime: activeSession[3] ?? "", capMinutes: sessionCapMinutes(activeSession) } : null,
+    latestPortalSession: sessions.length ? (() => {
+      const row = sessions[sessions.length - 1]!;
+      return {
+        id: row[0] ?? "", executive: row[1] ?? "", loginDate: row[2] ?? "", loginTime: row[3] ?? "",
+        logoutDate: row[4] ?? "", logoutTime: row[5] ?? "", status: row[7] ?? "",
+      };
+    })() : null,
     liveSessions: sessions.filter((r) => isActive(r[7])).map((r) => ({
       id: r[0] ?? "", executive: r[1] ?? "", loginDate: r[2] ?? "", loginTime: r[3] ?? "",
       startedAt: sessionStartMs(r), capMinutes: sessionCapMinutes(r),
