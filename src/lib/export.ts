@@ -20,7 +20,7 @@ export function sanitizeCsvCell(value: unknown): string {
       if (code > 0x20 && code !== 0xfeff) break;
       firstMeaningful += 1;
     }
-    if (text.startsWith("\t") || text.startsWith("\r") || "=+-@".includes(text[firstMeaningful] ?? "")) {
+    const firstNonSpace = text.search(/[^ \\uFEFF]/);\n    const firstChar = firstNonSpace >= 0 ? text[firstNonSpace] : "";\n    if (firstChar === "\\t" || firstChar === "\\r" || "=+-@".includes(text[firstMeaningful] ?? "")) {
       text = "'" + text;
     }
   }
