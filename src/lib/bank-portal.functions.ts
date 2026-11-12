@@ -39,7 +39,7 @@ async function spreadsheetId() {
 }
 async function ensureAccessRequestsTab() {
   const id = await spreadsheetId();
-  const headers = ["Request_ID", "Requester", "Slot_Owner", "Requested_At", "Reason", "Duration_Minutes", "Status", "Approved_At", "Expires_At"];
+  const headers = ["Request_ID", "Requester", "Slot_Owner", "Requested_At", "Reason", "Duration_Minutes", "Status", "Approved_At", "Expires_At", "Slot_Ends_At"];
   const metadataRes = await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id), { headers: connectorHeaders() });
   const metadata = await responseJson(metadataRes, "Inspect Bank Portal spreadsheet") as { sheets?: { properties?: { title?: string } }[] };
   if (metadata.sheets?.some((sheet) => sheet.properties?.title === TABS.accessRequests)) return;
@@ -193,7 +193,7 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
   const activeSession = sessions.find((r) => r[1] === session.name && isActive(r[7]));
   const relevantRequests = accessRequests.map((r, i) => ({
     row: i + 2, id: r[0] ?? "", requester: r[1] ?? "", recipient: r[2] ?? "",
-    dateTime: r[3] ?? "", reason: r[4] ?? "", duration: r[5] ?? "",
+    dateTime: r[3] ?? "", reason: r[4] ?? "", duration: r[5] ?? "", slotEndsAt: r[9] ?? "",
     status: r[6] ?? "", approvedAt: r[7] ?? "", expiresAt: r[8] ?? "",
   })).filter((r) => r.requester === session.name || r.recipient === session.name);
   return {
@@ -238,7 +238,7 @@ export const getBankPortalData = createServerFn({ method: "GET" }).handler(async
 });
 
 export const requestBankPortalAccess = createServerFn({ method: "POST" })
-  .validator((d: unknown) => z.object({ reason: z.string().trim().min(3).max(500), duration: z.enum(["15", "30"]) }).parse(d))
+  .validator((d: unknown) => z.object({ reason: z.string().trim().min(3).max(500), duration: z.union([z.literal("FULL_SLOT"), z.number().int().min(1).max(MAX_SESSION_MINUTES)]) }).parse(d))
   .handler(async ({ data }) => {
     const session = await requireSession();
     if (session.role === "Admin") throw new Error("Admin does not need to request access.");
@@ -254,12 +254,17 @@ export const requestBankPortalAccess = createServerFn({ method: "POST" })
     const batchReserved = nowMinutes >= 18 * 60 + 30 && nowMinutes < 19 * 60 + 30;
     const owner = batchReserved
       ? ["ANKITA-BATCH", "Ankita", "SLOT_BATCH", "18:30", "19:30"]
-      : findCurrentPreset(presets, nowMinutes);
-    if (!owner?.[1] || owner[1] === session.name) throw new Error("There is no other Executive slot owner to receive this request right now.");
+      : presets.find((r) => nowMinutes >= timeToMinutes(r[3]) && nowMinutes < timeToMinutes(r[4]));
+    if (!owner?.[1] || owner[1] === session.name) throw new Error("There is no other active slot owner to receive this request right now.");
+    const slotEnd = new Date(indiaDate(now) + "T" + owner[4] + ":00+05:30");
+    const remainingMinutes = Math.floor((slotEnd.getTime() - now.getTime()) / 60_000);
+    if (!Number.isFinite(remainingMinutes) || remainingMinutes < 1) throw new Error("The current slot has less than one full minute remaining.");
+    const durationMinutes = data.duration === "FULL_SLOT" ? remainingMinutes : data.duration;
+    if (durationMinutes > remainingMinutes) throw new Error("Requested duration exceeds the remaining slot time (" + remainingMinutes + " minutes).");
     if (requests.some((r) => r[1] === session.name && r[6] === "Pending" && r[2] === owner[1]))
       throw new Error("You already have a pending request for this slot.");
     const id = "BPAR-" + crypto.randomUUID();
-    await appendTab(TABS.accessRequests, [[id, session.name, owner[1], isoNow(), data.reason, data.duration, "Pending", "", ""]]);
+    await appendTab(TABS.accessRequests, [[id, session.name, owner[1], isoNow(), data.reason, String(durationMinutes), "Pending", "", "", slotEnd.toISOString()]]);
     await audit("ACCESS_REQUESTED", session.name, id + " -> " + owner[1]);
     return { ok: true, id, recipient: owner[1] };
   });
@@ -275,7 +280,8 @@ export const respondBankPortalAccessRequest = createServerFn({ method: "POST" })
     if (row[2] !== session.name) throw new Error("Only the assigned slot Executive can respond to this request.");
     if (row[6] !== "Pending") throw new Error("This request has already been handled.");
     const approvedAt = data.decision === "Approved" ? isoNow() : "";
-    const expiresAt = data.decision === "Approved" ? new Date(Date.now() + Number(row[5]) * 60_000).toISOString() : "";
+    const slotEndMs = row[9] ? new Date(row[9]).getTime() : Number.POSITIVE_INFINITY;
+    const expiresAt = data.decision === "Approved" ? new Date(Math.min(Date.now() + Number(row[5]) * 60_000, slotEndMs)).toISOString() : "";
     await updateTab(TABS.accessRequests, index + 2, "G:I", [[data.decision, approvedAt, expiresAt]]);
     await audit("ACCESS_REQUEST_" + data.decision.toUpperCase(), session.name, data.requestId);
     return { ok: true };
@@ -315,7 +321,12 @@ export const startBankPortalSession = createServerFn({ method: "POST" }).handler
           accessRequestIndex = requests.findIndex((r) => r[1] === session.name && r[6] === "Approved" && r[7] && r[8]
             && new Date(r[7]).getTime() <= Date.now() && new Date(r[8]).getTime() > Date.now());
           if (accessRequestIndex < 0) throw new Error("Access is available during your assigned slot, for 10 minutes outside office hours, or after the slot owner approves an emergency request.");
-          capMinutes = Math.min(MAX_SESSION_MINUTES, Number(requests[accessRequestIndex]?.[5]) || 15);
+          const approvedRequest = requests[accessRequestIndex]!;
+          const requestSlotEnd = approvedRequest[9] ? new Date(approvedRequest[9]).getTime() : Number.POSITIVE_INFINITY;
+          const remainingApprovedSlot = Math.floor((requestSlotEnd - now.getTime()) / 60_000);
+          if (remainingApprovedSlot < 1) throw new Error("The slot for this approved request has ended.");
+          capMinutes = Math.min(MAX_SESSION_MINUTES, Number(approvedRequest[5]) || 0, remainingApprovedSlot);
+          if (capMinutes < 1) throw new Error("This access request has no remaining time.");
         }
       }
     }
