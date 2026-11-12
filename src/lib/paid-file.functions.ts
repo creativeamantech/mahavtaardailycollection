@@ -199,7 +199,7 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
       "GOOGLE_SHEETS_API_KEY",
       { method: "POST", body: JSON.stringify({ values: [[timestamp, admin.name, data.fileName, data.changes.length, data.totalDac, data.totalSfdc, data.totalOnline, fingerprint, "APPLYING", 0]] }) },
     );
-    const auditRow = Number(appendResult.updates?.updatedRange?.match(/![A-Z]+(\\d+):?/i)?.[1]);
+    const auditRow = Number(appendResult.updates?.updatedRange?.match(/![A-Z]+(\d+):?/i)?.[1]);
     if (!Number.isInteger(auditRow) || auditRow < 2) {
       throw new Error("Audit reservation was written but its row could not be confirmed. Check Paid_File_Audit_Log before retrying.");
     }
