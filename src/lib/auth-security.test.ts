@@ -12,7 +12,7 @@ describe("authentication security controls", () => {
     for (let i = 0; i < LOGIN_FAILURE_LIMIT; i++) limiter.recordFailure("Admin", start + i);
     const result = limiter.check("admin", start + LOGIN_FAILURE_LIMIT);
     expect(result.allowed).toBe(false);
-    expect(result.retryAfterSeconds).toBeGreaterThan(0);
+    expect(result.retryAfterSeconds > 0).toBe(true);
   });
 
   test("unblocks after the rolling 15-minute window expires", () => {
