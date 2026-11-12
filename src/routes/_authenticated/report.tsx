@@ -217,19 +217,13 @@ function LoanStatsCards({ rows }: { rows: Collection[] }) {
       foreclosureEntry: r.foreclosureEntry, bucket: r.bucket ?? "", city: r.city ?? "",
       emiAmount: r.emiAmount ?? null, pos: r.pos ?? null, foreclosure: r.foreclosure ?? null,
     })));
-    return {
-      ...loanStats(loans),
-      bucketTargetEmis: loans.reduce((sum, loan) => sum + loan.bucketTargetEmis, 0),
-      remainingLoanEmis: loans.reduce((sum, loan) => sum + loan.remainingLoanEmis, 0),
-    };
+    return loanStats(loans);
   }, [rows]);
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <StatCard label="Main Paid Cases" value={String(stats.mainPaidCases)} />
       <StatCard label="Main Paid EMI Count" value={String(stats.mainPaidEmiCount)} />
       <StatCard label="POS Paid — Not Main Paid" value={String(stats.posPaidNotMainPaid)} />
-      <StatCard label="Bucket Target EMIs (Monthly)" value={String(stats.bucketTargetEmis)} />
-      <StatCard label="Remaining Loan EMIs (Full Tenure)" value={stats.remainingLoanEmis.toFixed(1)} />
     </div>
   );
 }
