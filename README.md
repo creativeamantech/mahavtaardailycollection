@@ -28,4 +28,11 @@ npm run dev
 
 ## Authentication configuration
 
+PIN login is validated against the private server-side `LOGIN_CREDENTIALS` environment secret. Configure `AUTH_TOKEN_SECRET` as a separate cryptographically random value of at least 32 bytes (for example, generate one with `openssl rand -base64 48`). Never commit this value or expose it to the browser.
+
+Signed sessions expire after eight hours. The signing key is derived from `AUTH_TOKEN_SECRET` and the user's current credential, so rotating the secret invalidates all existing sessions and changing a user's PIN invalidates that user's sessions. Logout clears the current browser's HttpOnly cookie. Login applies a five-failure / 15-minute per-account throttle in each server process; multi-instance deployments should also enforce a shared rate limit at the edge or WAF.
+
+Spreadsheet parsing uses the official SheetJS 0.20.3 release tarball from the SheetJS CDN rather than the outdated npm registry package. The browser Web Worker continues to parse bank files locally; the original file is not uploaded.
+
+
 PIN login is validated against the active user records in the private Google Sheets `Users` tab. Authentication tokens are stateless: no `AppSessions` sheet, server-side session store, or additional `AUTH_TOKEN_SECRET` environment variable is required. The token signature is derived per user from that user's existing PIN hash in the private `Users` sheet; changing the PIN or deactivating the user invalidates outstanding tokens. Tokens expire after eight hours. Logout clears the browser's HttpOnly cookie.
