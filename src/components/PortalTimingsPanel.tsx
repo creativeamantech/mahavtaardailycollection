@@ -52,7 +52,7 @@ export function PortalTimingsPanel({ className = "" }: Props) {
   // Refresh exactly at permanent executive slot boundaries (start/end), not by polling.
   // The special Ankita batch window is included as well.
   useEffect(() => {
-    let timer: ReturnType<typeof window.setTimeout> | undefined;
+    let timer: number | undefined;
     let cancelled = false;
 
     const scheduleNextBoundaryRefresh = () => {
