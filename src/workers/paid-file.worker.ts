@@ -45,8 +45,12 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       progress(40, "Parsing Sheets");
       const sheets = workbook.SheetNames.map(name => {
         const sheet = workbook!.Sheets[name]!;
-        const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: false, blankrows: false, range: 0 });
-        const headers = (rows[0] ?? []).map(v => String(v ?? ""));
+        const usedRange = XLSX.utils.decode_range(sheet["!ref"] ?? "A1");
+        const headerRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+          header: 1, raw: false, blankrows: false,
+          range: { s: { r: 0, c: 0 }, e: { r: 0, c: usedRange.e.c } },
+        });
+        const headers = (headerRows[0] ?? []).map(v => String(v ?? ""));
         const mapping = {
           agreementId: detect(headers, aliases.agreementId),
           sfdc: detect(headers, aliases.sfdc),
@@ -54,7 +58,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
           ecs: detect(headers, aliases.ecs),
           special: detect(headers, aliases.special),
         };
-        return { name, rowCount: Math.max(0, rows.length - 1), headers, mapping };
+        return { name, rowCount: Math.max(0, usedRange.e.r), headers, mapping };
       });
       const firstWithData = sheets.find(s => s.rowCount > 0) ?? sheets[0];
       progress(70, "Extracting Columns");
