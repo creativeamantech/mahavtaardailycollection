@@ -21,7 +21,8 @@ export function PortalTimingsPanel({ className = "" }: Props) {
     retry: false,
   });
 
-  const activeSession = data?.liveSessions?.[0] ?? null;
+  const latestSession = data?.latestPortalSession ?? null;
+  const activeSession = latestSession?.status?.trim().toLowerCase() === "active" ? latestSession : null;
 
   return (
     <section
@@ -61,7 +62,7 @@ export function PortalTimingsPanel({ className = "" }: Props) {
             {activeSession.executive} is using the Bank Portal
           </p>
           <p className="mt-1 text-xs text-amber-900">
-            Session started at {activeSession.loginTime}
+            Session started at {activeSession.loginDate} {activeSession.loginTime}
           </p>
         </div>
       ) : (
