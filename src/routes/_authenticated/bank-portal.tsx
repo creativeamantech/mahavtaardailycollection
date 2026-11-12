@@ -69,7 +69,8 @@ function BankPortalPage() {
   const [issueType, setIssueType] = useState("Login / Access");
   const [description, setDescription] = useState("");
   const [accessReason, setAccessReason] = useState("");
-  const [accessDuration, setAccessDuration] = useState<"15" | "30">("15");
+  const [accessDurationMode, setAccessDurationMode] = useState<"FULL_SLOT" | "CUSTOM">("FULL_SLOT");
+  const [customAccessMinutes, setCustomAccessMinutes] = useState("5");
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [warningName, setWarningName] = useState<(typeof BANK_PORTAL_EXECUTIVES)[number]>(BANK_PORTAL_EXECUTIVES[0]);
   const [warningReason, setWarningReason] = useState("");
@@ -123,6 +124,8 @@ function BankPortalPage() {
   const portalInUse = data?.liveSessions[0];
   const currentTime = portalClock.toTimeString().slice(0, 5);
   const currentPresetSlot = data?.schedulePresets.find((slot) => slot.start <= currentTime && currentTime < slot.end);
+  const currentSlotEnd = currentPresetSlot ? new Date(portalClock.toDateString() + "T" + currentPresetSlot.end + ":00+05:30") : null;
+  const remainingSlotMinutes = currentSlotEnd ? Math.max(0, Math.ceil((currentSlotEnd.getTime() - portalClock.getTime()) / 60_000)) : 0;
 
   async function refresh() { await queryClient.invalidateQueries({ queryKey: ["bank-portal"] }); }
   async function runAction(action: () => Promise<unknown>, success: string) {
@@ -144,7 +147,7 @@ function BankPortalPage() {
   }
   async function submitAccessRequest(event: React.FormEvent) {
     event.preventDefault();
-    await runAction(async () => { await requestAccess({ data: { reason: accessReason, duration: accessDuration } }); setAccessReason(""); }, "Access request sent.");
+    await runAction(async () => { await requestAccess({ data: { reason: accessReason, duration: accessDurationMode === "FULL_SLOT" ? "FULL_SLOT" : Number(customAccessMinutes) } }); setAccessReason(""); }, "Access request sent.");
   }
   async function replyAccess(requestId: string, decision: "Approved" | "Rejected") {
     await runAction(() => respondAccess({ data: { requestId, decision } }), decision === "Approved" ? "Emergency access approved." : "Request declined.");
@@ -272,9 +275,16 @@ function BankPortalPage() {
             : otherLive
               ? <p className="mt-2 rounded-lg border bg-slate-50 p-3 text-xs text-slate-600">{otherLive.executive} is currently using the portal. Requests can be sent only after the active session ends.</p>
               : <p className="mt-2 text-xs text-muted-foreground">Ask the current slot owner to share access. You can start once they approve your request.</p>}
-          <div className="mt-3 flex gap-2">{(["15", "30"] as const).map((minutes) => <button key={minutes} type="button" onClick={() => setAccessDuration(minutes)} disabled={busy || canStart || Boolean(otherLive)} className={"rounded-lg border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 " + (accessDuration === minutes ? "border-amber-400 bg-amber-100" : "bg-white")}>{minutes} min</button>)}</div>
-          <Textarea className="mt-3" value={accessReason} onChange={(e) => setAccessReason(e.target.value)} placeholder="Reason (e.g. urgent customer settlement verification)" maxLength={500} required disabled={busy || canStart || Boolean(otherLive)} />
-          <Button className="mt-3 w-full sm:w-auto" type="submit" disabled={busy || canStart || Boolean(otherLive) || accessReason.trim().length < 3}>Send Access Request</Button>
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">Current slot remaining: <strong>{remainingSlotMinutes} minutes</strong>. Access cannot continue beyond this slot's end time.</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => setAccessDurationMode("FULL_SLOT")} disabled={busy || canStart || Boolean(otherLive) || remainingSlotMinutes < 1} className={"rounded-lg border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 " + (accessDurationMode === "FULL_SLOT" ? "border-amber-400 bg-amber-100" : "bg-white")}>Full remaining slot ({remainingSlotMinutes} min)</button>
+            <button type="button" onClick={() => setAccessDurationMode("CUSTOM")} disabled={busy || canStart || Boolean(otherLive) || remainingSlotMinutes < 1} className={"rounded-lg border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 " + (accessDurationMode === "CUSTOM" ? "border-amber-400 bg-amber-100" : "bg-white")}>Custom</button>
+          </div>
+          {accessDurationMode === "CUSTOM" && <label className="mt-3 block text-xs font-medium text-slate-600">Minutes (maximum {remainingSlotMinutes})
+            <Input className="mt-1" type="number" min="1" max={remainingSlotMinutes} step="1" value={customAccessMinutes} onChange={(e) => setCustomAccessMinutes(e.target.value)} disabled={busy || canStart || Boolean(otherLive)} required />
+          </label>}
+          <Textarea className="mt-3" value={accessReason} onChange={(e) => setAccessReason(e.target.value)} placeholder="Reason (e.g. urgent customer settlement verification)" maxLength={500} required disabled={busy || canStart || Boolean(otherLive) || remainingSlotMinutes < 1} />
+          <Button className="mt-3 w-full sm:w-auto" type="submit" disabled={busy || canStart || Boolean(otherLive) || remainingSlotMinutes < 1 || (accessDurationMode === "CUSTOM" && (!/^\\d+$/.test(customAccessMinutes) || Number(customAccessMinutes) < 1 || Number(customAccessMinutes) > remainingSlotMinutes)) || accessReason.trim().length < 3}>Send Access Request</Button>
         </form>}
 
         {data.accessRequests.filter((r) => r.requester === data.session.name).length > 0 && <section className="rounded-xl border bg-white p-4"><h3 className="font-semibold">My access requests</h3><div className="mt-2 space-y-2">{data.accessRequests.filter((r) => r.requester === data.session.name).map((r) => <div key={r.id} className="flex flex-wrap justify-between gap-2 border-b pb-2 text-sm last:border-0"><span>{r.recipient} · {r.duration} min</span><span className="font-semibold">{r.status}</span></div>)}</div></section>}
