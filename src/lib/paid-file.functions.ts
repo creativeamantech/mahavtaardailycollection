@@ -172,7 +172,7 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     const chunks: { range: string; values: (string | number)[][] }[][] = [];
     for (let i = 0; i < rowRanges.length; i += 300) chunks.push(rowRanges.slice(i, i + 300).flat());
     for (let i = 0; i < chunks.length; i++) {
-      await retryFetch(sheetsUrl(file.id, "/values:batchUpdate"), { method: "POST", headers: authHeaders("GOOGLE_SHEETS_API_KEY"), body: JSON.stringify({ valueInputOption: "RAW", data: chunks[i] }) });
+      await retryFetch(sheetsUrl(file.id, "/values:batchUpdate"), { method: "POST", headers: authHeaders("GOOGLE_SHEETS_API_KEY"), body: JSON.stringify({ valueInputOption: "RAW", data: chunks[i]! }) });
     }
     const timestamp = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "short", timeStyle: "medium" }).format(new Date());
     const totalSfdc = data.totalSfdc, totalOnline = data.totalOnline;
