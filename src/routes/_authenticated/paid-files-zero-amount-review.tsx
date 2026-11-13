@@ -130,6 +130,7 @@ function PaidFilesZeroAmountReviewPage() {
       const result = await applyChanges({
         data: {
           target: "monthly-master",
+          sourceMode: "MANUAL",
           fileName: "Paid Files Zero Amount Review (Admin Manual Entry)",
           fileDate: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()),
           totalDac: changes.reduce((sum, change) => sum + change.dac, 0),
