@@ -21,6 +21,7 @@ const changeSchema = z.object({
   newTotal: z.number().finite(),
   ecs: z.number().finite().optional().default(0),
   special: z.number().finite().optional().default(0),
+  paymentDate: z.string().trim().max(40).optional().default(""),
   clearProvisional: z.boolean().optional().default(false),
 });
 
@@ -273,8 +274,16 @@ async function readMaster(target: Target = "monthly-master") {
     customer: findCol(headers, ["Customer", "Customer Name", "Borrower Name"]),
     executive: findCol(headers, ["Executive", "Executive Name", "Allocated To", "EX. Name"]),
     newTotal: findCol(headers, ["New Total"]),
+    remaining: findCol(headers, ["Remaining", "Remaining Amount", "Remaining Balance", "Balance"]),
     ecs: findCol(headers, ["ECS Amount", "ECS"]),
     special: findCol(headers, ["Special Amount", "Special"]),
+    paymentDate: findCol(headers, [
+      "Payment Date",
+      "Paid Date",
+      "Pay Date",
+      "Collection Date",
+      "Last Payment Date",
+    ]),
     dacSource: findCol(headers, ["DAC Source", "Source", "dac_source", "Payment Source"]),
     isCorrected: findCol(headers, ["Is Corrected", "Corrected", "is_corrected"]),
     provisionalDac: findCol(headers, ["Provisional DAC", "provisional_dac", "Provisional"]),
@@ -301,12 +310,14 @@ async function readMaster(target: Target = "monthly-master") {
         cols.total,
         cols.dac,
         cols.newTotal,
+        cols.remaining,
         cols.bucket,
         cols.city,
         cols.customer,
         cols.executive,
         cols.ecs,
         cols.special,
+        cols.paymentDate,
         cols.dacSource,
         cols.isCorrected,
         cols.provisionalDac,
@@ -339,8 +350,10 @@ async function readMaster(target: Target = "monthly-master") {
       existingTotal: numeric(cell(cols.total)),
       existingDac: cols.dac >= 0 ? numeric(cell(cols.dac)) : 0,
       existingNewTotal: cols.newTotal >= 0 ? numeric(cell(cols.newTotal)) : 0,
+      existingRemaining: cols.remaining >= 0 ? optionalNumeric(cell(cols.remaining)) : null,
       existingEcs: cols.ecs >= 0 ? numeric(cell(cols.ecs)) : 0,
       existingSpecial: cols.special >= 0 ? numeric(cell(cols.special)) : 0,
+      existingPaymentDate: cols.paymentDate >= 0 ? String(cell(cols.paymentDate) ?? "").trim() : "",
       bucket: String(cell(cols.bucket) ?? ""),
       city: String(cell(cols.city) ?? ""),
       customer: cols.customer >= 0 ? String(cell(cols.customer) ?? "") : "",
@@ -729,7 +742,17 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
         );
       }
 
-      if (Math.abs(current.existingTotal + change.dac - change.newTotal) > 0.01)
+      const dacDelta = change.dac - current.existingDac;
+      const ecsDelta = change.ecs - current.existingEcs;
+      const specialDelta = change.special - current.existingSpecial;
+      const netApplied = dacDelta + ecsDelta + specialDelta;
+      const validDelta = Math.abs(current.existingTotal + netApplied - change.newTotal) <= 0.01;
+      const validMaxTotal =
+        Math.abs(
+          Math.max(current.existingTotal, current.existingNewTotal) + netApplied - change.newTotal,
+        ) <= 0.01;
+      const validDirect = Math.abs(current.existingTotal + change.dac - change.newTotal) <= 0.01;
+      if (!validDelta && !validMaxTotal && !validDirect)
         throw new Error("Invalid New Total for Agreement ID " + change.agreementId + ".");
 
       const updates: { range: string; values: (string | number | boolean)[][] }[] = [];
@@ -742,15 +765,20 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
           range: "'" + file.tab + "'!" + colLetter(cols.dac) + change.row,
           values: [[change.dac]],
         });
-      if (change.ecs && cols.ecs >= 0)
+      if (cols.ecs >= 0 && (change.ecs !== current.existingEcs || change.ecs !== 0))
         updates.push({
           range: "'" + file.tab + "'!" + colLetter(cols.ecs) + change.row,
           values: [[change.ecs]],
         });
-      if (change.special && cols.special >= 0)
+      if (cols.special >= 0 && (change.special !== current.existingSpecial || change.special !== 0))
         updates.push({
           range: "'" + file.tab + "'!" + colLetter(cols.special) + change.row,
           values: [[change.special]],
+        });
+      if (cols.paymentDate >= 0 && change.paymentDate)
+        updates.push({
+          range: "'" + file.tab + "'!" + colLetter(cols.paymentDate) + change.row,
+          values: [[change.paymentDate]],
         });
       if (cols.dacSource >= 0)
         updates.push({

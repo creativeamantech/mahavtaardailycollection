@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import {
   normalisePaidId,
   parsePaidAmount,
+  parsePaidDate,
   roundMoney,
   type ColumnMapping,
   type DuplicateStrategy,
@@ -49,11 +50,31 @@ const aliases = {
     "PAID AMOUNT",
     "PAID_AMOUNT",
     "AMOUNT",
-    "TOTAL PAID",
     "PAYMENT AMOUNT",
+  ],
+  paidTotal: [
+    "TOTAL",
+    "TOTAL PAID",
+    "PAID TOTAL",
+    "TOTAL AMOUNT",
+    "GRAND TOTAL",
+    "TOTAL COLLECTION",
+    "PAID FILE TOTAL",
   ],
   ecs: ["ECS", "ECS AMOUNT", "NACH", "ACH"],
   special: ["SPECIAL", "SPECIAL AMOUNT", "SPECIAL_AMT", "SPECIAL PRES"],
+  paymentDate: [
+    "PAYMENT DATE",
+    "PAYMENT_DATE",
+    "PAID DATE",
+    "PAID_DATE",
+    "PAY DATE",
+    "COLLECTION DATE",
+    "TXN DATE",
+    "TRANSACTION DATE",
+    "RECEIPT DATE",
+    "DATE",
+  ],
 };
 
 function headerKey(value: unknown) {
@@ -87,6 +108,8 @@ function detectHeader(rows: unknown[][]) {
     "DAC",
     "AMOUNT",
     "PAID",
+    "TOTAL",
+    "PAYMENT DATE",
   ];
   let best = { row: 0, score: -1 };
   for (let row = 0; row < Math.min(10, rows.length); row++) {
@@ -122,21 +145,33 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         const sfdcIdx = detect(headers, aliases.sfdc);
         const onlineIdx = detect(headers, aliases.online);
         const paidAmountIdx = detect(headers, aliases.paidAmount);
+        const rawPaidTotalIdx = detect(headers, aliases.paidTotal);
         const dacMode =
           sfdcIdx >= 0 || onlineIdx >= 0
             ? "split_sfdc_online"
-            : paidAmountIdx >= 0
+            : paidAmountIdx >= 0 || rawPaidTotalIdx >= 0
               ? "single_dac"
               : "split_sfdc_online";
+        const effectivePaidAmountIdx =
+          paidAmountIdx >= 0 ? paidAmountIdx : dacMode === "single_dac" ? rawPaidTotalIdx : -1;
+        const paidTotalIdx =
+          rawPaidTotalIdx >= 0 &&
+          rawPaidTotalIdx !== sfdcIdx &&
+          rawPaidTotalIdx !== onlineIdx &&
+          rawPaidTotalIdx !== effectivePaidAmountIdx
+            ? rawPaidTotalIdx
+            : -1;
 
         const mapping: ColumnMapping = {
           agreementId: detect(headers, aliases.agreementId),
           dacMode,
           sfdc: sfdcIdx,
           online: onlineIdx,
-          paidAmount: paidAmountIdx,
+          paidAmount: effectivePaidAmountIdx,
+          paidTotal: paidTotalIdx,
           ecs: detect(headers, aliases.ecs),
           special: detect(headers, aliases.special),
+          paymentDate: detect(headers, aliases.paymentDate),
         };
 
         const sampleRows: string[][] = [];
@@ -178,10 +213,15 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     const duplicateStrategy: DuplicateStrategy = message.duplicateStrategy ?? "last_wins";
 
     if (mapping.agreementId < 0) throw new Error("Map an Agreement ID / Loan ID column.");
-    if (mapping.dacMode === "split_sfdc_online" && mapping.sfdc < 0 && mapping.online < 0) {
+    if (
+      mapping.dacMode === "split_sfdc_online" &&
+      mapping.sfdc < 0 &&
+      mapping.online < 0 &&
+      mapping.paidTotal < 0
+    ) {
       throw new Error("Map SFDC and/or Online column (or switch to Single DAC Column mode).");
     }
-    if (mapping.dacMode === "single_dac" && mapping.paidAmount < 0) {
+    if (mapping.dacMode === "single_dac" && mapping.paidAmount < 0 && mapping.paidTotal < 0) {
       throw new Error("Map a Direct DAC / Paid Amount column.");
     }
 
@@ -194,8 +234,10 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         sfdc: number;
         online: number;
         dac: number;
+        paidTotal: number;
         ecs: number;
         special: number;
+        paymentDate: string;
         sourceRows: number;
         duplicatesReplaced: number;
         transactions: PaidTransaction[];
@@ -219,22 +261,27 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       const sfdc = parsePaidAmount(mapping.sfdc >= 0 ? row[mapping.sfdc] : 0);
       const online = parsePaidAmount(mapping.online >= 0 ? row[mapping.online] : 0);
       const paidAmount = parsePaidAmount(mapping.paidAmount >= 0 ? row[mapping.paidAmount] : 0);
+      const mappedTotal = parsePaidAmount(mapping.paidTotal >= 0 ? row[mapping.paidTotal] : 0);
       const ecs = parsePaidAmount(mapping.ecs >= 0 ? row[mapping.ecs] : 0);
       const special = parsePaidAmount(mapping.special >= 0 ? row[mapping.special] : 0);
+      const paymentDate = mapping.paymentDate >= 0 ? parsePaidDate(row[mapping.paymentDate]) : "";
 
-      if (![sfdc, online, paidAmount, ecs, special].every(Number.isFinite)) {
+      if (![sfdc, online, paidAmount, mappedTotal, ecs, special].every(Number.isFinite)) {
         invalidRows++;
         continue;
       }
 
       const rowDac = mapping.dacMode === "single_dac" ? paidAmount : sfdc + online;
+      const rowPaidTotal = mapping.paidTotal >= 0 ? mappedTotal : rowDac + ecs + special;
       const tx: PaidTransaction = {
         row: i + 1,
         sfdc: roundMoney(sfdc),
         online: roundMoney(online),
         paidAmount: roundMoney(paidAmount),
+        paidTotal: roundMoney(rowPaidTotal),
         ecs: roundMoney(ecs),
         special: roundMoney(special),
+        paymentDate,
       };
 
       const existing = grouped.get(agreementId);
@@ -244,19 +291,22 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
           sfdc: roundMoney(sfdc),
           online: roundMoney(online),
           dac: roundMoney(rowDac),
+          paidTotal: roundMoney(rowPaidTotal),
           ecs: roundMoney(ecs),
           special: roundMoney(special),
+          paymentDate,
           sourceRows: 1,
           duplicatesReplaced: 0,
           transactions: [tx],
         });
       } else if (duplicateStrategy === "last_wins") {
-        // Last occurrence wins: replace staged amounts while keeping transaction history for transparency
         existing.sfdc = roundMoney(sfdc);
         existing.online = roundMoney(online);
         existing.dac = roundMoney(rowDac);
+        existing.paidTotal = roundMoney(rowPaidTotal);
         existing.ecs = roundMoney(ecs);
         existing.special = roundMoney(special);
+        if (paymentDate) existing.paymentDate = paymentDate;
         existing.sourceRows += 1;
         existing.duplicatesReplaced += 1;
         existing.transactions.push(tx);
@@ -264,8 +314,10 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         existing.sfdc = roundMoney(existing.sfdc + sfdc);
         existing.online = roundMoney(existing.online + online);
         existing.dac = roundMoney(existing.dac + rowDac);
+        existing.paidTotal = roundMoney(existing.paidTotal + rowPaidTotal);
         existing.ecs = roundMoney(existing.ecs + ecs);
         existing.special = roundMoney(existing.special + special);
+        if (paymentDate) existing.paymentDate = paymentDate;
         existing.sourceRows += 1;
         existing.transactions.push(tx);
       }

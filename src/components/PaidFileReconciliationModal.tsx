@@ -64,6 +64,8 @@ type Props = {
   onDuplicateStrategyChange: (strategy: DuplicateStrategy) => void;
   reconciliationMode: ReconciliationMode;
   onReconciliationModeChange: (mode: ReconciliationMode) => void;
+  defaultPaymentDate: string;
+  onDefaultPaymentDateChange: (date: string) => void;
   onAnalyze: () => void;
   reconciledRows: ReconciledRow[];
   summary: ReconciliationSummary;
@@ -93,7 +95,7 @@ function actionBadge(action: ReconciliationAction) {
   switch (action) {
     case "clean_update":
       return {
-        label: "Clean Update",
+        label: "Update Needed",
         cls: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
       };
     case "provisional_confirmed":
@@ -152,6 +154,8 @@ export function PaidFileReconciliationModal({
   onDuplicateStrategyChange,
   reconciliationMode,
   onReconciliationModeChange,
+  defaultPaymentDate,
+  onDefaultPaymentDateChange,
   onAnalyze,
   reconciledRows,
   summary,
@@ -172,8 +176,8 @@ export function PaidFileReconciliationModal({
   const mappingValidation = useMemo(() => isMappingValid(mapping), [mapping]);
 
   const samplePreview = useMemo(
-    () => computeSamplePreview(activeSheet?.sampleRows ?? [], mapping, 5),
-    [activeSheet, mapping],
+    () => computeSamplePreview(activeSheet?.sampleRows ?? [], mapping, 5, defaultPaymentDate),
+    [activeSheet, mapping, defaultPaymentDate],
   );
 
   const filteredRows = useMemo(() => {
@@ -273,14 +277,14 @@ export function PaidFileReconciliationModal({
         <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-3 sm:px-5 sm:py-4">
           {step === "mapping" ? (
             <div className="space-y-4">
-              {/* Worksheet + DAC Mode + Duplicate Strategy + Reconciliation Mode */}
-              <div className="grid gap-3 rounded-lg border bg-card p-3.5 md:grid-cols-2 lg:grid-cols-4">
+              {/* Worksheet + DAC Mode + Duplicate Strategy + Comparison Mode + Default Date */}
+              <div className="grid gap-3 rounded-lg border bg-card p-3.5 md:grid-cols-2 lg:grid-cols-5">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Worksheet
                   </label>
                   <select
-                    className="h-9 w-full rounded-md border bg-background px-2.5 text-sm"
+                    className="h-9 w-full rounded-md border bg-background px-2.5 text-xs sm:text-sm"
                     value={sheetName}
                     onChange={(e) => onSelectSheet(e.target.value)}
                   >
@@ -295,7 +299,7 @@ export function PaidFileReconciliationModal({
 
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    DAC Calculation Mode
+                    Paid File DAC Mode
                   </label>
                   <div className="grid grid-cols-2 gap-1 rounded-md border bg-muted p-1">
                     <button
@@ -325,48 +329,63 @@ export function PaidFileReconciliationModal({
 
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Duplicate Agreement IDs
+                    Duplicate IDs
                   </label>
                   <select
-                    className="h-9 w-full rounded-md border bg-background px-2.5 text-sm"
+                    className="h-9 w-full rounded-md border bg-background px-2.5 text-xs sm:text-sm"
                     value={duplicateStrategy}
                     onChange={(e) => onDuplicateStrategyChange(e.target.value as DuplicateStrategy)}
                   >
-                    <option value="last_wins">Last Occurrence Wins (Recommended)</option>
+                    <option value="last_wins">Last Row Wins</option>
                     <option value="sum">Sum Duplicate Rows</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Master Total Comparison
+                    Master Comparison
                   </label>
                   <select
-                    className="h-9 w-full rounded-md border bg-background px-2.5 text-sm"
+                    className="h-9 w-full rounded-md border bg-background px-2.5 text-xs sm:text-sm"
                     value={reconciliationMode}
                     onChange={(e) =>
                       onReconciliationModeChange(e.target.value as ReconciliationMode)
                     }
                   >
-                    <option value="difference">Difference Only (Paid File − Master)</option>
-                    <option value="additive">Additive (Add Full Amount On Top)</option>
+                    <option value="difference">Remaining &lt; 0 Only</option>
+                    <option value="additive">Additive (Add Full)</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Default Payment Date
+                  </label>
+                  <Input
+                    type="date"
+                    className="h-9 text-xs sm:text-sm"
+                    value={defaultPaymentDate}
+                    onChange={(e) => onDefaultPaymentDateChange(e.target.value)}
+                  />
                 </div>
               </div>
 
               <div className="rounded-md border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
                 {reconciliationMode === "difference" ? (
                   <>
-                    <strong>Difference Mode Active:</strong> Compares{" "}
-                    <span className="font-semibold">Paid File Total</span> against{" "}
-                    <span className="font-semibold">Master Total</span>. Only accounts with a
-                    positive new payment difference are updated; already-matched accounts and higher
-                    Master totals are skipped automatically.
+                    <strong>Master Sheet Remaining Check:</strong> Computes Paid File{" "}
+                    <span className="font-semibold">DAC (SFDC + Online)</span> &amp;{" "}
+                    <span className="font-semibold">Paid File Total</span>, matches against Master
+                    Total (<span className="font-mono">Remaining = Master Total − Paid Total</span>
+                    ), and updates only accounts with a{" "}
+                    <span className="font-semibold">negative Remaining</span> into Master&apos;s{" "}
+                    <span className="font-semibold">DAC, ECS, Special &amp; Payment Date</span>{" "}
+                    columns.
                   </>
                 ) : (
                   <>
-                    <strong>Additive Mode Active:</strong> Adds the full Paid File DAC directly on
-                    top of existing Master Total without subtracting prior collection.
+                    <strong>Additive Mode Active:</strong> Adds Paid File DAC directly on top of
+                    existing Master Total without checking negative Remaining.
                   </>
                 )}
               </div>
@@ -417,6 +436,14 @@ export function PaidFileReconciliationModal({
                   )}
 
                   <MappingSelect
+                    label="Paid File Total (for New Total)"
+                    unsetLabel="Auto (DAC + ECS + Special)"
+                    value={mapping.paidTotal}
+                    headers={activeSheet?.headers ?? []}
+                    onChange={(val) => onMappingChange({ ...mapping, paidTotal: val })}
+                  />
+
+                  <MappingSelect
                     label="ECS Amount (Optional)"
                     value={mapping.ecs}
                     headers={activeSheet?.headers ?? []}
@@ -427,6 +454,13 @@ export function PaidFileReconciliationModal({
                     value={mapping.special}
                     headers={activeSheet?.headers ?? []}
                     onChange={(val) => onMappingChange({ ...mapping, special: val })}
+                  />
+                  <MappingSelect
+                    label="Payment Date (Optional)"
+                    unsetLabel={`Use Default (${defaultPaymentDate || "Today"})`}
+                    value={mapping.paymentDate}
+                    headers={activeSheet?.headers ?? []}
+                    onChange={(val) => onMappingChange({ ...mapping, paymentDate: val })}
                   />
                 </div>
 
@@ -459,9 +493,11 @@ export function PaidFileReconciliationModal({
                             <th className="px-3 py-2 text-right">Online</th>
                           </>
                         )}
-                        <th className="px-3 py-2 text-right">Paid File Total</th>
+                        <th className="px-3 py-2 text-right">Paid DAC</th>
                         <th className="px-3 py-2 text-right">ECS</th>
                         <th className="px-3 py-2 text-right">Special</th>
+                        <th className="px-3 py-2 text-right">Paid Total</th>
+                        <th className="px-3 py-2">Payment Date</th>
                         <th className="px-3 py-2">Status</th>
                       </tr>
                     </thead>
@@ -469,7 +505,7 @@ export function PaidFileReconciliationModal({
                       {samplePreview.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={mapping.dacMode === "split_sfdc_online" ? 8 : 6}
+                            colSpan={mapping.dacMode === "split_sfdc_online" ? 10 : 8}
                             className="px-3 py-6 text-center text-muted-foreground"
                           >
                             No non-empty sample rows found in the selected worksheet.
@@ -502,6 +538,12 @@ export function PaidFileReconciliationModal({
                             </td>
                             <td className="px-3 py-1.5 text-right font-mono tabular-nums">
                               {money(row.special)}
+                            </td>
+                            <td className="px-3 py-1.5 text-right font-mono font-semibold tabular-nums text-primary">
+                              {money(row.paidTotal)}
+                            </td>
+                            <td className="px-3 py-1.5 font-mono tabular-nums text-muted-foreground">
+                              {row.paymentDate}
                             </td>
                             <td className="px-3 py-1.5">
                               <span
@@ -546,7 +588,7 @@ export function PaidFileReconciliationModal({
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
                 <MetricCard
                   icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-                  label="Updated Accounts"
+                  label="Negative Remaining (Updates)"
                   value={summary.matchedUpdates.toLocaleString("en-IN")}
                   sub={`Net Diff ${signedMoney(summary.totalNetDifference)}`}
                   tone="emerald"
@@ -567,11 +609,13 @@ export function PaidFileReconciliationModal({
                 />
                 <MetricCard
                   icon={<SkipForward className="h-4 w-4 text-muted-foreground" />}
-                  label="Already Matched / Higher"
-                  value={(summary.unchangedCount + summary.masterHigherCount).toLocaleString(
-                    "en-IN",
-                  )}
-                  sub={`${summary.unchangedCount} identical · ${summary.masterHigherCount} master higher · ${summary.unmatchedCount} unmatched`}
+                  label="No Update Needed"
+                  value={(
+                    summary.unchangedCount +
+                    summary.masterHigherCount +
+                    summary.unmatchedCount
+                  ).toLocaleString("en-IN")}
+                  sub={`${summary.unchangedCount} matched · ${summary.masterHigherCount} master higher · ${summary.unmatchedCount} unmatched`}
                   tone="neutral"
                 />
               </div>
@@ -585,26 +629,25 @@ export function PaidFileReconciliationModal({
                   </span>
                   <span>·</span>
                   <span>
-                    Unique IDs: <strong className="text-foreground">{summary.uniqueIds}</strong>
+                    DAC Delta:{" "}
+                    <strong className="text-emerald-700 dark:text-emerald-400">
+                      {money(summary.totalUpdateDac)}
+                    </strong>
                   </span>
                   <span>·</span>
                   <span>
-                    Mode:{" "}
-                    <strong className="text-foreground">
-                      {reconciliationMode === "difference" ? "Difference Only" : "Additive"}
-                    </strong>
+                    ECS Delta:{" "}
+                    <strong className="text-foreground">{money(summary.totalUpdateEcs)}</strong>
+                  </span>
+                  <span>·</span>
+                  <span>
+                    Special Delta:{" "}
+                    <strong className="text-foreground">{money(summary.totalUpdateSpecial)}</strong>
                   </span>
                   <span>·</span>
                   <span>
                     Paid File Total:{" "}
                     <strong className="text-foreground">{money(summary.totalIncomingDac)}</strong>
-                  </span>
-                  <span>·</span>
-                  <span>
-                    Commit Target DAC:{" "}
-                    <strong className="text-emerald-700 dark:text-emerald-400">
-                      {money(summary.totalUpdateDac)}
-                    </strong>
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -624,12 +667,14 @@ export function PaidFileReconciliationModal({
                             "Master Source",
                             "Action",
                             "Master Total",
+                            "Paid File DAC",
                             "Paid File Total",
-                            "Difference",
+                            "Remaining (Master - Paid)",
+                            "Delta DAC",
                             "Target DAC",
-                            "Incoming ECS",
-                            "Incoming Special",
-                            "Base Total",
+                            "Target ECS",
+                            "Target Special",
+                            "Payment Date",
                             "New Total",
                             "Reason",
                           ],
@@ -640,12 +685,14 @@ export function PaidFileReconciliationModal({
                             r.master?.dacSource ?? "",
                             r.action,
                             r.master ? r.currentMasterTotal : "",
+                            r.paidFileDac,
                             r.paidFileTotal,
-                            r.master ? r.difference : "",
+                            r.master ? r.remaining : "",
+                            r.deltaDac,
                             r.dac,
-                            r.ecs,
-                            r.special,
-                            r.master?.existingTotal ?? "",
+                            r.targetEcs,
+                            r.targetSpecial,
+                            r.resolvedPaymentDate,
                             r.newTotal ?? "",
                             r.reason,
                           ]),
@@ -670,9 +717,11 @@ export function PaidFileReconciliationModal({
                             "Agreement ID",
                             "SFDC",
                             "Online",
-                            "Paid File Total",
+                            "Paid DAC",
                             "ECS",
                             "Special",
+                            "Paid Total",
+                            "Payment Date",
                             "Rows",
                           ],
                           reconciledRows
@@ -681,9 +730,11 @@ export function PaidFileReconciliationModal({
                               r.agreementId,
                               r.sfdc,
                               r.online,
-                              r.paidFileTotal,
+                              r.paidFileDac,
                               r.ecs,
                               r.special,
+                              r.paidFileTotal,
+                              r.resolvedPaymentDate,
                               r.sourceRows,
                             ]),
                         ),
@@ -707,7 +758,7 @@ export function PaidFileReconciliationModal({
                       Updated First ({allChangesCount})
                     </TabsTrigger>
                     <TabsTrigger value="clean_updates" className="text-xs">
-                      Updates Only ({summary.matchedUpdates})
+                      Remaining &lt; 0 ({summary.matchedUpdates})
                     </TabsTrigger>
                     <TabsTrigger value="conflicts" className="text-xs">
                       Conflicts ({summary.totalConflictsFlagged})
@@ -740,14 +791,16 @@ export function PaidFileReconciliationModal({
 
               {/* Diff Table */}
               <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full min-w-[780px] text-left text-xs">
+                <table className="w-full min-w-[860px] text-left text-xs">
                   <thead className="border-b bg-muted/60 text-[11px] uppercase text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2">Agreement ID & Customer</th>
                       <th className="px-3 py-2 text-right">Master Total</th>
-                      <th className="px-3 py-2 text-right">Paid File Total</th>
-                      <th className="px-3 py-2 text-right">Difference / DAC</th>
-                      <th className="px-3 py-2 text-right">New Total</th>
+                      <th className="px-3 py-2 text-right">Paid Total (New Total)</th>
+                      <th className="px-3 py-2 text-right">Remaining (Total − Paid)</th>
+                      <th className="px-3 py-2 text-right">
+                        Master Update (DAC · ECS · Sp · Date)
+                      </th>
                       <th className="px-3 py-2">Resulting Action</th>
                     </tr>
                   </thead>
@@ -771,10 +824,10 @@ export function PaidFileReconciliationModal({
                     ) : (
                       filteredRows.slice(0, 500).map((r) => {
                         const badge = actionBadge(r.action);
-                        const diffPositive = r.difference > 0.01;
-                        const diffNegative = r.difference < -0.01;
+                        const isNegativeRemaining = r.remaining < -0.01;
+                        const isPositiveRemaining = r.remaining > 0.01;
                         return (
-                          <tr key={r.agreementId} className="min-h-[40px] hover:bg-muted/30">
+                          <tr key={r.agreementId} className="min-h-[42px] hover:bg-muted/30">
                             <td className="px-3 py-2 align-top">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <span className="font-mono font-semibold tabular-nums text-foreground">
@@ -822,7 +875,8 @@ export function PaidFileReconciliationModal({
                                     >
                                       <span className="text-muted-foreground">Row {tx.row}</span>
                                       <span>
-                                        SFDC {money(tx.sfdc)} · Onl {money(tx.online)}
+                                        SFDC {money(tx.sfdc)} · Onl {money(tx.online)} · Tot{" "}
+                                        {money(tx.paidTotal)}
                                       </span>
                                     </div>
                                   ))}
@@ -836,10 +890,13 @@ export function PaidFileReconciliationModal({
                                   <div className="font-semibold text-foreground">
                                     {money(r.currentMasterTotal)}
                                   </div>
-                                  {r.master.existingDac > 0 && (
+                                  {(r.master.existingDac > 0 ||
+                                    r.master.existingEcs > 0 ||
+                                    r.master.existingSpecial > 0) && (
                                     <div className="text-[10px] text-muted-foreground">
-                                      Base {money(r.master.existingTotal)} + DAC{" "}
-                                      {money(r.master.existingDac)}
+                                      DAC {money(r.master.existingDac)} · ECS{" "}
+                                      {money(r.master.existingEcs)} · Sp{" "}
+                                      {money(r.master.existingSpecial)}
                                     </div>
                                   )}
                                 </>
@@ -852,11 +909,12 @@ export function PaidFileReconciliationModal({
                               <div className="font-semibold text-foreground">
                                 {money(r.paidFileTotal)}
                               </div>
-                              {(r.sfdc > 0 || r.online > 0) && (
-                                <div className="text-[10px] text-muted-foreground">
-                                  SFDC {money(r.sfdc)} · Onl {money(r.online)}
-                                </div>
-                              )}
+                              <div className="text-[10px] text-muted-foreground">
+                                DAC {money(r.paidFileDac)}
+                                {r.sfdc > 0 || r.online > 0
+                                  ? ` (${money(r.sfdc)}+${money(r.online)})`
+                                  : ""}
+                              </div>
                               {(r.ecs > 0 || r.special > 0) && (
                                 <div className="text-[10px] text-muted-foreground">
                                   ECS {money(r.ecs)} · Sp {money(r.special)}
@@ -867,17 +925,25 @@ export function PaidFileReconciliationModal({
                             <td className="px-3 py-2 text-right align-top font-mono tabular-nums">
                               <div
                                 className={`font-bold ${
-                                  diffPositive
+                                  isNegativeRemaining
                                     ? "text-emerald-600 dark:text-emerald-400"
-                                    : diffNegative
+                                    : isPositiveRemaining
                                       ? "text-amber-600 dark:text-amber-400"
                                       : "text-muted-foreground"
                                 }`}
                               >
-                                {r.master ? signedMoney(r.difference) : money(r.paidFileTotal)}
+                                {r.master ? signedMoney(r.remaining) : "—"}
                               </div>
-                              {r.isEditable && !applied && (
-                                <div className="mt-1 flex items-center justify-end gap-1">
+                              {isNegativeRemaining && (
+                                <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                                  Update +{money(r.difference)}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-2 text-right align-top font-mono tabular-nums">
+                              {r.isEditable && !applied ? (
+                                <div className="flex items-center justify-end gap-1">
                                   <span className="font-sans text-[10px] text-muted-foreground">
                                     DAC:
                                   </span>
@@ -893,19 +959,16 @@ export function PaidFileReconciliationModal({
                                     }}
                                   />
                                 </div>
-                              )}
-                            </td>
-
-                            <td className="px-3 py-2 text-right align-top font-mono tabular-nums">
-                              {r.master ? (
-                                <span>
-                                  {money(r.currentMasterTotal)} →{" "}
-                                  <strong className="text-foreground">
-                                    {money(r.newTotal ?? r.currentMasterTotal)}
-                                  </strong>
-                                </span>
                               ) : (
-                                "—"
+                                <div className="font-semibold">DAC {money(r.dac)}</div>
+                              )}
+                              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                                ECS {money(r.targetEcs)} · Sp {money(r.targetSpecial)}
+                              </div>
+                              {r.resolvedPaymentDate && (
+                                <div className="text-[10px] text-muted-foreground">
+                                  Date: {r.resolvedPaymentDate}
+                                </div>
                               )}
                             </td>
 
@@ -1013,12 +1076,14 @@ export function PaidFileReconciliationModal({
 function MappingSelect({
   label,
   required,
+  unsetLabel = "Not mapped",
   value,
   headers,
   onChange,
 }: {
   label: string;
   required?: boolean;
+  unsetLabel?: string;
   value: number;
   headers: string[];
   onChange: (value: number) => void;
@@ -1034,7 +1099,7 @@ function MappingSelect({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
       >
-        <option value={-1}>Not mapped</option>
+        <option value={-1}>{unsetLabel}</option>
         {headers.map((h, i) => (
           <option key={i} value={i}>
             {h || `Column ${i + 1}`}

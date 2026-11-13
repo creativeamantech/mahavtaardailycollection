@@ -9,8 +9,12 @@ export type ColumnMapping = {
   sfdc: number;
   online: number;
   paidAmount: number;
+  /** Optional explicit Total column from Paid File (-1 = auto DAC + ECS + Special) */
+  paidTotal: number;
   ecs: number;
   special: number;
+  /** Optional Payment Date column from Paid File (-1 = use default payment date) */
+  paymentDate: number;
 };
 
 export type MasterRow = {
@@ -19,8 +23,10 @@ export type MasterRow = {
   existingTotal: number;
   existingDac: number;
   existingNewTotal: number;
+  existingRemaining: number | null;
   existingEcs: number;
   existingSpecial: number;
+  existingPaymentDate: string;
   bucket: string;
   city: string;
   customer?: string;
@@ -37,17 +43,23 @@ export type PaidTransaction = {
   sfdc: number;
   online: number;
   paidAmount: number;
+  paidTotal: number;
   ecs: number;
   special: number;
+  paymentDate: string;
 };
 
 export type StagedPaidRow = {
   agreementId: string;
   sfdc: number;
   online: number;
+  /** Paid File DAC column (SFDC + Online or Direct DAC) */
   dac: number;
+  /** Paid File Total column (or computed DAC + ECS + Special) */
+  paidTotal: number;
   ecs: number;
   special: number;
+  paymentDate: string;
   sourceRows: number;
   duplicatesReplaced: number;
   transactions: PaidTransaction[];
@@ -74,14 +86,25 @@ export type ReconciliationAction =
 
 export type ReconciledRow = StagedPaidRow & {
   master?: MasterRow | undefined;
-  /** Cumulative total parsed from the Paid File (SFDC + Online or Direct Paid Amount) */
+  /** Paid File DAC (SFDC + Online or Direct DAC from Paid File) */
+  paidFileDac: number;
+  /** Paid File Total (for Master New Total VLOOKUP comparison) */
   paidFileTotal: number;
-  /** Effective current total already recorded in Master (max of existingTotal and existingNewTotal) */
+  /** Current effective Total in Master Sheet */
   currentMasterTotal: number;
-  /** Difference between Paid File Total and Current Master Total (or raw Paid File amount in additive mode) */
+  /** Master Sheet Remaining formula equivalent: Master Total - Paid File Total (negative = needs update) */
+  remaining: number;
+  /** Positive net update amount needed (Paid File Total - Master Total) */
   difference: number;
-  /** Target DAC value to write to Master's DAC column so existingTotal + dac = newTotal */
+  /** Delta amounts to add to Master's DAC, ECS, and Special columns */
+  deltaDac: number;
+  deltaEcs: number;
+  deltaSpecial: number;
+  /** Final values written to Master Sheet's DAC, ECS, Special, and Payment Date columns */
   dac: number;
+  targetEcs: number;
+  targetSpecial: number;
+  resolvedPaymentDate: string;
   newTotal?: number | undefined;
   action: ReconciliationAction;
   reason: string;
@@ -110,6 +133,8 @@ export type ReconciliationSummary = {
   totalIncomingSfdc: number;
   totalIncomingOnline: number;
   totalUpdateDac: number;
+  totalUpdateEcs: number;
+  totalUpdateSpecial: number;
   totalNetDifference: number;
 };
 
@@ -119,8 +144,10 @@ export type SamplePreviewRow = {
   sfdc: number;
   online: number;
   dac: number;
+  paidTotal: number;
   ecs: number;
   special: number;
+  paymentDate: string;
   valid: boolean;
 };
 
@@ -144,6 +171,82 @@ export function parsePaidAmount(value: unknown): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
+const MONTHS_SHORT: Record<string, number> = {
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  sept: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
+};
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function validYmd(year: number, month: number, day: number): string {
+  if (year < 1990 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) return "";
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+export function parsePaidDate(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  // Excel serial date number (e.g. 46338)
+  if (/^\d{5}(\.\d+)?$/.test(raw)) {
+    const serial = Math.floor(Number(raw));
+    if (serial >= 30000 && serial <= 80000) {
+      const utcMs = Date.UTC(1899, 11, 30) + serial * 86_400_000;
+      const d = new Date(utcMs);
+      return validYmd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+    }
+  }
+
+  // ISO YYYY-MM-DD (optionally with timestamp)
+  const iso = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s].*)?$/);
+  if (iso) {
+    return validYmd(Number(iso[1]), Number(iso[2]), Number(iso[3])) || raw;
+  }
+
+  // DD-MMM-YYYY or DD MMM YYYY (common in Indian NBFC exports)
+  const mmm = raw.match(/^(\d{1,2})[-\s/]([A-Za-z]{3,5})[-\s/](\d{2,4})$/);
+  if (mmm) {
+    const mon = MONTHS_SHORT[mmm[2]!.toLowerCase()];
+    const yrRaw = Number(mmm[3]);
+    const yr = yrRaw < 100 ? 2000 + yrRaw : yrRaw;
+    if (mon) {
+      return validYmd(yr, mon, Number(mmm[1])) || raw;
+    }
+  }
+
+  // DD/MM/YYYY, DD-MM-YYYY, or MM/DD/YY from Excel raw:false
+  const dmy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+  if (dmy) {
+    const a = Number(dmy[1]);
+    const b = Number(dmy[2]);
+    const yrRaw = Number(dmy[3]);
+    const yr = yrRaw < 100 ? 2000 + yrRaw : yrRaw;
+    // Prefer DD/MM unless second part exceeds 12
+    if (b <= 12 && (a > 12 || dmy[3]!.length === 4)) {
+      return validYmd(yr, b, a) || raw;
+    }
+    if (a <= 12 && b <= 31) {
+      return validYmd(yr, a, b) || raw;
+    }
+    return validYmd(yr, b, a) || raw;
+  }
+
+  return raw.slice(0, 32);
+}
+
 export function roundMoney(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
@@ -153,14 +256,14 @@ export function isMappingValid(mapping: ColumnMapping): { valid: boolean; messag
     return { valid: false, message: "Select the Agreement ID / Loan ID column." };
   }
   if (mapping.dacMode === "split_sfdc_online") {
-    if (mapping.sfdc < 0 && mapping.online < 0) {
+    if (mapping.sfdc < 0 && mapping.online < 0 && mapping.paidTotal < 0) {
       return {
         valid: false,
         message:
           "Map at least one of SFDC or Online columns (or switch to Single DAC Column mode).",
       };
     }
-  } else if (mapping.paidAmount < 0) {
+  } else if (mapping.paidAmount < 0 && mapping.paidTotal < 0) {
     return {
       valid: false,
       message: "Map the Direct DAC / Paid Amount column (or switch to SFDC + Online mode).",
@@ -173,6 +276,7 @@ export function computeSamplePreview(
   sampleRows: string[][],
   mapping: ColumnMapping,
   limit = 5,
+  defaultPaymentDate = "",
 ): SamplePreviewRow[] {
   const out: SamplePreviewRow[] = [];
   for (let i = 0; i < sampleRows.length && out.length < limit; i++) {
@@ -182,23 +286,38 @@ export function computeSamplePreview(
     const sfdc = parsePaidAmount(mapping.sfdc >= 0 ? row[mapping.sfdc] : 0);
     const online = parsePaidAmount(mapping.online >= 0 ? row[mapping.online] : 0);
     const paidAmount = parsePaidAmount(mapping.paidAmount >= 0 ? row[mapping.paidAmount] : 0);
+    const paidTotalRaw = parsePaidAmount(mapping.paidTotal >= 0 ? row[mapping.paidTotal] : 0);
     const ecs = parsePaidAmount(mapping.ecs >= 0 ? row[mapping.ecs] : 0);
     const special = parsePaidAmount(mapping.special >= 0 ? row[mapping.special] : 0);
-    const numbersValid = [sfdc, online, paidAmount, ecs, special].every(Number.isFinite);
+    const paymentDate =
+      (mapping.paymentDate >= 0 ? parsePaidDate(row[mapping.paymentDate]) : "") ||
+      defaultPaymentDate;
+    const numbersValid = [sfdc, online, paidAmount, paidTotalRaw, ecs, special].every(
+      Number.isFinite,
+    );
     const dac =
       mapping.dacMode === "single_dac"
         ? Number.isFinite(paidAmount)
           ? paidAmount
           : 0
         : (Number.isFinite(sfdc) ? sfdc : 0) + (Number.isFinite(online) ? online : 0);
+    const paidTotal =
+      mapping.paidTotal >= 0
+        ? Number.isFinite(paidTotalRaw)
+          ? paidTotalRaw
+          : 0
+        : dac + (Number.isFinite(ecs) ? ecs : 0) + (Number.isFinite(special) ? special : 0);
+
     out.push({
       rowIndex: i + 1,
       agreementId: agreementId || "—",
       sfdc: Number.isFinite(sfdc) ? roundMoney(sfdc) : 0,
       online: Number.isFinite(online) ? roundMoney(online) : 0,
       dac: roundMoney(dac),
+      paidTotal: roundMoney(paidTotal),
       ecs: Number.isFinite(ecs) ? roundMoney(ecs) : 0,
       special: Number.isFinite(special) ? roundMoney(special) : 0,
+      paymentDate: paymentDate || "—",
       valid: Boolean(agreementId) && numbersValid,
     });
   }
@@ -228,20 +347,33 @@ export function reconcilePaidRecord(
   master: MasterRow | undefined,
   dacOverride?: number,
   mode: ReconciliationMode = "difference",
+  defaultPaymentDate = "",
 ): ReconciledRow {
-  const paidFileTotal = roundMoney(record.dac);
+  const paidFileDac = roundMoney(record.dac);
+  const paidFileTotal = roundMoney(
+    record.paidTotal > 0 ? record.paidTotal : record.dac + record.ecs + record.special,
+  );
+  const resolvedPaymentDate = record.paymentDate || defaultPaymentDate;
 
   if (!master) {
     const effectiveDac =
       dacOverride !== undefined && Number.isFinite(dacOverride)
         ? roundMoney(dacOverride)
-        : paidFileTotal;
+        : paidFileDac;
     return {
       ...record,
+      paidFileDac,
       paidFileTotal,
       currentMasterTotal: 0,
-      difference: effectiveDac,
+      remaining: roundMoney(-paidFileTotal),
+      difference: paidFileTotal,
+      deltaDac: effectiveDac,
+      deltaEcs: roundMoney(record.ecs),
+      deltaSpecial: roundMoney(record.special),
       dac: effectiveDac,
+      targetEcs: roundMoney(record.ecs),
+      targetSpecial: roundMoney(record.special),
+      resolvedPaymentDate,
       master: undefined,
       newTotal: undefined,
       action: "unmatched",
@@ -256,24 +388,59 @@ export function reconcilePaidRecord(
   const currentMasterTotal = roundMoney(
     Math.max(master.existingTotal, master.existingNewTotal || 0),
   );
+  // Master Sheet Remaining formula = Total - New Total (negative => needs update)
+  const remaining =
+    mode === "difference"
+      ? roundMoney(currentMasterTotal - paidFileTotal)
+      : roundMoney(-paidFileTotal);
   const rawDifference =
     mode === "difference" ? roundMoney(paidFileTotal - currentMasterTotal) : paidFileTotal;
 
-  // Target DAC to write into Master's DAC column so existingTotal + dac = newTotal
-  const computedTargetDac =
+  // Allocate negative Remaining (neededAmount) across ECS, Special, and DAC cleanly
+  const neededAmount =
     mode === "difference"
-      ? roundMoney(Math.max(0, paidFileTotal - master.existingTotal))
+      ? roundMoney(Math.max(0, paidFileTotal - currentMasterTotal))
       : paidFileTotal;
+
+  const deltaEcs =
+    mode === "difference"
+      ? roundMoney(Math.max(0, Math.min(neededAmount, record.ecs - master.existingEcs)))
+      : roundMoney(record.ecs);
+  const deltaSpecial =
+    mode === "difference"
+      ? roundMoney(
+          Math.max(0, Math.min(neededAmount - deltaEcs, record.special - master.existingSpecial)),
+        )
+      : roundMoney(record.special);
+  const deltaDac =
+    mode === "difference"
+      ? roundMoney(Math.max(0, neededAmount - deltaEcs - deltaSpecial))
+      : paidFileDac;
+
+  const targetEcs = roundMoney(mode === "difference" ? master.existingEcs + deltaEcs : record.ecs);
+  const targetSpecial = roundMoney(
+    mode === "difference" ? master.existingSpecial + deltaSpecial : record.special,
+  );
+  const computedTargetDac = roundMoney(
+    mode === "difference" ? master.existingDac + deltaDac : paidFileDac,
+  );
 
   const effectiveDac =
     dacOverride !== undefined && Number.isFinite(dacOverride)
       ? roundMoney(dacOverride)
       : computedTargetDac;
-
-  const effectiveDiff =
+  const effectiveDeltaDac =
     dacOverride !== undefined && Number.isFinite(dacOverride)
-      ? roundMoney(master.existingTotal + effectiveDac - currentMasterTotal)
+      ? roundMoney(effectiveDac - master.existingDac)
+      : deltaDac;
+  const effectiveDifference =
+    dacOverride !== undefined && Number.isFinite(dacOverride)
+      ? roundMoney(effectiveDeltaDac + deltaEcs + deltaSpecial)
       : rawDifference;
+  const effectiveRemaining =
+    dacOverride !== undefined && Number.isFinite(dacOverride)
+      ? roundMoney(-effectiveDifference)
+      : remaining;
 
   const protectedRecord = isProtectedSource(master);
   if (protectedRecord) {
@@ -286,14 +453,22 @@ export function reconcilePaidRecord(
     if (mismatch) {
       return {
         ...record,
+        paidFileDac,
         paidFileTotal,
         currentMasterTotal,
+        remaining,
         difference: rawDifference,
-        dac: paidFileTotal,
+        deltaDac: 0,
+        deltaEcs: 0,
+        deltaSpecial: 0,
+        dac: paidFileDac,
+        targetEcs: master.existingEcs,
+        targetSpecial: master.existingSpecial,
+        resolvedPaymentDate,
         master,
         newTotal: currentMasterTotal,
         action: "protected_conflict",
-        reason: `Protected (${master.dacSource || "CORRECTED"}): Paid File (${paidFileTotal.toLocaleString("en-IN")}) differs from Master (${currentMasterTotal.toLocaleString("en-IN")})`,
+        reason: `Protected (${master.dacSource || "CORRECTED"}): Paid File Total (${paidFileTotal.toLocaleString("en-IN")}) differs from Master (${currentMasterTotal.toLocaleString("en-IN")})`,
         hasDelta: false,
         conflictFlag: true,
         protectedSkip: true,
@@ -302,10 +477,18 @@ export function reconcilePaidRecord(
     }
     return {
       ...record,
+      paidFileDac,
       paidFileTotal,
       currentMasterTotal,
+      remaining: 0,
       difference: 0,
-      dac: 0,
+      deltaDac: 0,
+      deltaEcs: 0,
+      deltaSpecial: 0,
+      dac: master.existingDac,
+      targetEcs: master.existingEcs,
+      targetSpecial: master.existingSpecial,
+      resolvedPaymentDate,
       master,
       newTotal: currentMasterTotal,
       action: "protected_match",
@@ -319,27 +502,30 @@ export function reconcilePaidRecord(
 
   // Provisional collection cross-check
   if (master.provisionalDac !== null && master.provisionalDac > 0) {
-    const provisionalCompare = mode === "difference" ? rawDifference : effectiveDac;
+    const provisionalCompare = mode === "difference" ? effectiveDifference : effectiveDac;
     if (!differs(master.provisionalDac, provisionalCompare)) {
-      const nextTotal = roundMoney(master.existingTotal + effectiveDac);
-      const hasAmountDelta =
-        differs(nextTotal, currentMasterTotal) ||
-        differs(effectiveDac, master.existingDac) ||
-        differs(record.ecs, master.existingEcs) ||
-        differs(record.special, master.existingSpecial) ||
-        master.dacSource !== "PAID_FILE" ||
-        master.isConflict;
+      const nextTotal = roundMoney(
+        currentMasterTotal + effectiveDeltaDac + deltaEcs + deltaSpecial,
+      );
       return {
         ...record,
+        paidFileDac,
         paidFileTotal,
         currentMasterTotal,
-        difference: effectiveDiff,
+        remaining: effectiveRemaining,
+        difference: effectiveDifference,
+        deltaDac: effectiveDeltaDac,
+        deltaEcs,
+        deltaSpecial,
         dac: effectiveDac,
+        targetEcs,
+        targetSpecial,
+        resolvedPaymentDate,
         master,
         newTotal: nextTotal,
         action: "provisional_confirmed",
         reason: "Provisional DAC matched Paid File difference — confirmed",
-        hasDelta: hasAmountDelta,
+        hasDelta: true,
         conflictFlag: false,
         protectedSkip: false,
         isEditable: true,
@@ -347,10 +533,18 @@ export function reconcilePaidRecord(
     }
     return {
       ...record,
+      paidFileDac,
       paidFileTotal,
       currentMasterTotal,
+      remaining,
       difference: rawDifference,
+      deltaDac: 0,
+      deltaEcs: 0,
+      deltaSpecial: 0,
       dac: effectiveDac,
+      targetEcs: master.existingEcs,
+      targetSpecial: master.existingSpecial,
+      resolvedPaymentDate,
       master,
       newTotal: currentMasterTotal,
       action: "conflict_provisional",
@@ -363,18 +557,26 @@ export function reconcilePaidRecord(
   }
 
   if (mode === "difference") {
-    // Master Total already exceeds Paid File Total -> never subtract or double-add!
-    if (effectiveDiff < -EPS) {
+    // Master Remaining > 0 means Master Total is already higher than Paid File Total -> skip
+    if (effectiveRemaining > EPS) {
       return {
         ...record,
+        paidFileDac,
         paidFileTotal,
         currentMasterTotal,
-        difference: effectiveDiff,
-        dac: 0,
+        remaining: effectiveRemaining,
+        difference: effectiveDifference,
+        deltaDac: 0,
+        deltaEcs: 0,
+        deltaSpecial: 0,
+        dac: master.existingDac,
+        targetEcs: master.existingEcs,
+        targetSpecial: master.existingSpecial,
+        resolvedPaymentDate,
         master,
         newTotal: currentMasterTotal,
         action: "master_higher",
-        reason: `Master Total (₹${currentMasterTotal.toLocaleString("en-IN")}) is higher than Paid File (₹${paidFileTotal.toLocaleString("en-IN")}) by ₹${Math.abs(effectiveDiff).toLocaleString("en-IN")} — skipped`,
+        reason: `Master Total (₹${currentMasterTotal.toLocaleString("en-IN")}) > Paid File (₹${paidFileTotal.toLocaleString("en-IN")}) · Remaining +₹${effectiveRemaining.toLocaleString("en-IN")}`,
         hasDelta: false,
         conflictFlag: false,
         protectedSkip: false,
@@ -382,22 +584,26 @@ export function reconcilePaidRecord(
       };
     }
 
-    const hasEcsOrSpecialChange =
-      (record.ecs > EPS && differs(record.ecs, master.existingEcs)) ||
-      (record.special > EPS && differs(record.special, master.existingSpecial));
-
-    // Exact match with Master Total -> Already reconciled, do NOT add again!
-    if (effectiveDiff <= EPS && !hasEcsOrSpecialChange) {
+    // Remaining === 0 -> Already reconciled, do NOT re-add
+    if (effectiveRemaining >= -EPS) {
       return {
         ...record,
+        paidFileDac,
         paidFileTotal,
         currentMasterTotal,
+        remaining: 0,
         difference: 0,
+        deltaDac: 0,
+        deltaEcs: 0,
+        deltaSpecial: 0,
         dac: master.existingDac,
+        targetEcs: master.existingEcs,
+        targetSpecial: master.existingSpecial,
+        resolvedPaymentDate,
         master,
         newTotal: currentMasterTotal,
         action: "unchanged",
-        reason: "Paid File total matches Master total — no new amount to add",
+        reason: "Remaining is ₹0 — Master Total matches Paid File Total",
         hasDelta: false,
         conflictFlag: false,
         protectedSkip: false,
@@ -405,20 +611,32 @@ export function reconcilePaidRecord(
       };
     }
 
-    const nextTotal = roundMoney(master.existingTotal + effectiveDac);
+    // Negative Remaining (< 0) -> Apply delta to DAC / ECS / Special + Payment Date & New Total = Paid File Total
+    const nextTotal = roundMoney(currentMasterTotal + effectiveDeltaDac + deltaEcs + deltaSpecial);
+    const parts: string[] = [];
+    if (effectiveDeltaDac > EPS) parts.push(`DAC +₹${effectiveDeltaDac.toLocaleString("en-IN")}`);
+    if (deltaEcs > EPS) parts.push(`ECS +₹${deltaEcs.toLocaleString("en-IN")}`);
+    if (deltaSpecial > EPS) parts.push(`Special +₹${deltaSpecial.toLocaleString("en-IN")}`);
+    if (resolvedPaymentDate) parts.push(`Date ${resolvedPaymentDate}`);
+
     return {
       ...record,
+      paidFileDac,
       paidFileTotal,
       currentMasterTotal,
-      difference: effectiveDiff,
+      remaining: effectiveRemaining,
+      difference: effectiveDifference,
+      deltaDac: effectiveDeltaDac,
+      deltaEcs,
+      deltaSpecial,
       dac: effectiveDac,
+      targetEcs,
+      targetSpecial,
+      resolvedPaymentDate,
       master,
       newTotal: nextTotal,
       action: "clean_update",
-      reason:
-        effectiveDiff > EPS
-          ? `New payment difference +₹${effectiveDiff.toLocaleString("en-IN")} to apply`
-          : "Updated ECS / Special amount",
+      reason: `Remaining -₹${Math.abs(effectiveRemaining).toLocaleString("en-IN")} → Update ${parts.join(", ")}`,
       hasDelta: true,
       conflictFlag: false,
       protectedSkip: false,
@@ -437,10 +655,18 @@ export function reconcilePaidRecord(
   if (!hasAmountDelta) {
     return {
       ...record,
+      paidFileDac,
       paidFileTotal,
       currentMasterTotal,
-      difference: effectiveDac,
+      remaining: 0,
+      difference: 0,
+      deltaDac: 0,
+      deltaEcs: 0,
+      deltaSpecial: 0,
       dac: effectiveDac,
+      targetEcs: record.ecs,
+      targetSpecial: record.special,
+      resolvedPaymentDate,
       master,
       newTotal: roundMoney(master.existingTotal + effectiveDac),
       action: "unchanged",
@@ -454,14 +680,22 @@ export function reconcilePaidRecord(
 
   return {
     ...record,
+    paidFileDac,
     paidFileTotal,
     currentMasterTotal,
+    remaining: roundMoney(-effectiveDac),
     difference: effectiveDac,
+    deltaDac: effectiveDac,
+    deltaEcs: record.ecs,
+    deltaSpecial: record.special,
     dac: effectiveDac,
+    targetEcs: record.ecs,
+    targetSpecial: record.special,
+    resolvedPaymentDate,
     master,
     newTotal: roundMoney(master.existingTotal + effectiveDac),
     action: "clean_update",
-    reason: "Matched in Master — ready to commit",
+    reason: "Additive update — ready to commit",
     hasDelta: true,
     conflictFlag: false,
     protectedSkip: false,
@@ -475,6 +709,7 @@ export function reconcilePaidDataset(
   meta: { totalRows: number; invalidRows: number },
   overrides?: Map<string, number>,
   mode: ReconciliationMode = "difference",
+  defaultPaymentDate = "",
 ): { rows: ReconciledRow[]; summary: ReconciliationSummary } {
   const masterById = new Map<string, MasterRow>();
   for (const row of masterRows) {
@@ -488,6 +723,7 @@ export function reconcilePaidDataset(
         masterById.get(record.agreementId),
         overrides?.get(record.agreementId),
         mode,
+        defaultPaymentDate,
       ),
     )
     .sort((a, b) => {
@@ -509,6 +745,8 @@ export function reconcilePaidDataset(
   let totalIncomingSfdc = 0;
   let totalIncomingOnline = 0;
   let totalUpdateDac = 0;
+  let totalUpdateEcs = 0;
+  let totalUpdateSpecial = 0;
   let totalNetDifference = 0;
 
   for (const r of rows) {
@@ -520,13 +758,17 @@ export function reconcilePaidDataset(
     switch (r.action) {
       case "clean_update":
         matchedUpdates++;
-        totalUpdateDac += r.dac;
+        totalUpdateDac += r.deltaDac;
+        totalUpdateEcs += r.deltaEcs;
+        totalUpdateSpecial += r.deltaSpecial;
         totalNetDifference += Math.max(0, r.difference);
         break;
       case "provisional_confirmed":
         provisionalConfirmed++;
         matchedUpdates++;
-        totalUpdateDac += r.dac;
+        totalUpdateDac += r.deltaDac;
+        totalUpdateEcs += r.deltaEcs;
+        totalUpdateSpecial += r.deltaSpecial;
         totalNetDifference += Math.max(0, r.difference);
         break;
       case "protected_match":
@@ -571,6 +813,8 @@ export function reconcilePaidDataset(
       totalIncomingSfdc: roundMoney(totalIncomingSfdc),
       totalIncomingOnline: roundMoney(totalIncomingOnline),
       totalUpdateDac: roundMoney(totalUpdateDac),
+      totalUpdateEcs: roundMoney(totalUpdateEcs),
+      totalUpdateSpecial: roundMoney(totalUpdateSpecial),
       totalNetDifference: roundMoney(totalNetDifference),
     },
   };

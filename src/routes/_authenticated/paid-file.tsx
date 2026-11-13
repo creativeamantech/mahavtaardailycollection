@@ -75,8 +75,10 @@ const EMPTY_MAPPING: ColumnMapping = {
   sfdc: -1,
   online: -1,
   paidAmount: -1,
+  paidTotal: -1,
   ecs: -1,
   special: -1,
+  paymentDate: -1,
 };
 
 function PaidFilePage() {
@@ -96,6 +98,7 @@ function PaidFilePage() {
   const [mapping, setMapping] = useState<ColumnMapping>(EMPTY_MAPPING);
   const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>("last_wins");
   const [reconciliationMode, setReconciliationMode] = useState<ReconciliationMode>("difference");
+  const [defaultPaymentDate, setDefaultPaymentDate] = useState(() => today());
 
   const [stagedRecords, setStagedRecords] = useState<StagedPaidRow[]>([]);
   const [dacOverrides, setDacOverrides] = useState<Map<string, number>>(new Map());
@@ -139,8 +142,17 @@ function PaidFilePage() {
         { totalRows, invalidRows },
         dacOverrides,
         reconciliationMode,
+        defaultPaymentDate,
       ),
-    [stagedRecords, masterRows, totalRows, invalidRows, dacOverrides, reconciliationMode],
+    [
+      stagedRecords,
+      masterRows,
+      totalRows,
+      invalidRows,
+      dacOverrides,
+      reconciliationMode,
+      defaultPaymentDate,
+    ],
   );
 
   const currentStage = applied
@@ -329,8 +341,9 @@ function PaidFilePage() {
             agreementId: r.agreementId,
             dac: r.dac,
             newTotal: r.newTotal!,
-            ecs: r.ecs,
-            special: r.special,
+            ecs: r.targetEcs,
+            special: r.targetSpecial,
+            paymentDate: r.resolvedPaymentDate,
             clearProvisional: r.action === "provisional_confirmed",
           })),
           conflictFlags: conflicts.map((r) => ({
@@ -748,6 +761,8 @@ function PaidFilePage() {
         onDuplicateStrategyChange={setDuplicateStrategy}
         reconciliationMode={reconciliationMode}
         onReconciliationModeChange={setReconciliationMode}
+        defaultPaymentDate={defaultPaymentDate}
+        onDefaultPaymentDateChange={setDefaultPaymentDate}
         onAnalyze={handleAnalyze}
         reconciledRows={reconciledRows}
         summary={summary}
