@@ -184,8 +184,9 @@ export function PaidFileReconciliationModal({
       setBulkPasteMessage("Paste at least one loan row.");
       return;
     }
-    const delimiter = lines[0].includes("\t") ? "\t" : lines[0].includes("|") ? "|" : ",";
-    const firstCells = lines[0].split(delimiter).map((cell) => cell.trim().toLowerCase());
+    const firstLine = lines[0] ?? "";
+    const delimiter = firstLine.includes("\t") ? "\t" : firstLine.includes("|") ? "|" : ",";
+    const firstCells = firstLine.split(delimiter).map((cell) => cell.trim().toLowerCase());
     const hasHeader = firstCells.some((cell) => /loan|agreement|account/.test(cell));
     const dataLines = hasHeader ? lines.slice(1) : lines;
     const eligibleById = new Map(eligibleZeroRows.map((row) => [row.agreementId.trim().toLowerCase(), row]));
