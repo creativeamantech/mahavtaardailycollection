@@ -642,20 +642,6 @@ function MasterPerformancePage() {
                       paid: r.mainPaidPos,
                       target: r.targetPos,
                     }))}
-                    onShare={() =>
-                      void shareText(
-                        "City-wise Needed POS — " + activeBucketName,
-                        mainShareRows.map((r) =>
-                          [
-                            r.city,
-                            "Cases " + r.totalCount,
-                            "Needed POS " + money(r.neededPos),
-                            "Main Paid POS " + money(r.mainPaidPos),
-                            "Target POS " + money(r.targetPos),
-                          ].join(" | "),
-                        ),
-                      )
-                    }
                   />
                   <ShareTable
                     title="City-wise Needed Rollback POS"
@@ -668,20 +654,6 @@ function MasterPerformancePage() {
                       paid: r.rollbackPos,
                       target: r.targetRollbackPos,
                     }))}
-                    onShare={() =>
-                      void shareText(
-                        "City-wise Needed Rollback POS — " + activeBucketName,
-                        rollbackShareRows.map((r) =>
-                          [
-                            r.city,
-                            "Cases " + r.totalCount,
-                            "Needed Rollback POS " + money(r.neededRollbackPos),
-                            "Rollback POS " + money(r.rollbackPos),
-                            "Target Rollback POS " + money(r.targetRollbackPos),
-                          ].join(" | "),
-                        ),
-                      )
-                    }
                   />
                 </div>
               </div>
