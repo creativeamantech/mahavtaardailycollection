@@ -178,6 +178,13 @@ const ADMIN_NAV = [
     key: "paidFile",
   },
   {
+    to: "/paid-files-zero-amount-review",
+    label: "Paid Files Zero Amount Review",
+    short: "Zero Amount Review",
+    icon: "0",
+    key: "paidFileZeroReview",
+  },
+  {
     to: "/master-performance",
     label: "IDFC Main Performance",
     short: "Performance",
