@@ -43,7 +43,8 @@ type ReviewTab =
   | "master_higher"
   | "protected"
   | "unchanged"
-  | "unmatched";
+  | "unmatched"
+  | "zero_amount";
 
 type Props = {
   open: boolean;
@@ -68,6 +69,7 @@ type Props = {
   summary: ReconciliationSummary;
   onOverrideDac: (agreementId: string, dac: number) => void;
   onCommit: () => Promise<void>;
+  onApplyZeroAmount: (changes: { row: number; agreementId: string; dac: number; ecs: number; special: number; paymentDate: string }[]) => Promise<void>;
   onCancelSession: () => void;
   busy: boolean;
   applied: boolean;
@@ -156,6 +158,7 @@ export function PaidFileReconciliationModal({
   summary,
   onOverrideDac,
   onCommit,
+  onApplyZeroAmount,
   onCancelSession,
   busy,
   applied,
@@ -165,6 +168,22 @@ export function PaidFileReconciliationModal({
   const [reviewTab, setReviewTab] = useState<ReviewTab>("all_changes");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [zeroAmounts, setZeroAmounts] = useState<Record<string, { dac: string; ecs: string; special: string }>>({});
+  const zeroAmountRows = useMemo(() => reconciledRows.filter((row) => row.dac === 0 && row.ecs === 0 && row.special === 0), [reconciledRows]);
+  const eligibleZeroRows = zeroAmountRows.filter((row) => row.master && !row.protectedSkip && row.action !== "protected_conflict" && row.action !== "conflict_provisional");
+  const zeroReadyCount = eligibleZeroRows.filter((row) => {
+    const values = zeroAmounts[row.agreementId] ?? { dac: "", ecs: "", special: "" };
+    return [values.dac, values.ecs, values.special].some((value) => Number(value) > 0);
+  }).length;
+  async function applyZeroAmounts() {
+    const changes = eligibleZeroRows.flatMap((row) => {
+      const values = zeroAmounts[row.agreementId] ?? { dac: "", ecs: "", special: "" };
+      const dac = Number(values.dac || 0), ecs = Number(values.ecs || 0), special = Number(values.special || 0);
+      if (![dac, ecs, special].every((value) => Number.isFinite(value) && value >= 0) || dac + ecs + special <= 0 || !row.master) return [];
+      return [{ row: row.master.row, agreementId: row.agreementId, dac, ecs, special, paymentDate: row.resolvedPaymentDate }];
+    });
+    if (changes.length) await onApplyZeroAmount(changes);
+  }
 
   const activeSheet = useMemo(() => sheets.find((s) => s.name === sheetName), [sheets, sheetName]);
 
@@ -199,6 +218,8 @@ export function PaidFileReconciliationModal({
           return row.action === "unchanged";
         case "unmatched":
           return row.action === "unmatched";
+        case "zero_amount":
+          return false;
       }
     });
   }, [reconciledRows, reviewTab, search]);
@@ -744,6 +765,9 @@ export function PaidFileReconciliationModal({
                     <TabsTrigger value="unmatched" className="text-xs">
                       Unmatched ({summary.unmatchedCount})
                     </TabsTrigger>
+                    <TabsTrigger value="zero_amount" className="text-xs">
+                      Zero Amount Review ({zeroAmountRows.length})
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
 
@@ -758,8 +782,46 @@ export function PaidFileReconciliationModal({
                 </div>
               </div>
 
+              {reviewTab === "zero_amount" && (
+                <section className="space-y-3 rounded-lg border p-3">
+                  <div>
+                    <h3 className="text-sm font-semibold">Paid File Zero Amount Review</h3>
+                    <p className="text-xs text-muted-foreground">Automatically extracted from this uploaded Paid File after column mapping. These rows stay out of the normal Difference / Paid File commit calculation.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded-md bg-muted/50 p-2"><p className="text-[11px] text-muted-foreground">Zero rows found</p><p className="text-lg font-bold">{zeroAmountRows.length}</p></div>
+                    <div className="rounded-md bg-muted/50 p-2"><p className="text-[11px] text-muted-foreground">Master matched</p><p className="text-lg font-bold">{zeroAmountRows.filter((row) => row.master).length}</p></div>
+                    <div className="rounded-md bg-muted/50 p-2"><p className="text-[11px] text-muted-foreground">Protected / unmatched</p><p className="text-lg font-bold">{zeroAmountRows.length - eligibleZeroRows.length}</p></div>
+                    <div className="rounded-md bg-muted/50 p-2"><p className="text-[11px] text-muted-foreground">Manual additions ready</p><p className="text-lg font-bold">{zeroReadyCount}</p></div>
+                  </div>
+                  <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full min-w-[760px] text-left text-xs">
+                      <thead className="bg-muted/60"><tr><th className="p-2">Loan Number</th><th className="p-2">Master Match</th><th className="p-2 text-right">Existing DAC</th><th className="p-2">Manual DAC</th><th className="p-2">Manual ECS</th><th className="p-2">Manual Special</th></tr></thead>
+                      <tbody className="divide-y">
+                        {zeroAmountRows.map((row) => {
+                          const values = zeroAmounts[row.agreementId] ?? { dac: "", ecs: "", special: "" };
+                          const disabled = !row.master || !eligibleZeroRows.includes(row);
+                          const update = (key: "dac" | "ecs" | "special", value: string) => setZeroAmounts((prev) => ({ ...prev, [row.agreementId]: { ...(prev[row.agreementId] ?? { dac: "", ecs: "", special: "" }), [key]: value } }));
+                          return <tr key={row.agreementId}>
+                            <td className="p-2 font-mono">{row.agreementId}</td>
+                            <td className="p-2">{!row.master ? "Unmatched" : disabled ? "Protected / conflict" : `Matched · row ${row.master.row}`}</td>
+                            <td className="p-2 text-right tabular-nums">{money(row.master?.existingDac ?? 0)}</td>
+                            {(["dac", "ecs", "special"] as const).map((key) => <td className="p-2" key={key}><Input aria-label={`Manual ${key} for ${row.agreementId}`} type="number" min="0" step="0.01" className="h-8 w-28" value={values[key]} disabled={disabled} onChange={(event) => update(key, event.target.value)} /></td>)}
+                          </tr>;
+                        })}
+                        {zeroAmountRows.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No zero-amount rows found in this Paid File.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+                    <p className="text-xs text-muted-foreground">Manual additions are additive, Admin-only and separately audit-logged. They do not alter the normal Paid File reconciliation.</p>
+                    <Button size="sm" disabled={busy || zeroReadyCount === 0} onClick={() => void applyZeroAmounts()}>Validate & Apply Manual Additions ({zeroReadyCount})</Button>
+                  </div>
+                </section>
+              )}
+
               {/* Diff Table */}
-              <div className="overflow-x-auto rounded-lg border">
+              <div className={reviewTab === "zero_amount" ? "hidden" : "overflow-x-auto rounded-lg border"}>
                 <table className="w-full min-w-[860px] text-left text-xs">
                   <thead className="border-b bg-muted/60 text-[11px] uppercase text-muted-foreground">
                     <tr>
