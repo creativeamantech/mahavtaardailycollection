@@ -44,12 +44,12 @@ type Metric = {
   rollbackPos: number;
   mainPercent: number;
   rollbackPercent: number;
-  mainTarget: number;
-  targetPos: number;
-  neededPos: number;
-  rollbackTarget: number;
-  targetRollbackPos: number;
-  neededRollbackPos: number;
+  mainTarget: number | null;
+  targetPos: number | null;
+  neededPos: number | null;
+  rollbackTarget: number | null;
+  targetRollbackPos: number | null;
+  neededRollbackPos: number | null;
 };
 type Executive = Metric & { executive: string };
 type City = Metric & { city: string; executives: Executive[] };
@@ -80,7 +80,6 @@ type Report = {
     rollbackPos: number;
     targetRollbackPos: number;
   }[];
-  defaults: { mainTarget: number; rollbackTarget: number };
 };
 
 const money = (n: number) =>
@@ -92,8 +91,8 @@ const emptyRule = (): Rule => ({
   bucket: "",
   state: "",
   city: "",
-  mainTarget: 60,
-  rollbackTarget: 18,
+  mainTarget: 0,
+  rollbackTarget: 0,
 });
 
 function MasterPerformancePage() {
@@ -194,8 +193,6 @@ function MasterPerformancePage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Summary label="Allocated cases" value={data.rowCount.toLocaleString("en-IN")} />
             <Summary label="Buckets" value="5" />
-            <Summary label="Default Main Target" value={pct(data.defaults.mainTarget)} />
-            <Summary label="Default Rollback Target" value={pct(data.defaults.rollbackTarget)} />
           </div>
           <div className="rounded-xl border bg-white p-3">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -218,10 +215,10 @@ function MasterPerformancePage() {
                 ))}
               </div>
             </div>
-            {selected && <PerformanceTable cities={selected.cities} total={selected.total} />}
+            {selected && <PerformanceTable cities={selected.cities} total={selected.total} showTargets={activeRules.length > 0} />}
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          {activeRules.length > 0 && <div className="grid gap-4 xl:grid-cols-2">
             <ShareTable
               title="City-wise Needed POS"
               rows={mainShareRows.map((r) => ({
@@ -270,7 +267,7 @@ function MasterPerformancePage() {
                 )
               }
             />
-          </div>
+          </div>}
 
           <section className="space-y-3 rounded-xl border bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -292,7 +289,7 @@ function MasterPerformancePage() {
             </div>
             {activeRules.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No custom rules. Defaults are Main 60% and Rollback 18%.
+                No target rules configured. Add a rule to calculate Target POS and Needed POS.
               </p>
             )}
             {activeRules.map((rule, i) => (
@@ -394,7 +391,7 @@ function MasterPerformancePage() {
           </section>
           <p className="text-xs text-muted-foreground">
             Source: {data.master.name} · {data.rowCount.toLocaleString("en-IN")} allocated loan rows
-            · Target settings stored in the “Performance Targets” tab.
+            · Target rules stored in the “Performance Targets” tab.
           </p>
         </>
       )}
@@ -476,7 +473,7 @@ function ShareTable({
     </section>
   );
 }
-function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) {
+function PerformanceTable({ cities, total, showTargets }: { cities: City[]; total: Metric; showTargets: boolean }) {
   const [expandedCities, setExpandedCities] = useState<Set<string>>(() => new Set());
   const allExpanded = cities.length > 0 && cities.every((city) => expandedCities.has(city.city));
   const toggleCity = (cityName: string) =>
@@ -496,12 +493,7 @@ function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) 
     "Unpaid Count",
     "Total POS",
     "Total Paid POS",
-    "Main Target %",
-    "Target POS",
-    "Needed POS",
-    "Rollback Target %",
-    "Target Rollback POS",
-    "Needed Rollback POS",
+    ...(showTargets ? ["Main Target %", "Target POS", "Needed POS", "Rollback Target %", "Target Rollback POS", "Needed Rollback POS"] : []),
   ];
   const metricCells = (m: Metric) => [
     money(m.collection),
@@ -512,12 +504,14 @@ function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) 
     m.unpaidCount.toLocaleString("en-IN"),
     money(m.totalPos),
     money(m.mainPaidPos),
-    pct(m.mainTarget),
-    money(m.targetPos),
-    money(m.neededPos),
-    pct(m.rollbackTarget),
-    money(m.targetRollbackPos),
-    money(m.neededRollbackPos),
+    ...(showTargets ? [
+      m.mainTarget === null ? "—" : pct(m.mainTarget),
+      m.targetPos === null ? "—" : money(m.targetPos),
+      m.neededPos === null ? "—" : money(m.neededPos),
+      m.rollbackTarget === null ? "—" : pct(m.rollbackTarget),
+      m.targetRollbackPos === null ? "—" : money(m.targetRollbackPos),
+      m.neededRollbackPos === null ? "—" : money(m.neededRollbackPos),
+    ] : []),
   ];
   return (
     <div className="overflow-x-auto">
@@ -533,7 +527,7 @@ function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) 
           Collapse all
         </Button>
       </div>
-      <table className="w-full min-w-[1500px] text-xs">
+      <table className={"w-full text-xs " + (showTargets ? "min-w-[1500px]" : "min-w-[900px]")}>
         <thead className="bg-muted/70">
           <tr>
             {headers.map((h, i) => (

@@ -6,8 +6,7 @@ const GATEWAY = "https://connector-gateway.lovable.dev";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 const TZ = "Asia/Kolkata";
 const TARGET_TAB = "Performance Targets";
-const DEFAULT_MAIN_TARGET = 60;
-const DEFAULT_ROLLBACK_TARGET = 18;
+
 
 type DriveFile = {
   id: string;
@@ -35,12 +34,12 @@ type Metric = {
   rollbackPos: number;
   mainPercent: number;
   rollbackPercent: number;
-  mainTarget: number;
-  targetPos: number;
-  neededPos: number;
-  rollbackTarget: number;
-  targetRollbackPos: number;
-  neededRollbackPos: number;
+  mainTarget: number | null;
+  targetPos: number | null;
+  neededPos: number | null;
+  rollbackTarget: number | null;
+  targetRollbackPos: number | null;
+  neededRollbackPos: number | null;
 };
 type ExecutiveRow = Metric & { executive: string };
 type CityRow = Metric & { city: string; executives: ExecutiveRow[] };
@@ -104,6 +103,7 @@ async function sheetValues(id: string, range: string): Promise<string[][]> {
   );
   return result.values ?? [];
 }
+
 async function ensureTargetTab(id: string) {
   const meta = await checkedJson<{ sheets?: { properties?: { title?: string } }[] }>(
     await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "?fields=sheets.properties", {
@@ -176,8 +176,8 @@ function numeric(v: unknown): number {
     throw new Error("Non-numeric value found in Master Data: " + String(v).slice(0, 40));
   return n;
 }
-function targetNumber(v: unknown, fallback: number) {
-  if (v === null || v === undefined || String(v).trim() === "") return fallback;
+function targetNumber(v: unknown) {
+  if (v === null || v === undefined || String(v).trim() === "") return 0;
   const n = Number(String(v).replace("%", "").trim());
   if (!Number.isFinite(n) || n < 0 || n > 100)
     throw new Error("Target percentages must be between 0 and 100.");
@@ -193,8 +193,8 @@ function readTargets(rows: string[][]): TargetRule[] {
       bucket: String(r[2] ?? "").trim(),
       state: String(r[3] ?? "").trim(),
       city: String(r[4] ?? "").trim(),
-      mainTarget: targetNumber(r[5], DEFAULT_MAIN_TARGET),
-      rollbackTarget: targetNumber(r[6], DEFAULT_ROLLBACK_TARGET),
+      mainTarget: targetNumber(r[5]),
+      rollbackTarget: targetNumber(r[6]),
     }));
 }
 function targetFor(
@@ -203,7 +203,7 @@ function targetFor(
   bucket: string,
   state: string,
   city: string,
-) {
+ ) {
   const dimensions = [allocationType, bucket, state, city];
   const matches = rules.filter((rule) => {
     const values = [rule.allocationType, rule.bucket, rule.state, rule.city];
@@ -238,7 +238,7 @@ function targetFor(
           ". Please make the rules more specific.",
       );
   }
-  return matches[0] ?? { mainTarget: DEFAULT_MAIN_TARGET, rollbackTarget: DEFAULT_ROLLBACK_TARGET };
+  return matches[0] ?? null;
 }
 function makeMetric(
   rows: {
@@ -249,8 +249,8 @@ function makeMetric(
     pos: number;
     main: number;
     rollback: number;
-    mainTarget: number;
-    rollbackTarget: number;
+    mainTarget: number | null;
+    rollbackTarget: number | null;
   }[],
 ): Metric {
   const totalCount = rows.length;
@@ -260,13 +260,14 @@ function makeMetric(
   const collection = rows.reduce((s, r) => s + r.dac, 0);
   const mainPaidPos = rows.reduce((s, r) => s + r.main, 0);
   const rollbackPos = rows.reduce((s, r) => s + r.rollback, 0);
-  const targetPos = rows.reduce((sum, row) => sum + (row.pos * row.mainTarget) / 100, 0);
-  const targetRollbackPos = rows.reduce(
-    (sum, row) => sum + (row.pos * row.rollbackTarget) / 100,
-    0,
-  );
-  const mainTarget = totalPos ? (targetPos / totalPos) * 100 : DEFAULT_MAIN_TARGET;
-  const rollbackTarget = totalPos ? (targetRollbackPos / totalPos) * 100 : DEFAULT_ROLLBACK_TARGET;
+  const targetedRows = rows.filter((row) => row.mainTarget !== null && row.rollbackTarget !== null);
+  const targetedPos = targetedRows.reduce((sum, row) => sum + row.pos, 0);
+  const targetedMainPaidPos = targetedRows.reduce((sum, row) => sum + row.main, 0);
+  const targetedRollbackPaidPos = targetedRows.reduce((sum, row) => sum + row.rollback, 0);
+  const targetPos = targetedRows.reduce((sum, row) => sum + (row.pos * row.mainTarget!) / 100, 0);
+  const targetRollbackPos = targetedRows.reduce((sum, row) => sum + (row.pos * row.rollbackTarget!) / 100, 0);
+  const mainTarget = targetedPos ? (targetPos / targetedPos) * 100 : null;
+  const rollbackTarget = targetedPos ? (targetRollbackPos / targetedPos) * 100 : null;
   return {
     totalCount,
     paidCount,
@@ -279,10 +280,10 @@ function makeMetric(
     rollbackPercent: totalPos ? (rollbackPos / totalPos) * 100 : 0,
     mainTarget,
     targetPos,
-    neededPos: targetPos - mainPaidPos,
+    neededPos: targetedRows.length ? targetPos - targetedMainPaidPos : null,
     rollbackTarget,
     targetRollbackPos,
-    neededRollbackPos: targetRollbackPos - rollbackPos,
+    neededRollbackPos: targetedRows.length ? targetRollbackPos - targetedRollbackPaidPos : null,
   };
 }
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -331,8 +332,8 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     pos: number;
     main: number;
     rollback: number;
-    mainTarget: number;
-    rollbackTarget: number;
+    mainTarget: number | null;
+    rollbackTarget: number | null;
   }[] = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i] ?? [];
@@ -353,7 +354,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       rollback: numeric(row[idx.rollback]),
     };
     const target = targetFor(rules, item.allocation, item.bucket, item.state, item.city);
-    parsed.push({ ...item, mainTarget: target.mainTarget, rollbackTarget: target.rollbackTarget });
+    parsed.push({ ...item, mainTarget: target?.mainTarget ?? null, rollbackTarget: target?.rollbackTarget ?? null });
   }
   const bucketNames = ["Bucket 1", "Bucket 2", "Bucket 3", "Bucket 4", "Bucket 5"];
   const buckets: BucketReport[] = bucketNames.map((bucket) => {
@@ -395,26 +396,26 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
   const totals = makeMetric(parsed);
   const positiveNeededPos = buckets.flatMap((b) =>
     b.cities
-      .filter((c) => c.neededPos > 0)
+      .filter((c) => c.neededPos !== null && c.neededPos > 0)
       .map((c) => ({
         bucket: b.bucket,
         city: c.city,
         totalCount: c.totalCount,
-        neededPos: round(c.neededPos),
+        neededPos: round(c.neededPos!),
         mainPaidPos: round(c.mainPaidPos),
-        targetPos: round(c.targetPos),
+        targetPos: round(c.targetPos!),
       })),
   );
   const positiveNeededRollback = buckets.flatMap((b) =>
     b.cities
-      .filter((c) => c.neededRollbackPos > 0)
+      .filter((c) => c.neededRollbackPos !== null && c.neededRollbackPos > 0)
       .map((c) => ({
         bucket: b.bucket,
         city: c.city,
         totalCount: c.totalCount,
-        neededRollbackPos: round(c.neededRollbackPos),
+        neededRollbackPos: round(c.neededRollbackPos!),
         rollbackPos: round(c.rollbackPos),
-        targetRollbackPos: round(c.targetRollbackPos),
+        targetRollbackPos: round(c.targetRollbackPos!),
       })),
   );
   return {
@@ -431,7 +432,6 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     dimensionOptions,
     positiveNeededPos,
     positiveNeededRollback,
-    defaults: { mainTarget: DEFAULT_MAIN_TARGET, rollbackTarget: DEFAULT_ROLLBACK_TARGET },
   };
 });
 
