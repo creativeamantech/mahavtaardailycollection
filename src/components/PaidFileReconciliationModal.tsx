@@ -169,18 +169,46 @@ export function PaidFileReconciliationModal({
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [zeroAmounts, setZeroAmounts] = useState<Record<string, { dac: string; ecs: string; special: string }>>({});
+  const [zeroPaymentDates, setZeroPaymentDates] = useState<Record<string, string>>({});
+  const [zeroSelected, setZeroSelected] = useState<Record<string, boolean>>({});
+  const [bulkValues, setBulkValues] = useState({ dac: "", ecs: "", special: "", paymentDate: "" });
   const zeroAmountRows = useMemo(() => reconciledRows.filter((row) => row.dac === 0 && row.ecs === 0 && row.special === 0), [reconciledRows]);
   const eligibleZeroRows = zeroAmountRows.filter((row) => row.master && !row.protectedSkip && row.action !== "protected_conflict" && row.action !== "conflict_provisional");
   const zeroReadyCount = eligibleZeroRows.filter((row) => {
     const values = zeroAmounts[row.agreementId] ?? { dac: "", ecs: "", special: "" };
     return [values.dac, values.ecs, values.special].some((value) => Number(value) > 0);
   }).length;
+  function applyBulkValues() {
+    const selectedRows = eligibleZeroRows.filter((row) => zeroSelected[row.agreementId]);
+    if (!selectedRows.length) return;
+    const hasAmount = [bulkValues.dac, bulkValues.ecs, bulkValues.special].some((value) => value.trim() !== "");
+    if (!hasAmount && !bulkValues.paymentDate) return;
+    setZeroAmounts((previous) => {
+      const next = { ...previous };
+      for (const row of selectedRows) {
+        const current = next[row.agreementId] ?? { dac: "", ecs: "", special: "" };
+        next[row.agreementId] = {
+          dac: bulkValues.dac.trim() === "" ? current.dac : bulkValues.dac,
+          ecs: bulkValues.ecs.trim() === "" ? current.ecs : bulkValues.ecs,
+          special: bulkValues.special.trim() === "" ? current.special : bulkValues.special,
+        };
+      }
+      return next;
+    });
+    if (bulkValues.paymentDate) {
+      setZeroPaymentDates((previous) => ({
+        ...previous,
+        ...Object.fromEntries(selectedRows.map((row) => [row.agreementId, bulkValues.paymentDate])),
+      }));
+    }
+  }
+
   async function applyZeroAmounts() {
     const changes = eligibleZeroRows.flatMap((row) => {
       const values = zeroAmounts[row.agreementId] ?? { dac: "", ecs: "", special: "" };
       const dac = Number(values.dac || 0), ecs = Number(values.ecs || 0), special = Number(values.special || 0);
       if (![dac, ecs, special].every((value) => Number.isFinite(value) && value >= 0) || dac + ecs + special <= 0 || !row.master) return [];
-      return [{ row: row.master.row, agreementId: row.agreementId, dac, ecs, special, paymentDate: row.resolvedPaymentDate }];
+      return [{ row: row.master.row, agreementId: row.agreementId, dac, ecs, special, paymentDate: zeroPaymentDates[row.agreementId] || row.resolvedPaymentDate || defaultPaymentDate }];
     });
     if (changes.length) {
       await onApplyZeroAmount(changes);
@@ -797,22 +825,39 @@ export function PaidFileReconciliationModal({
                     <div className="rounded-md bg-muted/50 p-2"><p className="text-[11px] text-muted-foreground">Protected / unmatched</p><p className="text-lg font-bold">{zeroAmountRows.length - eligibleZeroRows.length}</p></div>
                     <div className="rounded-md bg-muted/50 p-2"><p className="text-[11px] text-muted-foreground">Manual additions ready</p><p className="text-lg font-bold">{zeroReadyCount}</p></div>
                   </div>
+                  <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div><h4 className="text-xs font-semibold">Bulk Entry</h4><p className="text-[11px] text-muted-foreground">Select multiple eligible loans below, enter shared values, then apply them together.</p></div>
+                      <span className="text-xs font-medium tabular-nums">{eligibleZeroRows.filter((row) => zeroSelected[row.agreementId]).length} selected</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {(["dac", "ecs", "special"] as const).map((key) => <div key={key}><label className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground">Bulk {key}</label><Input type="number" min="0" step="0.01" className="h-8 text-xs" placeholder="Leave unchanged" value={bulkValues[key]} onChange={(event) => setBulkValues((previous) => ({ ...previous, [key]: event.target.value }))} /></div>)}
+                      <div><label className="mb-1 block text-[11px] font-medium text-muted-foreground">Bulk Payment Date</label><Input type="date" className="h-8 text-xs" value={bulkValues.paymentDate} onChange={(event) => setBulkValues((previous) => ({ ...previous, paymentDate: event.target.value }))} /></div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setZeroSelected(Object.fromEntries(eligibleZeroRows.map((row) => [row.agreementId, true])))}>Select all eligible</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setZeroSelected({})}>Clear selection</Button>
+                      <Button type="button" size="sm" onClick={applyBulkValues} disabled={!eligibleZeroRows.some((row) => zeroSelected[row.agreementId]) || (![bulkValues.dac, bulkValues.ecs, bulkValues.special].some((value) => value.trim() !== "") && !bulkValues.paymentDate)}>Apply bulk values to selected</Button>
+                    </div>
+                  </div>
                   <div className="overflow-x-auto rounded-md border">
                     <table className="w-full min-w-[760px] text-left text-xs">
-                      <thead className="bg-muted/60"><tr><th className="p-2">Loan Number</th><th className="p-2">Master Match</th><th className="p-2 text-right">Existing DAC</th><th className="p-2">Manual DAC</th><th className="p-2">Manual ECS</th><th className="p-2">Manual Special</th></tr></thead>
+                      <thead className="bg-muted/60"><tr><th className="p-2"><span className="sr-only">Select</span></th><th className="p-2">Loan Number</th><th className="p-2">Master Match</th><th className="p-2 text-right">Existing DAC</th><th className="p-2">Manual DAC</th><th className="p-2">Manual ECS</th><th className="p-2">Manual Special</th><th className="p-2">Payment Date</th></tr></thead>
                       <tbody className="divide-y">
                         {zeroAmountRows.map((row) => {
                           const values = zeroAmounts[row.agreementId] ?? { dac: "", ecs: "", special: "" };
                           const disabled = !row.master || !eligibleZeroRows.includes(row);
                           const update = (key: "dac" | "ecs" | "special", value: string) => setZeroAmounts((prev) => ({ ...prev, [row.agreementId]: { ...(prev[row.agreementId] ?? { dac: "", ecs: "", special: "" }), [key]: value } }));
                           return <tr key={row.agreementId}>
+                            <td className="p-2"><input aria-label={`Select ${row.agreementId} for bulk entry`} type="checkbox" checked={!!zeroSelected[row.agreementId]} disabled={disabled} onChange={(event) => setZeroSelected((previous) => ({ ...previous, [row.agreementId]: event.target.checked }))} /></td>
                             <td className="p-2 font-mono">{row.agreementId}</td>
                             <td className="p-2">{!row.master ? "Unmatched" : disabled ? "Protected / conflict" : `Matched · row ${row.master.row}`}</td>
                             <td className="p-2 text-right tabular-nums">{money(row.master?.existingDac ?? 0)}</td>
                             {(["dac", "ecs", "special"] as const).map((key) => <td className="p-2" key={key}><Input aria-label={`Manual ${key} for ${row.agreementId}`} type="number" min="0" step="0.01" className="h-8 w-28" value={values[key]} disabled={disabled} onChange={(event) => update(key, event.target.value)} /></td>)}
+                            <td className="p-2"><Input aria-label={`Payment date for ${row.agreementId}`} type="date" className="h-8 w-36" value={zeroPaymentDates[row.agreementId] ?? row.resolvedPaymentDate ?? defaultPaymentDate} disabled={disabled} onChange={(event) => setZeroPaymentDates((previous) => ({ ...previous, [row.agreementId]: event.target.value }))} /></td>
                           </tr>;
                         })}
-                        {zeroAmountRows.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No zero-amount rows found in this Paid File.</td></tr>}
+                        {zeroAmountRows.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No zero-amount rows found in this Paid File.</td></tr>}
                       </tbody>
                     </table>
                   </div>
