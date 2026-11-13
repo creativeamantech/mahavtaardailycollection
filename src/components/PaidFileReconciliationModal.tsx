@@ -182,7 +182,10 @@ export function PaidFileReconciliationModal({
       if (![dac, ecs, special].every((value) => Number.isFinite(value) && value >= 0) || dac + ecs + special <= 0 || !row.master) return [];
       return [{ row: row.master.row, agreementId: row.agreementId, dac, ecs, special, paymentDate: row.resolvedPaymentDate }];
     });
-    if (changes.length) await onApplyZeroAmount(changes);
+    if (changes.length) {
+      await onApplyZeroAmount(changes);
+      setZeroAmounts({});
+    }
   }
 
   const activeSheet = useMemo(() => sheets.find((s) => s.name === sheetName), [sheets, sheetName]);
