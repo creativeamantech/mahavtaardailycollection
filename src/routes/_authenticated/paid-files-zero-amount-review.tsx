@@ -17,8 +17,10 @@ export const Route = createFileRoute("/_authenticated/paid-files-zero-amount-rev
     const session = await getCurrentSession();
     if (!session) throw redirect({ to: "/auth" });
     if (session.role !== "Admin") throw redirect({ to: "/" });
+    // Zero-amount review now belongs to the uploaded Paid File reconciliation session.
+    throw redirect({ to: "/paid-file" });
   },
-  head: () => ({ meta: [{ title: "Paid Files Zero Amount Review — Mahavtaar Daily Collection" }] }),
+  head: () => ({ meta: [{ title: "Paid File Reconciliation — Mahavtaar Daily Collection" }] }),
   component: PaidFilesZeroAmountReviewPage,
 });
 
