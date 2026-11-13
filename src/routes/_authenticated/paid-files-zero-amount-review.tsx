@@ -133,7 +133,7 @@ function PaidFilesZeroAmountReviewPage() {
           sourceMode: "MANUAL",
           fileName: "Paid Files Zero Amount Review (Admin Manual Entry)",
           fileDate: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()),
-          totalDac: changes.reduce((sum, change) => sum + change.dac, 0),
+          totalDac: ready.reduce((sum, row) => sum + row.dac, 0),
           totalSfdc: 0,
           totalOnline: 0,
           protectedSkips: reviewed.filter((row) => row.protectedRow).length,
