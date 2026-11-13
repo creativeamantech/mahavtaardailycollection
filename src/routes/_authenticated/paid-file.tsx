@@ -203,32 +203,20 @@ function PaidFilePage() {
     setStagedRecords([]);
     setDacOverrides(new Map());
     setSheets([]);
-    setProgress(5);
-    setProgressLabel("Validating Master Allocation availability");
+    setProgress(10);
+    setProgressLabel("Reading local file");
     setFileName(file.name);
 
     try {
-      const freshMaster = await masterQuery.refetch();
-      const masterData = freshMaster.data;
-      if (!masterData?.found) {
-        setBusy(false);
-        setProgress(0);
-        setProgressLabel("Master Allocation spreadsheet required before merging Paid File");
-        toast.error(
-          masterData?.errorMessage ??
-            "Master Allocation spreadsheet not found. Initialize it in Settings first.",
-        );
-        return;
+      if (!masterFound) {
+        void masterQuery.refetch();
       }
-
       const worker = attachWorker();
       worker.postMessage({ type: "inspect", file, fileName: file.name });
     } catch (error) {
       setBusy(false);
       setProgress(0);
-      toast.error(
-        error instanceof Error ? error.message : "Could not load Master Allocation or local file.",
-      );
+      toast.error(error instanceof Error ? error.message : "Could not read local Paid File.");
     }
   }
 
@@ -495,13 +483,13 @@ function PaidFilePage() {
       <section
         onDragOver={(e) => {
           e.preventDefault();
-          if (masterFound && !busy) setDragActive(true);
+          if (!busy) setDragActive(true);
         }}
         onDragLeave={() => setDragActive(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragActive(false);
-          if (!masterFound || busy) return;
+          if (busy) return;
           const file = e.dataTransfer.files?.[0];
           void handleFile(file);
         }}
@@ -512,12 +500,16 @@ function PaidFilePage() {
         }`}
       >
         <input
+          id="paid-file-input"
           ref={fileInputRef}
           type="file"
-          accept=".xlsb,.xlsx,.xls,.csv"
-          disabled={busy || !masterFound}
-          onChange={(e) => void handleFile(e.target.files?.[0])}
-          className="hidden"
+          disabled={busy}
+          onChange={(e) => {
+            const picked = e.target.files?.[0];
+            e.target.value = "";
+            void handleFile(picked);
+          }}
+          className="sr-only"
         />
         <div className="mx-auto flex max-w-xl flex-col items-center gap-2">
           <div className="flex h-11 w-11 items-center justify-center rounded-full border bg-muted/50">
@@ -533,15 +525,15 @@ function PaidFilePage() {
             raw file is uploaded.
           </p>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              disabled={busy || !masterFound}
-              onClick={() => fileInputRef.current?.click()}
+            <label
+              htmlFor="paid-file-input"
+              className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 ${
+                busy ? "pointer-events-none opacity-50" : ""
+              }`}
             >
               <FileSpreadsheet className="mr-1.5 h-4 w-4" />
-              Select Paid File
-            </Button>
+              Select Paid File (.xlsb / .xlsx / .csv)
+            </label>
             {sheets.length > 0 && (
               <Button type="button" size="sm" variant="outline" onClick={() => setModalOpen(true)}>
                 Resume Reconciliation Modal
@@ -715,6 +707,8 @@ function PaidFilePage() {
         step={modalStep}
         onStepChange={setModalStep}
         fileName={fileName}
+        masterFound={masterFound}
+        onRefreshMaster={() => void masterQuery.refetch()}
         spreadsheetName={masterQuery.data?.spreadsheetName ?? ""}
         sheets={sheets}
         sheetName={sheetName}

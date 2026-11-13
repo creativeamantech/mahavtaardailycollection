@@ -44,6 +44,8 @@ type Props = {
   step: "mapping" | "review";
   onStepChange: (step: "mapping" | "review") => void;
   fileName: string;
+  masterFound: boolean;
+  onRefreshMaster: () => void;
   spreadsheetName: string;
   sheets: SheetInfo[];
   sheetName: string;
@@ -113,6 +115,8 @@ export function PaidFileReconciliationModal({
   step,
   onStepChange,
   fileName,
+  masterFound,
+  onRefreshMaster,
   spreadsheetName,
   sheets,
   sheetName,
@@ -451,6 +455,23 @@ export function PaidFileReconciliationModal({
             </div>
           ) : (
             <div className="space-y-4">
+              {!masterFound && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                  <span>
+                    Master Allocation spreadsheet is not connected yet — showing parsed Paid File
+                    preview only. Connect or initialize Master Allocation to match & commit.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={onRefreshMaster}
+                  >
+                    Retry Master Check
+                  </Button>
+                </div>
+              )}
               {/* Four-Metric Reconciliation Strip */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <MetricCard
@@ -822,7 +843,7 @@ export function PaidFileReconciliationModal({
                 type="button"
                 size="sm"
                 className="whitespace-nowrap shrink-0"
-                disabled={busy || commitCount === 0 || applied}
+                disabled={busy || !masterFound || commitCount === 0 || applied}
                 onClick={() => void onCommit()}
               >
                 {busy ? (
