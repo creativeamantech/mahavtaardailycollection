@@ -32,11 +32,19 @@ import {
   type DuplicateStrategy,
   type ReconciledRow,
   type ReconciliationAction,
+  type ReconciliationMode,
   type ReconciliationSummary,
   type SheetInfo,
 } from "@/lib/paid-file-reconciliation";
 
-type ReviewTab = "all_changes" | "clean_updates" | "conflicts" | "protected" | "unmatched";
+type ReviewTab =
+  | "all_changes"
+  | "clean_updates"
+  | "conflicts"
+  | "master_higher"
+  | "protected"
+  | "unchanged"
+  | "unmatched";
 
 type Props = {
   open: boolean;
@@ -54,6 +62,8 @@ type Props = {
   onMappingChange: (mapping: ColumnMapping) => void;
   duplicateStrategy: DuplicateStrategy;
   onDuplicateStrategyChange: (strategy: DuplicateStrategy) => void;
+  reconciliationMode: ReconciliationMode;
+  onReconciliationModeChange: (mode: ReconciliationMode) => void;
   onAnalyze: () => void;
   reconciledRows: ReconciledRow[];
   summary: ReconciliationSummary;
@@ -68,6 +78,16 @@ type Props = {
 
 const money = (n: number) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+const signedMoney = (n: number) => {
+  const num = Number(n || 0);
+  if (Math.abs(num) <= 0.005) return "₹0";
+  return (
+    (num > 0 ? "+" : "-") +
+    "₹" +
+    Math.abs(num).toLocaleString("en-IN", { maximumFractionDigits: 2 })
+  );
+};
 
 function actionBadge(action: ReconciliationAction) {
   switch (action) {
@@ -91,6 +111,11 @@ function actionBadge(action: ReconciliationAction) {
         label: "Conflict Flagged",
         cls: "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300",
       };
+    case "master_higher":
+      return {
+        label: "Master Higher (Skipped)",
+        cls: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+      };
     case "protected_match":
       return {
         label: "Protected Skip",
@@ -98,7 +123,7 @@ function actionBadge(action: ReconciliationAction) {
       };
     case "unchanged":
       return {
-        label: "No Change",
+        label: "Already Matched",
         cls: "border-border bg-muted text-muted-foreground",
       };
     case "unmatched":
@@ -125,6 +150,8 @@ export function PaidFileReconciliationModal({
   onMappingChange,
   duplicateStrategy,
   onDuplicateStrategyChange,
+  reconciliationMode,
+  onReconciliationModeChange,
   onAnalyze,
   reconciledRows,
   summary,
@@ -165,14 +192,23 @@ export function PaidFileReconciliationModal({
           return row.action === "clean_update" || row.action === "provisional_confirmed";
         case "conflicts":
           return row.action === "protected_conflict" || row.action === "conflict_provisional";
+        case "master_higher":
+          return row.action === "master_higher";
         case "protected":
           return row.protectedSkip;
+        case "unchanged":
+          return row.action === "unchanged";
         case "unmatched":
           return row.action === "unmatched";
       }
     });
   }, [reconciledRows, reviewTab, search]);
 
+  const allChangesCount =
+    summary.matchedUpdates +
+    summary.totalConflictsFlagged +
+    summary.masterHigherCount +
+    summary.protectedMatches;
   const commitCount = summary.matchedUpdates + summary.totalConflictsFlagged;
 
   function setDacMode(mode: DacMode) {
@@ -181,29 +217,29 @@ export function PaidFileReconciliationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] w-[96vw] max-w-5xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 pr-6">
+      <DialogContent className="flex max-h-[88dvh] w-[96vw] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b px-3.5 py-2.5 sm:px-5 sm:py-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 pr-7">
             <div>
-              <DialogTitle className="flex items-center gap-2 text-lg font-bold tracking-tight">
-                <FileSpreadsheet className="h-5 w-5 text-primary" />
+              <DialogTitle className="flex items-center gap-2 text-base font-bold tracking-tight sm:text-lg">
+                <FileSpreadsheet className="h-4 w-4 shrink-0 text-primary sm:h-5 sm:w-5" />
                 <span>
                   {step === "mapping"
                     ? "Step 2 · Interactive Column Mapping"
                     : "Step 3 · Pre-Merge Reconciliation Review"}
                 </span>
               </DialogTitle>
-              <DialogDescription className="mt-1 text-xs">
+              <DialogDescription className="mt-0.5 text-[11px] sm:text-xs">
                 {fileName}
                 {spreadsheetName ? ` · Target: ${spreadsheetName}` : ""}
               </DialogDescription>
             </div>
-            <div className="flex items-center gap-1.5 text-xs font-medium">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium sm:text-xs">
               <span
                 className={
                   step === "mapping"
-                    ? "rounded border border-primary/40 bg-primary/10 px-2.5 py-1 text-primary"
-                    : "rounded border px-2.5 py-1 text-muted-foreground"
+                    ? "rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary sm:px-2.5 sm:py-1"
+                    : "rounded border px-2 py-0.5 text-muted-foreground sm:px-2.5 sm:py-1"
                 }
               >
                 A. Column Mapping
@@ -212,8 +248,8 @@ export function PaidFileReconciliationModal({
               <span
                 className={
                   step === "review"
-                    ? "rounded border border-primary/40 bg-primary/10 px-2.5 py-1 text-primary"
-                    : "rounded border px-2.5 py-1 text-muted-foreground"
+                    ? "rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary sm:px-2.5 sm:py-1"
+                    : "rounded border px-2 py-0.5 text-muted-foreground sm:px-2.5 sm:py-1"
                 }
               >
                 B. Reconciliation Diff
@@ -221,7 +257,7 @@ export function PaidFileReconciliationModal({
             </div>
           </div>
           {busy && (
-            <div className="mt-3 space-y-1.5">
+            <div className="mt-2 space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1.5 font-medium text-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -234,11 +270,11 @@ export function PaidFileReconciliationModal({
           )}
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-3 sm:px-5 sm:py-4">
           {step === "mapping" ? (
-            <div className="space-y-5">
-              {/* Worksheet + DAC Mode + Duplicate Strategy */}
-              <div className="grid gap-4 rounded-lg border bg-card p-4 md:grid-cols-3">
+            <div className="space-y-4">
+              {/* Worksheet + DAC Mode + Duplicate Strategy + Reconciliation Mode */}
+              <div className="grid gap-3 rounded-lg border bg-card p-3.5 md:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Worksheet
@@ -300,6 +336,39 @@ export function PaidFileReconciliationModal({
                     <option value="sum">Sum Duplicate Rows</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Master Total Comparison
+                  </label>
+                  <select
+                    className="h-9 w-full rounded-md border bg-background px-2.5 text-sm"
+                    value={reconciliationMode}
+                    onChange={(e) =>
+                      onReconciliationModeChange(e.target.value as ReconciliationMode)
+                    }
+                  >
+                    <option value="difference">Difference Only (Paid File − Master)</option>
+                    <option value="additive">Additive (Add Full Amount On Top)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
+                {reconciliationMode === "difference" ? (
+                  <>
+                    <strong>Difference Mode Active:</strong> Compares{" "}
+                    <span className="font-semibold">Paid File Total</span> against{" "}
+                    <span className="font-semibold">Master Total</span>. Only accounts with a
+                    positive new payment difference are updated; already-matched accounts and higher
+                    Master totals are skipped automatically.
+                  </>
+                ) : (
+                  <>
+                    <strong>Additive Mode Active:</strong> Adds the full Paid File DAC directly on
+                    top of existing Master Total without subtracting prior collection.
+                  </>
+                )}
               </div>
 
               {/* Column Selectors */}
@@ -390,7 +459,7 @@ export function PaidFileReconciliationModal({
                             <th className="px-3 py-2 text-right">Online</th>
                           </>
                         )}
-                        <th className="px-3 py-2 text-right">Computed DAC</th>
+                        <th className="px-3 py-2 text-right">Paid File Total</th>
                         <th className="px-3 py-2 text-right">ECS</th>
                         <th className="px-3 py-2 text-right">Special</th>
                         <th className="px-3 py-2">Status</th>
@@ -454,7 +523,7 @@ export function PaidFileReconciliationModal({
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {!masterFound && (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                   <span>
@@ -472,13 +541,14 @@ export function PaidFileReconciliationModal({
                   </Button>
                 </div>
               )}
+
               {/* Four-Metric Reconciliation Strip */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
                 <MetricCard
                   icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-                  label="Matched Updates"
+                  label="Updated Accounts"
                   value={summary.matchedUpdates.toLocaleString("en-IN")}
-                  sub={`Update DAC ${money(summary.totalUpdateDac)}`}
+                  sub={`Net Diff ${signedMoney(summary.totalNetDifference)}`}
                   tone="emerald"
                 />
                 <MetricCard
@@ -497,9 +567,11 @@ export function PaidFileReconciliationModal({
                 />
                 <MetricCard
                   icon={<SkipForward className="h-4 w-4 text-muted-foreground" />}
-                  label="Skipped (Unmatched IDs)"
-                  value={summary.unmatchedCount.toLocaleString("en-IN")}
-                  sub={`${summary.unchangedCount} already identical`}
+                  label="Already Matched / Higher"
+                  value={(summary.unchangedCount + summary.masterHigherCount).toLocaleString(
+                    "en-IN",
+                  )}
+                  sub={`${summary.unchangedCount} identical · ${summary.masterHigherCount} master higher · ${summary.unmatchedCount} unmatched`}
                   tone="neutral"
                 />
               </div>
@@ -517,17 +589,22 @@ export function PaidFileReconciliationModal({
                   </span>
                   <span>·</span>
                   <span>
-                    Duplicates Replaced:{" "}
-                    <strong className="text-foreground">{summary.duplicatesReplaced}</strong>
+                    Mode:{" "}
+                    <strong className="text-foreground">
+                      {reconciliationMode === "difference" ? "Difference Only" : "Additive"}
+                    </strong>
                   </span>
                   <span>·</span>
                   <span>
-                    Invalid Rows: <strong className="text-foreground">{summary.invalidRows}</strong>
-                  </span>
-                  <span>·</span>
-                  <span>
-                    Total Incoming DAC:{" "}
+                    Paid File Total:{" "}
                     <strong className="text-foreground">{money(summary.totalIncomingDac)}</strong>
+                  </span>
+                  <span>·</span>
+                  <span>
+                    Commit Target DAC:{" "}
+                    <strong className="text-emerald-700 dark:text-emerald-400">
+                      {money(summary.totalUpdateDac)}
+                    </strong>
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -546,11 +623,13 @@ export function PaidFileReconciliationModal({
                             "Executive",
                             "Master Source",
                             "Action",
-                            "Existing DAC",
-                            "Incoming DAC",
+                            "Master Total",
+                            "Paid File Total",
+                            "Difference",
+                            "Target DAC",
                             "Incoming ECS",
                             "Incoming Special",
-                            "Old Total",
+                            "Base Total",
                             "New Total",
                             "Reason",
                           ],
@@ -560,7 +639,9 @@ export function PaidFileReconciliationModal({
                             r.master?.executive ?? "",
                             r.master?.dacSource ?? "",
                             r.action,
-                            r.master?.existingDac ?? "",
+                            r.master ? r.currentMasterTotal : "",
+                            r.paidFileTotal,
+                            r.master ? r.difference : "",
                             r.dac,
                             r.ecs,
                             r.special,
@@ -585,14 +666,22 @@ export function PaidFileReconciliationModal({
                       downloadCsv(
                         "paid-file-unmatched.csv",
                         toCsv(
-                          ["Agreement ID", "SFDC", "Online", "DAC", "ECS", "Special", "Rows"],
+                          [
+                            "Agreement ID",
+                            "SFDC",
+                            "Online",
+                            "Paid File Total",
+                            "ECS",
+                            "Special",
+                            "Rows",
+                          ],
                           reconciledRows
                             .filter((r) => r.action === "unmatched")
                             .map((r) => [
                               r.agreementId,
                               r.sfdc,
                               r.online,
-                              r.dac,
+                              r.paidFileTotal,
                               r.ecs,
                               r.special,
                               r.sourceRows,
@@ -607,28 +696,30 @@ export function PaidFileReconciliationModal({
               </div>
 
               {/* Filter Tabs + Search */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
                 <Tabs
                   value={reviewTab}
                   onValueChange={(v) => setReviewTab(v as ReviewTab)}
                   className="w-full sm:w-auto"
                 >
-                  <TabsList className="flex h-auto flex-wrap justify-start">
+                  <TabsList className="flex h-auto flex-wrap justify-start gap-0.5">
                     <TabsTrigger value="all_changes" className="text-xs">
-                      All Changes (
-                      {summary.matchedUpdates +
-                        summary.protectedSkips +
-                        summary.conflictProvisional}
-                      )
+                      Updated First ({allChangesCount})
                     </TabsTrigger>
                     <TabsTrigger value="clean_updates" className="text-xs">
-                      Clean Updates ({summary.matchedUpdates})
+                      Updates Only ({summary.matchedUpdates})
                     </TabsTrigger>
                     <TabsTrigger value="conflicts" className="text-xs">
                       Conflicts ({summary.totalConflictsFlagged})
                     </TabsTrigger>
+                    <TabsTrigger value="master_higher" className="text-xs">
+                      Master Higher ({summary.masterHigherCount})
+                    </TabsTrigger>
                     <TabsTrigger value="protected" className="text-xs">
-                      Protected Skips ({summary.protectedSkips})
+                      Protected ({summary.protectedSkips})
+                    </TabsTrigger>
+                    <TabsTrigger value="unchanged" className="text-xs">
+                      Matched ({summary.unchangedCount})
                     </TabsTrigger>
                     <TabsTrigger value="unmatched" className="text-xs">
                       Unmatched ({summary.unmatchedCount})
@@ -636,7 +727,7 @@ export function PaidFileReconciliationModal({
                   </TabsList>
                 </Tabs>
 
-                <div className="relative min-w-[210px] flex-1 sm:max-w-xs">
+                <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
                   <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={search}
@@ -649,39 +740,64 @@ export function PaidFileReconciliationModal({
 
               {/* Diff Table */}
               <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full min-w-[920px] text-left text-xs">
+                <table className="w-full min-w-[780px] text-left text-xs">
                   <thead className="border-b bg-muted/60 text-[11px] uppercase text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-2">Agreement ID</th>
-                      <th className="px-3 py-2">Customer / Exec</th>
-                      <th className="px-3 py-2">Source</th>
-                      <th className="px-3 py-2 text-right">Existing DAC</th>
-                      <th className="px-3 py-2 text-right">Incoming DAC</th>
-                      <th className="px-3 py-2 text-right">ECS / Special</th>
-                      <th className="px-3 py-2 text-right">Total Impact</th>
+                      <th className="px-3 py-2">Agreement ID & Customer</th>
+                      <th className="px-3 py-2 text-right">Master Total</th>
+                      <th className="px-3 py-2 text-right">Paid File Total</th>
+                      <th className="px-3 py-2 text-right">Difference / DAC</th>
+                      <th className="px-3 py-2 text-right">New Total</th>
                       <th className="px-3 py-2">Resulting Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                        <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                           {reviewTab === "conflicts"
                             ? "No conflicts detected in this upload."
-                            : reviewTab === "protected"
-                              ? "No protected Manual or Corrected records encountered."
-                              : reviewTab === "unmatched"
-                                ? "All uploaded Agreement IDs matched Master Allocation."
-                                : "No rows match the current filter."}
+                            : reviewTab === "master_higher"
+                              ? "No accounts have Master Total higher than Paid File Total."
+                              : reviewTab === "protected"
+                                ? "No protected Manual or Corrected records encountered."
+                                : reviewTab === "unchanged"
+                                  ? "No already-matched identical records."
+                                  : reviewTab === "unmatched"
+                                    ? "All uploaded Agreement IDs matched Master Allocation."
+                                    : "No rows match the current filter."}
                         </td>
                       </tr>
                     ) : (
                       filteredRows.slice(0, 500).map((r) => {
                         const badge = actionBadge(r.action);
+                        const diffPositive = r.difference > 0.01;
+                        const diffNegative = r.difference < -0.01;
                         return (
-                          <tr key={r.agreementId} className="min-h-[38px] hover:bg-muted/30">
-                            <td className="px-3 py-1.5 align-top font-mono font-semibold tabular-nums">
-                              <div>{r.agreementId}</div>
+                          <tr key={r.agreementId} className="min-h-[40px] hover:bg-muted/30">
+                            <td className="px-3 py-2 align-top">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="font-mono font-semibold tabular-nums text-foreground">
+                                  {r.agreementId}
+                                </span>
+                                <span className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+                                  {r.master
+                                    ? r.master.dacSource ||
+                                      (r.master.isCorrected ? "CORRECTED" : "MASTER")
+                                    : "UNMATCHED"}
+                                </span>
+                              </div>
+                              {r.master?.customer && (
+                                <div className="mt-0.5 font-medium text-foreground">
+                                  {r.master.customer}
+                                </div>
+                              )}
+                              {r.master?.executive && (
+                                <div className="text-[11px] text-muted-foreground">
+                                  {r.master.executive}
+                                  {r.master.bucket ? ` · ${r.master.bucket}` : ""}
+                                </div>
+                              )}
                               {r.sourceRows > 1 && (
                                 <button
                                   type="button"
@@ -690,7 +806,7 @@ export function PaidFileReconciliationModal({
                                       expandedId === r.agreementId ? null : r.agreementId,
                                     )
                                   }
-                                  className="mt-0.5 text-[10px] font-sans font-medium text-primary underline underline-offset-2"
+                                  className="mt-0.5 text-[10px] font-medium text-primary underline underline-offset-2"
                                 >
                                   {r.sourceRows} rows (
                                   {r.duplicatesReplaced > 0 ? "last wins" : "summed"}) ·{" "}
@@ -698,7 +814,7 @@ export function PaidFileReconciliationModal({
                                 </button>
                               )}
                               {expandedId === r.agreementId && (
-                                <div className="mt-1.5 space-y-1 rounded border bg-muted/40 p-1.5 font-sans text-[11px] font-normal">
+                                <div className="mt-1.5 space-y-1 rounded border bg-muted/40 p-1.5 text-[11px]">
                                   {r.transactions.map((tx, idx) => (
                                     <div
                                       key={`${tx.row}-${idx}`}
@@ -713,67 +829,93 @@ export function PaidFileReconciliationModal({
                                 </div>
                               )}
                             </td>
-                            <td className="px-3 py-1.5 align-top">
-                              <div className="font-medium text-foreground">
-                                {r.master?.customer || "—"}
+
+                            <td className="px-3 py-2 text-right align-top font-mono tabular-nums">
+                              {r.master ? (
+                                <>
+                                  <div className="font-semibold text-foreground">
+                                    {money(r.currentMasterTotal)}
+                                  </div>
+                                  {r.master.existingDac > 0 && (
+                                    <div className="text-[10px] text-muted-foreground">
+                                      Base {money(r.master.existingTotal)} + DAC{" "}
+                                      {money(r.master.existingDac)}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+
+                            <td className="px-3 py-2 text-right align-top font-mono tabular-nums">
+                              <div className="font-semibold text-foreground">
+                                {money(r.paidFileTotal)}
                               </div>
-                              {r.master?.executive && (
-                                <div className="text-[11px] text-muted-foreground">
-                                  {r.master.executive}
-                                  {r.master.bucket ? ` · ${r.master.bucket}` : ""}
+                              {(r.sfdc > 0 || r.online > 0) && (
+                                <div className="text-[10px] text-muted-foreground">
+                                  SFDC {money(r.sfdc)} · Onl {money(r.online)}
+                                </div>
+                              )}
+                              {(r.ecs > 0 || r.special > 0) && (
+                                <div className="text-[10px] text-muted-foreground">
+                                  ECS {money(r.ecs)} · Sp {money(r.special)}
                                 </div>
                               )}
                             </td>
-                            <td className="px-3 py-1.5 align-top">
-                              <span className="rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium">
-                                {r.master
-                                  ? r.master.dacSource ||
-                                    (r.master.isCorrected ? "CORRECTED" : "MASTER")
-                                  : "UNMATCHED"}
-                              </span>
-                            </td>
-                            <td className="px-3 py-1.5 text-right align-top font-mono tabular-nums text-muted-foreground">
-                              {r.master ? money(r.master.existingDac) : "—"}
-                            </td>
-                            <td className="px-3 py-1.5 text-right align-top font-mono font-semibold tabular-nums">
-                              {r.isEditable && !applied ? (
-                                <input
-                                  aria-label={`Override DAC for ${r.agreementId}`}
-                                  type="number"
-                                  step="0.01"
-                                  className="h-7 w-24 rounded border bg-background px-1.5 text-right font-mono text-xs tabular-nums"
-                                  value={r.dac}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    if (Number.isFinite(val)) onOverrideDac(r.agreementId, val);
-                                  }}
-                                />
-                              ) : (
-                                money(r.dac)
+
+                            <td className="px-3 py-2 text-right align-top font-mono tabular-nums">
+                              <div
+                                className={`font-bold ${
+                                  diffPositive
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : diffNegative
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {r.master ? signedMoney(r.difference) : money(r.paidFileTotal)}
+                              </div>
+                              {r.isEditable && !applied && (
+                                <div className="mt-1 flex items-center justify-end gap-1">
+                                  <span className="font-sans text-[10px] text-muted-foreground">
+                                    DAC:
+                                  </span>
+                                  <input
+                                    aria-label={`Override DAC for ${r.agreementId}`}
+                                    type="number"
+                                    step="0.01"
+                                    className="h-6 w-20 rounded border bg-background px-1.5 text-right font-mono text-[11px] tabular-nums"
+                                    value={r.dac}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value);
+                                      if (Number.isFinite(val)) onOverrideDac(r.agreementId, val);
+                                    }}
+                                  />
+                                </div>
                               )}
                             </td>
-                            <td className="px-3 py-1.5 text-right align-top font-mono tabular-nums text-muted-foreground">
-                              {money(r.ecs)} / {money(r.special)}
-                            </td>
-                            <td className="px-3 py-1.5 text-right align-top font-mono tabular-nums">
+
+                            <td className="px-3 py-2 text-right align-top font-mono tabular-nums">
                               {r.master ? (
                                 <span>
-                                  {money(r.master.existingTotal)} →{" "}
+                                  {money(r.currentMasterTotal)} →{" "}
                                   <strong className="text-foreground">
-                                    {money(r.newTotal ?? r.master.existingTotal)}
+                                    {money(r.newTotal ?? r.currentMasterTotal)}
                                   </strong>
                                 </span>
                               ) : (
                                 "—"
                               )}
                             </td>
-                            <td className="px-3 py-1.5 align-top">
+
+                            <td className="px-3 py-2 align-top">
                               <span
                                 className={`inline-block rounded border px-1.5 py-0.5 text-[11px] font-medium ${badge.cls}`}
                               >
                                 {badge.label}
                               </span>
-                              <div className="mt-0.5 max-w-[220px] text-[10px] text-muted-foreground">
+                              <div className="mt-0.5 max-w-[230px] text-[10px] text-muted-foreground">
                                 {r.reason}
                               </div>
                             </td>
@@ -793,14 +935,14 @@ export function PaidFileReconciliationModal({
           )}
         </div>
 
-        <DialogFooter className="flex flex-wrap items-center justify-between gap-2 border-t bg-muted/20 px-5 py-3 sm:justify-between">
+        <DialogFooter className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t bg-muted/20 px-3.5 py-2.5 sm:justify-between sm:px-5 sm:py-3">
           <div className="flex items-center gap-2">
             {step === "review" && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="whitespace-nowrap shrink-0"
+                className="shrink-0 whitespace-nowrap"
                 disabled={busy}
                 onClick={() => onStepChange("mapping")}
               >
@@ -812,7 +954,7 @@ export function PaidFileReconciliationModal({
               type="button"
               variant="ghost"
               size="sm"
-              className="whitespace-nowrap shrink-0"
+              className="shrink-0 whitespace-nowrap"
               disabled={busy}
               onClick={onCancelSession}
             >
@@ -825,7 +967,7 @@ export function PaidFileReconciliationModal({
               <Button
                 type="button"
                 size="sm"
-                className="whitespace-nowrap shrink-0"
+                className="shrink-0 whitespace-nowrap"
                 disabled={busy || !sheetName || !mappingValidation.valid}
                 onClick={onAnalyze}
               >
@@ -842,7 +984,7 @@ export function PaidFileReconciliationModal({
               <Button
                 type="button"
                 size="sm"
-                className="whitespace-nowrap shrink-0"
+                className="shrink-0 whitespace-nowrap"
                 disabled={busy || !masterFound || commitCount === 0 || applied}
                 onClick={() => void onCommit()}
               >

@@ -25,6 +25,7 @@ import {
   type ColumnMapping,
   type DuplicateStrategy,
   type MasterRow,
+  type ReconciliationMode,
   type SheetInfo,
   type StagedPaidRow,
 } from "@/lib/paid-file-reconciliation";
@@ -94,6 +95,7 @@ function PaidFilePage() {
   const [sheetName, setSheetName] = useState("");
   const [mapping, setMapping] = useState<ColumnMapping>(EMPTY_MAPPING);
   const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>("last_wins");
+  const [reconciliationMode, setReconciliationMode] = useState<ReconciliationMode>("difference");
 
   const [stagedRecords, setStagedRecords] = useState<StagedPaidRow[]>([]);
   const [dacOverrides, setDacOverrides] = useState<Map<string, number>>(new Map());
@@ -130,8 +132,15 @@ function PaidFilePage() {
   );
 
   const { rows: reconciledRows, summary } = useMemo(
-    () => reconcilePaidDataset(stagedRecords, masterRows, { totalRows, invalidRows }, dacOverrides),
-    [stagedRecords, masterRows, totalRows, invalidRows, dacOverrides],
+    () =>
+      reconcilePaidDataset(
+        stagedRecords,
+        masterRows,
+        { totalRows, invalidRows },
+        dacOverrides,
+        reconciliationMode,
+      ),
+    [stagedRecords, masterRows, totalRows, invalidRows, dacOverrides, reconciliationMode],
   );
 
   const currentStage = applied
@@ -737,6 +746,8 @@ function PaidFilePage() {
         onMappingChange={setMapping}
         duplicateStrategy={duplicateStrategy}
         onDuplicateStrategyChange={setDuplicateStrategy}
+        reconciliationMode={reconciliationMode}
+        onReconciliationModeChange={setReconciliationMode}
         onAnalyze={handleAnalyze}
         reconciledRows={reconciledRows}
         summary={summary}
