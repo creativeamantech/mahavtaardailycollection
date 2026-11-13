@@ -139,7 +139,6 @@ function PaidFilePage() {
         masterRows,
         { totalRows, invalidRows },
         dacOverrides,
-        "difference",
         defaultPaymentDate,
       ),
     [
