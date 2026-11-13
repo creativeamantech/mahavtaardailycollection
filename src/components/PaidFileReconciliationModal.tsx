@@ -32,7 +32,6 @@ import {
   type DuplicateStrategy,
   type ReconciledRow,
   type ReconciliationAction,
-  type ReconciliationMode,
   type ReconciliationSummary,
   type SheetInfo,
 } from "@/lib/paid-file-reconciliation";
@@ -62,8 +61,6 @@ type Props = {
   onMappingChange: (mapping: ColumnMapping) => void;
   duplicateStrategy: DuplicateStrategy;
   onDuplicateStrategyChange: (strategy: DuplicateStrategy) => void;
-  reconciliationMode: ReconciliationMode;
-  onReconciliationModeChange: (mode: ReconciliationMode) => void;
   defaultPaymentDate: string;
   onDefaultPaymentDateChange: (date: string) => void;
   onAnalyze: () => void;
@@ -152,8 +149,6 @@ export function PaidFileReconciliationModal({
   onMappingChange,
   duplicateStrategy,
   onDuplicateStrategyChange,
-  reconciliationMode,
-  onReconciliationModeChange,
   defaultPaymentDate,
   onDefaultPaymentDateChange,
   onAnalyze,
@@ -343,22 +338,6 @@ export function PaidFileReconciliationModal({
 
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Master Comparison
-                  </label>
-                  <select
-                    className="h-9 w-full rounded-md border bg-background px-2.5 text-xs sm:text-sm"
-                    value={reconciliationMode}
-                    onChange={(e) =>
-                      onReconciliationModeChange(e.target.value as ReconciliationMode)
-                    }
-                  >
-                    <option value="difference">Remaining &lt; 0 Only</option>
-                    <option value="additive">Additive (Add Full)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Default Payment Date
                   </label>
                   <Input
@@ -371,23 +350,13 @@ export function PaidFileReconciliationModal({
               </div>
 
               <div className="rounded-md border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
-                {reconciliationMode === "difference" ? (
-                  <>
-                    <strong>Master Sheet Remaining Check:</strong> Computes Paid File{" "}
-                    <span className="font-semibold">DAC (SFDC + Online)</span> &amp;{" "}
-                    <span className="font-semibold">Paid File Total</span>, matches against Master
-                    Total (<span className="font-mono">Remaining = Master Total − Paid Total</span>
-                    ), and updates only accounts with a{" "}
-                    <span className="font-semibold">negative Remaining</span> into Master&apos;s{" "}
-                    <span className="font-semibold">DAC, ECS, Special &amp; Payment Date</span>{" "}
-                    columns.
-                  </>
-                ) : (
-                  <>
-                    <strong>Additive Mode Active:</strong> Adds Paid File DAC directly on top of
-                    existing Master Total without checking negative Remaining.
-                  </>
-                )}
+                <strong>Master Sheet Remaining Check:</strong> Computes Paid File{" "}
+                <span className="font-semibold">DAC (SFDC + Online)</span> &amp;{" "}
+                <span className="font-semibold">Paid File Total</span>, matches against Master
+                Total (<span className="font-mono">Remaining = Master Total − Paid Total</span>),
+                and updates only accounts with a{" "}
+                <span className="font-semibold">negative Remaining</span> into Master&apos;s{" "}
+                <span className="font-semibold">DAC, ECS, Special &amp; Payment Date</span> columns.
               </div>
 
               {/* Column Selectors */}

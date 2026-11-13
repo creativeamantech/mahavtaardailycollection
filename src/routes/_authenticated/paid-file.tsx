@@ -25,7 +25,6 @@ import {
   type ColumnMapping,
   type DuplicateStrategy,
   type MasterRow,
-  type ReconciliationMode,
   type SheetInfo,
   type StagedPaidRow,
 } from "@/lib/paid-file-reconciliation";
@@ -97,7 +96,6 @@ function PaidFilePage() {
   const [sheetName, setSheetName] = useState("");
   const [mapping, setMapping] = useState<ColumnMapping>(EMPTY_MAPPING);
   const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>("last_wins");
-  const [reconciliationMode, setReconciliationMode] = useState<ReconciliationMode>("difference");
   const [defaultPaymentDate, setDefaultPaymentDate] = useState(() => today());
 
   const [stagedRecords, setStagedRecords] = useState<StagedPaidRow[]>([]);
@@ -141,7 +139,6 @@ function PaidFilePage() {
         masterRows,
         { totalRows, invalidRows },
         dacOverrides,
-        reconciliationMode,
         defaultPaymentDate,
       ),
     [
@@ -150,7 +147,6 @@ function PaidFilePage() {
       totalRows,
       invalidRows,
       dacOverrides,
-      reconciliationMode,
       defaultPaymentDate,
     ],
   );
@@ -759,8 +755,6 @@ function PaidFilePage() {
         onMappingChange={setMapping}
         duplicateStrategy={duplicateStrategy}
         onDuplicateStrategyChange={setDuplicateStrategy}
-        reconciliationMode={reconciliationMode}
-        onReconciliationModeChange={setReconciliationMode}
         defaultPaymentDate={defaultPaymentDate}
         onDefaultPaymentDateChange={setDefaultPaymentDate}
         onAnalyze={handleAnalyze}

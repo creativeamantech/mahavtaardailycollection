@@ -1,6 +1,5 @@
 export type DacMode = "split_sfdc_online" | "single_dac";
 export type DuplicateStrategy = "last_wins" | "sum";
-export type ReconciliationMode = "difference" | "additive";
 export type DacSource = "MANUAL" | "CORRECTED" | "PAID_FILE" | "PROVISIONAL" | "";
 
 export type ColumnMapping = {
@@ -346,7 +345,6 @@ export function reconcilePaidRecord(
   record: StagedPaidRow,
   master: MasterRow | undefined,
   dacOverride?: number,
-  mode: ReconciliationMode = "difference",
   defaultPaymentDate = "",
 ): ReconciledRow {
   const paidFileDac = roundMoney(record.dac);
@@ -389,41 +387,21 @@ export function reconcilePaidRecord(
     Math.max(master.existingTotal, master.existingNewTotal || 0),
   );
   // Master Sheet Remaining formula = Total - New Total (negative => needs update)
-  const remaining =
-    mode === "difference"
-      ? roundMoney(currentMasterTotal - paidFileTotal)
-      : roundMoney(-paidFileTotal);
-  const rawDifference =
-    mode === "difference" ? roundMoney(paidFileTotal - currentMasterTotal) : paidFileTotal;
+  const remaining = roundMoney(currentMasterTotal - paidFileTotal);
+  const rawDifference = roundMoney(paidFileTotal - currentMasterTotal);
 
   // Allocate negative Remaining (neededAmount) across ECS, Special, and DAC cleanly
-  const neededAmount =
-    mode === "difference"
-      ? roundMoney(Math.max(0, paidFileTotal - currentMasterTotal))
-      : paidFileTotal;
+  const neededAmount = roundMoney(Math.max(0, paidFileTotal - currentMasterTotal));
 
-  const deltaEcs =
-    mode === "difference"
-      ? roundMoney(Math.max(0, Math.min(neededAmount, record.ecs - master.existingEcs)))
-      : roundMoney(record.ecs);
-  const deltaSpecial =
-    mode === "difference"
-      ? roundMoney(
-          Math.max(0, Math.min(neededAmount - deltaEcs, record.special - master.existingSpecial)),
-        )
-      : roundMoney(record.special);
-  const deltaDac =
-    mode === "difference"
-      ? roundMoney(Math.max(0, neededAmount - deltaEcs - deltaSpecial))
-      : paidFileDac;
+  const deltaEcs = roundMoney(Math.max(0, Math.min(neededAmount, record.ecs - master.existingEcs)));
+  const deltaSpecial = roundMoney(
+    Math.max(0, Math.min(neededAmount - deltaEcs, record.special - master.existingSpecial)),
+  );
+  const deltaDac = roundMoney(Math.max(0, neededAmount - deltaEcs - deltaSpecial));
 
-  const targetEcs = roundMoney(mode === "difference" ? master.existingEcs + deltaEcs : record.ecs);
-  const targetSpecial = roundMoney(
-    mode === "difference" ? master.existingSpecial + deltaSpecial : record.special,
-  );
-  const computedTargetDac = roundMoney(
-    mode === "difference" ? master.existingDac + deltaDac : paidFileDac,
-  );
+  const targetEcs = roundMoney(master.existingEcs + deltaEcs);
+  const targetSpecial = roundMoney(master.existingSpecial + deltaSpecial);
+  const computedTargetDac = roundMoney(master.existingDac + deltaDac);
 
   const effectiveDac =
     dacOverride !== undefined && Number.isFinite(dacOverride)
@@ -445,9 +423,7 @@ export function reconcilePaidRecord(
   const protectedRecord = isProtectedSource(master);
   if (protectedRecord) {
     const mismatch =
-      (mode === "difference"
-        ? differs(paidFileTotal, currentMasterTotal)
-        : differs(effectiveDac, master.existingDac)) ||
+      differs(paidFileTotal, currentMasterTotal) ||
       differs(record.ecs, master.existingEcs) ||
       differs(record.special, master.existingSpecial);
     if (mismatch) {
@@ -502,7 +478,7 @@ export function reconcilePaidRecord(
 
   // Provisional collection cross-check
   if (master.provisionalDac !== null && master.provisionalDac > 0) {
-    const provisionalCompare = mode === "difference" ? effectiveDifference : effectiveDac;
+    const provisionalCompare = effectiveDifference;
     if (!differs(master.provisionalDac, provisionalCompare)) {
       const nextTotal = roundMoney(
         currentMasterTotal + effectiveDeltaDac + deltaEcs + deltaSpecial,
@@ -556,7 +532,7 @@ export function reconcilePaidRecord(
     };
   }
 
-  if (mode === "difference") {
+
     // Master Remaining > 0 means Master Total is already higher than Paid File Total -> skip
     if (effectiveRemaining > EPS) {
       return {
@@ -642,65 +618,6 @@ export function reconcilePaidRecord(
       protectedSkip: false,
       isEditable: true,
     };
-  }
-
-  // Legacy additive mode
-  const hasAmountDelta =
-    differs(effectiveDac, master.existingDac) ||
-    differs(record.ecs, master.existingEcs) ||
-    differs(record.special, master.existingSpecial) ||
-    (master.dacSource !== "PAID_FILE" &&
-      (effectiveDac !== 0 || record.ecs !== 0 || record.special !== 0));
-
-  if (!hasAmountDelta) {
-    return {
-      ...record,
-      paidFileDac,
-      paidFileTotal,
-      currentMasterTotal,
-      remaining: 0,
-      difference: 0,
-      deltaDac: 0,
-      deltaEcs: 0,
-      deltaSpecial: 0,
-      dac: effectiveDac,
-      targetEcs: record.ecs,
-      targetSpecial: record.special,
-      resolvedPaymentDate,
-      master,
-      newTotal: roundMoney(master.existingTotal + effectiveDac),
-      action: "unchanged",
-      reason: "Already matches Master values",
-      hasDelta: false,
-      conflictFlag: false,
-      protectedSkip: false,
-      isEditable: true,
-    };
-  }
-
-  return {
-    ...record,
-    paidFileDac,
-    paidFileTotal,
-    currentMasterTotal,
-    remaining: roundMoney(-effectiveDac),
-    difference: effectiveDac,
-    deltaDac: effectiveDac,
-    deltaEcs: record.ecs,
-    deltaSpecial: record.special,
-    dac: effectiveDac,
-    targetEcs: record.ecs,
-    targetSpecial: record.special,
-    resolvedPaymentDate,
-    master,
-    newTotal: roundMoney(master.existingTotal + effectiveDac),
-    action: "clean_update",
-    reason: "Additive update — ready to commit",
-    hasDelta: true,
-    conflictFlag: false,
-    protectedSkip: false,
-    isEditable: true,
-  };
 }
 
 export function reconcilePaidDataset(
@@ -708,7 +625,6 @@ export function reconcilePaidDataset(
   masterRows: MasterRow[],
   meta: { totalRows: number; invalidRows: number },
   overrides?: Map<string, number>,
-  mode: ReconciliationMode = "difference",
   defaultPaymentDate = "",
 ): { rows: ReconciledRow[]; summary: ReconciliationSummary } {
   const masterById = new Map<string, MasterRow>();
@@ -722,7 +638,6 @@ export function reconcilePaidDataset(
         record,
         masterById.get(record.agreementId),
         overrides?.get(record.agreementId),
-        mode,
         defaultPaymentDate,
       ),
     )
