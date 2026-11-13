@@ -192,7 +192,23 @@ function PaidFilePage() {
 
   async function handleFile(file?: File) {
     if (!file) return;
-    if (!/\.(xlsb|xlsx|xls|csv)$/i.test(file.name)) {
+    const trimmedName = file.name.trim();
+    const hasValidExt = /\.(xlsb|xlsx|xls|csv)(?:\s*\(\d+\))?$/i.test(trimmedName);
+    const hasExcelMime = /spreadsheet|excel|ms-excel|csv|comma-separated/i.test(file.type || "");
+    let hasSpreadsheetHeader = false;
+    if (!hasValidExt && !hasExcelMime) {
+      const blockedExt =
+        /\.(pdf|png|jpe?g|webp|gif|svg|mp4|mp3|wav|zip|rar|7z|docx?|pptx?|apk|exe)$/i.test(
+          trimmedName,
+        );
+      if (!blockedExt && file.size >= 4) {
+        const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+        const isZip = head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04;
+        const isOle = head[0] === 0xd0 && head[1] === 0xcf && head[2] === 0x11 && head[3] === 0xe0;
+        hasSpreadsheetHeader = isZip || isOle;
+      }
+    }
+    if (!hasValidExt && !hasExcelMime && !hasSpreadsheetHeader) {
       toast.error("Choose an XLSB, XLSX, XLS, or CSV file.");
       return;
     }
