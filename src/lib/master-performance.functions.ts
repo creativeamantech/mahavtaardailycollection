@@ -401,9 +401,9 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
         bucket: b.bucket,
         city: c.city,
         totalCount: c.totalCount,
-        neededPos: round(c.neededPos),
+        neededPos: round(c.neededPos!),
         mainPaidPos: round(c.mainPaidPos),
-        targetPos: round(c.targetPos),
+        targetPos: round(c.targetPos!),
       })),
   );
   const positiveNeededRollback = buckets.flatMap((b) =>
@@ -413,9 +413,9 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
         bucket: b.bucket,
         city: c.city,
         totalCount: c.totalCount,
-        neededRollbackPos: round(c.neededRollbackPos),
+        neededRollbackPos: round(c.neededRollbackPos!),
         rollbackPos: round(c.rollbackPos),
-        targetRollbackPos: round(c.targetRollbackPos),
+        targetRollbackPos: round(c.targetRollbackPos!),
       })),
   );
   return {
