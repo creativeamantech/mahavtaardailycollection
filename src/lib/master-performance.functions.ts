@@ -6,6 +6,7 @@ const GATEWAY = "https://connector-gateway.lovable.dev";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 const TZ = "Asia/Kolkata";
 const TARGET_TAB = "Performance Targets";
+const DEFAULTS_TAB = "Performance Defaults";
 const DEFAULT_MAIN_TARGET = 60;
 const DEFAULT_ROLLBACK_TARGET = 18;
 
@@ -103,6 +104,39 @@ async function sheetValues(id: string, range: string): Promise<string[][]> {
     "Google Sheets read",
   );
   return result.values ?? [];
+}
+async function ensureDefaultsTab(id: string) {
+  const meta = await checkedJson<{ sheets?: { properties?: { title?: string } }[] }>(
+    await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "?fields=sheets.properties", {
+      headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
+    }),
+    "Master spreadsheet metadata",
+  );
+  if ((meta.sheets ?? []).some((sheet) => sheet.properties?.title === DEFAULTS_TAB)) return;
+  await checkedJson(
+    await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + ":batchUpdate", {
+      method: "POST",
+      headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: DEFAULTS_TAB } } }] }),
+    }),
+    "Create Performance Defaults tab",
+  );
+  await checkedJson(
+    await fetch(
+      GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "/values/" +
+        encodeURIComponent("'" + DEFAULTS_TAB + "'!A1:B3") + "?valueInputOption=RAW",
+      {
+        method: "PUT",
+        headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
+        body: JSON.stringify({ values: [
+          ["Setting", "Percentage"],
+          ["Main Target", String(DEFAULT_MAIN_TARGET)],
+          ["Rollback Target", String(DEFAULT_ROLLBACK_TARGET)],
+        ] }),
+      },
+    ),
+    "Initialize Performance Defaults",
+  );
 }
 async function ensureTargetTab(id: string) {
   const meta = await checkedJson<{ sheets?: { properties?: { title?: string } }[] }>(
@@ -203,6 +237,7 @@ function targetFor(
   bucket: string,
   state: string,
   city: string,
+  defaults: { mainTarget: number; rollbackTarget: number },
 ) {
   const dimensions = [allocationType, bucket, state, city];
   const matches = rules.filter((rule) => {
@@ -238,7 +273,7 @@ function targetFor(
           ". Please make the rules more specific.",
       );
   }
-  return matches[0] ?? { mainTarget: DEFAULT_MAIN_TARGET, rollbackTarget: DEFAULT_ROLLBACK_TARGET };
+  return matches[0] ?? defaults;
 }
 function makeMetric(
   rows: {
@@ -252,6 +287,7 @@ function makeMetric(
     mainTarget: number;
     rollbackTarget: number;
   }[],
+  defaults: { mainTarget: number; rollbackTarget: number },
 ): Metric {
   const totalCount = rows.length;
   const paidCount = rows.reduce((s, r) => s + r.mainPaidCount, 0);
@@ -265,8 +301,8 @@ function makeMetric(
     (sum, row) => sum + (row.pos * row.rollbackTarget) / 100,
     0,
   );
-  const mainTarget = totalPos ? (targetPos / totalPos) * 100 : DEFAULT_MAIN_TARGET;
-  const rollbackTarget = totalPos ? (targetRollbackPos / totalPos) * 100 : DEFAULT_ROLLBACK_TARGET;
+  const mainTarget = totalPos ? (targetPos / totalPos) * 100 : defaults.mainTarget;
+  const rollbackTarget = totalPos ? (targetRollbackPos / totalPos) * 100 : defaults.rollbackTarget;
   return {
     totalCount,
     paidCount,
@@ -291,10 +327,16 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
   await requireSession("Admin");
   const master = await findMaster();
   await ensureTargetTab(master.id);
-  const [data, targetRows] = await Promise.all([
+  await ensureDefaultsTab(master.id);
+  const [data, targetRows, defaultsRows] = await Promise.all([
     sheetValues(master.id, "Data!A1:GY"),
     sheetValues(master.id, "'" + TARGET_TAB + "'!A1:G"),
+    sheetValues(master.id, "'" + DEFAULTS_TAB + "'!A1:B3"),
   ]);
+  const defaults = {
+    mainTarget: targetNumber(defaultsRows[1]?.[1], DEFAULT_MAIN_TARGET),
+    rollbackTarget: targetNumber(defaultsRows[2]?.[1], DEFAULT_ROLLBACK_TARGET),
+  };
   if (data.length < 2) throw new Error("Master Allocation Data tab has no data rows.");
   const h = data[0]!;
   const idx = {
@@ -352,7 +394,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       main: numeric(row[idx.main]),
       rollback: numeric(row[idx.rollback]),
     };
-    const target = targetFor(rules, item.allocation, item.bucket, item.state, item.city);
+    const target = targetFor(rules, item.allocation, item.bucket, item.state, item.city, defaults);
     parsed.push({ ...item, mainTarget: target.mainTarget, rollbackTarget: target.rollbackTarget });
   }
   const bucketNames = ["Bucket 1", "Bucket 2", "Bucket 3", "Bucket 4", "Bucket 5"];
@@ -374,13 +416,13 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
         });
         const executives: ExecutiveRow[] = [...executiveMap.entries()]
           .map(([executive, exRows]) => {
-            return { executive, ...makeMetric(exRows) };
+            return { executive, ...makeMetric(exRows, defaults) };
           })
           .sort((a, b) => b.totalCount - a.totalCount || a.executive.localeCompare(b.executive));
-        return { city, executives, ...makeMetric(cityRows) };
+        return { city, executives, ...makeMetric(cityRows, defaults) };
       })
       .sort((a, b) => b.totalCount - a.totalCount || a.city.localeCompare(b.city));
-    return { bucket, cities, total: makeMetric(rows) };
+    return { bucket, cities, total: makeMetric(rows, defaults) };
   });
   const uniqueValues = (values: string[]) =>
     [...new Set(values.map((v) => v.trim()).filter(Boolean))].sort((a, b) =>
@@ -392,7 +434,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     states: uniqueValues(parsed.map((r) => r.state)),
     cities: uniqueValues(parsed.map((r) => r.city)),
   };
-  const totals = makeMetric(parsed);
+  const totals = makeMetric(parsed, defaults);
   const positiveNeededPos = buckets.flatMap((b) =>
     b.cities
       .filter((c) => c.neededPos > 0)
@@ -431,11 +473,12 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     dimensionOptions,
     positiveNeededPos,
     positiveNeededRollback,
-    defaults: { mainTarget: DEFAULT_MAIN_TARGET, rollbackTarget: DEFAULT_ROLLBACK_TARGET },
+    defaults,
   };
 });
 
 const targetInput = z.object({
+  defaults: z.object({ mainTarget: z.number().min(0).max(100), rollbackTarget: z.number().min(0).max(100) }),
   rules: z
     .array(
       z.object({
@@ -461,6 +504,7 @@ export const saveMasterPerformanceTargets = createServerFn({ method: "POST" })
     }
     const master = await findMaster();
     await ensureTargetTab(master.id);
+    await ensureDefaultsTab(master.id);
     const values = [
       ["ID", "Allocation Type", "Bucket", "State", "City", "Main Target %", "Rollback Target %"],
       ...data.rules.map((r) => [
@@ -490,5 +534,25 @@ export const saveMasterPerformanceTargets = createServerFn({ method: "POST" })
       ),
       "Save Performance Targets",
     );
-    return { saved: data.rules.length };
+    await checkedJson(
+      await fetch(
+        GATEWAY +
+          "/google_sheets/v4/spreadsheets/" +
+          master.id +
+          "/values/" +
+          encodeURIComponent("'" + DEFAULTS_TAB + "'!A1:B3") +
+          "?valueInputOption=RAW",
+        {
+          method: "PUT",
+          headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
+          body: JSON.stringify({ majorDimension: "ROWS", values: [
+            ["Setting", "Percentage"],
+            ["Main Target", String(data.defaults.mainTarget)],
+            ["Rollback Target", String(data.defaults.rollbackTarget)],
+          ] }),
+        },
+      ),
+      "Save Performance Defaults",
+    );
+    return { saved: data.rules.length, defaults: data.defaults };
   });
