@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -44,12 +44,12 @@ type Metric = {
   rollbackPos: number;
   mainPercent: number;
   rollbackPercent: number;
-  mainTarget: number;
-  targetPos: number;
-  neededPos: number;
-  rollbackTarget: number;
-  targetRollbackPos: number;
-  neededRollbackPos: number;
+  mainTarget: number | null;
+  targetPos: number | null;
+  neededPos: number | null;
+  rollbackTarget: number | null;
+  targetRollbackPos: number | null;
+  neededRollbackPos: number | null;
 };
 type Executive = Metric & { executive: string };
 type City = Metric & { city: string; executives: Executive[] };
@@ -80,7 +80,6 @@ type Report = {
     rollbackPos: number;
     targetRollbackPos: number;
   }[];
-  defaults: { mainTarget: number; rollbackTarget: number };
 };
 
 const money = (n: number) =>
@@ -92,8 +91,8 @@ const emptyRule = (): Rule => ({
   bucket: "",
   state: "",
   city: "",
-  mainTarget: 60,
-  rollbackTarget: 18,
+  mainTarget: 0,
+  rollbackTarget: 0,
 });
 
 function MasterPerformancePage() {
@@ -109,11 +108,7 @@ function MasterPerformancePage() {
   const [bucket, setBucket] = useState("Bucket 1");
   const [rules, setRules] = useState<Rule[] | null>(null);
   const [saving, setSaving] = useState(false);
-  const [defaultTargets, setDefaultTargets] = useState({ mainTarget: 60, rollbackTarget: 18 });
   const activeRules = rules ?? data?.rules ?? [];
-  useEffect(() => {
-    if (data?.defaults) setDefaultTargets(data.defaults);
-  }, [data?.defaults]);
   const selected = data?.buckets.find((b) => b.bucket === bucket) ?? data?.buckets[0];
   const mainShareRows = useMemo(
     () => (data?.positiveNeededPos ?? []).filter((r) => r.bucket === bucket),
@@ -145,7 +140,7 @@ function MasterPerformancePage() {
   async function persistRules() {
     setSaving(true);
     try {
-      await saveTargets({ data: { rules: activeRules, defaults: defaultTargets } });
+      await saveTargets({ data: { rules: activeRules } });
       setRules(null);
       await qc.invalidateQueries({ queryKey: ["master-performance-report"] });
       toast.success("Target rules saved in Master Allocation");
@@ -198,20 +193,6 @@ function MasterPerformancePage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Summary label="Allocated cases" value={data.rowCount.toLocaleString("en-IN")} />
             <Summary label="Buckets" value="5" />
-            <div className="rounded-xl border bg-white p-3">
-              <Label htmlFor="default-main-target" className="text-xs text-muted-foreground">Default Main Target</Label>
-              <div className="mt-1 flex items-center gap-2">
-                <Input id="default-main-target" type="number" min="0" max="100" step="0.01" className="h-10 text-xl font-extrabold tabular-nums" value={defaultTargets.mainTarget} onChange={(e) => setDefaultTargets((v) => ({ ...v, mainTarget: e.target.value === "" ? 0 : Number(e.target.value) }))} />
-                <span className="font-bold">%</span>
-              </div>
-            </div>
-            <div className="rounded-xl border bg-white p-3">
-              <Label htmlFor="default-rollback-target" className="text-xs text-muted-foreground">Default Rollback Target</Label>
-              <div className="mt-1 flex items-center gap-2">
-                <Input id="default-rollback-target" type="number" min="0" max="100" step="0.01" className="h-10 text-xl font-extrabold tabular-nums" value={defaultTargets.rollbackTarget} onChange={(e) => setDefaultTargets((v) => ({ ...v, rollbackTarget: e.target.value === "" ? 0 : Number(e.target.value) }))} />
-                <span className="font-bold">%</span>
-              </div>
-            </div>
           </div>
           <div className="rounded-xl border bg-white p-3">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -234,10 +215,10 @@ function MasterPerformancePage() {
                 ))}
               </div>
             </div>
-            {selected && <PerformanceTable cities={selected.cities} total={selected.total} />}
+            {selected && <PerformanceTable cities={selected.cities} total={selected.total} showTargets={activeRules.length > 0} />}
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          {activeRules.length > 0 && <div className="grid gap-4 xl:grid-cols-2">
             <ShareTable
               title="City-wise Needed POS"
               rows={mainShareRows.map((r) => ({
@@ -286,7 +267,7 @@ function MasterPerformancePage() {
                 )
               }
             />
-          </div>
+          </div>}
 
           <section className="space-y-3 rounded-xl border bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -308,7 +289,7 @@ function MasterPerformancePage() {
             </div>
             {activeRules.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No custom rules. Defaults are Main 60% and Rollback 18%.
+                No target rules configured. Add a rule to calculate Target POS and Needed POS.
               </p>
             )}
             {activeRules.map((rule, i) => (
@@ -410,7 +391,7 @@ function MasterPerformancePage() {
           </section>
           <p className="text-xs text-muted-foreground">
             Source: {data.master.name} · {data.rowCount.toLocaleString("en-IN")} allocated loan rows
-            · Target settings stored in the “Performance Targets” tab.
+            · Target rules stored in the “Performance Targets” tab.
           </p>
         </>
       )}
@@ -492,7 +473,7 @@ function ShareTable({
     </section>
   );
 }
-function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) {
+function PerformanceTable({ cities, total, showTargets }: { cities: City[]; total: Metric; showTargets: boolean }) {
   const [expandedCities, setExpandedCities] = useState<Set<string>>(() => new Set());
   const allExpanded = cities.length > 0 && cities.every((city) => expandedCities.has(city.city));
   const toggleCity = (cityName: string) =>
@@ -512,12 +493,7 @@ function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) 
     "Unpaid Count",
     "Total POS",
     "Total Paid POS",
-    "Main Target %",
-    "Target POS",
-    "Needed POS",
-    "Rollback Target %",
-    "Target Rollback POS",
-    "Needed Rollback POS",
+    ...(showTargets ? ["Main Target %", "Target POS", "Needed POS", "Rollback Target %", "Target Rollback POS", "Needed Rollback POS"] : []),
   ];
   const metricCells = (m: Metric) => [
     money(m.collection),
@@ -528,12 +504,14 @@ function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) 
     m.unpaidCount.toLocaleString("en-IN"),
     money(m.totalPos),
     money(m.mainPaidPos),
-    pct(m.mainTarget),
-    money(m.targetPos),
-    money(m.neededPos),
-    pct(m.rollbackTarget),
-    money(m.targetRollbackPos),
-    money(m.neededRollbackPos),
+    ...(showTargets ? [
+      m.mainTarget === null ? "—" : pct(m.mainTarget),
+      m.targetPos === null ? "—" : money(m.targetPos),
+      m.neededPos === null ? "—" : money(m.neededPos),
+      m.rollbackTarget === null ? "—" : pct(m.rollbackTarget),
+      m.targetRollbackPos === null ? "—" : money(m.targetRollbackPos),
+      m.neededRollbackPos === null ? "—" : money(m.neededRollbackPos),
+    ] : []),
   ];
   return (
     <div className="overflow-x-auto">
@@ -549,7 +527,7 @@ function PerformanceTable({ cities, total }: { cities: City[]; total: Metric }) 
           Collapse all
         </Button>
       </div>
-      <table className="w-full min-w-[1500px] text-xs">
+      <table className={"w-full text-xs " + (showTargets ? "min-w-[1500px]" : "min-w-[900px]")}>
         <thead className="bg-muted/70">
           <tr>
             {headers.map((h, i) => (
