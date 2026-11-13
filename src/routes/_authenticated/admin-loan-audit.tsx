@@ -340,9 +340,7 @@ function AdminLoanAuditPage() {
         </div>
       </section>
       {isLoading && (
-        <p className="mt-6 text-sm text-muted-foreground">
-          Google Sheets से entries load हो रही हैं…
-        </p>
+        <p className="mt-6 text-sm text-muted-foreground">Google Sheets से entries load हो रही हैं…</p>
       )}
       {error && (
         <p className="mt-6 text-sm text-destructive">
@@ -560,8 +558,7 @@ function AdminLoanAuditPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Admin Loan Audit</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Bulk loan numbers paste करें, फिर checkbox से सिर्फ़ वही loans चुनें जिन्हें audit करना
-            है।
+            Bulk loan numbers paste करें, फिर checkbox से सिर्फ़ वही loans चुनें जिन्हें audit करना है।
           </p>
         </div>
         <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
@@ -575,9 +572,7 @@ function AdminLoanAuditPage() {
         <Textarea
           id="bulk-loans"
           className="min-h-28"
-          placeholder={
-            "हर line में एक loan number paste करें…\nया comma / space / semicolon से अलग करें"
-          }
+          placeholder={"हर line में एक loan number paste करें…\nया comma / space / semicolon से अलग करें"}
           value={bulkInput}
           onChange={(e) => setBulkInput(e.target.value)}
         />
@@ -844,8 +839,8 @@ function AdminLoanAuditPage() {
         </div>
       )}
       <p className="mt-8 text-xs text-muted-foreground">
-        Note: यह page मौजूदा Collections Google Sheet को इस्तेमाल करता है। Save करने से source sheet
-        में बदलाव होगा।
+        Note: यह page मौजूदा Collections Google Sheet को इस्तेमाल करता है। Save करने से source sheet में
+        बदलाव होगा।
       </p>
     </main>
   );

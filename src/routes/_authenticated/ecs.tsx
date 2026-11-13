@@ -236,20 +236,27 @@ function EcsForm() {
                 </SelectTrigger>
                 <SelectContent>
                   {EXECUTIVES.map((e) => (
-                    <SelectItem key={e} value={e}>{e}</SelectItem>
+                    <SelectItem key={e} value={e}>
+                      {e}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             ) : (
               <div className="flex h-11 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-base text-slate-700">
-                {sessionLoading ? "Loading logged-in executive..." : executive || session?.name || "Executive not available"}
+                {sessionLoading
+                  ? "Loading logged-in executive..."
+                  : executive || session?.name || "Executive not available"}
               </div>
             )}
           </div>
 
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-slate-700">Payment Type</Label>
-            <Select value={paymentType} onValueChange={(v) => setPaymentType(v as "ECS" | "Special")}>
+            <Select
+              value={paymentType}
+              onValueChange={(v) => setPaymentType(v as "ECS" | "Special")}
+            >
               <SelectTrigger className="h-11 border-slate-300 bg-white text-base">
                 <SelectValue />
               </SelectTrigger>
@@ -275,7 +282,9 @@ function EcsForm() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-slate-700" htmlFor="ecsAmount">Amount (₹)</Label>
+            <Label className="text-sm font-semibold text-slate-700" htmlFor="ecsAmount">
+              Amount (₹)
+            </Label>
             <Input
               id="ecsAmount"
               type="number"
@@ -319,7 +328,9 @@ function EcsForm() {
               onChange={(e) => setPrevDate(e.target.value)}
             />
             {prevDate !== "" && !prevDateValid && (
-              <p className="text-sm font-medium text-destructive">Select a date earlier than today.</p>
+              <p className="text-sm font-medium text-destructive">
+                Select a date earlier than today.
+              </p>
             )}
           </div>
         )}
@@ -327,7 +338,11 @@ function EcsForm() {
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-slate-700">Payment Date</Label>
-            <Input className="h-11 border-slate-200 bg-slate-50 text-base" value={paymentDate} readOnly />
+            <Input
+              className="h-11 border-slate-200 bg-slate-50 text-base"
+              value={paymentDate}
+              readOnly
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-slate-700">Entry Time</Label>
@@ -337,7 +352,9 @@ function EcsForm() {
 
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-semibold text-slate-700" htmlFor="ecsRemark">Remark (optional)</Label>
+            <Label className="text-sm font-semibold text-slate-700" htmlFor="ecsRemark">
+              Remark (optional)
+            </Label>
             <span className="text-xs text-slate-400">{remark.length}/300</span>
           </div>
           <Textarea
@@ -362,11 +379,14 @@ function EcsForm() {
       <aside className="space-y-3">
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center gap-2 font-semibold text-amber-950">
-            <span className="flex size-8 items-center justify-center rounded-full bg-amber-200 text-amber-900">i</span>
+            <span className="flex size-8 items-center justify-center rounded-full bg-amber-200 text-amber-900">
+              i
+            </span>
             Information Only
           </div>
           <p className="mt-2 text-sm leading-relaxed text-amber-950/80">
-            ECS / Special entries are maintained separately. They are never added to collection totals, executive performance, reports, or charts.
+            ECS / Special entries are maintained separately. They are never added to collection
+            totals, executive performance, reports, or charts.
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -401,7 +421,11 @@ function EcsForm() {
             This is an information-only entry and will not be counted in collection.
           </p>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" className="h-11 text-base" onClick={() => setShowConfirm(false)}>
+            <Button
+              variant="outline"
+              className="h-11 text-base"
+              onClick={() => setShowConfirm(false)}
+            >
               Cancel / Edit
             </Button>
             <Button
@@ -431,11 +455,18 @@ function EcsForm() {
               <Row k="Status" v="Confirmed" />
               <Row k="Remark" v={slip.remark || "-"} />
             </dl>
-            <p className="mt-3 text-sm text-slate-500">Information only — not counted in collection.</p>
+            <p className="mt-3 text-sm text-slate-500">
+              Information only — not counted in collection.
+            </p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 print:hidden">
-            <Button variant="outline" className="h-11" onClick={() => window.print()}>Print</Button>
-            <Button className="h-11 bg-amber-400 font-semibold text-slate-950 hover:bg-amber-500" onClick={downloadPdf}>
+            <Button variant="outline" className="h-11" onClick={() => window.print()}>
+              Print
+            </Button>
+            <Button
+              className="h-11 bg-amber-400 font-semibold text-slate-950 hover:bg-amber-500"
+              onClick={downloadPdf}
+            >
               Download PDF
             </Button>
           </div>
@@ -491,9 +522,13 @@ function EcsReport() {
       if (status !== "all" && r.status !== status) return false;
       if (
         query &&
-        ![r.loanId, r.executive, r.paymentType, r.status, r.remark]
-          .some((value) => String(value ?? "").toLowerCase().includes(query))
-      ) return false;
+        ![r.loanId, r.executive, r.paymentType, r.status, r.remark].some((value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(query),
+        )
+      )
+        return false;
       return true;
     });
   }, [data, allDates, from, to, exec, type, status, search]);
@@ -556,7 +591,9 @@ function EcsReport() {
         </div>
 
         <div className="mb-3 space-y-2">
-          <Label className="text-sm font-semibold text-slate-700" htmlFor="ecsReportSearch">Search</Label>
+          <Label className="text-sm font-semibold text-slate-700" htmlFor="ecsReportSearch">
+            Search
+          </Label>
           <Input
             id="ecsReportSearch"
             className="h-11 border-slate-300"
@@ -569,22 +606,53 @@ function EcsReport() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-slate-700">From Date</Label>
-            <Input type="date" className="h-11 border-slate-300" value={from} disabled={allDates} onChange={(e) => setFrom(e.target.value)} />
+            <Input
+              type="date"
+              className="h-11 border-slate-300"
+              value={from}
+              disabled={allDates}
+              onChange={(e) => setFrom(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-slate-700">To Date</Label>
-            <Input type="date" className="h-11 border-slate-300" value={to} disabled={allDates} onChange={(e) => setTo(e.target.value)} />
+            <Input
+              type="date"
+              className="h-11 border-slate-300"
+              value={to}
+              disabled={allDates}
+              onChange={(e) => setTo(e.target.value)}
+            />
           </div>
-          <FilterSelect label="Executive" value={exec} onChange={setExec} options={[...EXECUTIVES]} />
-          <FilterSelect label="Payment Type" value={type} onChange={setType} options={["ECS", "Special"]} />
+          <FilterSelect
+            label="Executive"
+            value={exec}
+            onChange={setExec}
+            options={[...EXECUTIVES]}
+          />
+          <FilterSelect
+            label="Payment Type"
+            value={type}
+            onChange={setType}
+            options={["ECS", "Special"]}
+          />
           <div className="sm:col-span-2 lg:col-span-4">
-            <FilterSelect label="Status" value={status} onChange={setStatus} options={[...STATUSES]} />
+            <FilterSelect
+              label="Status"
+              value={status}
+              onChange={setStatus}
+              options={[...STATUSES]}
+            />
           </div>
         </div>
 
         <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
           <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-slate-700">
-            <Checkbox checked={allDates} onCheckedChange={(v) => setAllDates(v === true)} className="size-5" />
+            <Checkbox
+              checked={allDates}
+              onCheckedChange={(v) => setAllDates(v === true)}
+              className="size-5"
+            />
             Show all dates
           </label>
           <Button
@@ -614,7 +682,9 @@ function EcsReport() {
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-semibold text-slate-800">
           {invalidDateRange ? 0 : rows.length} entries
-          <span className="ml-2 font-normal text-slate-500">· {formatAmount(invalidDateRange ? 0 : total)}</span>
+          <span className="ml-2 font-normal text-slate-500">
+            · {formatAmount(invalidDateRange ? 0 : total)}
+          </span>
         </p>
         <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">
           Information only — not collection
@@ -622,9 +692,13 @@ function EcsReport() {
       </div>
 
       {isLoading ? (
-        <p className="rounded-xl border border-amber-100 bg-white p-8 text-center text-slate-500">Loading ECS / Special entries...</p>
+        <p className="rounded-xl border border-amber-100 bg-white p-8 text-center text-slate-500">
+          Loading ECS / Special entries...
+        </p>
       ) : invalidDateRange ? (
-        <p className="rounded-xl border border-amber-100 bg-white p-8 text-center text-slate-500">Correct the date range to view entries.</p>
+        <p className="rounded-xl border border-amber-100 bg-white p-8 text-center text-slate-500">
+          Correct the date range to view entries.
+        </p>
       ) : rows.length === 0 ? (
         <p className="rounded-xl border border-amber-100 bg-white p-8 text-center text-slate-500">
           No ECS / Special entries found for the selected filters.
@@ -650,17 +724,39 @@ function EcsReport() {
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id} className="border-t border-slate-100 hover:bg-amber-50/50">
-                      <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{r.loanId}</td>
+                      <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">
+                        {r.loanId}
+                      </td>
                       <td className="px-3 py-3 text-slate-700">{r.executive}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{formatAmount(r.amount)}</td>
-                      <td className="px-3 py-3"><TypeBadge type={r.paymentType} /></td>
-                      <td className="whitespace-nowrap px-3 py-3 text-slate-600">{r.paymentDate}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-slate-600">{r.entryDate} {r.entryTime}</td>
-                      <td className="px-3 py-3"><StatusBadge status={r.status} /></td>
-                      <td className="max-w-[220px] truncate px-3 py-3 text-slate-600" title={r.remark || "-"}>{r.remark || "-"}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">
+                        {formatAmount(r.amount)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <TypeBadge type={r.paymentType} />
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-600">
+                        {r.paymentDate}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-600">
+                        {r.entryDate} {r.entryTime}
+                      </td>
+                      <td className="px-3 py-3">
+                        <StatusBadge status={r.status} />
+                      </td>
+                      <td
+                        className="max-w-[220px] truncate px-3 py-3 text-slate-600"
+                        title={r.remark || "-"}
+                      >
+                        {r.remark || "-"}
+                      </td>
                       <td className="px-3 py-3 text-right">
                         {canEdit(r.executive) ? (
-                          <Button variant="outline" size="sm" className="border-amber-300 hover:bg-amber-50" onClick={() => openEdit(r)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-amber-300 hover:bg-amber-50"
+                            onClick={() => openEdit(r)}
+                          >
                             Update
                           </Button>
                         ) : (
@@ -676,14 +772,19 @@ function EcsReport() {
 
           <div className="space-y-3 md:hidden">
             {rows.map((r) => (
-              <article key={r.id} className="rounded-xl border border-amber-200 bg-white p-3 shadow-sm">
+              <article
+                key={r.id}
+                className="rounded-xl border border-amber-200 bg-white p-3 shadow-sm"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="break-all font-bold text-slate-900">{r.loanId}</p>
                     <p className="mt-0.5 text-sm text-slate-500">{r.executive}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="font-bold tabular-nums text-slate-900">{formatAmount(r.amount)}</p>
+                    <p className="font-bold tabular-nums text-slate-900">
+                      {formatAmount(r.amount)}
+                    </p>
                     <TypeBadge type={r.paymentType} />
                   </div>
                 </div>
@@ -694,7 +795,9 @@ function EcsReport() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Entry Date / Time</p>
-                    <p className="mt-0.5 font-medium text-slate-800">{r.entryDate} {r.entryTime}</p>
+                    <p className="mt-0.5 font-medium text-slate-800">
+                      {r.entryDate} {r.entryTime}
+                    </p>
                   </div>
                   <div className="col-span-2">
                     <p className="mb-1 text-xs text-slate-500">Status</p>
@@ -706,11 +809,17 @@ function EcsReport() {
                   </div>
                 </div>
                 {canEdit(r.executive) ? (
-                  <Button variant="outline" className="h-10 w-full border-amber-300 text-slate-800 hover:bg-amber-50" onClick={() => openEdit(r)}>
+                  <Button
+                    variant="outline"
+                    className="h-10 w-full border-amber-300 text-slate-800 hover:bg-amber-50"
+                    onClick={() => openEdit(r)}
+                  >
                     Update Remark / Status
                   </Button>
                 ) : (
-                  <p className="text-center text-xs text-slate-400">View only — you can update your own entries.</p>
+                  <p className="text-center text-xs text-slate-400">
+                    View only — you can update your own entries.
+                  </p>
                 )}
               </article>
             ))}
@@ -730,20 +839,36 @@ function EcsReport() {
             <div className="space-y-2">
               <Label className="text-base">Status</Label>
               <Select value={newStatus} onValueChange={setNewStatus}>
-                <SelectTrigger className="h-11 text-base"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11 text-base">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label className="text-base">Remark</Label>
-              <Textarea className="min-h-20 text-base" maxLength={300} value={newRemark} onChange={(e) => setNewRemark(e.target.value)} />
+              <Textarea
+                className="min-h-20 text-base"
+                maxLength={300}
+                value={newRemark}
+                onChange={(e) => setNewRemark(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" className="h-11" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button className="h-11 bg-amber-400 font-semibold text-slate-950 hover:bg-amber-500" onClick={() => setConfirmUpdate(true)}>
+            <Button variant="outline" className="h-11" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button
+              className="h-11 bg-amber-400 font-semibold text-slate-950 hover:bg-amber-500"
+              onClick={() => setConfirmUpdate(true)}
+            >
               Save Changes
             </Button>
           </DialogFooter>
@@ -755,12 +880,19 @@ function EcsReport() {
           <DialogHeader>
             <DialogTitle className="text-xl">Confirm update</DialogTitle>
             <DialogDescription>
-              Set status to &quot;{newStatus}&quot; for {editing?.loanId}? This entry stays information-only and never affects collection totals.
+              Set status to &quot;{newStatus}&quot; for {editing?.loanId}? This entry stays
+              information-only and never affects collection totals.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" className="h-11" onClick={() => setConfirmUpdate(false)}>Cancel</Button>
-            <Button className="h-11 bg-amber-400 font-semibold text-slate-950 hover:bg-amber-500" onClick={doUpdate} disabled={updating}>
+            <Button variant="outline" className="h-11" onClick={() => setConfirmUpdate(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="h-11 bg-amber-400 font-semibold text-slate-950 hover:bg-amber-500"
+              onClick={doUpdate}
+              disabled={updating}
+            >
               {updating ? "Saving..." : "Confirm Update"}
             </Button>
           </DialogFooter>
@@ -774,18 +906,22 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 sm:p-4">
       <p className="text-xs font-semibold text-amber-900/80 sm:text-sm">{label}</p>
-      <p className="mt-1 break-words text-lg font-bold tabular-nums text-slate-900 sm:text-xl">{value}</p>
+      <p className="mt-1 break-words text-lg font-bold tabular-nums text-slate-900 sm:text-xl">
+        {value}
+      </p>
     </div>
   );
 }
 
 function TypeBadge({ type }: { type: string }) {
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
-      type === "ECS"
-        ? "border-blue-200 bg-blue-50 text-blue-800"
-        : "border-amber-200 bg-amber-100 text-amber-900"
-    }`}>
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
+        type === "ECS"
+          ? "border-blue-200 bg-blue-50 text-blue-800"
+          : "border-amber-200 bg-amber-100 text-amber-900"
+      }`}
+    >
       {type}
     </span>
   );
@@ -799,7 +935,9 @@ function StatusBadge({ status }: { status: string }) {
     Cancelled: "border-slate-200 bg-slate-100 text-slate-700",
   };
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${styles[status] ?? "border-slate-200 bg-slate-50 text-slate-700"}`}>
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${styles[status] ?? "border-slate-200 bg-slate-50 text-slate-700"}`}
+    >
       {status || "Unknown"}
     </span>
   );
@@ -825,7 +963,11 @@ function FilterSelect({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All</SelectItem>
-          {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>
+              {o}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

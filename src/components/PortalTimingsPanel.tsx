@@ -30,12 +30,15 @@ export function PortalTimingsPanel({ className = "" }: Props) {
     retry: false,
   });
 
-  const activeSession = data?.latestPortalSession?.status?.trim().toLowerCase() === "active"
-    ? data.latestPortalSession
-    : null;
+  const activeSession =
+    data?.latestPortalSession?.status?.trim().toLowerCase() === "active"
+      ? data.latestPortalSession
+      : null;
   const ownActiveSession = data?.activeSession ?? null;
   const portalOccupied = Boolean(data?.liveSessions?.length);
-  const otherExecutive = data?.liveSessions?.find((session) => session.executive !== data.session.name);
+  const otherExecutive = data?.liveSessions?.find(
+    (session) => session.executive !== data.session.name,
+  );
 
   // Keep the previously displayed "whose time is currently running" detail.
   // This scheduled slot is intentionally separate from actual portal occupancy.
@@ -45,9 +48,10 @@ export function PortalTimingsPanel({ className = "" }: Props) {
     minute: "2-digit",
     hour12: false,
   }).format(new Date());
-  const currentSlot = data?.schedulePresets?.find(
-    (slot) => slot.start <= currentTimeIST && currentTimeIST < slot.end,
-  ) ?? null;
+  const currentSlot =
+    data?.schedulePresets?.find(
+      (slot) => slot.start <= currentTimeIST && currentTimeIST < slot.end,
+    ) ?? null;
 
   // Refresh exactly at permanent executive slot boundaries (start/end), not by polling.
   // The special Ankita batch window is included as well.
@@ -70,7 +74,8 @@ export function PortalTimingsPanel({ className = "" }: Props) {
         second: "2-digit",
         hour12: false,
       }).formatToParts(new Date());
-      const getPart = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+      const getPart = (type: string) =>
+        Number(parts.find((part) => part.type === type)?.value ?? 0);
       const nowMinutes = getPart("hour") * 60 + getPart("minute") + getPart("second") / 60;
       const nextDelta = [...boundaries].reduce((nearest, value) => {
         const match = value.match(/^(\\d{1,2}):(\\d{2})$/);
@@ -102,7 +107,9 @@ export function PortalTimingsPanel({ className = "" }: Props) {
       toast.success("Bank Portal session started.");
       await queryClient.invalidateQueries({ queryKey: ["bank-portal"] });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not start the Bank Portal session.");
+      toast.error(
+        error instanceof Error ? error.message : "Could not start the Bank Portal session.",
+      );
       await queryClient.invalidateQueries({ queryKey: ["bank-portal"] });
     } finally {
       setBusy(false);
@@ -118,7 +125,9 @@ export function PortalTimingsPanel({ className = "" }: Props) {
       toast.success("Bank Portal session ended.");
       await queryClient.invalidateQueries({ queryKey: ["bank-portal"] });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not end the Bank Portal session.");
+      toast.error(
+        error instanceof Error ? error.message : "Could not end the Bank Portal session.",
+      );
       await queryClient.invalidateQueries({ queryKey: ["bank-portal"] });
     } finally {
       setBusy(false);
@@ -137,9 +146,13 @@ export function PortalTimingsPanel({ className = "" }: Props) {
           <p className="text-xs text-muted-foreground">Actual session status · IST</p>
         </div>
         {!isLoading && !isError && (
-          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-            activeSession ? "bg-amber-100 text-amber-900" : "border border-slate-200 bg-slate-50 text-slate-700"
-          }`}>
+          <span
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+              activeSession
+                ? "bg-amber-100 text-amber-900"
+                : "border border-slate-200 bg-slate-50 text-slate-700"
+            }`}
+          >
             {activeSession ? "IN USE" : "FREE"}
           </span>
         )}
@@ -161,7 +174,9 @@ export function PortalTimingsPanel({ className = "" }: Props) {
             </p>
             {currentSlot ? (
               <>
-                <p className="mt-1 truncate text-base font-semibold text-slate-900">{currentSlot.executive}</p>
+                <p className="mt-1 truncate text-base font-semibold text-slate-900">
+                  {currentSlot.executive}
+                </p>
                 <p className="mt-1 text-xs text-slate-600">
                   Scheduled slot: {currentSlot.start} – {currentSlot.end} IST
                 </p>
@@ -205,7 +220,11 @@ export function PortalTimingsPanel({ className = "" }: Props) {
                 disabled={busy || portalOccupied}
                 className="min-h-11 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {busy ? "Please wait…" : portalOccupied ? (otherExecutive?.executive ?? "Portal") + " is using the portal" : "Start Session"}
+                {busy
+                  ? "Please wait…"
+                  : portalOccupied
+                    ? (otherExecutive?.executive ?? "Portal") + " is using the portal"
+                    : "Start Session"}
               </button>
             )}
             <p className="mt-2 text-xs text-muted-foreground">

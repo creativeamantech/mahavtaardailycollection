@@ -207,9 +207,7 @@ function LoansPage() {
             ...executiveSections(
               overallBucket === ALL ? loans : loans.filter((loan) => loan.bucket === overallBucket),
             ),
-          ].sort(
-            (a, b) => a.bucket.localeCompare(b.bucket) || a.city.localeCompare(b.city),
-          )
+          ].sort((a, b) => a.bucket.localeCompare(b.bucket) || a.city.localeCompare(b.city))
         : [],
     [loans, reportTab, overallBucket],
   );
@@ -240,7 +238,11 @@ function LoansPage() {
         <CategoryFilter value={category} onChange={setCategory} options={categories} />
       </div>
       <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3 [&_button]:border-amber-200 [&_button]:bg-white">
-        <AllocationTypeFilter value={allocationType} onChange={setAllocationType} options={allocationTypes} />
+        <AllocationTypeFilter
+          value={allocationType}
+          onChange={setAllocationType}
+          options={allocationTypes}
+        />
       </div>
 
       {isLoading && <p className="mt-6 text-base">Loading loan details...</p>}
@@ -576,10 +578,7 @@ function LoanCard({ loan }: { loan: LoanSummary }) {
           k="Bucket Target EMIs (Monthly)"
           v={loan.bucketTargetEmis === 0 ? "0 EMIs" : `${loan.bucketTargetEmis} EMIs`}
         />
-        <Field
-          k="Remaining Loan EMIs"
-          v={`${loan.remainingLoanEmis.toFixed(1)} EMIs`}
-        />
+        <Field k="Remaining Loan EMIs" v={`${loan.remainingLoanEmis.toFixed(1)} EMIs`} />
         <Field k="Monthly EMI Demand" v={money(loan.totalEmiRequired)} />
         <Field k="Total Amount Paid" v={`${formatAmount(loan.totalPaid)} (${loan.payments})`} />
         <Field

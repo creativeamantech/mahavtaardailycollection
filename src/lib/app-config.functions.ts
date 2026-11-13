@@ -172,7 +172,6 @@ export const saveDefaultCategory = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-
 export const saveDefaultAllocationType = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ allocationType: z.string().trim().max(100) }).parse(d))
   .handler(async ({ data }) => {
@@ -190,7 +189,9 @@ export const saveDefaultAllocationType = createServerFn({ method: "POST" })
       await sheetsUpdateStrict(`${SETTINGS_TAB}!B${idx + 2}`, [[data.allocationType]]);
     } else {
       const row = rows.length + 2;
-      await sheetsUpdateStrict(`${SETTINGS_TAB}!A${row}:B${row}`, [[DEFAULT_ALLOCATION_TYPE_KEY, data.allocationType]]);
+      await sheetsUpdateStrict(`${SETTINGS_TAB}!A${row}:B${row}`, [
+        [DEFAULT_ALLOCATION_TYPE_KEY, data.allocationType],
+      ]);
     }
     return { ok: true as const };
   });

@@ -16,7 +16,12 @@ import {
 import { APP_CONFIG_KEY, useAppConfig } from "@/hooks/useAppConfig";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { MasterAllocationInitializer } from "@/components/MasterAllocationInitializer";
-import { ALL_CATEGORIES, uniqueCategories, uniqueAllocationTypes, ALL_ALLOCATION_TYPES } from "@/components/AllocationFilters";
+import {
+  ALL_CATEGORIES,
+  uniqueCategories,
+  uniqueAllocationTypes,
+  ALL_ALLOCATION_TYPES,
+} from "@/components/AllocationFilters";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,11 +93,21 @@ function SectionHeading({
   return (
     <div className="mb-3 flex items-start gap-3">
       <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#f2e2a8] bg-[#fff8df] text-base text-[#8a6b00]">
-        {eyebrow === "ACCESS CONTROL" ? "🔒" : eyebrow === "APP ACCESS" ? "▦" : eyebrow === "DEFAULT" ? "▤" : "🔔"}
+        {eyebrow === "ACCESS CONTROL"
+          ? "🔒"
+          : eyebrow === "APP ACCESS"
+            ? "▦"
+            : eyebrow === "DEFAULT"
+              ? "▤"
+              : "🔔"}
       </span>
       <div className="min-w-0 flex-1">
         <h2 className="text-base font-bold tracking-tight text-[#292510] sm:text-lg">{title}</h2>
-        {description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">{description}</p>}
+        {description && (
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+            {description}
+          </p>
+        )}
       </div>
       <span className="hidden shrink-0 pt-1 text-[9px] font-bold tracking-wider text-[#9a8541] sm:block">
         {eyebrow}
@@ -103,7 +118,14 @@ function SectionHeading({
 
 function SettingsContent() {
   const qc = useQueryClient();
-  const { flags, notifications, defaultCategory, defaultAllocationType, holdCasesLocked, isLoading } = useAppConfig();
+  const {
+    flags,
+    notifications,
+    defaultCategory,
+    defaultAllocationType,
+    holdCasesLocked,
+    isLoading,
+  } = useAppConfig();
   const saveFlags = useServerFn(saveFeatureFlags);
   const saveDefaultCat = useServerFn(saveDefaultCategory);
   const saveDefaultType = useServerFn(saveDefaultAllocationType);
@@ -201,7 +223,6 @@ function SettingsContent() {
     }
   }
 
-
   async function handleSaveAllocationType(allocationType: string) {
     const value = allocationType === ALL_ALLOCATION_TYPES ? "" : allocationType.trim();
     setSavingAllocationType(true);
@@ -210,7 +231,11 @@ function SettingsContent() {
     );
     try {
       await saveDefaultType({ data: { allocationType: value } });
-      toast.success(value ? `Default allocation type saved: "${value}"` : "Default allocation type set to All Allocation Types");
+      toast.success(
+        value
+          ? `Default allocation type saved: "${value}"`
+          : "Default allocation type set to All Allocation Types",
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save default allocation type");
       await qc.invalidateQueries({ queryKey: APP_CONFIG_KEY });
@@ -299,7 +324,10 @@ function SettingsContent() {
         />
         <div className="divide-y divide-[#f2ead3] overflow-hidden rounded-xl border border-[#f2e6bd]">
           {FEATURES.map((f) => (
-            <div key={f.key} className="flex min-h-[64px] items-center justify-between gap-3 bg-white px-3 py-3 transition-colors hover:bg-[#fffdf6] sm:px-4">
+            <div
+              key={f.key}
+              className="flex min-h-[64px] items-center justify-between gap-3 bg-white px-3 py-3 transition-colors hover:bg-[#fffdf6] sm:px-4"
+            >
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-[#292510]">{f.label}</p>
                 <p className="mt-0.5 break-words text-[11px] text-muted-foreground sm:text-xs">
@@ -326,7 +354,10 @@ function SettingsContent() {
         />
         <div className="space-y-3 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3 sm:p-4">
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-[#51451e]" htmlFor="default-allocation-category">
+            <Label
+              className="text-sm font-semibold text-[#51451e]"
+              htmlFor="default-allocation-category"
+            >
               Select Starting Category
             </Label>
             <Select
@@ -334,7 +365,10 @@ function SettingsContent() {
               onValueChange={handleSelectCategoryChange}
               disabled={isLoading || savingCategory}
             >
-              <SelectTrigger id="default-allocation-category" className="h-12 rounded-xl border-[#e9dba9] bg-white text-base focus:ring-[#e5b500]">
+              <SelectTrigger
+                id="default-allocation-category"
+                className="h-12 rounded-xl border-[#e9dba9] bg-white text-base focus:ring-[#e5b500]"
+              >
                 <SelectValue placeholder="Choose default category" />
               </SelectTrigger>
               <SelectContent>
@@ -405,26 +439,56 @@ function SettingsContent() {
       </section>
 
       <section className="order-4 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-4 lg:col-start-2">
-
-      <section className="order-4 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-4 lg:col-start-2">
-        <SectionHeading title="Default Allocation Type" eyebrow="DEFAULT" description="Sets the starting Allocation Type filter for reports and loan views. Options are read directly from the existing Collection Sheet." />
-        <div className="space-y-3 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3 sm:p-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-[#51451e]" htmlFor="default-allocation-type">Select Starting Allocation Type</Label>
-            <Select value={defaultAllocationType || ALL_ALLOCATION_TYPES} onValueChange={(value) => void handleSaveAllocationType(value)} disabled={isLoading || savingAllocationType}>
-              <SelectTrigger id="default-allocation-type" className="h-12 rounded-xl border-[#e9dba9] bg-white text-base focus:ring-[#e5b500]"><SelectValue placeholder="Choose default allocation type" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_ALLOCATION_TYPES} className="text-base">All Allocation Types</SelectItem>
-                {allocationTypeOptions.map((value) => <SelectItem key={value} value={value} className="text-base">{value}</SelectItem>)}
-              </SelectContent>
-            </Select>
+        <section className="order-4 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-4 lg:col-start-2">
+          <SectionHeading
+            title="Default Allocation Type"
+            eyebrow="DEFAULT"
+            description="Sets the starting Allocation Type filter for reports and loan views. Options are read directly from the existing Collection Sheet."
+          />
+          <div className="space-y-3 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3 sm:p-4">
+            <div className="space-y-2">
+              <Label
+                className="text-sm font-semibold text-[#51451e]"
+                htmlFor="default-allocation-type"
+              >
+                Select Starting Allocation Type
+              </Label>
+              <Select
+                value={defaultAllocationType || ALL_ALLOCATION_TYPES}
+                onValueChange={(value) => void handleSaveAllocationType(value)}
+                disabled={isLoading || savingAllocationType}
+              >
+                <SelectTrigger
+                  id="default-allocation-type"
+                  className="h-12 rounded-xl border-[#e9dba9] bg-white text-base focus:ring-[#e5b500]"
+                >
+                  <SelectValue placeholder="Choose default allocation type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_ALLOCATION_TYPES} className="text-base">
+                    All Allocation Types
+                  </SelectItem>
+                  {allocationTypeOptions.map((value) => (
+                    <SelectItem key={value} value={value} className="text-base">
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f1e8cf] pt-3 text-xs text-muted-foreground sm:text-sm">
+              <span>
+                Active Default:{" "}
+                <strong className="text-[#51451e]">
+                  {defaultAllocationType || "All Allocation Types"}
+                </strong>
+              </span>
+              {savingAllocationType && (
+                <span className="font-medium text-[#947000]">Saving changes…</span>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f1e8cf] pt-3 text-xs text-muted-foreground sm:text-sm">
-            <span>Active Default: <strong className="text-[#51451e]">{defaultAllocationType || "All Allocation Types"}</strong></span>
-            {savingAllocationType && <span className="font-medium text-[#947000]">Saving changes…</span>}
-          </div>
-        </div>
-      </section>
+        </section>
 
         <SectionHeading
           title="Notification Management"

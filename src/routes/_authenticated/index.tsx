@@ -1,5 +1,9 @@
 import { useFeatureEnabled } from "@/hooks/useAppConfig";
-import { NotificationPanel, toDirectDriveUrl, toDriveViewUrl } from "@/components/NotificationPanel";
+import {
+  NotificationPanel,
+  toDirectDriveUrl,
+  toDriveViewUrl,
+} from "@/components/NotificationPanel";
 import { PortalTimingsPanel } from "@/components/PortalTimingsPanel";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
@@ -158,11 +162,13 @@ function EntryPage() {
   // Show the latest saved Collections rows directly on the entry screen.
   const recentEntries = useMemo(
     () =>
-      (existing as (ExistingEntry & {
-        createdAt?: string;
-        entryType?: string;
-        status?: string;
-      })[])
+      (
+        existing as (ExistingEntry & {
+          createdAt?: string;
+          entryType?: string;
+          status?: string;
+        })[]
+      )
         .filter((entry) => entry.executive && entry.loanId && Number(entry.amount) > 0)
         .sort((a, b) => {
           const timeDiff =
@@ -430,388 +436,521 @@ function EntryPage() {
     <main className="mx-auto w-full max-w-[1440px] min-w-0 px-3 pb-20 pt-4 text-[#20242b] sm:px-5 sm:pt-6 lg:px-8 lg:pb-16">
       <NotificationPanel className="mb-4" />
       <PortalTimingsPanel className="mb-5" />
-      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#eadb9d] bg-white p-5 text-[#29271f] shadow-sm sm:mb-6 sm:rounded-xl sm:p-6 lg:p-7"><div aria-hidden="true" className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f2c400]/20" /><div className="relative"><p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#967300]">Mahavtaar Enterprises · Daily Operations</p><h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
-      <p className="mt-1 text-sm leading-6 text-[#737b86] sm:text-base">
-        Record and verify a payment collected by an executive.
-      </p></div></div>
+      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#eadb9d] bg-white p-5 text-[#29271f] shadow-sm sm:mb-6 sm:rounded-xl sm:p-6 lg:p-7">
+        <div
+          aria-hidden="true"
+          className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f2c400]/20"
+        />
+        <div className="relative">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#967300]">
+            Mahavtaar Enterprises · Daily Operations
+          </p>
+          <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
+          <p className="mt-1 text-sm leading-6 text-[#737b86] sm:text-base">
+            Record and verify a payment collected by an executive.
+          </p>
+        </div>
+      </div>
 
       <Tabs defaultValue="collection" className="w-full">
         <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-2xl border border-[#e1e5eb] bg-white p-1.5 shadow-sm sm:grid-cols-3 sm:gap-2">
-          <TabsTrigger value="collection" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:bg-[#f2c400] data-[state=active]:text-[#29271f] data-[state=active]:shadow-sm">
+          <TabsTrigger
+            value="collection"
+            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:bg-[#f2c400] data-[state=active]:text-[#29271f] data-[state=active]:shadow-sm"
+          >
             Collection Entry
           </TabsTrigger>
-          <TabsTrigger value="hold" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5">
+          <TabsTrigger
+            value="hold"
+            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5"
+          >
             Hold Cases
           </TabsTrigger>
-          <TabsTrigger value="ptps" className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5">
+          <TabsTrigger
+            value="ptps"
+            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5"
+          >
             PTPs
           </TabsTrigger>
         </TabsList>
         <TabsContent value="collection">
           <div className="mt-4 grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_292px] lg:items-start">
-          <div
-            className={`grid min-w-0 grid-cols-1 gap-5 rounded-xl border border-[#e1e5eb] bg-white p-4 shadow-[0_2px_10px_rgba(32,36,43,0.045)] sm:gap-6 sm:p-6 lg:grid-cols-2 lg:gap-x-7 lg:gap-y-6 lg:p-7 ${
-              conflicts.length > 0
-                ? "border-red-500 bg-red-50"
-                : duplicates.length > 0
-                  ? "border-amber-500 bg-amber-50"
-                  : ""
-            }`}
-          >
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-[#343a43] sm:text-base">Executive Name</Label>
-              <Select
-                value={executive}
-                onValueChange={setExecutive}
-                disabled={session?.role !== "Admin"}
-              >
-                <SelectTrigger className="h-12 w-full rounded-xl border-[#d9dee6] bg-white px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50">
-                  <SelectValue placeholder="Select executive" />
-                </SelectTrigger>
-                <SelectContent>
-                  {EXECUTIVES.map((e) => (
-                    <SelectItem key={e} value={e} className="text-base">
-                      {e}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="loanId">
-                Loan ID / Loan Number
-              </Label>
-              <Input
-                id="loanId"
-                className={`h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50 ${isExcludedLoan ? "font-semibold text-orange-600" : ""}`}
-                value={loanId}
-                maxLength={60}
-                onChange={(e) => setLoanId(e.target.value)}
-                placeholder="Enter loan number"
-              />
-              {isExcludedLoan && (
-                <div
-                  className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-medium text-amber-900"
-                  role="alert"
-                >
-                  This loan number is on the Excluded Loan Numbers list. You may record the entry,
-                  but it will not count toward collection totals, executive performance, payment
-                  counts, averages, or reports.
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="amount">
-                Amount
-              </Label>
-              <Input
-                id="amount"
-                type="number"
-                inputMode="decimal"
-                min={1}
-                className="h-12 w-full rounded-xl border-[#d9dee6] bg-white px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-
-            <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-[#e1e5eb] bg-[#f8f9fb] p-4 lg:col-span-2">
-              <Checkbox
-                checked={isPrevious}
-                onCheckedChange={(v) => {
-                  const on = v === true;
-                  setIsPrevious(on);
-                  if (!on) {
-                    setPrevDate("");
-                    setPrevConfirmed(false);
-                  }
-                }}
-                className="mt-1 size-5"
-              />
-              <span className="text-base leading-snug">
-                This payment belongs to a Previous Paid File (Next-Day Entry)
-              </span>
-            </label>
-
-            {isPrevious && (
-              <div className="min-w-0 space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 lg:col-span-2">
-                <p className="text-sm leading-snug text-amber-900">
-                  This payment will be counted on the selected Original Payment Date, while
-                  today&apos;s date will be stored as the Entry Date for audit purposes.
-                </p>
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="prevDate">
-                    Original Payment Date
-                  </Label>
-                  <Input
-                    id="prevDate"
-                    type="date"
-                    max={yesterday}
-                    className="h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base"
-                    value={prevDate}
-                    onChange={(e) => setPrevDate(e.target.value)}
-                  />
-                  {prevDate !== "" && !prevDateValid && (
-                    <p className="text-sm font-medium text-destructive">
-                      Select a date earlier than today. Today and future dates are not allowed.
-                    </p>
-                  )}
-                </div>
-                <label className="flex cursor-pointer items-start gap-3">
-                  <Checkbox
-                    checked={prevConfirmed}
-                    onCheckedChange={(v) => setPrevConfirmed(v === true)}
-                    className="mt-1 size-5"
-                  />
-                  <span className="text-sm leading-snug text-amber-900">
-                    I confirm that this payment actually belongs to the selected previous payment
-                    date and is being entered today because it was received in a later paid file.
-                  </span>
-                </label>
-              </div>
-            )}
-
-            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+            <div
+              className={`grid min-w-0 grid-cols-1 gap-5 rounded-xl border border-[#e1e5eb] bg-white p-4 shadow-[0_2px_10px_rgba(32,36,43,0.045)] sm:gap-6 sm:p-6 lg:grid-cols-2 lg:gap-x-7 lg:gap-y-6 lg:p-7 ${
+                conflicts.length > 0
+                  ? "border-red-500 bg-red-50"
+                  : duplicates.length > 0
+                    ? "border-amber-500 bg-amber-50"
+                    : ""
+              }`}
+            >
               <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="date">
-                  {isPrevious ? "Payment Date" : "Date"}
+                <Label className="text-sm font-semibold text-[#343a43] sm:text-base">
+                  Executive Name
+                </Label>
+                <Select
+                  value={executive}
+                  onValueChange={setExecutive}
+                  disabled={session?.role !== "Admin"}
+                >
+                  <SelectTrigger className="h-12 w-full rounded-xl border-[#d9dee6] bg-white px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50">
+                    <SelectValue placeholder="Select executive" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXECUTIVES.map((e) => (
+                      <SelectItem key={e} value={e} className="text-base">
+                        {e}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label
+                  className="text-sm font-semibold text-[#343a43] sm:text-base"
+                  htmlFor="loanId"
+                >
+                  Loan ID / Loan Number
                 </Label>
                 <Input
-                  id="date"
-                  type="date"
-                  className="h-12 text-base"
-                  value={paymentDate}
-                  readOnly
+                  id="loanId"
+                  className={`h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50 ${isExcludedLoan ? "font-semibold text-orange-600" : ""}`}
+                  value={loanId}
+                  maxLength={60}
+                  onChange={(e) => setLoanId(e.target.value)}
+                  placeholder="Enter loan number"
+                />
+                {isExcludedLoan && (
+                  <div
+                    className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-medium text-amber-900"
+                    role="alert"
+                  >
+                    This loan number is on the Excluded Loan Numbers list. You may record the entry,
+                    but it will not count toward collection totals, executive performance, payment
+                    counts, averages, or reports.
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label
+                  className="text-sm font-semibold text-[#343a43] sm:text-base"
+                  htmlFor="amount"
+                >
+                  Amount
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  inputMode="decimal"
+                  min={1}
+                  className="h-12 w-full rounded-xl border-[#d9dee6] bg-white px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="time">
-                  Time
-                </Label>
-                <Input id="time" className="h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base" value={time} readOnly />
-              </div>
-            </div>
 
-            <div className="min-w-0 space-y-2 lg:col-span-2">
-              <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="receiptImage">
-                Payment Receipt Images (multiple allowed)
-              </Label>
-              <div
-                role="button"
-                tabIndex={0}
-                aria-label="Receipt image drop zone"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (!uploading) setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                onClick={() => document.getElementById("receiptImage")?.click()}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ")
-                    document.getElementById("receiptImage")?.click();
-                }}
-                className={`flex min-h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8b82e] lg:col-span-2 ${
-                  dragOver
-                    ? "border-primary bg-primary/10"
-                    : "border-muted-foreground/30 bg-muted/30"
-                }`}
-              >
-                <p className="text-base font-medium">
-                  {dragOver ? "Drop receipt images here" : "Drag & drop receipt images here"}
-                </p>
-                <p className="text-sm text-muted-foreground">or tap to choose images</p>
-              </div>
-              <Input
-                id="receiptImage"
-                key={fileKey}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => addPendingFiles(e.target.files)}
-              />
-              {pendingFiles.length > 0 && (
+              <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-[#e1e5eb] bg-[#f8f9fb] p-4 lg:col-span-2">
+                <Checkbox
+                  checked={isPrevious}
+                  onCheckedChange={(v) => {
+                    const on = v === true;
+                    setIsPrevious(on);
+                    if (!on) {
+                      setPrevDate("");
+                      setPrevConfirmed(false);
+                    }
+                  }}
+                  className="mt-1 size-5"
+                />
+                <span className="text-base leading-snug">
+                  This payment belongs to a Previous Paid File (Next-Day Entry)
+                </span>
+              </label>
+
+              {isPrevious && (
+                <div className="min-w-0 space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 lg:col-span-2">
+                  <p className="text-sm leading-snug text-amber-900">
+                    This payment will be counted on the selected Original Payment Date, while
+                    today&apos;s date will be stored as the Entry Date for audit purposes.
+                  </p>
+                  <div className="space-y-2">
+                    <Label
+                      className="text-sm font-semibold text-[#343a43] sm:text-base"
+                      htmlFor="prevDate"
+                    >
+                      Original Payment Date
+                    </Label>
+                    <Input
+                      id="prevDate"
+                      type="date"
+                      max={yesterday}
+                      className="h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base"
+                      value={prevDate}
+                      onChange={(e) => setPrevDate(e.target.value)}
+                    />
+                    {prevDate !== "" && !prevDateValid && (
+                      <p className="text-sm font-medium text-destructive">
+                        Select a date earlier than today. Today and future dates are not allowed.
+                      </p>
+                    )}
+                  </div>
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <Checkbox
+                      checked={prevConfirmed}
+                      onCheckedChange={(v) => setPrevConfirmed(v === true)}
+                      className="mt-1 size-5"
+                    />
+                    <span className="text-sm leading-snug text-amber-900">
+                      I confirm that this payment actually belongs to the selected previous payment
+                      date and is being entered today because it was received in a later paid file.
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <ul className="grid grid-cols-3 gap-2">
-                    {pendingFiles.map((p) => (
-                      <li key={p.preview} className="relative">
-                        <img
-                          src={p.preview}
-                          alt={p.file.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="h-20 w-full rounded-lg border object-cover"
-                        />
+                  <Label
+                    className="text-sm font-semibold text-[#343a43] sm:text-base"
+                    htmlFor="date"
+                  >
+                    {isPrevious ? "Payment Date" : "Date"}
+                  </Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    className="h-12 text-base"
+                    value={paymentDate}
+                    readOnly
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label
+                    className="text-sm font-semibold text-[#343a43] sm:text-base"
+                    htmlFor="time"
+                  >
+                    Time
+                  </Label>
+                  <Input
+                    id="time"
+                    className="h-12 w-full rounded-xl border-[#d9dee6] bg-white text-base"
+                    value={time}
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              <div className="min-w-0 space-y-2 lg:col-span-2">
+                <Label
+                  className="text-sm font-semibold text-[#343a43] sm:text-base"
+                  htmlFor="receiptImage"
+                >
+                  Payment Receipt Images (multiple allowed)
+                </Label>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Receipt image drop zone"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (!uploading) setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById("receiptImage")?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ")
+                      document.getElementById("receiptImage")?.click();
+                  }}
+                  className={`flex min-h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8b82e] lg:col-span-2 ${
+                    dragOver
+                      ? "border-primary bg-primary/10"
+                      : "border-muted-foreground/30 bg-muted/30"
+                  }`}
+                >
+                  <p className="text-base font-medium">
+                    {dragOver ? "Drop receipt images here" : "Drag & drop receipt images here"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">or tap to choose images</p>
+                </div>
+                <Input
+                  id="receiptImage"
+                  key={fileKey}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={(e) => addPendingFiles(e.target.files)}
+                />
+                {pendingFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <ul className="grid grid-cols-3 gap-2">
+                      {pendingFiles.map((p) => (
+                        <li key={p.preview} className="relative">
+                          <img
+                            src={p.preview}
+                            alt={p.file.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-20 w-full rounded-lg border object-cover"
+                          />
+                          <button
+                            type="button"
+                            aria-label={`Remove ${p.file.name}`}
+                            onClick={() => removePendingFile(p.preview)}
+                            className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground"
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full text-base"
+                      disabled={uploading}
+                      onClick={uploadPendingFiles}
+                    >
+                      {uploading
+                        ? "Uploading..."
+                        : `Upload ${pendingFiles.length} receipt image${pendingFiles.length > 1 ? "s" : ""}`}
+                    </Button>
+                  </div>
+                )}
+                {receipts.length > 0 && (
+                  <ul className="space-y-1 text-sm font-medium text-green-700">
+                    {receipts.map((r) => (
+                      <li key={r.link} className="flex items-center justify-between gap-2">
+                        <span>
+                          Uploaded: {r.name} ·{" "}
+                          <a href={r.link} target="_blank" rel="noreferrer" className="underline">
+                            View on Drive
+                          </a>
+                        </span>
                         <button
                           type="button"
-                          aria-label={`Remove ${p.file.name}`}
-                          onClick={() => removePendingFile(p.preview)}
-                          className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground"
+                          aria-label={`Remove uploaded ${r.name}`}
+                          onClick={() => removeUploadedReceipt(r.link)}
+                          className="text-destructive underline"
                         >
-                          ×
+                          Remove
                         </button>
                       </li>
                     ))}
                   </ul>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11 w-full text-base"
-                    disabled={uploading}
-                    onClick={uploadPendingFiles}
-                  >
-                    {uploading
-                      ? "Uploading..."
-                      : `Upload ${pendingFiles.length} receipt image${pendingFiles.length > 1 ? "s" : ""}`}
-                  </Button>
-                </div>
-              )}
-              {receipts.length > 0 && (
-                <ul className="space-y-1 text-sm font-medium text-green-700">
-                  {receipts.map((r) => (
-                    <li key={r.link} className="flex items-center justify-between gap-2">
-                      <span>
-                        Uploaded: {r.name} ·{" "}
-                        <a href={r.link} target="_blank" rel="noreferrer" className="underline">
-                          View on Drive
-                        </a>
-                      </span>
-                      <button
-                        type="button"
-                        aria-label={`Remove uploaded ${r.name}`}
-                        onClick={() => removeUploadedReceipt(r.link)}
-                        className="text-destructive underline"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {uploadError !== "" && (
-                <p className="text-sm font-medium text-destructive">{uploadError}</p>
-              )}
-            </div>
-
-            {remarksOn && (
-              <div className="min-w-0 space-y-2 lg:col-span-2">
-                <Label className="text-sm font-semibold text-[#343a43] sm:text-base" htmlFor="remark">
-                  Remark (only if receipt image is not available)
-                </Label>
-                <Input
-                  id="remark"
-                  className="h-12 text-base"
-                  maxLength={200}
-                  value={remark}
-                  onChange={(e) => setRemark(e.target.value)}
-                  placeholder="e.g. Receipt not received from customer"
-                  disabled={receiptLink !== ""}
-                />
-                {receiptLink === "" && remark.trim() !== "" && !remarkValid && (
-                  <p className="text-sm font-medium text-destructive">
-                    Remark must have more than 3 words.
-                  </p>
+                )}
+                {uploadError !== "" && (
+                  <p className="text-sm font-medium text-destructive">{uploadError}</p>
                 )}
               </div>
-            )}
 
-            <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-[#e1e5eb] bg-[#f8f9fb] p-4 lg:col-span-2">
-              <Checkbox
-                checked={confirmed}
-                onCheckedChange={(v) => setConfirmed(v === true)}
-                className="mt-1 size-5"
-              />
-              <span className="text-base leading-snug">
-                I confirm this is not ECS or Special payment, and this is the payment brought by the
-                selected executive, and amount is correct.
-              </span>
-            </label>
+              {remarksOn && (
+                <div className="min-w-0 space-y-2 lg:col-span-2">
+                  <Label
+                    className="text-sm font-semibold text-[#343a43] sm:text-base"
+                    htmlFor="remark"
+                  >
+                    Remark (only if receipt image is not available)
+                  </Label>
+                  <Input
+                    id="remark"
+                    className="h-12 text-base"
+                    maxLength={200}
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                    placeholder="e.g. Receipt not received from customer"
+                    disabled={receiptLink !== ""}
+                  />
+                  {receiptLink === "" && remark.trim() !== "" && !remarkValid && (
+                    <p className="text-sm font-medium text-destructive">
+                      Remark must have more than 3 words.
+                    </p>
+                  )}
+                </div>
+              )}
 
-            {conflicts.length > 0 && (
-              <div className="min-w-0 space-y-2 rounded-xl border-2 border-red-500 bg-red-50 p-4 lg:col-span-2">
-                <p className="text-base font-bold text-red-700">
-                  PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by
-                  another Executive.
+              <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-[#e1e5eb] bg-[#f8f9fb] p-4 lg:col-span-2">
+                <Checkbox
+                  checked={confirmed}
+                  onCheckedChange={(v) => setConfirmed(v === true)}
+                  className="mt-1 size-5"
+                />
+                <span className="text-base leading-snug">
+                  I confirm this is not ECS or Special payment, and this is the payment brought by
+                  the selected executive, and amount is correct.
+                </span>
+              </label>
+
+              {conflicts.length > 0 && (
+                <div className="min-w-0 space-y-2 rounded-xl border-2 border-red-500 bg-red-50 p-4 lg:col-span-2">
+                  <p className="text-base font-bold text-red-700">
+                    PAYMENT CONFLICT: This Loan ID already has the same payment amount entered by
+                    another Executive.
+                  </p>
+                  <ul className="space-y-2 text-sm text-red-900">
+                    {conflicts.map((c, idx) => (
+                      <li key={`${c.row}-${idx}`} className="rounded-md bg-white/70 p-2">
+                        <div>Loan ID: {c.loanId}</div>
+                        <div>Existing Executive: {c.executive}</div>
+                        <div>Existing Amount: {formatAmount(c.amount)}</div>
+                        <div>
+                          Existing Date/Time: {c.date} {c.time}
+                        </div>
+                        <div>Current Executive: {executive || "-"}</div>
+                        <div>Current Amount: {formatAmount(amountNum || 0)}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {conflicts.length === 0 && duplicates.length > 0 && (
+                <div className="min-w-0 rounded-xl border-2 border-amber-500 bg-amber-50 p-4 lg:col-span-2">
+                  <p className="text-base font-bold text-amber-800">
+                    Warning: This payment is already entered for this Loan ID with the same amount.
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-amber-900">
+                    {duplicates.map((d, idx) => (
+                      <li key={`${d.row}-${idx}`}>
+                        {d.executive} · {formatAmount(d.amount)} · {d.date} {d.time}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <Button
+                className="h-14 w-full rounded-xl bg-[#f2c400] text-base font-bold text-[#29271f] shadow-sm transition hover:bg-[#e3b800] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2 sm:text-lg lg:col-span-2"
+                disabled={!valid}
+                onClick={startSubmitFlow}
+              >
+                Submit
+              </Button>
+              {!proofValid && (
+                <p className="text-center text-sm leading-6 text-muted-foreground lg:col-span-2">
+                  Upload a receipt image or write a remark of more than 3 words to enable Submit.
                 </p>
-                <ul className="space-y-2 text-sm text-red-900">
-                  {conflicts.map((c, idx) => (
-                    <li key={`${c.row}-${idx}`} className="rounded-md bg-white/70 p-2">
-                      <div>Loan ID: {c.loanId}</div>
-                      <div>Existing Executive: {c.executive}</div>
-                      <div>Existing Amount: {formatAmount(c.amount)}</div>
-                      <div>
-                        Existing Date/Time: {c.date} {c.time}
-                      </div>
-                      <div>Current Executive: {executive || "-"}</div>
-                      <div>Current Amount: {formatAmount(amountNum || 0)}</div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {conflicts.length === 0 && duplicates.length > 0 && (
-              <div className="min-w-0 rounded-xl border-2 border-amber-500 bg-amber-50 p-4 lg:col-span-2">
-                <p className="text-base font-bold text-amber-800">
-                  Warning: This payment is already entered for this Loan ID with the same amount.
+              )}
+              {!confirmed && (
+                <p className="text-center text-sm text-muted-foreground">
+                  Tick the confirmation to enable Submit.
                 </p>
-                <ul className="mt-2 space-y-1 text-sm text-amber-900">
-                  {duplicates.map((d, idx) => (
-                    <li key={`${d.row}-${idx}`}>
-                      {d.executive} · {formatAmount(d.amount)} · {d.date} {d.time}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <Button className="h-14 w-full rounded-xl bg-[#f2c400] text-base font-bold text-[#29271f] shadow-sm transition hover:bg-[#e3b800] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2 sm:text-lg lg:col-span-2" disabled={!valid} onClick={startSubmitFlow}>
-              Submit
-            </Button>
-            {!proofValid && (
-              <p className="text-center text-sm leading-6 text-muted-foreground lg:col-span-2">
-                Upload a receipt image or write a remark of more than 3 words to enable Submit.
-              </p>
-            )}
-            {!confirmed && (
-              <p className="text-center text-sm text-muted-foreground">
-                Tick the confirmation to enable Submit.
-              </p>
-            )}
-          </div>
-          <aside className="hidden min-w-0 space-y-4 lg:block">
-            <section className="rounded-xl border border-[#e1e5eb] bg-white p-5 shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
-              <div className="mb-4 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-bold text-[#303640]">Entry at a glance</h2>
-                <span className="rounded-md bg-[#fff8dc] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#806500]">Live form</span>
-              </div>
-              <dl className="space-y-3 text-xs">
-                <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2"><dt className="text-[#7d8590]">Executive</dt><dd className="max-w-[150px] text-right font-semibold text-[#343a43]">{executive || "Not selected"}</dd></div>
-                <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2"><dt className="text-[#7d8590]">Loan number</dt><dd className="max-w-[150px] break-all text-right font-semibold text-[#343a43]">{loanId.trim() || "Not entered"}</dd></div>
-                <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2"><dt className="text-[#7d8590]">Amount</dt><dd className="text-right font-semibold text-[#343a43]">{amountNum > 0 ? formatAmount(amountNum) : "—"}</dd></div>
-                <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2"><dt className="text-[#7d8590]">Payment date</dt><dd className="text-right font-semibold text-[#343a43]">{paymentDate}</dd></div>
-                <div className="flex items-start justify-between gap-3"><dt className="text-[#7d8590]">Entry type</dt><dd className="text-right font-semibold text-[#343a43]">{isPrevious ? "Previous Paid File" : "Normal"}</dd></div>
-              </dl>
-            </section>
-            <section className="rounded-xl border border-[#e1e5eb] bg-white p-5 shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
-              <h2 className="mb-4 text-sm font-bold text-[#303640]">Submission checklist</h2>
-              <ul className="space-y-3 text-xs">
-                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Executive selected</span><span className={executive ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{executive ? "Ready" : "Pending"}</span></li>
-                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Loan number entered</span><span className={loanId.trim() ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{loanId.trim() ? "Ready" : "Pending"}</span></li>
-                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Amount entered</span><span className={amountNum > 0 ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{amountNum > 0 ? "Ready" : "Pending"}</span></li>
-                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Receipt / remark</span><span className={proofValid ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{proofValid ? "Ready" : "Pending"}</span></li>
-                <li className="flex items-center justify-between gap-2"><span className="text-[#626b76]">Confirmation</span><span className={confirmed ? "font-semibold text-emerald-700" : "font-semibold text-[#9a7b19]"}>{confirmed ? "Ready" : "Pending"}</span></li>
-              </ul>
-            </section>
-            <div className="rounded-xl border border-[#f0e3ad] bg-[#fffbeb] p-4 text-xs leading-5 text-[#746222]">
-              <p className="mb-1 font-bold text-[#594900]">Before you submit</p>
-              Verify the loan number, amount and receipt proof. The final confirmation and existing duplicate checks remain part of the normal save process.
+              )}
             </div>
-          </aside>
+            <aside className="hidden min-w-0 space-y-4 lg:block">
+              <section className="rounded-xl border border-[#e1e5eb] bg-white p-5 shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-[#303640]">Entry at a glance</h2>
+                  <span className="rounded-md bg-[#fff8dc] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#806500]">
+                    Live form
+                  </span>
+                </div>
+                <dl className="space-y-3 text-xs">
+                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2">
+                    <dt className="text-[#7d8590]">Executive</dt>
+                    <dd className="max-w-[150px] text-right font-semibold text-[#343a43]">
+                      {executive || "Not selected"}
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2">
+                    <dt className="text-[#7d8590]">Loan number</dt>
+                    <dd className="max-w-[150px] break-all text-right font-semibold text-[#343a43]">
+                      {loanId.trim() || "Not entered"}
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2">
+                    <dt className="text-[#7d8590]">Amount</dt>
+                    <dd className="text-right font-semibold text-[#343a43]">
+                      {amountNum > 0 ? formatAmount(amountNum) : "—"}
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2">
+                    <dt className="text-[#7d8590]">Payment date</dt>
+                    <dd className="text-right font-semibold text-[#343a43]">{paymentDate}</dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-[#7d8590]">Entry type</dt>
+                    <dd className="text-right font-semibold text-[#343a43]">
+                      {isPrevious ? "Previous Paid File" : "Normal"}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+              <section className="rounded-xl border border-[#e1e5eb] bg-white p-5 shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
+                <h2 className="mb-4 text-sm font-bold text-[#303640]">Submission checklist</h2>
+                <ul className="space-y-3 text-xs">
+                  <li className="flex items-center justify-between gap-2">
+                    <span className="text-[#626b76]">Executive selected</span>
+                    <span
+                      className={
+                        executive
+                          ? "font-semibold text-emerald-700"
+                          : "font-semibold text-[#9a7b19]"
+                      }
+                    >
+                      {executive ? "Ready" : "Pending"}
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between gap-2">
+                    <span className="text-[#626b76]">Loan number entered</span>
+                    <span
+                      className={
+                        loanId.trim()
+                          ? "font-semibold text-emerald-700"
+                          : "font-semibold text-[#9a7b19]"
+                      }
+                    >
+                      {loanId.trim() ? "Ready" : "Pending"}
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between gap-2">
+                    <span className="text-[#626b76]">Amount entered</span>
+                    <span
+                      className={
+                        amountNum > 0
+                          ? "font-semibold text-emerald-700"
+                          : "font-semibold text-[#9a7b19]"
+                      }
+                    >
+                      {amountNum > 0 ? "Ready" : "Pending"}
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between gap-2">
+                    <span className="text-[#626b76]">Receipt / remark</span>
+                    <span
+                      className={
+                        proofValid
+                          ? "font-semibold text-emerald-700"
+                          : "font-semibold text-[#9a7b19]"
+                      }
+                    >
+                      {proofValid ? "Ready" : "Pending"}
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between gap-2">
+                    <span className="text-[#626b76]">Confirmation</span>
+                    <span
+                      className={
+                        confirmed
+                          ? "font-semibold text-emerald-700"
+                          : "font-semibold text-[#9a7b19]"
+                      }
+                    >
+                      {confirmed ? "Ready" : "Pending"}
+                    </span>
+                  </li>
+                </ul>
+              </section>
+              <div className="rounded-xl border border-[#f0e3ad] bg-[#fffbeb] p-4 text-xs leading-5 text-[#746222]">
+                <p className="mb-1 font-bold text-[#594900]">Before you submit</p>
+                Verify the loan number, amount and receipt proof. The final confirmation and
+                existing duplicate checks remain part of the normal save process.
+              </div>
+            </aside>
           </div>
           <section className="mt-6 overflow-hidden rounded-xl border border-[#e1e5eb] bg-white shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#edf0f2] px-4 py-4 sm:px-5">
@@ -867,7 +1006,8 @@ function EntryPage() {
                                 }}
                               />
                               <span className="truncate text-center text-[10px] font-semibold text-[#176044]">
-                                Receipt{(entry.receiptLinks?.length ?? 0) > 1 ? ` ${index + 1}` : ""}
+                                Receipt
+                                {(entry.receiptLinks?.length ?? 0) > 1 ? ` ${index + 1}` : ""}
                               </span>
                             </a>
                           ))}
@@ -888,7 +1028,10 @@ function EntryPage() {
             )}
           </section>
           <div className="mt-4 text-center">
-            <Link to="/report" className="text-sm font-semibold text-[#8a6a00] underline underline-offset-4">
+            <Link
+              to="/report"
+              className="text-sm font-semibold text-[#8a6a00] underline underline-offset-4"
+            >
               View reports
             </Link>
           </div>

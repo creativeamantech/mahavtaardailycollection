@@ -32,10 +32,12 @@ function readUsers(): User[] {
     const entry = line.trim();
     if (!entry) continue;
     const parts = entry.split("_");
-    if (parts.length !== 3) throw new Error("Invalid LOGIN_CREDENTIALS entry on line " + (index + 1) + ".");
+    if (parts.length !== 3)
+      throw new Error("Invalid LOGIN_CREDENTIALS entry on line " + (index + 1) + ".");
     const [name, roleText, pin] = parts.map((part) => part.trim());
     const role = roleText?.toLowerCase();
-    if (!name || !pin || (role !== "admin" && role !== "executive")) throw new Error("Invalid LOGIN_CREDENTIALS entry on line " + (index + 1) + ".");
+    if (!name || !pin || (role !== "admin" && role !== "executive"))
+      throw new Error("Invalid LOGIN_CREDENTIALS entry on line " + (index + 1) + ".");
     const key = name.toLowerCase();
     if (seen.has(key)) throw new Error("Duplicate user in LOGIN_CREDENTIALS: " + name + ".");
     seen.add(key);
@@ -83,7 +85,10 @@ function issueSignedToken(user: Pick<User, "name" | "role" | "pin">): string {
   return unsigned + "." + sign(unsigned, user.pin);
 }
 
-function verifySignedToken(token: string, users: User[]): { claims: AuthClaims; user: User } | null {
+function verifySignedToken(
+  token: string,
+  users: User[],
+): { claims: AuthClaims; user: User } | null {
   try {
     if (token.length > 4096) return null;
     const parts = token.split(".");
@@ -92,7 +97,9 @@ function verifySignedToken(token: string, users: User[]): { claims: AuthClaims; 
       alg?: string;
       typ?: string;
     };
-    const claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as Partial<AuthClaims>;
+    const claims = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8"),
+    ) as Partial<AuthClaims>;
     const now = Math.floor(Date.now() / 1000);
     if (
       header.alg !== "HS256" ||
@@ -108,8 +115,11 @@ function verifySignedToken(token: string, users: User[]): { claims: AuthClaims; 
       claims.iat > now + 60 ||
       claims.exp <= now ||
       claims.exp - claims.iat > AUTH_TTL_SECONDS
-    ) return null;
-    const user = users.find((candidate) => candidate.name === claims.sub && candidate.role === claims.role);
+    )
+      return null;
+    const user = users.find(
+      (candidate) => candidate.name === claims.sub && candidate.role === claims.role,
+    );
     if (!user?.pin) return null;
     const unsigned = parts[0] + "." + parts[1];
     const expected = Buffer.from(sign(unsigned, user.pin), "base64url");
@@ -129,10 +139,12 @@ function verifyPin(pin: string, stored: string) {
 
 export const loginWithPin = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) =>
-    z.object({
-      executiveName: z.string().trim().min(1).max(100),
-      pin: z.string().min(1).max(100),
-    }).parse(v),
+    z
+      .object({
+        executiveName: z.string().trim().min(1).max(100),
+        pin: z.string().min(1).max(100),
+      })
+      .parse(v),
   )
   .handler(async ({ data }) => {
     const users = readUsers();

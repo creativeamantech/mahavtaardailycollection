@@ -90,8 +90,6 @@ export const saveCollection = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requireSession();
     try {
-
-  
       const executive = session.role === "Admin" ? data.executive : session.name;
       const { sheetsAppendStrict, sheetsGet, withSheetMutex } = await import("./mahavtaar.server");
       const { todayISO } = await import("./executives");
@@ -121,7 +119,10 @@ export const saveCollection = createServerFn({ method: "POST" })
         const now = Date.now();
         const recentRows = await sheetsGet("Collections!A2:G");
         const normalizeLoan = (value: unknown) =>
-          String(value ?? "").replace(/^['\u0060\u2018\u2019]+/, "").trim().toUpperCase();
+          String(value ?? "")
+            .replace(/^['\u0060\u2018\u2019]+/, "")
+            .trim()
+            .toUpperCase();
         const duplicate = recentRows.find((row) => {
           if (normalizeLoan(row[1]) !== normalizeLoan(data.loanId)) return false;
           const existingAmount = Number(String(row[2] ?? "").replace(/,/g, ""));
@@ -131,7 +132,10 @@ export const saveCollection = createServerFn({ method: "POST" })
         });
         if (duplicate) {
           const savedAt = Date.parse(String(duplicate[5] ?? ""));
-          const remainingSeconds = Math.max(1, Math.ceil((10 * 60 * 1000 - (now - savedAt)) / 1000));
+          const remainingSeconds = Math.max(
+            1,
+            Math.ceil((10 * 60 * 1000 - (now - savedAt)) / 1000),
+          );
           throw new Error(
             `Duplicate payment blocked: this loan number and amount were already entered. Try again after ${remainingSeconds} seconds.`,
           );
@@ -151,7 +155,7 @@ export const saveCollection = createServerFn({ method: "POST" })
           ],
         ]);
       })) as { updates?: { updatedRange?: string } };
-  
+
       // Receipt links (P) and remark (Q) live to the right of the formula columns K:O,
       // so they are written to the exact row the append landed on.
       const rowNum = Number(/![A-Z]+(\d+)/.exec(appended?.updates?.updatedRange ?? "")?.[1] ?? "0");
@@ -203,15 +207,24 @@ export const saveCollection = createServerFn({ method: "POST" })
       try {
         const { ensureSheetStrict, sheetsAppendStrict } = await import("./mahavtaar.server");
         const tab = "CollectionAttempts";
-        await ensureSheetStrict(tab, ["Timestamp", "Executive", "Loan Number", "Amount", "Reason", "Status"]);
-        await sheetsAppendStrict(`${tab}!A:F`, [[
-          new Date().toISOString(),
-          session.name,
-          data.loanId,
-          data.amount,
-          reason.slice(0, 1000),
-          "NOT SAVED",
-        ]]);
+        await ensureSheetStrict(tab, [
+          "Timestamp",
+          "Executive",
+          "Loan Number",
+          "Amount",
+          "Reason",
+          "Status",
+        ]);
+        await sheetsAppendStrict(`${tab}!A:F`, [
+          [
+            new Date().toISOString(),
+            session.name,
+            data.loanId,
+            data.amount,
+            reason.slice(0, 1000),
+            "NOT SAVED",
+          ],
+        ]);
       } catch (auditError) {
         console.error("Could not record failed collection attempt:", auditError);
       }
@@ -436,15 +449,18 @@ export const getReportBundle = createServerFn({ method: "GET" }).handler(async (
     readActivePTPsForReport(),
     sheetsGetOptional("CollectionAttempts!A2:F"),
   ]);
-  const failedAttempts = (attemptRows ?? []).map((row, index) => ({
-    row: index + 2,
-    timestamp: String(row[0] ?? ""),
-    executive: String(row[1] ?? ""),
-    loanNumber: String(row[2] ?? ""),
-    amount: Number(String(row[3] ?? "0").replace(/,/g, "")) || 0,
-    reason: String(row[4] ?? ""),
-    status: String(row[5] ?? "NOT SAVED"),
-  })).filter((item) => item.status === "NOT SAVED").reverse();
+  const failedAttempts = (attemptRows ?? [])
+    .map((row, index) => ({
+      row: index + 2,
+      timestamp: String(row[0] ?? ""),
+      executive: String(row[1] ?? ""),
+      loanNumber: String(row[2] ?? ""),
+      amount: Number(String(row[3] ?? "0").replace(/,/g, "")) || 0,
+      reason: String(row[4] ?? ""),
+      status: String(row[5] ?? "NOT SAVED"),
+    }))
+    .filter((item) => item.status === "NOT SAVED")
+    .reverse();
   return { collections, excludedLoans, holdCases, ptps, failedAttempts };
 });
 
@@ -865,7 +881,9 @@ export async function readPending(includeDone = false) {
         id: r[6] ?? "",
         settlement: (r[7] ?? "").trim().toLowerCase() === "yes",
       }))
-      .filter((r) => r.loanNumber && (r.status === "Pending" || (includeDone && r.status === "Done")));
+      .filter(
+        (r) => r.loanNumber && (r.status === "Pending" || (includeDone && r.status === "Done")),
+      );
   } catch (err) {
     console.error("Failed to read pending from Google Sheets:", err);
     throw new Error("Unable to load pending receipts. Please retry.");

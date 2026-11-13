@@ -2,18 +2,42 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, RotateCw, Search, Users, MapPin, TrendingUp, Receipt, Calendar } from "lucide-react";
+import {
+  Download,
+  RotateCw,
+  Search,
+  Users,
+  MapPin,
+  TrendingUp,
+  Receipt,
+  Calendar,
+} from "lucide-react";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { getExcludedLoanNumbers } from "@/lib/excluded-loans.functions";
 import { summariseLoans, type CollectionRow } from "@/lib/loans";
 import { EXECUTIVES, formatAmount, todayISO } from "@/lib/executives";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
-import { useCategoryFilter, categoryMatches, uniqueCategories, ALL_CATEGORIES, useAllocationTypeFilter, allocationTypeMatches, uniqueAllocationTypes, ALL_ALLOCATION_TYPES } from "@/components/AllocationFilters";
+import {
+  useCategoryFilter,
+  categoryMatches,
+  uniqueCategories,
+  ALL_CATEGORIES,
+  useAllocationTypeFilter,
+  allocationTypeMatches,
+  uniqueAllocationTypes,
+  ALL_ALLOCATION_TYPES,
+} from "@/components/AllocationFilters";
 import { MonthSelect } from "@/components/MonthSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toCsv, downloadCsv } from "@/lib/export";
 
 export const Route = createFileRoute("/_authenticated/executive-cities")({
@@ -41,7 +65,12 @@ type CityMetrics = {
   paidPos: number;
 };
 type CityRow = { city: string; executives: Record<string, CityMetrics>; total: CityMetrics };
-type BucketTable = { bucket: string; rows: CityRow[]; executiveTotals: Record<string, CityMetrics>; total: CityMetrics };
+type BucketTable = {
+  bucket: string;
+  rows: CityRow[];
+  executiveTotals: Record<string, CityMetrics>;
+  total: CityMetrics;
+};
 
 const METRICS: { key: MetricKey; label: string }[] = [
   { key: "collection", label: "Collection" },
@@ -81,11 +110,12 @@ export function ExecutiveCitiesPage() {
     refetchOnWindowFocus: true,
   });
   const excludedLoanIds = useMemo(
-    () => new Set(
-      excludedLoanRecords
-        .filter((record) => record.status.toLowerCase() === "active")
-        .map((record) => record.loanNumber.trim().toUpperCase()),
-    ),
+    () =>
+      new Set(
+        excludedLoanRecords
+          .filter((record) => record.status.toLowerCase() === "active")
+          .map((record) => record.loanNumber.trim().toUpperCase()),
+      ),
     [excludedLoanRecords],
   );
 
@@ -101,10 +131,14 @@ export function ExecutiveCitiesPage() {
       const result = await fetchCollections();
       if (Array.isArray(result)) return result;
       if (result && typeof result === "object" && "message" in result) {
-        throw new Error(String((result as { message?: unknown }).message || "Failed to load collections"));
+        throw new Error(
+          String((result as { message?: unknown }).message || "Failed to load collections"),
+        );
       }
       if (result && typeof result === "object" && "error" in result) {
-        throw new Error(String((result as { error?: unknown }).error || "Failed to load collections"));
+        throw new Error(
+          String((result as { error?: unknown }).error || "Failed to load collections"),
+        );
       }
       return [];
     },
@@ -136,25 +170,37 @@ export function ExecutiveCitiesPage() {
   const [allocationType, setAllocationType] = useAllocationTypeFilter();
   const [bucket, setBucket] = useState(ALL);
   const buckets = useMemo(
-    () => [...new Set(data.map((row) => row.bucket).filter(Boolean))].sort((a, b) =>
-      String(a).localeCompare(String(b), undefined, { numeric: true }),
-    ),
+    () =>
+      [...new Set(data.map((row) => row.bucket).filter(Boolean))].sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, { numeric: true }),
+      ),
     [data],
   );
   const [citySearch, setCitySearch] = useState("");
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("collection");
 
-  const filteredRows = useMemo(() => data.filter((row) => {
-    if (excludedLoanIds.has(String(row.loanId ?? "").trim().toUpperCase())) return false;
-    // Already Paid cases are intentionally excluded from this report.
-    if (row.alreadyPaid) return false;
-    if (dateMode === "month" && month && monthKey(row.date) !== month) return false;
-    if (dateMode === "date" && selectedDate && row.date !== selectedDate) return false;
-    if (bucket !== ALL && (row.bucket ?? "") !== bucket) return false;
-    if (!categoryMatches(row.allocationCategory, category)) return false;
-    if (!allocationTypeMatches(row.allocationType, allocationType)) return false;
-    return true;
-  }), [data, excludedLoanIds, dateMode, month, selectedDate, bucket, category, allocationType]);
+  const filteredRows = useMemo(
+    () =>
+      data.filter((row) => {
+        if (
+          excludedLoanIds.has(
+            String(row.loanId ?? "")
+              .trim()
+              .toUpperCase(),
+          )
+        )
+          return false;
+        // Already Paid cases are intentionally excluded from this report.
+        if (row.alreadyPaid) return false;
+        if (dateMode === "month" && month && monthKey(row.date) !== month) return false;
+        if (dateMode === "date" && selectedDate && row.date !== selectedDate) return false;
+        if (bucket !== ALL && (row.bucket ?? "") !== bucket) return false;
+        if (!categoryMatches(row.allocationCategory, category)) return false;
+        if (!allocationTypeMatches(row.allocationType, allocationType)) return false;
+        return true;
+      }),
+    [data, excludedLoanIds, dateMode, month, selectedDate, bucket, category, allocationType],
+  );
 
   const loanSummaries = useMemo(() => {
     const rows: CollectionRow[] = filteredRows.map((row) => ({
@@ -176,7 +222,10 @@ export function ExecutiveCitiesPage() {
   }, [filteredRows]);
 
   const executiveNames = useMemo(
-    () => [...new Set([...EXECUTIVES, ...loanSummaries.flatMap((loan) => loan.executives)])].filter(Boolean),
+    () =>
+      [...new Set([...EXECUTIVES, ...loanSummaries.flatMap((loan) => loan.executives)])].filter(
+        Boolean,
+      ),
     [loanSummaries],
   );
 
@@ -214,10 +263,15 @@ export function ExecutiveCitiesPage() {
     return [...groups.entries()]
       .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
       .map(([bucketName, cityMap]) => {
-        const executiveTotals = Object.fromEntries(executiveNames.map((name) => [name, emptyMetrics()])) as Record<string, CityMetrics>;
+        const executiveTotals = Object.fromEntries(
+          executiveNames.map((name) => [name, emptyMetrics()]),
+        ) as Record<string, CityMetrics>;
         const total = emptyMetrics();
         const rows: CityRow[] = [...cityMap.entries()]
-          .filter(([city]) => !citySearch.trim() || city.toLowerCase().includes(citySearch.trim().toLowerCase()))
+          .filter(
+            ([city]) =>
+              !citySearch.trim() || city.toLowerCase().includes(citySearch.trim().toLowerCase()),
+          )
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([city, execMap]) => {
             const rowTotal = emptyMetrics();
@@ -248,7 +302,9 @@ export function ExecutiveCitiesPage() {
       }
       if (loan.city) cities.add(loan.city);
     }
-    metrics.paidPos = loanSummaries.filter((loan) => loan.mainPaid).reduce((sum, loan) => sum + (loan.pos ?? 0), 0);
+    metrics.paidPos = loanSummaries
+      .filter((loan) => loan.mainPaid)
+      .reduce((sum, loan) => sum + (loan.pos ?? 0), 0);
     return { ...metrics, cityCount: cities.size };
   }, [loanSummaries]);
 
@@ -259,15 +315,36 @@ export function ExecutiveCitiesPage() {
         for (const executive of executiveNames) {
           const metrics = row.executives[executive];
           if (!metrics) continue;
-          rows.push([table.bucket, row.city, executive, metrics.collection, metrics.cases, metrics.mainPaid, metrics.paidEmi, metrics.posPaidNotMain, metrics.paidPos]);
+          rows.push([
+            table.bucket,
+            row.city,
+            executive,
+            metrics.collection,
+            metrics.cases,
+            metrics.mainPaid,
+            metrics.paidEmi,
+            metrics.posPaidNotMain,
+            metrics.paidPos,
+          ]);
         }
       }
     }
     const csv = toCsv(
-      ["Bucket", "City", "Executive", "Collection", "Cases", "Main Paid", "EMI Count", "POS*", "Paid POS"],
+      [
+        "Bucket",
+        "City",
+        "Executive",
+        "Collection",
+        "Cases",
+        "Main Paid",
+        "EMI Count",
+        "POS*",
+        "Paid POS",
+      ],
       rows,
     );
-    const dateLabel = dateMode === "month" ? month : dateMode === "date" ? selectedDate : "all-time";
+    const dateLabel =
+      dateMode === "month" ? month : dateMode === "date" ? selectedDate : "all-time";
     downloadCsv(`executive-city-bucket-comparison-${dateLabel}.csv`, csv);
   };
 
@@ -276,33 +353,73 @@ export function ExecutiveCitiesPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Executive City Report</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">Bucket-wise city comparison across all executives</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Bucket-wise city comparison across all executives
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9" onClick={() => refetch()} disabled={isFetching}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
             <RotateCw className={`mr-1.5 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
             {isFetching ? "Syncing..." : "Refresh"}
           </Button>
-          <Button size="sm" className="h-9 bg-amber-300 text-amber-950 hover:bg-amber-400" onClick={handleExportCsv} disabled={bucketTables.length === 0}>
+          <Button
+            size="sm"
+            className="h-9 bg-amber-300 text-amber-950 hover:bg-amber-400"
+            onClick={handleExportCsv}
+            disabled={bucketTables.length === 0}
+          >
             <Download className="mr-1.5 h-4 w-4" /> Export CSV
           </Button>
         </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <SummaryCard icon={<TrendingUp className="h-4 w-4" />} label="Total Collection" value={formatAmount(overall.collection)} detail={`${overall.cases} cases`} />
-        <SummaryCard icon={<Receipt className="h-4 w-4" />} label="Main Paid" value={String(overall.mainPaid)} detail={`${overall.paidEmi} EMI count`} />
-        <SummaryCard icon={<MapPin className="h-4 w-4" />} label="Active Cities" value={String(overall.cityCount)} detail="Across selected buckets" />
-        <SummaryCard icon={<Users className="h-4 w-4" />} label="Executives" value={String(executiveNames.length)} detail="Side-by-side comparison" />
+        <SummaryCard
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Total Collection"
+          value={formatAmount(overall.collection)}
+          detail={`${overall.cases} cases`}
+        />
+        <SummaryCard
+          icon={<Receipt className="h-4 w-4" />}
+          label="Main Paid"
+          value={String(overall.mainPaid)}
+          detail={`${overall.paidEmi} EMI count`}
+        />
+        <SummaryCard
+          icon={<MapPin className="h-4 w-4" />}
+          label="Active Cities"
+          value={String(overall.cityCount)}
+          detail="Across selected buckets"
+        />
+        <SummaryCard
+          icon={<Users className="h-4 w-4" />}
+          label="Executives"
+          value={String(executiveNames.length)}
+          detail="Side-by-side comparison"
+        />
       </div>
 
       <section className="mt-3 rounded-lg border bg-card p-3">
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Period</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Period
+            </Label>
             <div className="flex rounded-lg border bg-muted/40 p-1">
               {(["date", "month", "all"] as DateFilterMode[]).map((mode) => (
-                <button key={mode} type="button" className={`flex-1 rounded-md px-2 py-2 text-xs font-semibold ${dateMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`} onClick={() => setDateMode(mode)}>
+                <button
+                  key={mode}
+                  type="button"
+                  className={`flex-1 rounded-md px-2 py-2 text-xs font-semibold ${dateMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+                  onClick={() => setDateMode(mode)}
+                >
                   {mode === "date" ? "Date-wise" : mode === "month" ? "Month-wise" : "All Time"}
                 </button>
               ))}
@@ -311,43 +428,77 @@ export function ExecutiveCitiesPage() {
           {dateMode === "date" && (
             <div className="space-y-1.5">
               <Label htmlFor="exec-city-date">Date</Label>
-              <Input id="exec-city-date" type="date" className="h-9" value={selectedDate} onChange={(event) => { userChangedDate.current = true; setSelectedDate(event.target.value); }} />
+              <Input
+                id="exec-city-date"
+                type="date"
+                className="h-9"
+                value={selectedDate}
+                onChange={(event) => {
+                  userChangedDate.current = true;
+                  setSelectedDate(event.target.value);
+                }}
+              />
             </div>
           )}
-          {dateMode === "month" && <div className="space-y-1.5"><MonthSelect value={month} onChange={setMonth} options={months} /></div>}
+          {dateMode === "month" && (
+            <div className="space-y-1.5">
+              <MonthSelect value={month} onChange={setMonth} options={months} />
+            </div>
+          )}
           {dateMode === "all" && (
             <div className="space-y-1.5">
               <Label>Scope</Label>
-              <div className="flex h-9 items-center rounded-md border bg-muted/20 px-3 text-xs text-muted-foreground"><Calendar className="mr-2 h-4 w-4" />All dates recorded</div>
+              <div className="flex h-9 items-center rounded-md border bg-muted/20 px-3 text-xs text-muted-foreground">
+                <Calendar className="mr-2 h-4 w-4" />
+                All dates recorded
+              </div>
             </div>
           )}
           <div className="space-y-1.5">
             <Label>Bucket</Label>
             <Select value={bucket} onValueChange={setBucket}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>All Buckets</SelectItem>
-                {buckets.map((value) => <SelectItem key={value} value={value}>Bucket {value}</SelectItem>)}
+                {buckets.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    Bucket {value}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Allocation Category</Label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_CATEGORIES}>All Categories</SelectItem>
-                {categories.map((value) => <SelectItem key={value} value={value}>Category {value}</SelectItem>)}
+                {categories.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    Category {value}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Allocation Type</Label>
             <Select value={allocationType} onValueChange={setAllocationType}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_ALLOCATION_TYPES}>All Allocation Types</SelectItem>
-                {allocationTypes.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+                {allocationTypes.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {value}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -355,37 +506,78 @@ export function ExecutiveCitiesPage() {
             <Label>Search City</Label>
             <div className="relative">
               <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-              <Input value={citySearch} onChange={(event) => setCitySearch(event.target.value)} placeholder="Type a city name..." className="h-9 pl-9" />
+              <Input
+                value={citySearch}
+                onChange={(event) => setCitySearch(event.target.value)}
+                placeholder="Type a city name..."
+                className="h-9 pl-9"
+              />
             </div>
           </div>
         </div>
-        <p className="mt-2 rounded-md bg-amber-50 px-3 py-1.5 text-[11px] font-medium text-amber-950">Already Paid cases and active excluded loan numbers are always excluded from this report.</p>
+        <p className="mt-2 rounded-md bg-amber-50 px-3 py-1.5 text-[11px] font-medium text-amber-950">
+          Already Paid cases and active excluded loan numbers are always excluded from this report.
+        </p>
       </section>
 
       <section className="mt-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-bold">City-wise Executive Comparison</h2>
-            <p className="text-xs text-muted-foreground">हर Bucket की अलग टेबल — City की एक row में सभी executives का comparison</p>
+            <p className="text-xs text-muted-foreground">
+              हर Bucket की अलग टेबल — City की एक row में सभी executives का comparison
+            </p>
           </div>
-          <span className="text-xs text-muted-foreground">{executiveNames.length} executives · {bucketTables.reduce((sum, table) => sum + table.rows.length, 0)} city rows</span>
+          <span className="text-xs text-muted-foreground">
+            {executiveNames.length} executives ·{" "}
+            {bucketTables.reduce((sum, table) => sum + table.rows.length, 0)} city rows
+          </span>
         </div>
 
         <div className="mb-2 flex flex-wrap gap-1">
           {METRICS.map((item) => (
-            <button key={item.key} type="button" onClick={() => setSelectedMetric(item.key)} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${selectedMetric === item.key ? "border-amber-400 bg-amber-100 text-amber-950" : "bg-background text-muted-foreground hover:bg-muted"}`}>
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setSelectedMetric(item.key)}
+              className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${selectedMetric === item.key ? "border-amber-400 bg-amber-100 text-amber-950" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            >
               {item.label}
             </button>
           ))}
         </div>
 
-        {isLoading && <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground"><RotateCw className="mx-auto mb-2 h-5 w-5 animate-spin" />Loading city comparison...</div>}
-        {error && <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-center text-sm text-destructive"><p className="font-semibold">Could not load collection data</p><p className="mt-1">{error instanceof Error ? error.message : "An error occurred while fetching data."}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>Try Again</Button></div>}
-        {!isLoading && !error && bucketTables.length === 0 && <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">No city records found for the selected filters.</div>}
+        {isLoading && (
+          <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">
+            <RotateCw className="mx-auto mb-2 h-5 w-5 animate-spin" />
+            Loading city comparison...
+          </div>
+        )}
+        {error && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-center text-sm text-destructive">
+            <p className="font-semibold">Could not load collection data</p>
+            <p className="mt-1">
+              {error instanceof Error ? error.message : "An error occurred while fetching data."}
+            </p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
+              Try Again
+            </Button>
+          </div>
+        )}
+        {!isLoading && !error && bucketTables.length === 0 && (
+          <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">
+            No city records found for the selected filters.
+          </div>
+        )}
 
         <div className="space-y-3">
           {bucketTables.map((table) => (
-            <BucketComparisonTable key={table.bucket} table={table} executives={executiveNames} metric={selectedMetric} />
+            <BucketComparisonTable
+              key={table.bucket}
+              table={table}
+              executives={executiveNames}
+              metric={selectedMetric}
+            />
           ))}
         </div>
       </section>
@@ -393,25 +585,52 @@ export function ExecutiveCitiesPage() {
   );
 }
 
-function SummaryCard({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
+function SummaryCard({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+}) {
   return (
     <div className="rounded-lg border bg-card px-3 py-2.5">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">{icon}<span>{label}</span></div>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {icon}
+        <span>{label}</span>
+      </div>
       <p className="mt-0.5 text-lg font-bold tabular-nums sm:text-xl">{value}</p>
       <p className="text-[11px] text-muted-foreground">{detail}</p>
     </div>
   );
 }
 
-function BucketComparisonTable({ table, executives, metric }: { table: BucketTable; executives: string[]; metric: MetricKey }) {
+function BucketComparisonTable({
+  table,
+  executives,
+  metric,
+}: {
+  table: BucketTable;
+  executives: string[];
+  metric: MetricKey;
+}) {
   return (
     <div className="overflow-hidden rounded-lg border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
       <div className="flex items-center justify-between gap-2 border-b bg-amber-50 px-3 py-1.5">
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-amber-950">{table.bucket === "Unassigned" ? table.bucket : `Bucket ${table.bucket}`}</h3>
-          <p className="text-[10px] text-amber-900/75">{table.rows.length} cities · {METRICS.find((item) => item.key === metric)?.label}</p>
+          <h3 className="text-sm font-bold text-amber-950">
+            {table.bucket === "Unassigned" ? table.bucket : `Bucket ${table.bucket}`}
+          </h3>
+          <p className="text-[10px] text-amber-900/75">
+            {table.rows.length} cities · {METRICS.find((item) => item.key === metric)?.label}
+          </p>
         </div>
-        <span className="shrink-0 text-xs font-bold tabular-nums text-amber-950">{metricText(table.total, metric)}</span>
+        <span className="shrink-0 text-xs font-bold tabular-nums text-amber-950">
+          {metricText(table.total, metric)}
+        </span>
       </div>
 
       {/* Mobile: compact two-column executive tiles, avoiding a wide scrolling table. */}
@@ -420,15 +639,24 @@ function BucketComparisonTable({ table, executives, metric }: { table: BucketTab
           <div key={row.city} className="overflow-hidden rounded-md border">
             <div className="flex items-center justify-between gap-2 bg-muted/40 px-2.5 py-2">
               <span className="min-w-0 truncate text-xs font-bold">{row.city}</span>
-              <span className="shrink-0 text-xs font-bold tabular-nums text-amber-950">{metricText(row.total, metric)}</span>
+              <span className="shrink-0 text-xs font-bold tabular-nums text-amber-950">
+                {metricText(row.total, metric)}
+              </span>
             </div>
             <div className="grid grid-cols-2 gap-px bg-border">
               {executives.map((executive) => {
                 const value = row.executives[executive];
                 return (
-                  <div key={executive} className="flex min-w-0 items-center justify-between gap-1 bg-background px-2 py-1.5">
-                    <span className="truncate text-[10px] text-muted-foreground" title={executive}>{executive}</span>
-                    <span className="shrink-0 text-[11px] font-semibold tabular-nums">{value ? metricText(value, metric) : "—"}</span>
+                  <div
+                    key={executive}
+                    className="flex min-w-0 items-center justify-between gap-1 bg-background px-2 py-1.5"
+                  >
+                    <span className="truncate text-[10px] text-muted-foreground" title={executive}>
+                      {executive}
+                    </span>
+                    <span className="shrink-0 text-[11px] font-semibold tabular-nums">
+                      {value ? metricText(value, metric) : "—"}
+                    </span>
                   </div>
                 );
               })}
@@ -436,12 +664,20 @@ function BucketComparisonTable({ table, executives, metric }: { table: BucketTab
           </div>
         ))}
         <div className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2">
-          <div className="flex items-center justify-between text-xs font-bold text-amber-950"><span>BUCKET TOTAL</span><span className="tabular-nums">{metricText(table.total, metric)}</span></div>
+          <div className="flex items-center justify-between text-xs font-bold text-amber-950">
+            <span>BUCKET TOTAL</span>
+            <span className="tabular-nums">{metricText(table.total, metric)}</span>
+          </div>
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-amber-200 pt-2">
             {executives.map((executive) => (
-              <div key={executive} className="flex min-w-0 items-center justify-between gap-1 text-[10px]">
+              <div
+                key={executive}
+                className="flex min-w-0 items-center justify-between gap-1 text-[10px]"
+              >
                 <span className="truncate text-amber-900/80">{executive}</span>
-                <span className="shrink-0 font-semibold tabular-nums text-amber-950">{metricText(table.executiveTotals[executive] ?? emptyMetrics(), metric)}</span>
+                <span className="shrink-0 font-semibold tabular-nums text-amber-950">
+                  {metricText(table.executiveTotals[executive] ?? emptyMetrics(), metric)}
+                </span>
               </div>
             ))}
           </div>
@@ -453,37 +689,76 @@ function BucketComparisonTable({ table, executives, metric }: { table: BucketTab
         <table className="w-full min-w-[960px] table-fixed border-collapse text-[10px]">
           <thead>
             <tr className="bg-muted/50 text-muted-foreground">
-              <th className="sticky left-0 z-20 w-[13%] border-b bg-amber-50 px-2 py-2 text-left font-bold text-amber-950">City</th>
+              <th className="sticky left-0 z-20 w-[13%] border-b bg-amber-50 px-2 py-2 text-left font-bold text-amber-950">
+                City
+              </th>
               {executives.map((executive) => (
-                <th key={executive} title={executive} className="w-[8.3%] border-b px-1 py-2 text-center font-bold leading-tight">{executive}</th>
+                <th
+                  key={executive}
+                  title={executive}
+                  className="w-[8.3%] border-b px-1 py-2 text-center font-bold leading-tight"
+                >
+                  {executive}
+                </th>
               ))}
-              <th className="w-[12.3%] border-b bg-amber-100 px-1 py-2 text-right font-bold text-amber-950">Total</th>
+              <th className="w-[12.3%] border-b bg-amber-100 px-1 py-2 text-right font-bold text-amber-950">
+                Total
+              </th>
             </tr>
           </thead>
           <tbody>
             {table.rows.map((row) => (
               <tr key={row.city} className="hover:bg-muted/30">
-                <th className="sticky left-0 z-10 w-[13%] truncate border-b bg-background px-2 py-1.5 text-left font-semibold" title={row.city}>{row.city}</th>
+                <th
+                  className="sticky left-0 z-10 w-[13%] truncate border-b bg-background px-2 py-1.5 text-left font-semibold"
+                  title={row.city}
+                >
+                  {row.city}
+                </th>
                 {executives.map((executive) => {
                   const value = row.executives[executive];
-                  return <td key={executive} className="whitespace-nowrap border-b px-1 py-1.5 text-right text-[10px] tabular-nums">{value ? metricText(value, metric) : <span className="text-muted-foreground">—</span>}</td>;
+                  return (
+                    <td
+                      key={executive}
+                      className="whitespace-nowrap border-b px-1 py-1.5 text-right text-[10px] tabular-nums"
+                    >
+                      {value ? (
+                        metricText(value, metric)
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  );
                 })}
-                <td className="border-b bg-amber-50/60 px-1 py-1.5 text-right text-[10px] font-bold tabular-nums text-amber-950">{metricText(row.total, metric)}</td>
+                <td className="border-b bg-amber-50/60 px-1 py-1.5 text-right text-[10px] font-bold tabular-nums text-amber-950">
+                  {metricText(row.total, metric)}
+                </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="bg-amber-50 font-bold">
-              <th className="sticky left-0 z-10 bg-amber-100 px-2 py-2 text-left text-amber-950">TOTAL</th>
+              <th className="sticky left-0 z-10 bg-amber-100 px-2 py-2 text-left text-amber-950">
+                TOTAL
+              </th>
               {executives.map((executive) => (
-                <td key={executive} className="whitespace-nowrap px-1 py-2 text-right text-[10px] tabular-nums">{metricText(table.executiveTotals[executive] ?? emptyMetrics(), metric)}</td>
+                <td
+                  key={executive}
+                  className="whitespace-nowrap px-1 py-2 text-right text-[10px] tabular-nums"
+                >
+                  {metricText(table.executiveTotals[executive] ?? emptyMetrics(), metric)}
+                </td>
               ))}
-              <td className="bg-amber-200/70 px-1 py-2 text-right text-[10px] font-bold tabular-nums text-amber-950">{metricText(table.total, metric)}</td>
+              <td className="bg-amber-200/70 px-1 py-2 text-right text-[10px] font-bold tabular-nums text-amber-950">
+                {metricText(table.total, metric)}
+              </td>
             </tr>
           </tfoot>
         </table>
       </div>
-      <div className="border-t bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">POS* = POS Paid but not Main Paid.</div>
+      <div className="border-t bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
+        POS* = POS Paid but not Main Paid.
+      </div>
     </div>
   );
 }

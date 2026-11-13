@@ -30,13 +30,20 @@ export function useAppConfig(options: { enabled?: boolean } = {}) {
   const isPriority = (text: string) => {
     if (!executiveName) return false;
     const normalizedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
-    const normalizedName = executiveName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const normalizedName = executiveName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
     return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
   };
   const activeNotification =
     [...notifications]
       .filter((n) => n.status.toLowerCase() !== "removed")
-      .sort((a, b) => Number(isPriority(b.text)) - Number(isPriority(a.text)) || b.createdAt.localeCompare(a.createdAt))[0] ?? null;
+      .sort(
+        (a, b) =>
+          Number(isPriority(b.text)) - Number(isPriority(a.text)) ||
+          b.createdAt.localeCompare(a.createdAt),
+      )[0] ?? null;
 
   return {
     ...query,

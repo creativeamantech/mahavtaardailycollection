@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "check:server-auth": "bun scripts/check-server-auth.mjs"
+    "check:server-auth": "node scripts/check-server-auth.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

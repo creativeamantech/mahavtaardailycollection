@@ -25,7 +25,6 @@ npm i
 npm run dev
 ```
 
-
 ## Authentication configuration
 
 PIN login is validated against the active user records in the private Google Sheets `Users` tab. Authentication tokens are stateless: no `AppSessions` sheet, server-side session store, or additional `AUTH_TOKEN_SECRET` environment variable is required. The token signature is derived per user from that user's existing PIN hash in the private `Users` sheet; changing the PIN or deactivating the user invalidates outstanding tokens. Tokens expire after eight hours. Logout clears the browser's HttpOnly cookie.

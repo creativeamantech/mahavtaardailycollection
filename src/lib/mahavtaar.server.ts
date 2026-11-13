@@ -35,7 +35,6 @@ const CACHE_TTL_MS = 60_000;
 const readCache = new Map<string, { at: number; rows: string[][] }>();
 const inFlight = new Map<string, Promise<string[][]>>();
 
-
 export function requireGoogleSheetsWriteAccess() {
   if (!hasCredentials("GOOGLE_SHEETS_API_KEY")) {
     throw new Error("Google Sheets write connector is not configured. Verification was not saved.");
@@ -680,10 +679,9 @@ export async function driveDownload(fileId: string) {
 
   const auth = headers("GOOGLE_DRIVE_API_KEY");
   const fileUrl = `${GATEWAY}/google_drive/drive/v3/files/${encodeURIComponent(fileId)}`;
-  const metadataResponse = await fetch(
-    fileUrl + "?fields=id,name,mimeType,size,trashed",
-    { headers: auth },
-  );
+  const metadataResponse = await fetch(fileUrl + "?fields=id,name,mimeType,size,trashed", {
+    headers: auth,
+  });
   const metadata = (await ok(metadataResponse, "Receipt metadata")) as {
     id: string;
     name?: string;
@@ -703,8 +701,7 @@ export async function driveDownload(fileId: string) {
   if (!response.ok) throw new Error("Receipt download failed: " + response.status);
   const body = await response.arrayBuffer();
   if (!body.byteLength) throw new Error("Receipt download returned an empty file.");
-  if (body.byteLength > 12 * 1024 * 1024)
-    throw new Error("Receipt image exceeds the 12 MB limit.");
+  if (body.byteLength > 12 * 1024 * 1024) throw new Error("Receipt image exceeds the 12 MB limit.");
 
   return { body, contentType: metadata.mimeType.toLowerCase() };
 }

@@ -41,8 +41,7 @@ export function DraggableMobileNavButton({
         // Migrate legacy bottom-right placements that overlap the Lovable edit badge.
         // Keep other intentionally saved positions and edge-snapped placements unchanged.
         const overlapsLovableBadge =
-          x > window.innerWidth / 2 &&
-          y > window.innerHeight - BUTTON_SIZE - 180;
+          x > window.innerWidth / 2 && y > window.innerHeight - BUTTON_SIZE - 180;
         setPosition(
           overlapsLovableBadge
             ? {
@@ -156,7 +155,13 @@ export function DraggableMobileNavButton({
   return (
     <button
       type="button"
-      aria-label={position?.hidden ? "Show navigation button" : open ? "Close navigation menu" : "Open navigation menu"}
+      aria-label={
+        position?.hidden
+          ? "Show navigation button"
+          : open
+            ? "Close navigation menu"
+            : "Open navigation menu"
+      }
       aria-expanded={open}
       aria-controls="global-mobile-navigation"
       title={position?.hidden ? "Tap to show navigation" : "Drag to move · Tap to open navigation"}

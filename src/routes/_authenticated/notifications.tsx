@@ -45,14 +45,21 @@ function NotificationsPage() {
   const isPriorityForCurrentExecutive = (text: string) => {
     if (!executiveName) return false;
     const normalizedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
-    const normalizedName = executiveName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const normalizedName = executiveName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
     return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
   };
 
   // Newest first, excluding removed ones (same active/removed logic as the panel).
   const history = [...notifications]
     .filter((n) => n.status.toLowerCase() !== "removed")
-    .sort((a, b) => Number(isPriorityForCurrentExecutive(b.text)) - Number(isPriorityForCurrentExecutive(a.text)) || b.createdAt.localeCompare(a.createdAt));
+    .sort(
+      (a, b) =>
+        Number(isPriorityForCurrentExecutive(b.text)) -
+          Number(isPriorityForCurrentExecutive(a.text)) || b.createdAt.localeCompare(a.createdAt),
+    );
   const previous = history.filter((n) => n.id !== activeNotification?.id);
 
   return (
@@ -80,10 +87,17 @@ function NotificationsPage() {
             {previous.map((n) => {
               const { date, time } = formatDateTime(n.createdAt);
               return (
-                <article key={n.id} className="rounded-xl border border-[#ead17a] bg-white p-3 shadow-sm">
-                  <p className="whitespace-pre-wrap break-words text-sm leading-snug text-[#292820]">{n.text}</p>
+                <article
+                  key={n.id}
+                  className="rounded-xl border border-[#ead17a] bg-white p-3 shadow-sm"
+                >
+                  <p className="whitespace-pre-wrap break-words text-sm leading-snug text-[#292820]">
+                    {n.text}
+                  </p>
                   {isPriorityForCurrentExecutive(n.text) && (
-                    <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>
+                    <span className="mt-2 inline-flex rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">
+                      YOUR PRIORITY
+                    </span>
                   )}
                   {n.imageUrl !== "" && (
                     <a

@@ -123,9 +123,7 @@ function PendingPage() {
     const term = search.trim().toLowerCase();
     if (!term) return source;
     return source.filter(
-      (p) =>
-        p.loanNumber.toLowerCase().includes(term) ||
-        p.executive.toLowerCase().includes(term),
+      (p) => p.loanNumber.toLowerCase().includes(term) || p.executive.toLowerCase().includes(term),
     );
   }, [queueTab, pendingRecords, completedRecords, search]);
   const pendingTotal = pendingRecords.reduce((sum, p) => sum + p.amount, 0);
@@ -188,13 +186,23 @@ function PendingPage() {
           </p>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-slate-700">
-          {session?.role === "Admin" ? "Admin View · All Executives" : session?.name || "Executive View"}
+          {session?.role === "Admin"
+            ? "Admin View · All Executives"
+            : session?.name || "Executive View"}
         </div>
       </div>
 
       <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <SummaryTile label="Pending Cases" value={pendingRecords.length.toLocaleString("en-IN")} detail="Awaiting confirmation" />
-        <SummaryTile label="Pending Amount" value={formatAmount(pendingTotal)} detail="Total amount in pending queue" />
+        <SummaryTile
+          label="Pending Cases"
+          value={pendingRecords.length.toLocaleString("en-IN")}
+          detail="Awaiting confirmation"
+        />
+        <SummaryTile
+          label="Pending Amount"
+          value={formatAmount(pendingTotal)}
+          detail="Total amount in pending queue"
+        />
       </section>
 
       <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(320px,390px)_minmax(0,1fr)] xl:gap-6">
@@ -213,19 +221,25 @@ function PendingPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {EXECUTIVES.map((e) => (
-                      <SelectItem key={e} value={e}>{e}</SelectItem>
+                      <SelectItem key={e} value={e}>
+                        {e}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
                 <div className="flex h-11 items-center rounded-md border border-amber-200 bg-slate-50 px-3 text-sm">
-                  {sessionLoading ? "Loading logged-in executive..." : executive || session?.name || "Executive not available"}
+                  {sessionLoading
+                    ? "Loading logged-in executive..."
+                    : executive || session?.name || "Executive not available"}
                 </div>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pending-loan" className="text-sm font-semibold text-slate-700">Loan Number</Label>
+              <Label htmlFor="pending-loan" className="text-sm font-semibold text-slate-700">
+                Loan Number
+              </Label>
               <Input
                 id="pending-loan"
                 className="h-11 border-amber-200 focus-visible:ring-amber-300"
@@ -237,7 +251,9 @@ function PendingPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pending-amount" className="text-sm font-semibold text-slate-700">Pending Amount</Label>
+              <Label htmlFor="pending-amount" className="text-sm font-semibold text-slate-700">
+                Pending Amount
+              </Label>
               <Input
                 id="pending-amount"
                 type="number"
@@ -264,7 +280,9 @@ function PendingPage() {
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 10))}
               />
               <p className="text-xs text-slate-500">
-                {files.length > 0 ? `${files.length} photo(s) selected` : "At least one receipt photo is required."}
+                {files.length > 0
+                  ? `${files.length} photo(s) selected`
+                  : "At least one receipt photo is required."}
               </p>
             </div>
 
@@ -274,7 +292,9 @@ function PendingPage() {
                 onCheckedChange={(v) => setSettlement(v === true)}
                 className="mt-0.5 data-[state=checked]:border-amber-500 data-[state=checked]:bg-amber-400"
               />
-              <span className="text-sm font-medium leading-snug text-slate-800">Settlement Payment</span>
+              <span className="text-sm font-medium leading-snug text-slate-800">
+                Settlement Payment
+              </span>
             </label>
 
             <Button
@@ -291,9 +311,15 @@ function PendingPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3">
             <div>
               <h2 className="text-lg font-bold">Receipt Queue</h2>
-              <p className="mt-0.5 text-sm text-slate-600">Review submitted slips and confirm collection.</p>
+              <p className="mt-0.5 text-sm text-slate-600">
+                Review submitted slips and confirm collection.
+              </p>
             </div>
-            <div className="inline-flex rounded-lg border border-amber-200 bg-white p-1" role="tablist" aria-label="Receipt status">
+            <div
+              className="inline-flex rounded-lg border border-amber-200 bg-white p-1"
+              role="tablist"
+              aria-label="Receipt status"
+            >
               <button
                 type="button"
                 role="tab"
@@ -326,57 +352,77 @@ function PendingPage() {
           </div>
 
           <div className="space-y-3 p-4">
-            {isLoading && <p className="rounded-lg border border-amber-100 p-6 text-center text-sm text-slate-500">Loading receipts...</p>}
-            {!isLoading && visibleRecords.length === 0 && (
-              <p className="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 p-8 text-center text-sm text-slate-500">
-                {search.trim() ? "No receipts match your search." : queueTab === "pending" ? "No pending receipts." : "No completed receipts yet."}
+            {isLoading && (
+              <p className="rounded-lg border border-amber-100 p-6 text-center text-sm text-slate-500">
+                Loading receipts...
               </p>
             )}
-            {!isLoading && visibleRecords.map((p) => (
-              <article key={p.id} className="rounded-xl border border-amber-100 bg-white p-4 transition-shadow hover:shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="break-all text-lg font-bold tracking-tight text-slate-900">{p.loanNumber}</p>
-                    <p className="mt-1 text-sm text-slate-600">{p.executive}</p>
-                    <p className="mt-1 text-xs text-slate-500">{formatPendingDate(p.timestamp)}</p>
-                    {p.settlement && (
-                      <span className="mt-2 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
-                        Settlement
-                      </span>
-                    )}
+            {!isLoading && visibleRecords.length === 0 && (
+              <p className="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 p-8 text-center text-sm text-slate-500">
+                {search.trim()
+                  ? "No receipts match your search."
+                  : queueTab === "pending"
+                    ? "No pending receipts."
+                    : "No completed receipts yet."}
+              </p>
+            )}
+            {!isLoading &&
+              visibleRecords.map((p) => (
+                <article
+                  key={p.id}
+                  className="rounded-xl border border-amber-100 bg-white p-4 transition-shadow hover:shadow-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="break-all text-lg font-bold tracking-tight text-slate-900">
+                        {p.loanNumber}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">{p.executive}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatPendingDate(p.timestamp)}
+                      </p>
+                      {p.settlement && (
+                        <span className="mt-2 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
+                          Settlement
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <p className="whitespace-nowrap text-lg font-bold tabular-nums text-slate-900">
+                        {formatAmount(p.amount)}
+                      </p>
+                      {queueTab === "pending" ? (
+                        <Button
+                          className="h-10 bg-amber-300 px-4 font-semibold text-amber-950 hover:bg-amber-400"
+                          onClick={() => setDoneTarget({ id: p.id, loanNumber: p.loanNumber })}
+                        >
+                          Mark Done
+                        </Button>
+                      ) : (
+                        <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                          Done
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <p className="whitespace-nowrap text-lg font-bold tabular-nums text-slate-900">{formatAmount(p.amount)}</p>
-                    {queueTab === "pending" ? (
-                      <Button
-                        className="h-10 bg-amber-300 px-4 font-semibold text-amber-950 hover:bg-amber-400"
-                        onClick={() => setDoneTarget({ id: p.id, loanNumber: p.loanNumber })}
-                      >
-                        Mark Done
-                      </Button>
-                    ) : (
-                      <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">Done</span>
-                    )}
-                  </div>
-                </div>
-                {p.links.length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                    <span className="mr-1 text-xs font-medium text-slate-500">Receipts:</span>
-                    {p.links.map((link, i) => (
-                      <a
-                        key={link}
-                        href={link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-950 underline-offset-2 hover:bg-amber-100 hover:underline"
-                      >
-                        Slip {i + 1}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </article>
-            ))}
+                  {p.links.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                      <span className="mr-1 text-xs font-medium text-slate-500">Receipts:</span>
+                      {p.links.map((link, i) => (
+                        <a
+                          key={link}
+                          href={link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-950 underline-offset-2 hover:bg-amber-100 hover:underline"
+                        >
+                          Slip {i + 1}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              ))}
           </div>
         </section>
       </div>
@@ -395,7 +441,11 @@ function PendingPage() {
             <Line k="Settlement Payment" v={settlement ? "Yes" : "No"} />
           </dl>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" className="h-12 text-base" onClick={() => setShowConfirm(false)}>
+            <Button
+              variant="outline"
+              className="h-12 text-base"
+              onClick={() => setShowConfirm(false)}
+            >
               Cancel / Edit
             </Button>
             <Button
@@ -414,11 +464,16 @@ function PendingPage() {
           <DialogHeader>
             <DialogTitle className="text-xl">Mark as done?</DialogTitle>
             <DialogDescription>
-              Loan {doneTarget?.loanNumber} will be added to Collections and removed from the pending queue.
+              Loan {doneTarget?.loanNumber} will be added to Collections and removed from the
+              pending queue.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" className="h-12 text-base" onClick={() => setDoneTarget(null)}>
+            <Button
+              variant="outline"
+              className="h-12 text-base"
+              onClick={() => setDoneTarget(null)}
+            >
               Cancel
             </Button>
             <Button

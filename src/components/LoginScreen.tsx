@@ -56,7 +56,11 @@ export function LoginScreen() {
       <div className="mx-auto flex min-h-[calc(100svh-3rem)] w-full max-w-[520px] flex-col justify-center gap-7 md:min-h-0 md:max-w-[520px] md:gap-0">
         <section className="flex flex-col justify-between gap-8 md:hidden">
           <div className="flex items-center gap-3">
-            <img src="/mahavtaar-logo.png" alt="Mahavtaar Enterprises" className="size-11 shrink-0 rounded-[14px] object-contain" />
+            <img
+              src="/mahavtaar-logo.png"
+              alt="Mahavtaar Enterprises"
+              className="size-11 shrink-0 rounded-[14px] object-contain"
+            />
             <div className="leading-tight">
               <p className="text-sm font-extrabold tracking-tight">Mahavtaar</p>
               <p className="mt-1 text-xs text-[#777d73]">Enterprises</p>
@@ -84,7 +88,11 @@ export function LoginScreen() {
 
         <section className="w-full">
           <div className="mb-6 hidden items-center justify-center gap-3 md:flex">
-            <img src="/mahavtaar-logo.png" alt="Mahavtaar Enterprises" className="size-12 object-contain" />
+            <img
+              src="/mahavtaar-logo.png"
+              alt="Mahavtaar Enterprises"
+              className="size-12 object-contain"
+            />
             <div className="leading-tight">
               <p className="text-base font-extrabold tracking-tight text-[#20231f]">Mahavtaar</p>
               <p className="mt-1 text-xs text-[#777d73]">Daily Collection Workspace</p>
@@ -167,11 +175,20 @@ export function LoginScreen() {
               disabled={!executiveName || !pin || busy}
             >
               {busy ? "Signing in..." : "Continue"}
-              {!busy && <span aria-hidden="true" className="ml-2 text-base">→</span>}
+              {!busy && (
+                <span aria-hidden="true" className="ml-2 text-base">
+                  →
+                </span>
+              )}
             </Button>
 
             <p className="mt-5 flex items-center justify-center gap-2 text-center text-[11px] leading-5 text-[#858b81]">
-              <span aria-hidden="true" className="grid size-4 place-items-center rounded-[5px] border border-[#aeb5aa] text-[9px]">•</span>
+              <span
+                aria-hidden="true"
+                className="grid size-4 place-items-center rounded-[5px] border border-[#aeb5aa] text-[9px]"
+              >
+                •
+              </span>
               Secure access for authorised team members
             </p>
           </form>

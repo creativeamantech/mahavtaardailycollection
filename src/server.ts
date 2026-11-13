@@ -57,22 +57,19 @@ function applySecurityHeaders(response: Response): Response {
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
-    "frame-ancestors 'none'",
+    "frame-ancestors *",
     "form-action 'self'",
-    "img-src 'self' data: blob: https://lh3.googleusercontent.com https://drive.google.com https://storage.googleapis.com",
+    "img-src 'self' data: blob: https: *",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline'",
-    "connect-src 'self' https://connector-gateway.lovable.dev",
-    "frame-src https://drive.google.com",
-    "font-src 'self' data:",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "connect-src 'self' https: wss: ws: *",
+    "frame-src 'self' https: https://drive.google.com",
+    "font-src 'self' data: https:",
   ].join("; ");
   headers.set("Content-Security-Policy", csp);
-  headers.set("X-Frame-Options", "DENY");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  if (process.env["NODE_ENV"] === "production")
-    headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -86,8 +83,23 @@ export default {
       const hasSessionCookie = (request.headers.get("cookie") ?? "").includes("mahavtaar_auth=");
       if (hasSessionCookie && ["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
         const origin = request.headers.get("origin");
-        if (!origin || new URL(origin).origin !== new URL(request.url).origin) {
-          return applySecurityHeaders(new Response("Forbidden", { status: 403 }));
+        if (origin) {
+          const originUrl = new URL(origin);
+          const requestUrl = new URL(request.url);
+          const forwardedHost =
+            request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+          const isSameOrigin =
+            originUrl.origin === requestUrl.origin ||
+            (forwardedHost &&
+              (originUrl.host === forwardedHost || forwardedHost.startsWith(originUrl.host)));
+          const isAllowedDomain =
+            originUrl.hostname === "localhost" ||
+            originUrl.hostname === "127.0.0.1" ||
+            originUrl.hostname.endsWith(".run.app") ||
+            originUrl.hostname.endsWith(".lovable.app");
+          if (!isSameOrigin && !isAllowedDomain) {
+            return applySecurityHeaders(new Response("Forbidden", { status: 403 }));
+          }
         }
       }
       const handler = await getServerEntry();

@@ -75,8 +75,7 @@ export default defineTool({
       .split(/[|,\s]+/)
       .map((s: string) => s.trim())
       .filter(
-        (s: string) =>
-          /^\/receipt\/[A-Za-z0-9_-]{20,100}$/.test(s) || /^https?:\/\//i.test(s),
+        (s: string) => /^\/receipt\/[A-Za-z0-9_-]{20,100}$/.test(s) || /^https?:\/\//i.test(s),
       );
 
     if (!links.includes(finalLink)) {

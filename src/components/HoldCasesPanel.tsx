@@ -224,7 +224,9 @@ export function HoldCasesPanel() {
           </Select>
         ) : (
           <div className="flex h-12 items-center rounded-md border bg-muted px-3 text-base">
-            {sessionLoading ? "Loading logged-in executive..." : executive || session?.name || "Executive not available"}
+            {sessionLoading
+              ? "Loading logged-in executive..."
+              : executive || session?.name || "Executive not available"}
           </div>
         )}
       </div>

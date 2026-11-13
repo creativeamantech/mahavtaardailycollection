@@ -39,7 +39,7 @@ export function ExcludedLoanBulkManager() {
             setLoanNumbers("");
             await qc.invalidateQueries({ queryKey: ["excluded-loan-numbers"] });
             await qc.invalidateQueries({ queryKey: ["collections"] });
-      await qc.invalidateQueries({ queryKey: ["report-bundle"] });
+            await qc.invalidateQueries({ queryKey: ["report-bundle"] });
             toast.success(
               `Bulk import complete: ${result.added} added, ${result.skippedExisting} already-active duplicates skipped.`,
             );

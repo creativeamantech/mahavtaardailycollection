@@ -144,7 +144,6 @@
   }
 }
 
-
 /* Android/mobile viewport stability: keep the app within the device width while
    allowing explicitly scrollable data tables and tab strips to scroll locally. */
 @layer base {

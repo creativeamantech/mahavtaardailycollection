@@ -46,7 +46,10 @@ export const getTeamMeter = createServerFn({ method: "GET" }).handler(async () =
       category: String(row[4] ?? ""),
       timestamp: String(row[5] ?? ""),
     }))
-    .filter((vote) => vote.date === date && Number.isInteger(vote.hour) && vote.hour >= 9 && vote.hour < 21);
+    .filter(
+      (vote) =>
+        vote.date === date && Number.isInteger(vote.hour) && vote.hour >= 9 && vote.hour < 21,
+    );
 
   const hourly = Array.from({ length: 12 }, (_, index) => {
     const hour = index + 9;
@@ -61,20 +64,28 @@ export const getTeamMeter = createServerFn({ method: "GET" }).handler(async () =
 
   const executiveTotals = EXECUTIVES.map((name) => ({
     name,
-    loudVoice: votes.filter((vote) => vote.target === name && vote.category === "Loud Voice").length,
+    loudVoice: votes.filter((vote) => vote.target === name && vote.category === "Loud Voice")
+      .length,
     badWords: votes.filter((vote) => vote.target === name && vote.category === "Bad Words").length,
   }));
-  const hourlyByExecutive = Object.fromEntries(EXECUTIVES.map((name) => [
-    name,
-    Object.fromEntries(Array.from({ length: 12 }, (_, index) => {
-      const hour = index + 9;
-      const matching = votes.filter((vote) => vote.target === name && vote.hour === hour);
-      return [hour, {
-        loudVoice: matching.filter((vote) => vote.category === "Loud Voice").length,
-        badWords: matching.filter((vote) => vote.category === "Bad Words").length,
-      }];
-    })),
-  ]));
+  const hourlyByExecutive = Object.fromEntries(
+    EXECUTIVES.map((name) => [
+      name,
+      Object.fromEntries(
+        Array.from({ length: 12 }, (_, index) => {
+          const hour = index + 9;
+          const matching = votes.filter((vote) => vote.target === name && vote.hour === hour);
+          return [
+            hour,
+            {
+              loudVoice: matching.filter((vote) => vote.category === "Loud Voice").length,
+              badWords: matching.filter((vote) => vote.category === "Bad Words").length,
+            },
+          ];
+        }),
+      ),
+    ]),
+  );
 
   return {
     date,
@@ -83,9 +94,16 @@ export const getTeamMeter = createServerFn({ method: "GET" }).handler(async () =
     executiveTotals,
     hourlyByExecutive,
     // Voter identities are never sent to executive sessions.
-    adminRecords: session.role === "Admin"
-      ? votes.map(({ voter, target, category, hour, timestamp }) => ({ voter, target, category, hour, timestamp }))
-      : [],
+    adminRecords:
+      session.role === "Admin"
+        ? votes.map(({ voter, target, category, hour, timestamp }) => ({
+            voter,
+            target,
+            category,
+            hour,
+            timestamp,
+          }))
+        : [],
   };
 });
 
@@ -107,24 +125,22 @@ export const castTeamMeterVote = createServerFn({ method: "POST" })
 
     return withSheetMutex("team-meter-votes", async () => {
       const rows = await sheetsGet(`${TAB}!A2:F`);
-      const duplicate = rows.some((row) =>
-        String(row[0] ?? "") === date &&
-        Number(row[1]) === hour &&
-        String(row[2] ?? "").toLowerCase() === session.name.toLowerCase() &&
-        String(row[3] ?? "").toLowerCase() === data.target.toLowerCase() &&
-        String(row[4] ?? "") === data.category
+      const duplicate = rows.some(
+        (row) =>
+          String(row[0] ?? "") === date &&
+          Number(row[1]) === hour &&
+          String(row[2] ?? "").toLowerCase() === session.name.toLowerCase() &&
+          String(row[3] ?? "").toLowerCase() === data.target.toLowerCase() &&
+          String(row[4] ?? "") === data.category,
       );
       if (duplicate) {
-        throw new Error("You have already voted for this executive in this category during the current hour.");
+        throw new Error(
+          "You have already voted for this executive in this category during the current hour.",
+        );
       }
-      await sheetsAppendStrict(`${TAB}!A:F`, [[
-        date,
-        hour,
-        session.name,
-        data.target,
-        data.category,
-        new Date().toISOString(),
-      ]]);
+      await sheetsAppendStrict(`${TAB}!A:F`, [
+        [date, hour, session.name, data.target, data.category, new Date().toISOString()],
+      ]);
       return { ok: true as const, target: data.target, category: data.category, hour };
     });
   });

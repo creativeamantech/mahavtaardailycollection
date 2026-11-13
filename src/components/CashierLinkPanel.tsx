@@ -43,9 +43,12 @@ export function CashierLinkPanel({
     queryFn: () => getSession(),
     staleTime: 30_000,
   });
-  const exec = session?.role === "Executive"
-    ? session.name
-    : parentExec && EXECUTIVES.includes(parentExec as Executive) ? parentExec : internalExec;
+  const exec =
+    session?.role === "Executive"
+      ? session.name
+      : parentExec && EXECUTIVES.includes(parentExec as Executive)
+        ? parentExec
+        : internalExec;
 
   const handleSelectExec = (val: string) => {
     if (session?.role !== "Admin") return;
@@ -301,49 +304,51 @@ export function CashierLinkPanel({
         </div>
 
         {/* Admin-only executive switching controls */}
-        {session?.role === "Admin" && <div className="pt-1 border-t">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-            <span className="font-medium flex items-center gap-1">
-              <Users className="h-3.5 w-3.5" />
-              All Executives
-            </span>
-            <span>Tap to switch</span>
-          </div>
+        {session?.role === "Admin" && (
+          <div className="pt-1 border-t">
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+              <span className="font-medium flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                All Executives
+              </span>
+              <span>Tap to switch</span>
+            </div>
 
-          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-            {EXECUTIVES.map((e) => {
-              const on = Boolean(statuses?.[e]?.isOnline);
-              const isSelected = exec === e;
-              return (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => handleSelectExec(e)}
-                  className={`flex flex-col items-center justify-center rounded-lg border p-1.5 text-center transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/10 shadow-xs"
-                      : "border-slate-200 hover:bg-muted"
-                  }`}
-                  title={`${e}: ${on ? "ON" : "OFF"}`}
-                >
-                  <span
-                    className={`inline-block h-2 w-2 rounded-full mb-1 ${
-                      on ? "bg-emerald-500 animate-pulse" : "bg-slate-300"
+            <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+              {EXECUTIVES.map((e) => {
+                const on = Boolean(statuses?.[e]?.isOnline);
+                const isSelected = exec === e;
+                return (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => handleSelectExec(e)}
+                    className={`flex flex-col items-center justify-center rounded-lg border p-1.5 text-center transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/10 shadow-xs"
+                        : "border-slate-200 hover:bg-muted"
                     }`}
-                  />
-                  <span className="text-[11px] font-semibold truncate w-full">{e}</span>
-                  <span
-                    className={`text-[9px] font-bold ${
-                      on ? "text-emerald-700" : "text-muted-foreground"
-                    }`}
+                    title={`${e}: ${on ? "ON" : "OFF"}`}
                   >
-                    {on ? "ON" : "OFF"}
-                  </span>
-                </button>
-              );
-            })}
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full mb-1 ${
+                        on ? "bg-emerald-500 animate-pulse" : "bg-slate-300"
+                      }`}
+                    />
+                    <span className="text-[11px] font-semibold truncate w-full">{e}</span>
+                    <span
+                      className={`text-[9px] font-bold ${
+                        on ? "text-emerald-700" : "text-muted-foreground"
+                      }`}
+                    >
+                      {on ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>}
+        )}
 
         {/* Recent Activity History Feed */}
         <div className="pt-2 border-t space-y-2">
@@ -353,21 +358,23 @@ export function CashierLinkPanel({
               Activity History
             </span>
 
-            {session?.role === "Admin" && <Select value={historyFilter} onValueChange={setHistoryFilter}>
-              <SelectTrigger className="h-7 w-28 text-[11px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL" className="text-xs">
-                  All Staff
-                </SelectItem>
-                {EXECUTIVES.map((e) => (
-                  <SelectItem key={e} value={e} className="text-xs">
-                    {e}
+            {session?.role === "Admin" && (
+              <Select value={historyFilter} onValueChange={setHistoryFilter}>
+                <SelectTrigger className="h-7 w-28 text-[11px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL" className="text-xs">
+                    All Staff
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>}
+                  {EXECUTIVES.map((e) => (
+                    <SelectItem key={e} value={e} className="text-xs">
+                      {e}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {isLoading ? (

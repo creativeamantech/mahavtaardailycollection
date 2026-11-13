@@ -452,8 +452,8 @@ function ConflictsContent() {
             )}
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground sm:text-base">
-            रसीदें देखकर तुलना (Compare) करें — अगर दोनों सही हैं तो &quot;Conflict नहीं है, सही
-            है&quot; चुनें, या फिर गलत/डुप्लीकेट एंट्री को एडिट अथवा डिलीट करें।
+            रसीदें देखकर तुलना (Compare) करें — अगर दोनों सही हैं तो &quot;Conflict नहीं है, सही है&quot; चुनें, या
+            फिर गलत/डुप्लीकेट एंट्री को एडिट अथवा डिलीट करें।
           </p>
         </div>
 
@@ -658,8 +658,7 @@ function ConflictsContent() {
                 All Entries Are Clean! (No Active Conflicts)
               </h3>
               <p className="mt-1 text-sm text-emerald-800/80 dark:text-emerald-300/80">
-                गूगल शीट में कोई भी एक्टिव डुप्लीकेट या कॉन्फ्लिक्टिंग पेमेंट रिकॉर्ड नहीं है। सभी
-                कलेक्शन सुरक्षित हैं।
+                गूगल शीट में कोई भी एक्टिव डुप्लीकेट या कॉन्फ्लिक्टिंग पेमेंट रिकॉर्ड नहीं है। सभी कलेक्शन सुरक्षित हैं।
               </p>
             </div>
           )}
@@ -999,9 +998,7 @@ function ConflictsContent() {
                                 disabled={validatingRow === item.row}
                               >
                                 <Check className="mr-1 h-3.5 w-3.5" />
-                                {validatingRow === item.row
-                                  ? "Saving..."
-                                  : "Conflict नहीं है, सही है"}
+                                {validatingRow === item.row ? "Saving..." : "Conflict नहीं है, सही है"}
                               </Button>
 
                               <Button
@@ -1147,9 +1144,8 @@ function ConflictsContent() {
                   Approved &amp; Verified Entries ({verifiedItems.length})
                 </h3>
                 <p className="text-xs opacity-90">
-                  ये वो एंट्रीज हैं जिन्हें आपने &quot;Conflict नहीं है, सही है&quot; मार्क किया है।
-                  ये सभी अब कलेक्शन व रिपोर्ट्स में शामिल हैं। अगर गलती से किया हो तो आप वापस Revert
-                  कर सकते हैं।
+                  ये वो एंट्रीज हैं जिन्हें आपने &quot;Conflict नहीं है, सही है&quot; मार्क किया है। ये सभी अब
+                  कलेक्शन व रिपोर्ट्स में शामिल हैं। अगर गलती से किया हो तो आप वापस Revert कर सकते हैं।
                 </p>
               </div>
             </div>
@@ -1468,8 +1464,7 @@ function ConflictsContent() {
           <DialogHeader>
             <DialogTitle>Edit Conflicting Entry (Row {editingItem?.row})</DialogTitle>
             <DialogDescription>
-              एंट्री में सही जानकारी दर्ज करें ताकि कॉन्फ्लिक्ट रिज़ॉल्व हो सके और कलेक्शन में शामिल
-              हो सके।
+              एंट्री में सही जानकारी दर्ज करें ताकि कॉन्फ्लिक्ट रिज़ॉल्व हो सके और कलेक्शन में शामिल हो सके।
             </DialogDescription>
           </DialogHeader>
 
@@ -1606,8 +1601,8 @@ function ConflictsContent() {
             </DialogTitle>
             <DialogDescription>
               क्या आप **{deletingItem?.executive}** द्वारा लोन ID **{deletingItem?.loanId}** (अमाउंट{" "}
-              {deletingItem && formatAmount(deletingItem.amount)}) की यह डुप्लीकेट एंट्री गूगल शीट
-              से हटाना चाहते हैं?
+              {deletingItem && formatAmount(deletingItem.amount)}) की यह डुप्लीकेट एंट्री गूगल शीट से हटाना
+              चाहते हैं?
             </DialogDescription>
           </DialogHeader>
 

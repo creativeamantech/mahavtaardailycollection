@@ -135,9 +135,10 @@ export function summariseLoans(rows: CollectionRow[]): LoanSummary[] {
       l.applicableEmiCount = emiCountForBucket(l.bucket);
       const validBalance = l.pos !== null && l.pos > 0 && l.emiAmount !== null && l.emiAmount > 0;
       l.remainingLoanEmis = validBalance ? l.pos! / l.emiAmount! : 0;
-      l.bucketTargetEmis = validBalance && l.applicableEmiCount !== null
-        ? Math.min(l.applicableEmiCount, Math.ceil(l.remainingLoanEmis))
-        : 0;
+      l.bucketTargetEmis =
+        validBalance && l.applicableEmiCount !== null
+          ? Math.min(l.applicableEmiCount, Math.ceil(l.remainingLoanEmis))
+          : 0;
       l.totalEmiRequired = validBalance ? l.bucketTargetEmis * l.emiAmount! : null;
 
       l.posPaid = l.pos !== null && l.pos > 0 && l.totalPaid >= l.pos;

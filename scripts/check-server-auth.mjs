@@ -3,11 +3,7 @@ import path from "node:path";
 import ts from "typescript";
 
 const root = path.resolve("src");
-const exempt = new Set([
-  "loginWithPin",
-  "getCurrentSession",
-  "logoutCurrentSession",
-]);
+const exempt = new Set(["loginWithPin", "getCurrentSession", "logoutCurrentSession"]);
 const failures = [];
 
 function walk(directory) {

@@ -38,7 +38,15 @@ import { BUCKETS, bucketMatches, loanStats, summariseLoans } from "@/lib/loans";
 import { MonthSelect } from "@/components/MonthSelect";
 import { currentMonthKey, monthKey, monthOptions } from "@/lib/months";
 import { downloadCollectionExport, downloadFullCollectionCsv, toCsv } from "@/lib/export";
-import { ALL_CATEGORIES, CategoryFilter, useCategoryFilter, AllocationTypeFilter, allocationTypeMatches, uniqueAllocationTypes, useAllocationTypeFilter } from "@/components/AllocationFilters";
+import {
+  ALL_CATEGORIES,
+  CategoryFilter,
+  useCategoryFilter,
+  AllocationTypeFilter,
+  allocationTypeMatches,
+  uniqueAllocationTypes,
+  useAllocationTypeFilter,
+} from "@/components/AllocationFilters";
 
 // Export button — includes regular + Already Paid cases with "Already Paid" column at the end.
 function ExportButton({
@@ -211,12 +219,22 @@ function BucketFilter({ value, onChange }: { value: string; onChange: (v: string
 // Loan-level figures, computed from the same already-fetched dataset.
 function LoanStatsCards({ rows }: { rows: Collection[] }) {
   const stats = useMemo(() => {
-    const loans = summariseLoans(rows.map((r) => ({
-      executive: r.executive, loanId: r.loanId ?? "", amount: r.amount, date: r.date,
-      settlement: r.settlement ?? false, settlementType: r.settlementType,
-      foreclosureEntry: r.foreclosureEntry, bucket: r.bucket ?? "", city: r.city ?? "",
-      emiAmount: r.emiAmount ?? null, pos: r.pos ?? null, foreclosure: r.foreclosure ?? null,
-    })));
+    const loans = summariseLoans(
+      rows.map((r) => ({
+        executive: r.executive,
+        loanId: r.loanId ?? "",
+        amount: r.amount,
+        date: r.date,
+        settlement: r.settlement ?? false,
+        settlementType: r.settlementType,
+        foreclosureEntry: r.foreclosureEntry,
+        bucket: r.bucket ?? "",
+        city: r.city ?? "",
+        emiAmount: r.emiAmount ?? null,
+        pos: r.pos ?? null,
+        foreclosure: r.foreclosure ?? null,
+      })),
+    );
     return loanStats(loans);
   }, [rows]);
   return (
@@ -1029,8 +1047,8 @@ function PaidHoldAnalysis({
         <div>
           <p className="font-semibold">Include PTPs in this report</p>
           <p className="text-xs text-muted-foreground">
-            OFF करने पर PTP count और POS सभी totals और breakdown से हटेंगे। Original PTP records
-            सुरक्षित रहेंगे।
+            OFF करने पर PTP count और POS सभी totals और breakdown से हटेंगे। Original PTP records सुरक्षित
+            रहेंगे।
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1397,7 +1415,6 @@ function PTPReport({
   );
 }
 
-
 type FailedAttempt = {
   row: number;
   timestamp: string;
@@ -1409,7 +1426,8 @@ type FailedAttempt = {
 };
 
 function FailedAttemptsReport({ rows, isLoading }: { rows: FailedAttempt[]; isLoading: boolean }) {
-  if (isLoading) return <p className="rounded-xl border p-6 text-center">Loading failed attempts…</p>;
+  if (isLoading)
+    return <p className="rounded-xl border p-6 text-center">Loading failed attempts…</p>;
   return (
     <section className="space-y-3">
       <div className="rounded-xl border p-4">
@@ -1425,11 +1443,18 @@ function FailedAttemptsReport({ rows, isLoading }: { rows: FailedAttempt[]; isLo
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold">{item.loanNumber || "Loan number unavailable"}</p>
-                  <p className="text-sm text-muted-foreground">{item.executive || "Unknown executive"} · {item.timestamp ? new Date(item.timestamp).toLocaleString("en-IN") : "Time unavailable"}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {item.executive || "Unknown executive"} ·{" "}
+                    {item.timestamp
+                      ? new Date(item.timestamp).toLocaleString("en-IN")
+                      : "Time unavailable"}
+                  </p>
                 </div>
                 <p className="font-semibold tabular-nums">{formatAmount(item.amount)}</p>
               </div>
-              <p className="mt-3 text-sm font-medium text-red-700 dark:text-red-400">Not saved: {item.reason}</p>
+              <p className="mt-3 text-sm font-medium text-red-700 dark:text-red-400">
+                Not saved: {item.reason}
+              </p>
             </article>
           ))}
         </div>
@@ -1440,7 +1465,13 @@ function FailedAttemptsReport({ rows, isLoading }: { rows: FailedAttempt[]; isLo
 
 function ReportPage() {
   const fetchReportBundle = useServerFn(getReportBundle);
-  const { data: bundle, isLoading, isFetching, error, refetch } = useQuery({
+  const {
+    data: bundle,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["report-bundle"],
     queryFn: async () => {
       const result = await fetchReportBundle();
@@ -1641,8 +1672,12 @@ function ReportPage() {
       <PortalTimingsPanel className="mb-5" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#a07b0a]">Performance &amp; collection intelligence</div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-[30px]">Collection Reports</h1>
+          <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#a07b0a]">
+            Performance &amp; collection intelligence
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-[30px]">
+            Collection Reports
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground lg:text-[13px]">
             Collection performance, case counts and follow-ups.
           </p>
@@ -1658,9 +1693,19 @@ function ReportPage() {
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] lg:items-end lg:p-4">
-        <div className="min-w-0"><MonthSelect value={month} onChange={setMonth} options={months} /></div>
-        <div className="min-w-0"><CategoryFilter value={category} onChange={setCategory} options={categories} /></div>
-        <div className="min-w-0"><AllocationTypeFilter value={allocationType} onChange={setAllocationType} options={allocationTypes} /></div>
+        <div className="min-w-0">
+          <MonthSelect value={month} onChange={setMonth} options={months} />
+        </div>
+        <div className="min-w-0">
+          <CategoryFilter value={category} onChange={setCategory} options={categories} />
+        </div>
+        <div className="min-w-0">
+          <AllocationTypeFilter
+            value={allocationType}
+            onChange={setAllocationType}
+            options={allocationTypes}
+          />
+        </div>
       </div>
       {alreadyPaidCount > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">
@@ -1768,7 +1813,11 @@ function ReportPage() {
           </div>
           <LoanStatsCards rows={dateScoped} />
           <PreviousCard count={prevDateWise.count} total={prevDateWise.total} />
-          <ReportBlock rows={dateWise} activityRows={dateActivityRows} excludedLoanIds={excludedLoanIds} />
+          <ReportBlock
+            rows={dateWise}
+            activityRows={dateActivityRows}
+            excludedLoanIds={excludedLoanIds}
+          />
           <ExportButton
             rows={dateScopedExportRows}
             fullRows={rawRows}
@@ -1777,10 +1826,16 @@ function ReportPage() {
           />
         </TabsContent>
         <TabsContent value="overall" className="mt-4 space-y-4">
-          <div className="rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:max-w-sm lg:p-4"><BucketFilter value={overallBucket} onChange={setOverallBucket} /></div>
+          <div className="rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:max-w-sm lg:p-4">
+            <BucketFilter value={overallBucket} onChange={setOverallBucket} />
+          </div>
           <LoanStatsCards rows={overallRows} />
           <PreviousCard count={prevOverall.count} total={prevOverall.total} />
-          <ReportBlock rows={overall} activityRows={overallActivityRows} excludedLoanIds={excludedLoanIds} />
+          <ReportBlock
+            rows={overall}
+            activityRows={overallActivityRows}
+            excludedLoanIds={excludedLoanIds}
+          />
           <ExportButton
             rows={overallExportRows}
             fullRows={rawRows}
@@ -1790,11 +1845,7 @@ function ReportPage() {
         </TabsContent>
         <TabsContent value="holdcases" className="mt-4 space-y-4">
           <div className="flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={holdCasesLoading}
-            >
+            <Button variant="outline" onClick={() => refetch()} disabled={holdCasesLoading}>
               Refresh Hold Cases
             </Button>
           </div>
@@ -1883,12 +1934,18 @@ function ReportBlock({
     <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)] lg:items-start lg:gap-4 lg:space-y-0">
       <div className="hidden grid-cols-2 gap-3 lg:col-span-2 lg:grid">
         <div className="rounded-xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">Total Collection</p>
-          <p className="mt-2 text-2xl font-extrabold tabular-nums text-[#252525]">{formatAmount(total)}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">
+            Total Collection
+          </p>
+          <p className="mt-2 text-2xl font-extrabold tabular-nums text-[#252525]">
+            {formatAmount(total)}
+          </p>
           <p className="mt-1 text-[11px] text-[#8a9097]">For the selected report period</p>
         </div>
         <div className="rounded-xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">Total Cases</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">
+            Total Cases
+          </p>
           <p className="mt-2 text-2xl font-extrabold tabular-nums text-[#252525]">{cases}</p>
           <p className="mt-1 text-[11px] text-[#8a9097]">Recorded collection entries</p>
         </div>
@@ -1910,8 +1967,15 @@ function ReportBlock({
                   <div className="font-medium">{r.executive}</div>
                   {(() => {
                     const activity = latestActivityByExecutive.get(r.executive);
-                    if (!activity) return <div className="mt-1 text-[10px] text-muted-foreground">No recent payment activity</div>;
-                    const loanKey = String(activity.loanId ?? "").trim().toUpperCase();
+                    if (!activity)
+                      return (
+                        <div className="mt-1 text-[10px] text-muted-foreground">
+                          No recent payment activity
+                        </div>
+                      );
+                    const loanKey = String(activity.loanId ?? "")
+                      .trim()
+                      .toUpperCase();
                     const status = activity.alreadyPaid
                       ? { label: "ALREADY PAID", className: "text-amber-700 dark:text-amber-400" }
                       : excludedLoanIds.has(loanKey)
@@ -1925,7 +1989,10 @@ function ReportBlock({
                         </div>
                         {activity.createdAt ? (
                           <div className="text-muted-foreground/80">
-                            {new Date(activity.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                            {new Date(activity.createdAt).toLocaleString("en-IN", {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
                           </div>
                         ) : null}
                       </div>
@@ -1966,7 +2033,9 @@ function ReportBlock({
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
             <p className="text-xs font-medium text-amber-900">Total Collection</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-amber-950">{formatAmount(total)}</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-amber-950">
+              {formatAmount(total)}
+            </p>
           </div>
           <div className="rounded-xl border bg-white p-3">
             <p className="text-xs font-medium text-muted-foreground">Total Cases</p>
@@ -1975,7 +2044,9 @@ function ReportBlock({
         </div>
         {rows.map((r) => {
           const activity = latestActivityByExecutive.get(r.executive);
-          const loanKey = String(activity?.loanId ?? "").trim().toUpperCase();
+          const loanKey = String(activity?.loanId ?? "")
+            .trim()
+            .toUpperCase();
           const status = !activity
             ? null
             : activity.alreadyPaid
@@ -1993,15 +2064,33 @@ function ReportBlock({
                 <p className="shrink-0 text-base font-bold tabular-nums">{formatAmount(r.total)}</p>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {r.normalCount > 0 && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900">Normal {r.normalCount}</span>}
-                {r.previousCount > 0 && <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-[11px] font-semibold text-yellow-900">Previous Paid {r.previousCount}</span>}
+                {r.normalCount > 0 && (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
+                    Normal {r.normalCount}
+                  </span>
+                )}
+                {r.previousCount > 0 && (
+                  <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-[11px] font-semibold text-yellow-900">
+                    Previous Paid {r.previousCount}
+                  </span>
+                )}
               </div>
               {activity && (
                 <div className="mt-3 border-t pt-2 text-[11px] text-muted-foreground">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>{status}</span><span>{activity.loanId || "—"} · {formatAmount(activity.amount)}</span>
+                    <span>{status}</span>
+                    <span>
+                      {activity.loanId || "—"} · {formatAmount(activity.amount)}
+                    </span>
                   </div>
-                  {activity.createdAt && <p className="mt-1">{new Date(activity.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>}
+                  {activity.createdAt && (
+                    <p className="mt-1">
+                      {new Date(activity.createdAt).toLocaleString("en-IN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                  )}
                 </div>
               )}
             </article>

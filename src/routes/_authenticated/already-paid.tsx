@@ -89,7 +89,10 @@ function AlreadyPaidContent() {
     () =>
       all
         .filter(
-          (r) => monthKey(r.date) === month && categoryMatches(r.allocationCategory, category) && allocationTypeMatches(r.allocationType, allocationType),
+          (r) =>
+            monthKey(r.date) === month &&
+            categoryMatches(r.allocationCategory, category) &&
+            allocationTypeMatches(r.allocationType, allocationType),
         )
         .sort((a, b) => (a.date < b.date ? 1 : -1)),
     [all, month, category, allocationType],
@@ -215,7 +218,11 @@ function AlreadyPaidContent() {
       </div>
       <MonthSelect value={month} onChange={setMonth} options={months} />
       <CategoryFilter value={category} onChange={setCategory} options={categories} />
-        <AllocationTypeFilter value={allocationType} onChange={setAllocationType} options={allocationTypes} />
+      <AllocationTypeFilter
+        value={allocationType}
+        onChange={setAllocationType}
+        options={allocationTypes}
+      />
       {isLoading && <p className="text-base">Loading...</p>}
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-destructive">

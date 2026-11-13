@@ -3,7 +3,10 @@ import { useAppConfig } from "@/hooks/useAppConfig";
 function isPriorityForExecutive(text: string, name: string) {
   if (!name) return false;
   const normalizedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
-  const normalizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const normalizedName = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
   return normalizedName.length > 0 && normalizedText.includes(` ${normalizedName} `);
 }
 
@@ -12,7 +15,8 @@ function isPriorityForExecutive(text: string, name: string) {
 export function NotificationPanel({ className = "" }: { className?: string }) {
   const { activeNotification, session } = useAppConfig();
   if (!activeNotification) return null;
-  const isPriority = session?.role === "Executive" && isPriorityForExecutive(activeNotification.text, session.name);
+  const isPriority =
+    session?.role === "Executive" && isPriorityForExecutive(activeNotification.text, session.name);
 
   return (
     <div
@@ -20,7 +24,11 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
     >
       <div className="flex items-center gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6b00]">Notification</p>
-        {isPriority && <span className="rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">YOUR PRIORITY</span>}
+        {isPriority && (
+          <span className="rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">
+            YOUR PRIORITY
+          </span>
+        )}
       </div>
       {activeNotification.text !== "" && (
         <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-snug">

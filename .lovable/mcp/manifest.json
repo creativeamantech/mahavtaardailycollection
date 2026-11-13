@@ -6,9 +6,7 @@
     "type": "oauth",
     "issuer": "https://ydgexnboxazquiiqcrup.supabase.co/auth/v1",
     "resource": "https://mahavtaardailycollection.lovable.app/mcp",
-    "accepted_audiences": [
-      "authenticated"
-    ]
+    "accepted_audiences": ["authenticated"]
   },
   "mcp": {
     "server": {
@@ -228,9 +226,7 @@
               "description": "Loan ID to look up."
             }
           },
-          "required": [
-            "loanId"
-          ],
+          "required": ["loanId"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -359,10 +355,7 @@
               "maxLength": 80
             }
           },
-          "required": [
-            "from",
-            "to"
-          ],
+          "required": ["from", "to"],
           "additionalProperties": false
         },
         "outputSchema": null
@@ -475,12 +468,7 @@
               "default": "hi",
               "description": "OCR language hint: Hindi, English, Marathi, or Gujarati.",
               "type": "string",
-              "enum": [
-                "hi",
-                "en",
-                "mr",
-                "gu"
-              ]
+              "enum": ["hi", "en", "mr", "gu"]
             }
           },
           "additionalProperties": false
@@ -530,13 +518,7 @@
               "default": "All",
               "description": "Status filter: All, Confirmed, Bounced, Cancelled, or Cleared.",
               "type": "string",
-              "enum": [
-                "All",
-                "Confirmed",
-                "Bounced",
-                "Cancelled",
-                "Cleared"
-              ]
+              "enum": ["All", "Confirmed", "Bounced", "Cancelled", "Cleared"]
             },
             "executive": {
               "description": "Optional executive name filter.",
