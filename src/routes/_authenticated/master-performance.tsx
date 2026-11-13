@@ -115,7 +115,10 @@ function MasterPerformancePage() {
     [data, bucket],
   );
   const rollbackShareRows = useMemo(
-    () => (data?.positiveNeededRollback ?? []).filter((r) => r.bucket === bucket),
+    () =>
+      (data?.positiveNeededRollback ?? []).filter(
+        (r) => r.bucket === bucket && r.neededRollbackPos > 0,
+      ),
     [data, bucket],
   );
 
@@ -252,18 +255,16 @@ function MasterPerformancePage() {
                 paid: r.rollbackPos,
                 target: r.targetRollbackPos,
               }))}
+              compact
               onShare={() =>
                 void share(
                   "City-wise Needed Rollback POS — " + bucket,
-                  rollbackShareRows.map((r) =>
-                    [
-                      r.city,
-                      "Cases " + r.totalCount,
-                      "Needed Rollback POS " + money(r.neededRollbackPos),
-                      "Rollback POS " + money(r.rollbackPos),
-                      "Target Rollback POS " + money(r.targetRollbackPos),
-                    ].join(" | "),
-                  ),
+                  [
+                    "City | Needed Rollback POS",
+                    ...rollbackShareRows.map((r) =>
+                      [r.city, money(r.neededRollbackPos)].join(" | "),
+                    ),
+                  ],
                 )
               }
             />
@@ -462,9 +463,11 @@ function ShareTable({
   title,
   rows,
   onShare,
+  compact = false,
 }: {
   title: string;
   rows: { city: string; cases: number; need: number; paid: number; target: number }[];
+  compact?: boolean;
   onShare: () => void;
 }) {
   return (
@@ -477,10 +480,10 @@ function ShareTable({
         </Button>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-sm">
+        <table className={"w-full text-sm " + (compact ? "min-w-[280px]" : "min-w-[520px]")}>
           <thead className="bg-muted/60">
             <tr>
-              {["City", "Cases", "Target POS", "Achieved POS", "Needed POS"].map((v) => (
+              {(compact ? ["City", "Needed Rollback POS"] : ["City", "Cases", "Target POS", "Achieved POS", "Needed POS"]).map((v) => (
                 <th key={v} className="px-3 py-2 text-right first:text-left">
                   {v}
                 </th>
@@ -491,15 +494,21 @@ function ShareTable({
             {rows.map((r) => (
               <tr key={r.city} className="border-t">
                 <td className="px-3 py-2 font-medium">{r.city}</td>
-                <td className="px-3 py-2 text-right">{r.cases}</td>
-                <td className="px-3 py-2 text-right">{money(r.target)}</td>
-                <td className="px-3 py-2 text-right">{money(r.paid)}</td>
-                <td className="px-3 py-2 text-right font-bold">{money(r.need)}</td>
+                {compact ? (
+                  <td className="px-3 py-2 text-right font-bold">{money(r.need)}</td>
+                ) : (
+                  <>
+                    <td className="px-3 py-2 text-right">{r.cases}</td>
+                    <td className="px-3 py-2 text-right">{money(r.target)}</td>
+                    <td className="px-3 py-2 text-right">{money(r.paid)}</td>
+                    <td className="px-3 py-2 text-right font-bold">{money(r.need)}</td>
+                  </>
+                )}
               </tr>
             ))}
             {!rows.length && (
               <tr>
-                <td colSpan={5} className="p-5 text-center text-muted-foreground">
+                <td colSpan={compact ? 2 : 5} className="p-5 text-center text-muted-foreground">
                   No positive requirement for this bucket.
                 </td>
               </tr>
