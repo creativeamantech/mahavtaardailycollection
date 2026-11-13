@@ -1098,9 +1098,9 @@ export function PaidFileReconciliationWorkspace({
                     </p>
                   </div>
                   <div className="rounded-lg border bg-muted/30 p-2.5">
-                    <p className="text-[11px] text-muted-foreground">Master matched</p>
+                    <p className="text-[11px] text-muted-foreground">Eligible for manual update</p>
                     <p className="mt-0.5 font-mono text-lg font-bold tabular-nums">
-                      {zeroAmountRows.length}
+                      {eligibleZeroRows.length}
                     </p>
                   </div>
                   <div className="rounded-lg border bg-muted/30 p-2.5">
