@@ -8,6 +8,7 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
+  Columns3,
   Download,
   ExternalLink,
   Loader2,
@@ -634,7 +635,7 @@ function MasterPerformancePage() {
                     title="City-wise Needed Main POS"
                     bucketName={activeBucketName}
                     csvFilename={`needed-main-pos-${activeBucketName.toLowerCase().replace(/\s+/g, "-")}.csv`}
-                    rows={mainShareRows.map((r) => ({
+                    rows={mainShareRows.filter((r) => r.neededPos > 0).map((r) => ({
                       city: r.city,
                       cases: r.totalCount,
                       need: r.neededPos,
@@ -660,7 +661,7 @@ function MasterPerformancePage() {
                     title="City-wise Needed Rollback POS"
                     bucketName={activeBucketName}
                     csvFilename={`needed-rollback-pos-${activeBucketName.toLowerCase().replace(/\s+/g, "-")}.csv`}
-                    rows={rollbackShareRows.map((r) => ({
+                    rows={rollbackShareRows.filter((r) => r.neededRollbackPos > 0).map((r) => ({
                       city: r.city,
                       cases: r.totalCount,
                       need: r.neededRollbackPos,
@@ -1016,152 +1017,44 @@ function KpiProgressCard({
   );
 }
 
-function ShareTable({
-  title,
-  bucketName,
-  csvFilename,
-  rows,
-  onShare,
-}: {
-  title: string;
-  bucketName: string;
-  csvFilename: string;
+function ShareTable({ title, bucketName, csvFilename, rows }: {
+  title: string; bucketName: string; csvFilename: string;
   rows: { city: string; cases: number; need: number; paid: number; target: number }[];
-  onShare: () => void;
 }) {
-  const totalNeed = rows.reduce((sum, r) => sum + r.need, 0);
-  const totalCases = rows.reduce((sum, r) => sum + r.cases, 0);
-
-  return (
-    <section className="min-w-0 overflow-hidden rounded-xl border bg-background">
-      <div className="flex flex-col gap-2.5 border-b bg-muted/20 p-3.5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-sm font-bold text-foreground">{title}</h3>
-          <p className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-            {bucketName} · {rows.length} cities · Total Needed {money(totalNeed)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={rows.length === 0}
-            className="min-h-10 flex-1 whitespace-nowrap sm:min-h-8 sm:flex-initial"
-            onClick={() =>
-              downloadCsv(
-                csvFilename,
-                toCsv(
-                  ["Bucket", "City", "Cases", "Target POS", "Achieved POS", "Needed POS"],
-                  rows.map((r) => [bucketName, r.city, r.cases, r.target, r.paid, r.need]),
-                ),
-              )
-            }
-          >
-            <Download className="mr-1.5 size-3.5" />
-            CSV
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={rows.length === 0}
-            className="min-h-10 flex-1 whitespace-nowrap sm:min-h-8 sm:flex-initial"
-            onClick={onShare}
-          >
-            <Share2 className="mr-1.5 size-3.5" />
-            Share
-          </Button>
-        </div>
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="p-6 text-center text-xs text-muted-foreground">
-          No positive POS shortfall for {bucketName}.
-        </div>
-      ) : (
-        <>
-          {/* Android Cards */}
-          <div className="divide-y md:hidden">
-            {rows.map((r) => (
-              <div key={r.city} className="space-y-2 p-3.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-foreground">{r.city}</span>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                    {r.cases.toLocaleString("en-IN")} cases
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/35 p-2.5 font-mono text-xs tabular-nums">
-                  <div>
-                    <div className="font-sans text-[10px] text-muted-foreground">Target</div>
-                    <div className="font-semibold text-foreground">{money(r.target)}</div>
-                  </div>
-                  <div>
-                    <div className="font-sans text-[10px] text-muted-foreground">Achieved</div>
-                    <div className="font-semibold text-foreground">{money(r.paid)}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-sans text-[10px] text-muted-foreground">Needed</div>
-                    <div className="font-bold text-amber-700 dark:text-amber-400">
-                      {money(r.need)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop Table */}
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-xs">
-              <thead className="border-b bg-muted/40 text-[11px] uppercase text-muted-foreground">
-                <tr>
-                  {["City", "Cases", "Target POS", "Achieved POS", "Needed POS"].map((v) => (
-                    <th key={v} className="px-3.5 py-2.5 text-right font-semibold first:text-left">
-                      {v}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {rows.map((r) => (
-                  <tr key={r.city} className="hover:bg-muted/20">
-                    <td className="px-3.5 py-2.5 font-semibold text-foreground">{r.city}</td>
-                    <td className="px-3.5 py-2.5 text-right font-mono tabular-nums">
-                      {r.cases.toLocaleString("en-IN")}
-                    </td>
-                    <td className="px-3.5 py-2.5 text-right font-mono tabular-nums">
-                      {money(r.target)}
-                    </td>
-                    <td className="px-3.5 py-2.5 text-right font-mono tabular-nums">
-                      {money(r.paid)}
-                    </td>
-                    <td className="px-3.5 py-2.5 text-right font-mono font-bold tabular-nums text-amber-700 dark:text-amber-400">
-                      {money(r.need)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="border-t-2 bg-muted/40 font-bold">
-                <tr>
-                  <td className="px-3.5 py-2.5">Total ({rows.length} cities)</td>
-                  <td className="px-3.5 py-2.5 text-right font-mono tabular-nums">
-                    {totalCases.toLocaleString("en-IN")}
-                  </td>
-                  <td className="px-3.5 py-2.5" colSpan={2} />
-                  <td className="px-3.5 py-2.5 text-right font-mono tabular-nums text-foreground">
-                    {money(totalNeed)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </>
-      )}
-    </section>
-  );
+  const [visible, setVisible] = useState(["cases", "target", "paid", "need"]);
+  const positive = rows.filter((r) => Number.isFinite(r.need) && r.need > 0);
+  const options = [{key:"cases",label:"Cases"},{key:"target",label:"Target POS"},{key:"paid",label:"Achieved POS"},{key:"need",label:"Needed POS"}];
+  const columns = options.filter(col => visible.includes(col.key));
+  const totalNeed = positive.reduce((s,r)=>s+r.need,0), totalCases = positive.reduce((s,r)=>s+r.cases,0);
+  const value = (r: typeof rows[number], key: string) => key==="cases" ? r.cases.toLocaleString("en-IN") : money(key==="target"?r.target:key==="paid"?r.paid:r.need);
+  async function shareJpg() {
+    if (!columns.length) { toast.error("Select at least one column."); return; }
+    try {
+      const canvas=document.createElement("canvas"), scale=2, width=1100, rh=64, top=170, height=top+(positive.length+1)*rh+35;
+      canvas.width=width*scale; canvas.height=height*scale;
+      const ctx=canvas.getContext("2d"); if(!ctx) throw new Error("JPG generation failed.");
+      ctx.scale(scale,scale); ctx.fillStyle="#fff"; ctx.fillRect(0,0,width,height); ctx.fillStyle="#292820"; ctx.fillRect(0,0,width,10);
+      ctx.font="bold 32px Arial"; ctx.fillText(title,42,58); ctx.font="20px Arial"; ctx.fillStyle="#6b6250";
+      ctx.fillText(bucketName+" · "+positive.length+" cities · Needed POS "+money(totalNeed),42,100);
+      const cityW=330,colW=(width-84-cityW)/columns.length;
+      ctx.fillStyle="#fff1c5"; ctx.fillRect(35,top,width-70,rh); ctx.fillStyle="#292820"; ctx.font="bold 18px Arial"; ctx.textBaseline="middle"; ctx.textAlign="left"; ctx.fillText("City",50,top+rh/2);
+      columns.forEach((col,i)=>{ctx.textAlign="right";ctx.fillText(col.label,width-50-i*colW,top+rh/2);});
+      positive.forEach((r,i)=>{const y=top+(i+1)*rh;ctx.fillStyle=i%2?"#faf8f1":"#fff";ctx.fillRect(35,y,width-70,rh);ctx.fillStyle="#292820";ctx.font="18px Arial";ctx.textAlign="left";ctx.fillText(r.city,50,y+rh/2,cityW-20);columns.forEach((col,j)=>{ctx.textAlign="right";ctx.fillStyle=col.key==="need"?"#9a5b00":"#292820";ctx.fillText(value(r,col.key),width-50-j*colW,y+rh/2);});});
+      const y=top+(positive.length+1)*rh;ctx.fillStyle="#f4eddb";ctx.fillRect(35,y,width-70,35);ctx.font="bold 17px Arial";ctx.textAlign="left";ctx.fillStyle="#292820";ctx.fillText("TOTAL · "+positive.length+" cities · "+totalCases.toLocaleString("en-IN")+" cases",50,y+18);
+      const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error("Could not export JPG.")),"image/jpeg",.94));
+      const filename=csvFilename.replace(/\.csv$/i,".jpg"),file=new File([blob],filename,{type:"image/jpeg"});
+      if(navigator.share&&navigator.canShare?.({files:[file]})) await navigator.share({files:[file],title});
+      else {const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);toast.success("JPG downloaded; share it on WhatsApp.");}
+    } catch(err) {if(err instanceof Error&&err.name!=="AbortError")toast.error(err.message);}
+  }
+  return <section className="min-w-0 overflow-hidden rounded-xl border bg-background">
+    <div className="flex flex-col gap-2.5 border-b bg-muted/20 p-3.5 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-bold">{title}</h3><p className="mt-0.5 text-[11px] text-muted-foreground">{bucketName} · {positive.length} cities · Total Needed {money(totalNeed)}</p></div>
+      <div className="flex gap-2"><Button type="button" size="sm" variant="outline" disabled={!positive.length} onClick={()=>downloadCsv(csvFilename,toCsv(["Bucket","City","Cases","Target POS","Achieved POS","Needed POS"],positive.map(r=>[bucketName,r.city,r.cases,r.target,r.paid,r.need])))}><Download className="mr-1.5 size-3.5"/>CSV</Button><Button type="button" size="sm" variant="outline" disabled={!positive.length} onClick={()=>void shareJpg()}><Share2 className="mr-1.5 size-3.5"/>Share JPG</Button></div>
+    </div>
+    <div className="border-b px-3.5 py-3"><div className="mb-2 flex items-center gap-1.5 text-xs font-semibold"><Columns3 className="size-3.5"/>Columns to show / share</div><div className="flex flex-wrap gap-4">{options.map(col=><label key={col.key} className="inline-flex min-h-8 items-center gap-2 text-xs"><input type="checkbox" className="size-4 accent-[#d4a928]" checked={visible.includes(col.key)} onChange={ev=>setVisible(old=>ev.target.checked?[...old,col.key]:old.filter(k=>k!==col.key))}/>{col.label}</label>)}</div></div>
+    {!positive.length?<div className="p-6 text-center text-xs text-muted-foreground">No positive POS shortfall for {bucketName}.</div>:<div className="overflow-x-auto"><table className="w-full text-xs"><thead className="border-b bg-muted/40"><tr><th className="px-3 py-2 text-left">City</th>{columns.map(col=><th key={col.key} className="px-3 py-2 text-right">{col.label}</th>)}</tr></thead><tbody className="divide-y">{positive.map(r=><tr key={r.city}><td className="px-3 py-2 font-semibold">{r.city}</td>{columns.map(col=><td key={col.key} className="px-3 py-2 text-right font-mono">{value(r,col.key)}</td>)}</tr>)}</tbody><tfoot className="border-t-2 font-bold"><tr><td className="px-3 py-2">Total ({positive.length} cities)</td>{columns.map(col=><td key={col.key} className="px-3 py-2 text-right font-mono">{col.key==="cases"?totalCases.toLocaleString("en-IN"):money(col.key==="need"?totalNeed:positive.reduce((sum,r)=>sum+(col.key==="target"?r.target:r.paid),0))}</td>)}</tr></tfoot></table></div>}
+  </section>;
 }
-
 function PerformanceTabPanel({
   bucketName,
   cities,
