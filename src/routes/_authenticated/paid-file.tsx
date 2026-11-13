@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   Lock,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   Upload,
@@ -28,7 +29,7 @@ import {
   type SheetInfo,
   type StagedPaidRow,
 } from "@/lib/paid-file-reconciliation";
-import { PaidFileReconciliationModal } from "@/components/PaidFileReconciliationModal";
+import { PaidFileReconciliationWorkspace } from "@/components/PaidFileReconciliationModal";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
@@ -89,8 +90,8 @@ function PaidFilePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [dragActive, setDragActive] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalStep, setModalStep] = useState<"mapping" | "review">("mapping");
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [workspaceStep, setWorkspaceStep] = useState<"mapping" | "review">("mapping");
 
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
   const [sheetName, setSheetName] = useState("");
@@ -105,7 +106,7 @@ function PaidFilePage() {
   const [totalRows, setTotalRows] = useState(0);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState(
-    "Drop or select a Paid File (.xlsx, .xls, .csv)",
+    "Drop or select a Paid File (.xlsb, .xlsx, .xls, .csv)",
   );
   const [busy, setBusy] = useState(false);
   const [applied, setApplied] = useState(false);
@@ -141,19 +142,12 @@ function PaidFilePage() {
         dacOverrides,
         defaultPaymentDate,
       ),
-    [
-      stagedRecords,
-      masterRows,
-      totalRows,
-      invalidRows,
-      dacOverrides,
-      defaultPaymentDate,
-    ],
+    [stagedRecords, masterRows, totalRows, invalidRows, dacOverrides, defaultPaymentDate],
   );
 
   const currentStage = applied
     ? 4
-    : modalOpen && modalStep === "review"
+    : workspaceOpen && workspaceStep === "review"
       ? 3
       : sheets.length > 0
         ? 2
@@ -177,10 +171,10 @@ function PaidFilePage() {
         const selected = message.sheets.find((s) => s.name === message.defaultSheet);
         if (selected) setMapping(selected.mapping);
         setProgress(70);
-        setProgressLabel("Columns auto-detected — review mapping");
+        setProgressLabel("Columns auto-detected — review mapping below");
         setBusy(false);
-        setModalStep("mapping");
-        setModalOpen(true);
+        setWorkspaceStep("mapping");
+        setWorkspaceOpen(true);
       }
       if (message.type === "processed") {
         setFileName(message.fileName);
@@ -191,8 +185,8 @@ function PaidFilePage() {
         setProgress(100);
         setProgressLabel("Ready for pre-merge reconciliation");
         setBusy(false);
-        setModalStep("review");
-        setModalOpen(true);
+        setWorkspaceStep("review");
+        setWorkspaceOpen(true);
       }
       if (message.type === "error") {
         setBusy(false);
@@ -280,8 +274,8 @@ function PaidFilePage() {
   function handleCancelSession() {
     workerRef.current?.terminate();
     workerRef.current = null;
-    setModalOpen(false);
-    setModalStep("mapping");
+    setWorkspaceOpen(false);
+    setWorkspaceStep("mapping");
     setSheets([]);
     setSheetName("");
     setMapping(EMPTY_MAPPING);
@@ -289,19 +283,30 @@ function PaidFilePage() {
     setDacOverrides(new Map());
     setFileName("");
     setProgress(0);
-    setProgressLabel("Drop or select a Paid File (.xlsx, .xls, .csv)");
+    setProgressLabel("Drop or select a Paid File (.xlsb, .xlsx, .xls, .csv)");
     setBusy(false);
     setApplied(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  async function handleApplyZeroAmount(changes: { row: number; agreementId: string; dac: number; ecs: number; special: number; paymentDate: string }[]) {
+  async function handleApplyZeroAmount(
+    changes: {
+      row: number;
+      agreementId: string;
+      dac: number;
+      ecs: number;
+      special: number;
+      paymentDate: string;
+    }[],
+  ) {
     if (busy || changes.length === 0) return;
     const masterByRow = new Map(masterRows.map((row) => [row.row, row]));
     const manualChanges = changes.map((change) => {
       const master = masterByRow.get(change.row);
       if (!master || master.agreementId !== change.agreementId) {
-        throw new Error(`Master record changed for ${change.agreementId}. Refresh and review the Paid File again.`);
+        throw new Error(
+          `Master record changed for ${change.agreementId}. Refresh and review the Paid File again.`,
+        );
       }
       const dac = Math.round((master.existingDac + change.dac) * 100) / 100;
       const ecs = Math.round((master.existingEcs + change.ecs) * 100) / 100;
@@ -348,7 +353,9 @@ function PaidFilePage() {
         qc.invalidateQueries({ queryKey: ["paid-file-audit-history"] }),
       ]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not apply zero-amount manual additions.");
+      toast.error(
+        error instanceof Error ? error.message : "Could not apply zero-amount manual additions.",
+      );
     } finally {
       setBusy(false);
     }
@@ -422,7 +429,6 @@ function PaidFilePage() {
       });
       setProgress(100);
       setProgressLabel("Committed atomically with audit trail");
-      setModalOpen(false);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["paid-file-master"] }),
         qc.invalidateQueries({ queryKey: ["paid-file-audit-history"] }),
@@ -442,27 +448,42 @@ function PaidFilePage() {
   const masterFound = masterQuery.data?.found ?? false;
 
   return (
-    <main className="mx-auto w-full max-w-[1500px] space-y-5 px-3 pb-24 pt-5 sm:px-5 lg:px-8">
-      {/* Header */}
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-primary">
+    <main className="mx-auto w-full max-w-[1440px] space-y-5 px-3.5 pb-12 pt-4 sm:px-6 lg:px-8">
+      {/* Hidden native input kept mounted so both dropzone and active file switcher work seamlessly on Android */}
+      <input
+        id="paid-file-input"
+        ref={fileInputRef}
+        type="file"
+        disabled={busy}
+        onChange={(e) => {
+          const picked = e.target.files?.[0];
+          e.target.value = "";
+          void handleFile(picked);
+        }}
+        className="sr-only"
+      />
+
+      {/* Page Header */}
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
             Admin · Master Allocation Reconciliation
           </p>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Paid File Upload & Master Reconciliation
+          <h1 className="mt-0.5 text-xl font-bold tracking-tight text-foreground sm:text-2xl lg:text-3xl">
+            Paid File Reconciliation
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Interactive column mapping, Manual/Corrected protection, conflict flagging, and
-            hash-chained audit commits.
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            Compare Paid File totals against Master Allocation, verify negative Remaining
+            differences, and commit updates with an audit chain.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="whitespace-nowrap shrink-0"
+            className="min-h-11 flex-1 shrink-0 whitespace-nowrap sm:min-h-9 sm:flex-initial"
             onClick={() => {
               void masterQuery.refetch();
               void auditQuery.refetch();
@@ -476,7 +497,7 @@ function PaidFilePage() {
               href={masterQuery.data.spreadsheetUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-xs font-medium hover:bg-accent"
+              className="inline-flex min-h-11 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border bg-card px-3.5 text-xs font-semibold text-foreground whitespace-nowrap hover:bg-accent sm:min-h-9 sm:flex-initial"
             >
               Open Master Sheet
               <ExternalLink className="h-3.5 w-3.5" />
@@ -486,29 +507,31 @@ function PaidFilePage() {
       </header>
 
       {/* 4-Stage Workflow Stepper */}
-      <section className="grid grid-cols-2 gap-2 rounded-xl border bg-card p-3 sm:grid-cols-4">
+      <section aria-label="Reconciliation steps" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          { num: 1, title: "Upload File", desc: "Local spreadsheet parse" },
-          { num: 2, title: "Column Mapping", desc: "Auto-detect & 5-row preview" },
-          { num: 3, title: "Reconciliation", desc: "Protect overrides & flag conflicts" },
-          { num: 4, title: "Atomic Commit", desc: "Delta update + Audit chain" },
+          { num: 1, title: "1. Upload File", desc: "XLSB / XLSX / CSV" },
+          { num: 2, title: "2. Map Columns", desc: "Verify 5-row sample" },
+          { num: 3, title: "3. Review Diff", desc: "Negative Remaining" },
+          { num: 4, title: "4. Committed", desc: "Master + Audit Log" },
         ].map((s) => {
           const active = currentStage === s.num;
           const done = currentStage > s.num || (applied && s.num === 4);
-          return (
-            <div
-              key={s.num}
-              className={`rounded-lg border px-3 py-2 ${
-                active
-                  ? "border-primary/50 bg-primary/5"
-                  : done
-                    ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20"
-                    : "border-border bg-background"
-              }`}
-            >
+          const clickable =
+            (s.num === 2 && sheets.length > 0) || (s.num === 3 && stagedRecords.length > 0);
+
+          const cardClass = `rounded-xl border px-3 py-2.5 text-left transition-colors ${
+            active
+              ? "border-primary/60 bg-primary/8"
+              : done
+                ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20"
+                : "border-border bg-card"
+          }`;
+
+          const content = (
+            <>
               <div className="flex items-center gap-2">
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full font-mono text-[11px] font-bold ${
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-bold ${
                     done
                       ? "bg-emerald-600 text-white"
                       : active
@@ -518,21 +541,43 @@ function PaidFilePage() {
                 >
                   {done ? "✓" : s.num}
                 </span>
-                <span className="text-xs font-semibold text-foreground">{s.title}</span>
+                <span className="truncate text-xs font-semibold text-foreground">{s.title}</span>
               </div>
-              <p className="mt-0.5 pl-7 text-[11px] text-muted-foreground">{s.desc}</p>
+              <p className="mt-0.5 truncate pl-7 text-[11px] text-muted-foreground">{s.desc}</p>
+            </>
+          );
+
+          if (clickable) {
+            return (
+              <button
+                key={s.num}
+                type="button"
+                onClick={() => {
+                  setWorkspaceOpen(true);
+                  setWorkspaceStep(s.num === 2 ? "mapping" : "review");
+                }}
+                className={`${cardClass} min-h-11 hover:border-primary/40`}
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <div key={s.num} className={cardClass}>
+              {content}
             </div>
           );
         })}
       </section>
 
-      {/* Prerequisite Guard or Active Master Banner */}
+      {/* Master Connection Banner */}
       {masterQuery.isLoading ? (
-        <section className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+        <section className="rounded-xl border bg-card p-4 text-xs text-muted-foreground sm:text-sm">
           Checking current-month Master Allocation spreadsheet…
         </section>
       ) : !masterFound ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+        <section className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
             <div>
@@ -545,125 +590,52 @@ function PaidFilePage() {
           </div>
           <Link
             to="/settings"
-            className="inline-flex h-8 shrink-0 items-center rounded-md bg-amber-600 px-3 text-xs font-semibold text-white hover:bg-amber-700"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-amber-600 px-4 text-xs font-semibold text-white whitespace-nowrap hover:bg-amber-700 sm:min-h-9"
           >
             Initialize in Settings →
           </Link>
         </section>
       ) : (
-        <section className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-xs">
+        <section className="flex flex-col gap-1.5 rounded-xl border bg-card px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span className="font-semibold text-foreground">
               {masterQuery.data?.spreadsheetName}
             </span>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">Tab: {masterQuery.data?.tab}</span>
             <span className="text-muted-foreground">·</span>
-            <span className="font-mono tabular-nums text-foreground">
-              {masterRows.length.toLocaleString("en-IN")} Master Accounts Loaded
+            <span className="font-mono font-semibold tabular-nums text-foreground">
+              {masterRows.length.toLocaleString("en-IN")} Master Accounts
             </span>
           </div>
           <span className="text-[11px] text-muted-foreground">
             {masterQuery.data?.hasProtectionColumns
-              ? "Source / Correction / Conflict columns active"
-              : "Standard Master columns active (Protected & Conflict tracking via Audit/Conflicts tabs)"}
+              ? "Protection & conflict columns active"
+              : "Protected & conflict tracking via Audit/Conflicts tabs"}
           </span>
         </section>
       )}
 
-      {/* Upload Dropzone */}
-      <section
-        onDragOver={(e) => {
-          e.preventDefault();
-          if (!busy) setDragActive(true);
-        }}
-        onDragLeave={() => setDragActive(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragActive(false);
-          if (busy) return;
-          const file = e.dataTransfer.files?.[0];
-          void handleFile(file);
-        }}
-        className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-          dragActive
-            ? "border-primary bg-primary/5"
-            : "border-border bg-card hover:border-primary/40"
-        }`}
-      >
-        <input
-          id="paid-file-input"
-          ref={fileInputRef}
-          type="file"
-          disabled={busy}
-          onChange={(e) => {
-            const picked = e.target.files?.[0];
-            e.target.value = "";
-            void handleFile(picked);
-          }}
-          className="sr-only"
-        />
-        <div className="mx-auto flex max-w-xl flex-col items-center gap-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border bg-muted/50">
-            <Upload className="h-5 w-5 text-primary" />
-          </div>
-          <h2 className="text-sm font-semibold text-foreground">
-            Drop Paid File here or browse from device
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Supports <span className="font-mono">.xlsx</span>,{" "}
-            <span className="font-mono">.xls</span>, <span className="font-mono">.xlsb</span>, and{" "}
-            <span className="font-mono">.csv</span>. Files are parsed locally in a Web Worker — no
-            raw file is uploaded.
-          </p>
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-            <label
-              htmlFor="paid-file-input"
-              className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 ${
-                busy ? "pointer-events-none opacity-50" : ""
-              }`}
-            >
-              <FileSpreadsheet className="mr-1.5 h-4 w-4" />
-              Select Paid File (.xlsb / .xlsx / .csv)
-            </label>
-            {sheets.length > 0 && (
-              <Button type="button" size="sm" variant="outline" onClick={() => setModalOpen(true)}>
-                Resume Reconciliation Modal
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {(busy || progress > 0) && (
-          <div className="mx-auto mt-4 max-w-lg space-y-1.5 text-left">
-            <div className="flex justify-between text-xs">
-              <span className="font-medium text-foreground">{progressLabel}</span>
-              <span className="font-mono tabular-nums text-muted-foreground">{progress}%</span>
-            </div>
-            <Progress value={progress} className="h-1.5" />
-          </div>
-        )}
-      </section>
-
-      {/* Post-Commit Result Banner */}
+      {/* Post-Commit Success Banner */}
       {lastCommitInfo && (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-          <div className="space-y-0.5">
+        <section className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/75 p-4 dark:border-emerald-900 dark:bg-emerald-950/30 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm font-bold text-emerald-900 dark:text-emerald-200">
-              <ShieldCheck className="h-4 w-4" />
+              <ShieldCheck className="h-4 w-4 shrink-0" />
               Paid File Committed Atomically
             </div>
-            <p className="font-mono text-xs text-emerald-800 dark:text-emerald-300">
-              {lastCommitInfo.applied} updated · {lastCommitInfo.conflictsLogged} conflicts flagged
-              · Chain Hash: {lastCommitInfo.chainHash.slice(0, 14)}…
+            <p className="font-mono text-xs tabular-nums text-emerald-800 dark:text-emerald-300">
+              {lastCommitInfo.applied.toLocaleString("en-IN")} updated ·{" "}
+              {lastCommitInfo.conflictsLogged} conflicts flagged · Chain Hash:{" "}
+              {lastCommitInfo.chainHash.slice(0, 14)}…
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {lastCommitInfo.conflictsLogged > 0 && (
               <Link
                 to="/conflicts"
-                className="inline-flex h-8 items-center gap-1 rounded-md border border-red-300 bg-white px-3 text-xs font-semibold text-red-700 hover:bg-red-50"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3.5 text-xs font-semibold text-red-700 whitespace-nowrap hover:bg-red-50 sm:min-h-8"
               >
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Inspect Conflicts
@@ -671,38 +643,171 @@ function PaidFilePage() {
             )}
             <Link
               to="/master-performance"
-              className="inline-flex h-8 items-center rounded-md border bg-white px-3 text-xs font-semibold text-foreground hover:bg-accent"
+              className="inline-flex min-h-10 items-center rounded-lg border bg-white px-3.5 text-xs font-semibold text-foreground whitespace-nowrap hover:bg-accent sm:min-h-8"
             >
-              View Performance Report →
+              Performance Report →
             </Link>
           </div>
         </section>
       )}
 
+      {/* Step 1 Upload Dropzone (or Compact Active File Switcher when workspace is open) */}
+      {sheets.length === 0 ? (
+        <section
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!busy) setDragActive(true);
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragActive(false);
+            if (busy) return;
+            const file = e.dataTransfer.files?.[0];
+            void handleFile(file);
+          }}
+          className={`rounded-2xl border-2 border-dashed p-6 text-center transition-colors sm:p-8 ${
+            dragActive
+              ? "border-primary bg-primary/5"
+              : "border-border bg-card hover:border-primary/40"
+          }`}
+        >
+          <div className="mx-auto flex max-w-xl flex-col items-center gap-2.5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border bg-muted/50">
+              <Upload className="h-5 w-5 text-primary" />
+            </div>
+            <h2 className="text-base font-bold text-foreground">Select Paid File from Device</h2>
+            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              Supports <span className="font-mono font-semibold">.xlsb</span>,{" "}
+              <span className="font-mono font-semibold">.xlsx</span>,{" "}
+              <span className="font-mono font-semibold">.xls</span>, and{" "}
+              <span className="font-mono font-semibold">.csv</span>. Parsed locally on your device —
+              fast on Android and Desktop.
+            </p>
+            <div className="mt-2 flex w-full flex-col items-center justify-center gap-2 sm:w-auto sm:flex-row">
+              <label
+                htmlFor="paid-file-input"
+                className={`inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90 sm:w-auto ${
+                  busy ? "pointer-events-none opacity-50" : ""
+                }`}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4 shrink-0" />
+                Choose Paid File (.xlsb / .xlsx / .csv)
+              </label>
+            </div>
+          </div>
+
+          {(busy || progress > 0) && (
+            <div className="mx-auto mt-5 max-w-lg space-y-1.5 text-left">
+              <div className="flex justify-between text-xs">
+                <span className="font-medium text-foreground">{progressLabel}</span>
+                <span className="font-mono font-semibold tabular-nums text-muted-foreground">
+                  {progress}%
+                </span>
+              </div>
+              <Progress value={progress} className="h-1.5" />
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+              <FileSpreadsheet className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">{fileName}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {sheets.length} sheet{sheets.length === 1 ? "" : "s"} detected
+                {totalRows > 0 ? ` · ${totalRows.toLocaleString("en-IN")} rows parsed` : ""}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              htmlFor="paid-file-input"
+              className={`inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-lg border bg-background px-3 text-xs font-semibold text-foreground whitespace-nowrap hover:bg-accent sm:min-h-8 sm:flex-initial ${
+                busy ? "pointer-events-none opacity-50" : ""
+              }`}
+            >
+              <Upload className="mr-1.5 h-3.5 w-3.5" />
+              Switch File
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="min-h-10 flex-1 whitespace-nowrap sm:min-h-8 sm:flex-initial"
+              disabled={busy}
+              onClick={handleCancelSession}
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              Reset
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {/* Inline Spacious Reconciliation Workspace (Step 2 Mapping & Step 3 Diff Review) */}
+      {workspaceOpen && sheets.length > 0 && (
+        <PaidFileReconciliationWorkspace
+          step={workspaceStep}
+          onStepChange={setWorkspaceStep}
+          fileName={fileName}
+          masterFound={masterFound}
+          onRefreshMaster={() => void masterQuery.refetch()}
+          spreadsheetName={masterQuery.data?.spreadsheetName ?? ""}
+          sheets={sheets}
+          sheetName={sheetName}
+          onSelectSheet={(name) => {
+            setSheetName(name);
+            const s = sheets.find((x) => x.name === name);
+            if (s) setMapping(s.mapping);
+          }}
+          mapping={mapping}
+          onMappingChange={setMapping}
+          duplicateStrategy={duplicateStrategy}
+          onDuplicateStrategyChange={setDuplicateStrategy}
+          defaultPaymentDate={defaultPaymentDate}
+          onDefaultPaymentDateChange={setDefaultPaymentDate}
+          onAnalyze={handleAnalyze}
+          reconciledRows={reconciledRows}
+          summary={summary}
+          onOverrideDac={handleOverrideDac}
+          onCommit={handleCommit}
+          onApplyZeroAmount={handleApplyZeroAmount}
+          onCancelSession={handleCancelSession}
+          busy={busy}
+          applied={applied}
+          progress={progress}
+          progressLabel={progressLabel}
+        />
+      )}
+
       {/* Audit Trail & SHA-256 Chain Verification */}
-      <section className="rounded-xl border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+      <section className="overflow-hidden rounded-2xl border bg-card">
+        <div className="flex flex-col gap-2 border-b px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h2 className="text-sm font-bold text-foreground">
-              Paid File Audit Log & Cryptographic Hash Chain
+            <h2 className="text-sm font-bold text-foreground sm:text-base">
+              Audit Log &amp; Tamper-Evident Chain
             </h2>
-            <p className="text-xs text-muted-foreground">
-              Every Paid File merge records batch diffs, protected skips, conflicts, and SHA-256
-              chain hashes in <span className="font-mono">Paid_File_Audit_Log</span>.
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Every Paid File commit records batch counts, protected skips, conflicts, and SHA-256
+              hashes in <span className="font-mono">Paid_File_Audit_Log</span>.
             </p>
           </div>
           {auditQuery.data?.found && (
             <span
-              className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-medium ${
+              className={`inline-flex shrink-0 items-center gap-1.5 self-start rounded-md px-2.5 py-1 text-xs font-semibold sm:self-auto ${
                 auditQuery.data.chainValid
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  : "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+                  ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300"
               }`}
             >
               {auditQuery.data.chainValid ? (
                 <>
                   <Lock className="h-3.5 w-3.5" />
-                  Chain Verified ({auditQuery.data.verifiedCount} chained)
+                  Chain Verified ({auditQuery.data.verifiedCount} entries)
                 </>
               ) : (
                 <>
@@ -714,120 +819,148 @@ function PaidFilePage() {
           )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-xs">
-            <thead className="border-b bg-muted/40 text-[11px] uppercase text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">Timestamp (IST)</th>
-                <th className="px-3 py-2">Admin</th>
-                <th className="px-3 py-2">File Name</th>
-                <th className="px-3 py-2 text-right">Applied</th>
-                <th className="px-3 py-2 text-right">Total DAC</th>
-                <th className="px-3 py-2 text-right">Conflicts</th>
-                <th className="px-3 py-2 text-right">Protected</th>
-                <th className="px-3 py-2 text-right">Unmatched</th>
-                <th className="px-3 py-2">Status / Hash</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {!auditQuery.data?.entries?.length ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-muted-foreground">
-                    No Paid File audit entries recorded for this month yet.
-                  </td>
-                </tr>
-              ) : (
-                auditQuery.data.entries.map((entry) => (
-                  <tr key={entry.row} className="h-9 hover:bg-muted/20">
-                    <td className="px-3 py-1.5 font-mono tabular-nums text-muted-foreground">
-                      {entry.timestamp}
-                    </td>
-                    <td className="px-3 py-1.5 font-medium">{entry.adminName}</td>
-                    <td className="max-w-[200px] truncate px-3 py-1.5" title={entry.fileName}>
-                      {entry.fileName}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono tabular-nums">
-                      {entry.recordsApplied.toLocaleString("en-IN")}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono font-semibold tabular-nums">
-                      {money(entry.totalDac)}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono tabular-nums">
-                      {entry.conflictsFlagged > 0 ? (
-                        <span className="font-semibold text-red-600">{entry.conflictsFlagged}</span>
-                      ) : (
-                        0
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono tabular-nums">
-                      {entry.protectedSkips}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono tabular-nums">
-                      {entry.unmatchedSkipped}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
-                            entry.applyStatus === "COMPLETE"
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                              : "border-amber-200 bg-amber-50 text-amber-800"
-                          }`}
-                        >
-                          {entry.applyStatus}
-                        </span>
-                        {entry.chainHash && (
-                          <span
-                            className="font-mono text-[10px] text-muted-foreground"
-                            title={entry.chainHash}
-                          >
-                            #{entry.chainHash.slice(0, 8)}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        {!auditQuery.data?.entries?.length ? (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+            No Paid File audit entries recorded for this month yet.
+          </div>
+        ) : (
+          <>
+            {/* Android / Mobile Audit Cards */}
+            <div className="divide-y md:hidden">
+              {auditQuery.data.entries.map((entry) => (
+                <div key={entry.row} className="space-y-2.5 p-3.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-foreground">{entry.fileName}</p>
+                      <p className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                        {entry.timestamp} · {entry.adminName}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+                        entry.applyStatus === "COMPLETE"
+                          ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                          : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                      }`}
+                    >
+                      {entry.applyStatus}
+                    </span>
+                  </div>
 
-      <PaidFileReconciliationModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        step={modalStep}
-        onStepChange={setModalStep}
-        fileName={fileName}
-        masterFound={masterFound}
-        onRefreshMaster={() => void masterQuery.refetch()}
-        spreadsheetName={masterQuery.data?.spreadsheetName ?? ""}
-        sheets={sheets}
-        sheetName={sheetName}
-        onSelectSheet={(name) => {
-          setSheetName(name);
-          const s = sheets.find((x) => x.name === name);
-          if (s) setMapping(s.mapping);
-        }}
-        mapping={mapping}
-        onMappingChange={setMapping}
-        duplicateStrategy={duplicateStrategy}
-        onDuplicateStrategyChange={setDuplicateStrategy}
-        defaultPaymentDate={defaultPaymentDate}
-        onDefaultPaymentDateChange={setDefaultPaymentDate}
-        onAnalyze={handleAnalyze}
-        reconciledRows={reconciledRows}
-        summary={summary}
-        onOverrideDac={handleOverrideDac}
-        onCommit={handleCommit}
-        onApplyZeroAmount={handleApplyZeroAmount}
-        onCancelSession={handleCancelSession}
-        busy={busy}
-        applied={applied}
-        progress={progress}
-        progressLabel={progressLabel}
-      />
+                  <div className="grid grid-cols-4 gap-2 rounded-lg bg-muted/35 p-2.5 text-center font-mono text-xs tabular-nums">
+                    <div>
+                      <div className="font-sans text-[10px] text-muted-foreground">Applied</div>
+                      <div className="font-bold text-foreground">
+                        {entry.recordsApplied.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-sans text-[10px] text-muted-foreground">DAC</div>
+                      <div className="font-bold text-foreground">{money(entry.totalDac)}</div>
+                    </div>
+                    <div>
+                      <div className="font-sans text-[10px] text-muted-foreground">Conflicts</div>
+                      <div
+                        className={`font-bold ${
+                          entry.conflictsFlagged > 0 ? "text-red-600" : "text-foreground"
+                        }`}
+                      >
+                        {entry.conflictsFlagged}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-sans text-[10px] text-muted-foreground">Skipped</div>
+                      <div className="font-semibold text-muted-foreground">
+                        {entry.protectedSkips + entry.unmatchedSkipped}
+                      </div>
+                    </div>
+                  </div>
+
+                  {entry.chainHash && (
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      Hash: #{entry.chainHash.slice(0, 12)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Audit Table */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b bg-muted/40 text-[11px] uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2.5">Timestamp (IST)</th>
+                    <th className="px-4 py-2.5">Admin</th>
+                    <th className="px-4 py-2.5">File Name</th>
+                    <th className="px-4 py-2.5 text-right">Applied</th>
+                    <th className="px-4 py-2.5 text-right">Total DAC</th>
+                    <th className="px-4 py-2.5 text-right">Conflicts</th>
+                    <th className="px-4 py-2.5 text-right">Protected</th>
+                    <th className="px-4 py-2.5 text-right">Unmatched</th>
+                    <th className="px-4 py-2.5">Status / Hash</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {auditQuery.data.entries.map((entry) => (
+                    <tr key={entry.row} className="h-10 hover:bg-muted/20">
+                      <td className="px-4 py-2 font-mono tabular-nums text-muted-foreground">
+                        {entry.timestamp}
+                      </td>
+                      <td className="px-4 py-2 font-medium">{entry.adminName}</td>
+                      <td className="max-w-[220px] truncate px-4 py-2" title={entry.fileName}>
+                        {entry.fileName}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono tabular-nums">
+                        {entry.recordsApplied.toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono font-semibold tabular-nums">
+                        {money(entry.totalDac)}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono tabular-nums">
+                        {entry.conflictsFlagged > 0 ? (
+                          <span className="font-semibold text-red-600">
+                            {entry.conflictsFlagged}
+                          </span>
+                        ) : (
+                          0
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono tabular-nums">
+                        {entry.protectedSkips}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono tabular-nums">
+                        {entry.unmatchedSkipped}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+                              entry.applyStatus === "COMPLETE"
+                                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                            }`}
+                          >
+                            {entry.applyStatus}
+                          </span>
+                          {entry.chainHash && (
+                            <span
+                              className="font-mono text-[10px] text-muted-foreground"
+                              title={entry.chainHash}
+                            >
+                              #{entry.chainHash.slice(0, 8)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
     </main>
   );
 }
