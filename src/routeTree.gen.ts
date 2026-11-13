@@ -133,11 +133,12 @@ const AuthenticatedPaidFileRoute = AuthenticatedPaidFileRouteImport.update({
   path: '/paid-file',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedPaidFilesZeroAmountReviewRoute = AuthenticatedPaidFilesZeroAmountReviewRouteImport.update({
-  id: '/paid-files-zero-amount-review',
-  path: '/paid-files-zero-amount-review',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedPaidFilesZeroAmountReviewRoute =
+  AuthenticatedPaidFilesZeroAmountReviewRouteImport.update({
+    id: '/paid-files-zero-amount-review',
+    path: '/paid-files-zero-amount-review',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPendingRoute = AuthenticatedPendingRouteImport.update({
   id: '/pending',
   path: '/pending',
@@ -575,7 +576,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMasterPerformanceRoute: AuthenticatedMasterPerformanceRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPaidFileRoute: AuthenticatedPaidFileRoute,
-  AuthenticatedPaidFilesZeroAmountReviewRoute: AuthenticatedPaidFilesZeroAmountReviewRoute,
+  AuthenticatedPaidFilesZeroAmountReviewRoute:
+    AuthenticatedPaidFilesZeroAmountReviewRoute,
   AuthenticatedPendingRoute: AuthenticatedPendingRoute,
   AuthenticatedReceiptGalleryRoute: AuthenticatedReceiptGalleryRoute,
   AuthenticatedRechargeRoute: AuthenticatedRechargeRoute,
