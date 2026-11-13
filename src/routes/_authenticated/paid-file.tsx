@@ -295,6 +295,65 @@ function PaidFilePage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  async function handleApplyZeroAmount(changes: { row: number; agreementId: string; dac: number; ecs: number; special: number; paymentDate: string }[]) {
+    if (busy || changes.length === 0) return;
+    const masterByRow = new Map(masterRows.map((row) => [row.row, row]));
+    const manualChanges = changes.map((change) => {
+      const master = masterByRow.get(change.row);
+      if (!master || master.agreementId !== change.agreementId) {
+        throw new Error(`Master record changed for ${change.agreementId}. Refresh and review the Paid File again.`);
+      }
+      const dac = Math.round((master.existingDac + change.dac) * 100) / 100;
+      const ecs = Math.round((master.existingEcs + change.ecs) * 100) / 100;
+      const special = Math.round((master.existingSpecial + change.special) * 100) / 100;
+      const increment = change.dac + change.ecs + change.special;
+      const baseTotal = Math.max(master.existingTotal, master.existingNewTotal);
+      return {
+        row: master.row,
+        agreementId: change.agreementId,
+        dac,
+        ecs,
+        special,
+        newTotal: Math.round((baseTotal + increment) * 100) / 100,
+        paymentDate: change.paymentDate || today(),
+        clearProvisional: false,
+      };
+    });
+    setBusy(true);
+    setProgress(20);
+    setProgressLabel("Applying reviewed zero-amount manual additions");
+    try {
+      const totalDac = changes.reduce((sum, change) => sum + change.dac, 0);
+      const result = await applyChanges({
+        data: {
+          target: "monthly-master",
+          sourceMode: "MANUAL",
+          fileName: fileName + " · Zero Amount Manual Review",
+          fileDate: today(),
+          totalDac,
+          totalSfdc: 0,
+          totalOnline: 0,
+          protectedSkips: 0,
+          unmatchedSkipped: 0,
+          duplicatesReplaced: 0,
+          changes: manualChanges,
+          conflictFlags: [],
+        },
+      });
+      setProgress(100);
+      toast.success(result.applied + " zero-amount loan(s) manually updated and audit logged.");
+      setDacOverrides(new Map());
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["paid-file-master"] }),
+        qc.invalidateQueries({ queryKey: ["paid-file-audit-history"] }),
+      ]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not apply zero-amount manual additions.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleCommit() {
     if (applied || busy) return;
     const updates = reconciledRows.filter(
@@ -762,6 +821,7 @@ function PaidFilePage() {
         summary={summary}
         onOverrideDac={handleOverrideDac}
         onCommit={handleCommit}
+        onApplyZeroAmount={handleApplyZeroAmount}
         onCancelSession={handleCancelSession}
         busy={busy}
         applied={applied}
