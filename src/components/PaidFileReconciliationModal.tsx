@@ -179,12 +179,12 @@ export function PaidFileReconciliationModal({
     return [values.dac, values.ecs, values.special].some((value) => Number(value) > 0);
   }).length;
   function applyBulkPaste() {
-    const lines = bulkPasteText.split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean);
+    const lines = bulkPasteText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     if (!lines.length) {
       setBulkPasteMessage("Paste at least one loan row.");
       return;
     }
-    const delimiter = lines[0].includes("\\t") ? "\\t" : lines[0].includes("|") ? "|" : ",";
+    const delimiter = lines[0].includes("\t") ? "\t" : lines[0].includes("|") ? "|" : ",";
     const firstCells = lines[0].split(delimiter).map((cell) => cell.trim().toLowerCase());
     const hasHeader = firstCells.some((cell) => /loan|agreement|account/.test(cell));
     const dataLines = hasHeader ? lines.slice(1) : lines;
@@ -212,7 +212,7 @@ export function PaidFileReconciliationModal({
         errors.push("Line " + (index + (hasHeader ? 2 : 1)) + ": invalid amount for " + loanNumber);
         return;
       }
-      if (paymentDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(paymentDate)) {
+      if (paymentDate && !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
         errors.push("Line " + (index + (hasHeader ? 2 : 1)) + ": date must be YYYY-MM-DD for " + loanNumber);
         return;
       }
@@ -881,7 +881,7 @@ export function PaidFileReconciliationModal({
                     <textarea
                       aria-label="Paste individual loan amounts"
                       className="min-h-28 w-full rounded-md border bg-background p-2 font-mono text-xs"
-                      placeholder={"LN001\\t500\\t0\\t0\\t2026-11-13\\nLN002\\t0\\t750\\t0\\t2026-11-13\\nLN003\\t0\\t0\\t1200\\t2026-11-13"}
+                      placeholder={"LN001\t500\t0\t0\t2026-11-13\nLN002\t0\t750\t0\t2026-11-13\nLN003\t0\t0\t1200\t2026-11-13"}
                       value={bulkPasteText}
                       onChange={(event) => { setBulkPasteText(event.target.value); setBulkPasteMessage(""); }}
                     />
