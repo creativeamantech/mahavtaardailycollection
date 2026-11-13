@@ -104,38 +104,6 @@ async function sheetValues(id: string, range: string): Promise<string[][]> {
   return result.values ?? [];
 }
 
-  const meta = await checkedJson<{ sheets?: { properties?: { title?: string } }[] }>(
-    await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "?fields=sheets.properties", {
-      headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
-    }),
-    "Master spreadsheet metadata",
-  );
-  if ((meta.sheets ?? []).some((sheet) => sheet.properties?.title === DEFAULTS_TAB)) return;
-  await checkedJson(
-    await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + ":batchUpdate", {
-      method: "POST",
-      headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
-      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: DEFAULTS_TAB } } }] }),
-    }),
-    "Create Performance Defaults tab",
-  );
-  await checkedJson(
-    await fetch(
-      GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "/values/" +
-        encodeURIComponent("'" + DEFAULTS_TAB + "'!A1:B3") + "?valueInputOption=RAW",
-      {
-        method: "PUT",
-        headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
-        body: JSON.stringify({ values: [
-          ["Setting", "Percentage"],
-          ["Main Target", String(DEFAULT_MAIN_TARGET)],
-          ["Rollback Target", String(DEFAULT_ROLLBACK_TARGET)],
-        ] }),
-      },
-    ),
-    "Initialize Performance Defaults",
-  );
-}
 async function ensureTargetTab(id: string) {
   const meta = await checkedJson<{ sheets?: { properties?: { title?: string } }[] }>(
     await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "?fields=sheets.properties", {
