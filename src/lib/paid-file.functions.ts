@@ -654,7 +654,14 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     const master = await readMaster(data.target);
     const { file, cols } = master;
 
-    const calculatedDac = data.changes.reduce((sum, change) => sum + change.dac, 0);
+    const calculatedDac = data.changes.reduce((sum, change) => {
+      if (data.sourceMode !== "MANUAL") return sum + change.dac;
+      const current = master.data.find(
+        (row) => row.row === change.row && row.agreementId === normalisePaidId(change.agreementId),
+      );
+      // Manual audit totals represent the incremental DAC amount, not the resulting balance.
+      return sum + (current ? change.dac - current.existingDac : 0);
+    }, 0);
     if (Math.abs(calculatedDac - data.totalDac) > 0.01)
       throw new Error("Submitted DAC total does not match the validated change set.");
 
