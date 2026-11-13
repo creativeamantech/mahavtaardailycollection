@@ -287,11 +287,48 @@ function MasterPerformancePage() {
                 Add rule
               </Button>
             </div>
-            {activeRules.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No target rules configured. Add a rule to calculate Target POS and Needed POS.
-              </p>
-            )}
+            <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">Configured Rules</h3>
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">
+                  {activeRules.length} {activeRules.length === 1 ? "rule" : "rules"}
+                </span>
+              </div>
+              {activeRules.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No rules saved yet. Add a rule below to define Main and Rollback targets.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[680px] text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-xs text-muted-foreground">
+                        <th className="px-2 py-2 font-semibold">#</th>
+                        <th className="px-2 py-2 font-semibold">Allocation Type</th>
+                        <th className="px-2 py-2 font-semibold">Bucket</th>
+                        <th className="px-2 py-2 font-semibold">State</th>
+                        <th className="px-2 py-2 font-semibold">City</th>
+                        <th className="px-2 py-2 text-right font-semibold">Main Target</th>
+                        <th className="px-2 py-2 text-right font-semibold">Rollback Target</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeRules.map((rule, i) => (
+                        <tr key={rule.id} className="border-b last:border-0">
+                          <td className="px-2 py-2 font-medium tabular-nums">{i + 1}</td>
+                          <td className="px-2 py-2">{rule.allocationType || "All"}</td>
+                          <td className="px-2 py-2">{rule.bucket || "All"}</td>
+                          <td className="px-2 py-2">{rule.state || "All"}</td>
+                          <td className="px-2 py-2">{rule.city || "All"}</td>
+                          <td className="px-2 py-2 text-right font-semibold tabular-nums">{pct(rule.mainTarget)}</td>
+                          <td className="px-2 py-2 text-right font-semibold tabular-nums">{pct(rule.rollbackTarget)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
             {activeRules.map((rule, i) => (
               <div
                 key={rule.id}
