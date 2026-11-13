@@ -1,6 +1,6 @@
 export type DacMode = "split_sfdc_online" | "single_dac";
 export type DuplicateStrategy = "last_wins" | "sum";
-export type ReconciliationMode = "difference" | "additive";
+export type ReconciliationMode = "difference";
 export type DacSource = "MANUAL" | "CORRECTED" | "PAID_FILE" | "PROVISIONAL" | "";
 
 export type ColumnMapping = {
