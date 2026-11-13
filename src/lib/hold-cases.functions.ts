@@ -120,8 +120,13 @@ export const submitHoldCases = createServerFn({ method: "POST" })
       for (let i = 0; i < (ptpRows ?? []).length; i++) {
         const row = ptpRows[i]!;
         const id = normaliseLoanId(String(row[2] ?? ""));
+        const ptpExecutive = String(row[1] ?? "").trim().toLowerCase();
         const status = String(row[6] ?? "").trim() || "Active";
-        if (moveIds.has(id) && status.toLowerCase() === "active") {
+        if (
+          moveIds.has(id) &&
+          ptpExecutive === executive.trim().toLowerCase() &&
+          status.toLowerCase() === "active"
+        ) {
           ptpUpdates.push({
             range: `PTPs!G${i + 2}:H${i + 2}`,
             values: [["Removed", new Date().toISOString()]],
