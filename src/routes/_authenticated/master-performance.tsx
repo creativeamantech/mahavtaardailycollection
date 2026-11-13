@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -109,7 +109,11 @@ function MasterPerformancePage() {
   const [bucket, setBucket] = useState("Bucket 1");
   const [rules, setRules] = useState<Rule[] | null>(null);
   const [saving, setSaving] = useState(false);
+  const [defaultTargets, setDefaultTargets] = useState({ mainTarget: 60, rollbackTarget: 18 });
   const activeRules = rules ?? data?.rules ?? [];
+  useEffect(() => {
+    if (data?.defaults) setDefaultTargets(data.defaults);
+  }, [data?.defaults]);
   const selected = data?.buckets.find((b) => b.bucket === bucket) ?? data?.buckets[0];
   const mainShareRows = useMemo(
     () => (data?.positiveNeededPos ?? []).filter((r) => r.bucket === bucket),
@@ -141,7 +145,7 @@ function MasterPerformancePage() {
   async function persistRules() {
     setSaving(true);
     try {
-      await saveTargets({ data: { rules: activeRules } });
+      await saveTargets({ data: { rules: activeRules, defaults: defaultTargets } });
       setRules(null);
       await qc.invalidateQueries({ queryKey: ["master-performance-report"] });
       toast.success("Target rules saved in Master Allocation");
@@ -194,8 +198,20 @@ function MasterPerformancePage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Summary label="Allocated cases" value={data.rowCount.toLocaleString("en-IN")} />
             <Summary label="Buckets" value="5" />
-            <Summary label="Default Main Target" value={pct(data.defaults.mainTarget)} />
-            <Summary label="Default Rollback Target" value={pct(data.defaults.rollbackTarget)} />
+            <div className="rounded-xl border bg-white p-3">
+              <Label htmlFor="default-main-target" className="text-xs text-muted-foreground">Default Main Target</Label>
+              <div className="mt-1 flex items-center gap-2">
+                <Input id="default-main-target" type="number" min="0" max="100" step="0.01" className="h-10 text-xl font-extrabold tabular-nums" value={defaultTargets.mainTarget} onChange={(e) => setDefaultTargets((v) => ({ ...v, mainTarget: e.target.value === "" ? 0 : Number(e.target.value) }))} />
+                <span className="font-bold">%</span>
+              </div>
+            </div>
+            <div className="rounded-xl border bg-white p-3">
+              <Label htmlFor="default-rollback-target" className="text-xs text-muted-foreground">Default Rollback Target</Label>
+              <div className="mt-1 flex items-center gap-2">
+                <Input id="default-rollback-target" type="number" min="0" max="100" step="0.01" className="h-10 text-xl font-extrabold tabular-nums" value={defaultTargets.rollbackTarget} onChange={(e) => setDefaultTargets((v) => ({ ...v, rollbackTarget: e.target.value === "" ? 0 : Number(e.target.value) }))} />
+                <span className="font-bold">%</span>
+              </div>
+            </div>
           </div>
           <div className="rounded-xl border bg-white p-3">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
