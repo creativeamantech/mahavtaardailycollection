@@ -39,6 +39,8 @@ const conflictFlagSchema = z.object({
 const applySchema = z
   .object({
     target: z.literal("monthly-master"),
+    // Explicit provenance mode. Defaults to the unchanged normal Paid File path.
+    sourceMode: z.enum(["PAID_FILE", "MANUAL"]).optional().default("PAID_FILE"),
     fileName: z.string().trim().min(1).max(240),
     fileDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     totalDac: z.number().finite(),
@@ -680,6 +682,7 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
       .update(
         JSON.stringify({
           target: data.target,
+          sourceMode: data.sourceMode,
           changes: canonicalChanges,
           conflictFlags: canonicalConflicts,
         }),
@@ -692,7 +695,7 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     if (duplicate) {
       const status = String(duplicate[8] ?? "LEGACY");
       throw new Error(
-        "This exact Paid File change set already has an audit entry (status: " +
+        "This exact " + data.sourceMode + " change set already has an audit entry (status: " +
           status +
           "). Do not reapply it. Check the audit log before retrying.",
       );
@@ -734,6 +737,24 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
             change.row +
             ").",
         );
+
+      // Manual-review mode is Admin-only (requireSession above), additive-only,
+      // and may never mutate provisional state or create Paid File conflict flags.
+      if (data.sourceMode === "MANUAL") {
+        if (data.conflictFlags.length > 0 || data.totalSfdc !== 0 || data.totalOnline !== 0) {
+          throw new Error("Manual review mode cannot submit Paid File conflicts, SFDC, or Online totals.");
+        }
+        if (
+          change.dac < current.existingDac ||
+          change.ecs < current.existingEcs ||
+          change.special < current.existingSpecial ||
+          change.dac + change.ecs + change.special <=
+            current.existingDac + current.existingEcs + current.existingSpecial ||
+          change.clearProvisional
+        ) {
+          throw new Error("Manual review accepts positive additions only and cannot reduce or clear existing values.");
+        }
+      }
 
       // Server-side protection guard: never overwrite MANUAL or CORRECTED records
       if (isProtectedSource(current)) {
@@ -783,7 +804,7 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
       if (cols.dacSource >= 0)
         updates.push({
           range: "'" + file.tab + "'!" + colLetter(cols.dacSource) + change.row,
-          values: [["PAID_FILE"]],
+          values: [[data.sourceMode]],
         });
       if (change.clearProvisional && cols.provisionalDac >= 0)
         updates.push({
