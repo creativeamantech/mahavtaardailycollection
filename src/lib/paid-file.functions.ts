@@ -818,12 +818,13 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
           range: "'" + file.tab + "'!" + colLetter(cols.provisionalDac) + change.row,
           values: [[""]],
         });
-      if (cols.isConflict >= 0)
+      // Manual review must preserve conflict state and must not masquerade as a Paid File upload.
+      if (data.sourceMode !== "MANUAL" && cols.isConflict >= 0)
         updates.push({
           range: "'" + file.tab + "'!" + colLetter(cols.isConflict) + change.row,
           values: [[false]],
         });
-      if (cols.lastPaidUploadAt >= 0)
+      if (data.sourceMode !== "MANUAL" && cols.lastPaidUploadAt >= 0)
         updates.push({
           range: "'" + file.tab + "'!" + colLetter(cols.lastPaidUploadAt) + change.row,
           values: [[timestamp]],
