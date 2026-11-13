@@ -40,6 +40,7 @@ export type ReviewTab =
   | "master_higher"
   | "protected"
   | "unchanged"
+  | "unmatched"
   | "zero_amount";
 
 export type ZeroAmountChange = {
