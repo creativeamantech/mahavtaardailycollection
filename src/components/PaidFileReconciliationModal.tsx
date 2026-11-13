@@ -170,37 +170,82 @@ export function PaidFileReconciliationModal({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [zeroAmounts, setZeroAmounts] = useState<Record<string, { dac: string; ecs: string; special: string }>>({});
   const [zeroPaymentDates, setZeroPaymentDates] = useState<Record<string, string>>({});
-  const [zeroSelected, setZeroSelected] = useState<Record<string, boolean>>({});
-  const [bulkValues, setBulkValues] = useState({ dac: "", ecs: "", special: "", paymentDate: "" });
+  const [bulkPasteText, setBulkPasteText] = useState("");
+  const [bulkPasteMessage, setBulkPasteMessage] = useState("");
   const zeroAmountRows = useMemo(() => reconciledRows.filter((row) => row.dac === 0 && row.ecs === 0 && row.special === 0), [reconciledRows]);
   const eligibleZeroRows = zeroAmountRows.filter((row) => row.master && !row.protectedSkip && row.action !== "protected_conflict" && row.action !== "conflict_provisional");
   const zeroReadyCount = eligibleZeroRows.filter((row) => {
     const values = zeroAmounts[row.agreementId] ?? { dac: "", ecs: "", special: "" };
     return [values.dac, values.ecs, values.special].some((value) => Number(value) > 0);
   }).length;
-  function applyBulkValues() {
-    const selectedRows = eligibleZeroRows.filter((row) => zeroSelected[row.agreementId]);
-    if (!selectedRows.length) return;
-    const hasAmount = [bulkValues.dac, bulkValues.ecs, bulkValues.special].some((value) => value.trim() !== "");
-    if (!hasAmount && !bulkValues.paymentDate) return;
+  function applyBulkPaste() {
+    const lines = bulkPasteText.split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) {
+      setBulkPasteMessage("Paste at least one loan row.");
+      return;
+    }
+    const delimiter = lines[0].includes("\\t") ? "\\t" : lines[0].includes("|") ? "|" : ",";
+    const firstCells = lines[0].split(delimiter).map((cell) => cell.trim().toLowerCase());
+    const hasHeader = firstCells.some((cell) => /loan|agreement|account/.test(cell));
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+    const eligibleById = new Map(eligibleZeroRows.map((row) => [row.agreementId.trim().toLowerCase(), row]));
+    const updates: Array<{ agreementId: string; dac: string; ecs: string; special: string; paymentDate: string }> = [];
+    const errors: string[] = [];
+    dataLines.forEach((line, index) => {
+      const cells = line.split(delimiter).map((cell) => cell.trim());
+      const [loanNumber, dac = "", ecs = "", special = "", paymentDate = ""] = cells;
+      if (!loanNumber) {
+        errors.push("Line " + (index + (hasHeader ? 2 : 1)) + ": missing loan number");
+        return;
+      }
+      if ([dac, ecs, special].every((value) => value === "") && !paymentDate) {
+        errors.push("Line " + (index + (hasHeader ? 2 : 1)) + ": no amount or date supplied");
+        return;
+      }
+      const row = eligibleById.get(loanNumber.toLowerCase());
+      if (!row) {
+        errors.push("Line " + (index + (hasHeader ? 2 : 1)) + ": loan " + loanNumber + " is unmatched, protected, or not eligible");
+        return;
+      }
+      const validAmounts = [dac, ecs, special].every((value) => value === "" || (Number.isFinite(Number(value.replace(/₹|,/g, ""))) && Number(value.replace(/₹|,/g, "")) >= 0));
+      if (!validAmounts) {
+        errors.push("Line " + (index + (hasHeader ? 2 : 1)) + ": invalid amount for " + loanNumber);
+        return;
+      }
+      if (paymentDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(paymentDate)) {
+        errors.push("Line " + (index + (hasHeader ? 2 : 1)) + ": date must be YYYY-MM-DD for " + loanNumber);
+        return;
+      }
+      updates.push({
+        agreementId: row.agreementId,
+        dac: dac === "" ? "" : String(Number(dac.replace(/₹|,/g, ""))),
+        ecs: ecs === "" ? "" : String(Number(ecs.replace(/₹|,/g, ""))),
+        special: special === "" ? "" : String(Number(special.replace(/₹|,/g, ""))),
+        paymentDate,
+      });
+    });
+    if (!updates.length) {
+      setBulkPasteMessage("No rows imported. " + errors.slice(0, 3).join(" · "));
+      return;
+    }
     setZeroAmounts((previous) => {
       const next = { ...previous };
-      for (const row of selectedRows) {
-        const current = next[row.agreementId] ?? { dac: "", ecs: "", special: "" };
-        next[row.agreementId] = {
-          dac: bulkValues.dac.trim() === "" ? current.dac : bulkValues.dac,
-          ecs: bulkValues.ecs.trim() === "" ? current.ecs : bulkValues.ecs,
-          special: bulkValues.special.trim() === "" ? current.special : bulkValues.special,
+      for (const update of updates) {
+        const current = next[update.agreementId] ?? { dac: "", ecs: "", special: "" };
+        next[update.agreementId] = {
+          dac: update.dac === "" ? current.dac : update.dac,
+          ecs: update.ecs === "" ? current.ecs : update.ecs,
+          special: update.special === "" ? current.special : update.special,
         };
       }
       return next;
     });
-    if (bulkValues.paymentDate) {
-      setZeroPaymentDates((previous) => ({
-        ...previous,
-        ...Object.fromEntries(selectedRows.map((row) => [row.agreementId, bulkValues.paymentDate])),
-      }));
-    }
+    setZeroPaymentDates((previous) => {
+      const next = { ...previous };
+      for (const update of updates) if (update.paymentDate) next[update.agreementId] = update.paymentDate;
+      return next;
+    });
+    setBulkPasteMessage(updates.length + " loan rows imported individually." + (errors.length ? " " + errors.length + " row(s) skipped: " + errors.slice(0, 3).join(" · ") : ""));
   }
 
   async function applyZeroAmounts() {
@@ -826,30 +871,35 @@ export function PaidFileReconciliationModal({
                     <div className="rounded-md bg-muted/50 p-2"><p className="text-[11px] text-muted-foreground">Manual additions ready</p><p className="text-lg font-bold">{zeroReadyCount}</p></div>
                   </div>
                   <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div><h4 className="text-xs font-semibold">Bulk Entry</h4><p className="text-[11px] text-muted-foreground">Select multiple eligible loans below, enter shared values, then apply them together.</p></div>
-                      <span className="text-xs font-medium tabular-nums">{eligibleZeroRows.filter((row) => zeroSelected[row.agreementId]).length} selected</span>
+                    <div>
+                      <h4 className="text-xs font-semibold">Bulk Paste — Individual Loan Amounts</h4>
+                      <p className="text-[11px] text-muted-foreground">Excel से Loan Number, DAC, ECS, Special और Payment Date की rows copy करके नीचे paste करें। हर loan का amount अलग-अलग import होगा। खाली amount column मौजूदा value को नहीं बदलेगा।</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      {(["dac", "ecs", "special"] as const).map((key) => <div key={key}><label className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground">Bulk {key}</label><Input type="number" min="0" step="0.01" className="h-8 text-xs" placeholder="Leave unchanged" value={bulkValues[key]} onChange={(event) => setBulkValues((previous) => ({ ...previous, [key]: event.target.value }))} /></div>)}
-                      <div><label className="mb-1 block text-[11px] font-medium text-muted-foreground">Bulk Payment Date</label><Input type="date" className="h-8 text-xs" value={bulkValues.paymentDate} onChange={(event) => setBulkValues((previous) => ({ ...previous, paymentDate: event.target.value }))} /></div>
+                    <div className="rounded bg-background p-2 font-mono text-[11px] text-muted-foreground">
+                      Loan Number[TAB]DAC[TAB]ECS[TAB]Special[TAB]Payment Date
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" variant="outline" onClick={() => setZeroSelected(Object.fromEntries(eligibleZeroRows.map((row) => [row.agreementId, true])))}>Select all eligible</Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => setZeroSelected({})}>Clear selection</Button>
-                      <Button type="button" size="sm" onClick={applyBulkValues} disabled={!eligibleZeroRows.some((row) => zeroSelected[row.agreementId]) || (![bulkValues.dac, bulkValues.ecs, bulkValues.special].some((value) => value.trim() !== "") && !bulkValues.paymentDate)}>Apply bulk values to selected</Button>
+                    <textarea
+                      aria-label="Paste individual loan amounts"
+                      className="min-h-28 w-full rounded-md border bg-background p-2 font-mono text-xs"
+                      placeholder={"LN001\\t500\\t0\\t0\\t2026-11-13\\nLN002\\t0\\t750\\t0\\t2026-11-13\\nLN003\\t0\\t0\\t1200\\t2026-11-13"}
+                      value={bulkPasteText}
+                      onChange={(event) => { setBulkPasteText(event.target.value); setBulkPasteMessage(""); }}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button type="button" size="sm" onClick={applyBulkPaste} disabled={!bulkPasteText.trim()}>Import pasted rows</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => { setBulkPasteText(""); setBulkPasteMessage(""); }}>Clear paste</Button>
                     </div>
+                    {bulkPasteMessage && <p role="status" className="text-[11px] text-muted-foreground">{bulkPasteMessage}</p>}
                   </div>
                   <div className="overflow-x-auto rounded-md border">
                     <table className="w-full min-w-[760px] text-left text-xs">
-                      <thead className="bg-muted/60"><tr><th className="p-2"><span className="sr-only">Select</span></th><th className="p-2">Loan Number</th><th className="p-2">Master Match</th><th className="p-2 text-right">Existing DAC</th><th className="p-2">Manual DAC</th><th className="p-2">Manual ECS</th><th className="p-2">Manual Special</th><th className="p-2">Payment Date</th></tr></thead>
+                      <thead className="bg-muted/60"><tr><th className="p-2">Loan Number</th><th className="p-2">Master Match</th><th className="p-2 text-right">Existing DAC</th><th className="p-2">Manual DAC</th><th className="p-2">Manual ECS</th><th className="p-2">Manual Special</th><th className="p-2">Payment Date</th></tr></thead>
                       <tbody className="divide-y">
                         {zeroAmountRows.map((row) => {
                           const values = zeroAmounts[row.agreementId] ?? { dac: "", ecs: "", special: "" };
                           const disabled = !row.master || !eligibleZeroRows.includes(row);
                           const update = (key: "dac" | "ecs" | "special", value: string) => setZeroAmounts((prev) => ({ ...prev, [row.agreementId]: { ...(prev[row.agreementId] ?? { dac: "", ecs: "", special: "" }), [key]: value } }));
                           return <tr key={row.agreementId}>
-                            <td className="p-2"><input aria-label={`Select ${row.agreementId} for bulk entry`} type="checkbox" checked={!!zeroSelected[row.agreementId]} disabled={disabled} onChange={(event) => setZeroSelected((previous) => ({ ...previous, [row.agreementId]: event.target.checked }))} /></td>
                             <td className="p-2 font-mono">{row.agreementId}</td>
                             <td className="p-2">{!row.master ? "Unmatched" : disabled ? "Protected / conflict" : `Matched · row ${row.master.row}`}</td>
                             <td className="p-2 text-right tabular-nums">{money(row.master?.existingDac ?? 0)}</td>
