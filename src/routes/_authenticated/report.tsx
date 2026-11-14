@@ -239,7 +239,7 @@ function LoanStatsCards({ rows }: { rows: Collection[] }) {
     return loanStats(loans);
   }, [rows]);
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="report-kpi-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <StatCard label="Main Paid Cases" value={String(stats.mainPaidCases)} />
       <StatCard label="Main Paid EMI Count" value={String(stats.mainPaidEmiCount)} />
       <StatCard label="POS Paid — Not Main Paid" value={String(stats.posPaidNotMainPaid)} />
@@ -301,11 +301,11 @@ function TopPerformers({
   const latest = useMemo(() => lastFive(latestRows), [latestRows]);
 
   return (
-    <section className="mt-10 space-y-5">
-      <h2 className="text-2xl font-bold">Top Performers</h2>
+    <section className="report-performance mt-10 space-y-5">
+      <div className="report-section-heading"><div><span>LIVE REPORT DATA IN APP</span><h2>Performance Highlights</h2><p>Executive leaders and the latest collection activity</p></div></div>
 
       {best ? (
-        <div className="rounded-xl border bg-muted/40 p-5">
+        <div className="report-performer-hero rounded-xl border bg-muted/40 p-5">
           <div className="flex items-start gap-3">
             <span className="text-3xl" aria-hidden>
               🏆
@@ -322,7 +322,7 @@ function TopPerformers({
         <p className="rounded-xl border p-6 text-center text-base">No collections yet.</p>
       )}
 
-      <div>
+      <div className="report-daily-leaders">
         <h3 className="mb-2 text-xl font-semibold">Daily Top Performers</h3>
         {daily.length === 0 ? (
           <p className="rounded-xl border p-6 text-center text-base">No data yet.</p>
@@ -352,16 +352,16 @@ function TopPerformers({
         )}
       </div>
 
-      <div>
+      <div className="report-recent-activity">
         <h3 className="mb-2 text-xl font-semibold">Last 5 Collection Entries</h3>
         {latest.length === 0 ? (
           <p className="rounded-xl border p-6 text-center text-base">No entries yet.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="report-recent-list space-y-2">
             {latest.map((r, i) => (
               <div
                 key={`${r.loanId ?? ""}-${r.createdAt ?? ""}-${i}`}
-                className="flex items-center justify-between gap-3 rounded-xl border p-3"
+                className="report-recent-entry flex items-center justify-between gap-3 rounded-xl border p-3"
               >
                 <div>
                   <p
@@ -388,7 +388,7 @@ function TopPerformers({
                           href={toDriveUrl(l)}
                           target="_blank"
                           rel="noreferrer"
-                          className="font-medium text-amber-800 underline hover:text-amber-900"
+                          className="report-receipt-link font-medium text-amber-800 underline hover:text-amber-900"
                         >
                           {r.receiptLinks!.length === 1
                             ? "Google Drive Receipt ↗"
@@ -450,7 +450,7 @@ function previousStats(rows: Collection[], from?: string, to?: string) {
 
 function PreviousCard({ count, total }: { count: number; total: number }) {
   return (
-    <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+    <div className="report-previous-card rounded-xl border border-amber-300 bg-amber-50 p-4">
       <p className="text-base font-semibold text-amber-900">Previous Paid File Entries</p>
       <div className="mt-2 flex gap-8">
         <div>
@@ -1738,7 +1738,7 @@ function ReportPage() {
       )}
 
       <Tabs defaultValue="datewise" className="mt-5 w-full min-w-0">
-        <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-[#e8e9eb] bg-white p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 lg:gap-1.5 lg:p-2">
+        <TabsList className="report-main-tabs flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-[#e8e9eb] bg-white p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 lg:gap-1.5 lg:p-2">
           <TabsTrigger
             value="datewise"
             className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
@@ -1776,7 +1776,7 @@ function ReportPage() {
             Failed Attempts
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="failed-attempts" className="mt-4 space-y-4">
+        <TabsContent value="failed-attempts" className="report-view report-view-failed mt-4 space-y-4">
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>
               Refresh Failed Attempts
@@ -1784,7 +1784,7 @@ function ReportPage() {
           </div>
           <FailedAttemptsReport rows={failedAttempts} isLoading={isLoading} />
         </TabsContent>
-        <TabsContent value="datewise" className="mt-4 space-y-4">
+        <TabsContent value="datewise" className="report-view report-view-datewise mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>REPORT VIEW / 01</span><h2>Date-wise Collection</h2><p>Payment-date performance with bucket-level filtering</p></div></div>
           <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 lg:p-4">
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-[#737b84]" htmlFor="from">
@@ -1826,7 +1826,7 @@ function ReportPage() {
             onExportSync={syncHighlight}
           />
         </TabsContent>
-        <TabsContent value="overall" className="mt-4 space-y-4">
+        <TabsContent value="overall" className="report-view report-view-overall mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>REPORT VIEW / 02</span><h2>Overall Collection</h2><p>Month-scoped totals across all payment dates</p></div></div>
           <div className="rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:max-w-sm lg:p-4">
             <BucketFilter value={overallBucket} onChange={setOverallBucket} />
           </div>
@@ -1844,7 +1844,7 @@ function ReportPage() {
             onExportSync={syncHighlight}
           />
         </TabsContent>
-        <TabsContent value="holdcases" className="mt-4 space-y-4">
+        <TabsContent value="holdcases" className="report-view report-view-hold mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>PORTFOLIO VIEW / 03</span><h2>Hold Cases</h2><p>Active hold portfolio grouped by executive and city</p></div></div>
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => refetch()} disabled={holdCasesLoading}>
               Refresh Hold Cases
@@ -1856,7 +1856,7 @@ function ReportPage() {
             error={Boolean(holdCasesError)}
           />
         </TabsContent>
-        <TabsContent value="ptps" className="mt-4 space-y-4">
+        <TabsContent value="ptps" className="report-view report-view-ptp mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>FOLLOW-UP VIEW / 05</span><h2>Promise to Pay (PTP)</h2><p>Pending, kept and removed promises with portfolio POS</p></div></div>
           \n{" "}
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => void refetch()} disabled={ptpsLoading}>
@@ -1867,7 +1867,7 @@ function ReportPage() {
           \n{" "}
         </TabsContent>
         \n{" "}
-        <TabsContent value="paid-hold" className="mt-4 space-y-4">
+        <TabsContent value="paid-hold" className="report-view report-view-paid-hold mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>PORTFOLIO VIEW / 04</span><h2>Paid &amp; Hold Analysis</h2><p>Combined portfolio view across paid, active hold and optional PTP cases</p></div></div>
           <div className="flex justify-end">
             <Button
               variant="outline"
@@ -1932,7 +1932,7 @@ function ReportBlock({
   }
 
   return (
-    <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)] lg:items-start lg:gap-4 lg:space-y-0">
+    <div className="report-executive-report space-y-5 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)] lg:items-start lg:gap-4 lg:space-y-0">
       <div className="hidden grid-cols-2 gap-3 lg:col-span-2 lg:grid">
         <div className="rounded-xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">
