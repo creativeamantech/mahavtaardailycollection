@@ -21,6 +21,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getCurrentSession, logoutCurrentSession } from "@/lib/auth.functions";
 import { LoginScreen } from "@/components/LoginScreen";
 import { DraggableMobileNavButton } from "@/components/DraggableMobileNavButton";
+import { MahavtaarLogoMark } from "@/components/MahavtaarLogo3D";
 
 function NotFoundComponent() {
   return (
@@ -121,7 +122,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/Favicon.ico", type: "image/x-icon" },
     ],
   }),
   shellComponent: RootShell,
@@ -252,10 +253,9 @@ function AppShell() {
       {/* Desktop navigation follows the approved prototype: a readable fixed-width sidebar. */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[252px] flex-col gap-7 overflow-y-auto border-r border-[#e8e9eb] bg-white px-4 py-6 text-[#252525] shadow-[1px_0_8px_rgba(0,0,0,0.025)] md:flex print:hidden">
         <Link to="/" className="flex items-center gap-3 px-2">
-          <img
-            src="/mahavtaar-logo.png"
+          <MahavtaarLogoMark
             alt="Mahavtaar Enterprises"
-            className="size-10 shrink-0 rounded-lg object-contain"
+            className="size-10 shrink-0 object-contain"
           />
           <span className="min-w-0">
             <span className="block text-sm font-extrabold tracking-tight">Mahavtaar</span>
@@ -329,10 +329,9 @@ function AppShell() {
         <header className="sticky top-0 z-30 border-b border-[#e4eae5] bg-white/95 shadow-sm backdrop-blur print:hidden">
           <div className="flex min-h-[62px] items-center justify-between gap-3 px-4 sm:px-6 md:min-h-[68px] md:px-8">
             <div className="flex min-w-0 items-center gap-3 md:hidden">
-              <img
-                src="/mahavtaar-logo.png"
+              <MahavtaarLogoMark
                 alt="Mahavtaar Enterprises"
-                className="size-9 shrink-0 rounded-lg object-contain"
+                className="size-9 shrink-0 object-contain"
               />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-extrabold text-[#17211d]">
@@ -410,10 +409,9 @@ function AppShell() {
                 onClick={() => setMobileNavOpen(false)}
                 className="flex min-w-0 items-center gap-3"
               >
-                <img
-                  src="/mahavtaar-logo.png"
+                <MahavtaarLogoMark
                   alt="Mahavtaar Enterprises"
-                  className="size-10 shrink-0 rounded-lg object-contain"
+                  className="size-10 shrink-0 object-contain"
                 />
                 <span className="min-w-0">
                   <span className="block text-sm font-extrabold tracking-tight">Mahavtaar</span>

@@ -13,10 +13,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { MahavtaarLogo3D } from "@/components/MahavtaarLogo3D";
 
 const EXECUTIVE_NAMES = [
-  "Aarti", "Admin", "Ankita", "Bharti", "Julee",
-  "Pooja", "Shikha", "Sona", "Sunanda", "Vinita",
+  "Aarti",
+  "Admin",
+  "Ankita",
+  "Bharti",
+  "Julee",
+  "Pooja",
+  "Shikha",
+  "Sona",
+  "Sunanda",
+  "Vinita",
 ] as const;
 
 const spectrum =
@@ -73,10 +82,9 @@ export function LoginScreen() {
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1160px] grid-cols-1 items-center gap-[15px] md:grid-cols-[1.05fr_0.95fr] md:gap-[clamp(35px,7vw,90px)]">
         <section className="relative flex flex-col items-center px-3 py-2 text-center md:px-[26px] md:py-[38px]">
-          <img
-            src="/mahavtaar-logo.png"
+          <MahavtaarLogo3D
             alt="Mahavtaar Enterprises"
-            className="h-[125px] w-[180px] object-contain drop-shadow-[0_9px_15px_rgba(37,20,92,0.09)] sm:h-[180px] sm:w-[230px] md:h-[240px] md:w-[min(310px,70%)]"
+            className="h-[175px] w-[215px] drop-shadow-[0_12px_22px_rgba(37,20,92,0.14)] sm:h-[225px] sm:w-[255px] md:h-[280px] md:w-[min(325px,78%)]"
           />
 
           <p
@@ -134,7 +142,9 @@ export function LoginScreen() {
                   </SelectTrigger>
                   <SelectContent>
                     {EXECUTIVE_NAMES.map((name) => (
-                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
