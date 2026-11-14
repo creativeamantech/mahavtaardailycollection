@@ -301,7 +301,7 @@ function TopPerformers({
   const latest = useMemo(() => lastFive(latestRows), [latestRows]);
 
   return (
-    <section className="report-performance mt-10 space-y-5">
+    <section className="report-performance report-v3-performance mt-10">
       <div className="report-section-heading"><div><span>LIVE REPORT DATA IN APP</span><h2>Performance Highlights</h2><p>Executive leaders and the latest collection activity</p></div></div>
 
       {best ? (
@@ -322,13 +322,14 @@ function TopPerformers({
         <p className="rounded-xl border p-6 text-center text-base">No collections yet.</p>
       )}
 
-      <div className="report-daily-leaders">
+      <div className="report-daily-leaders report-v3-daily">
         <h3 className="mb-2 text-xl font-semibold">Daily Top Performers</h3>
+        <p className="report-v3-mobile-hint">Compact daily performance cards</p>
         {daily.length === 0 ? (
           <p className="rounded-xl border p-6 text-center text-base">No data yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-base">
+          <div className="report-v3-daily-table overflow-x-auto rounded-xl border">
+            <table className="report-v3-daily-table-grid w-full text-base">
               <thead className="bg-muted">
                 <tr>
                   <th className="p-3 text-left font-semibold">Date</th>
@@ -352,7 +353,7 @@ function TopPerformers({
         )}
       </div>
 
-      <div className="report-recent-activity">
+      <div className="report-recent-activity report-v3-recent">
         <h3 className="mb-2 text-xl font-semibold">Last 5 Collection Entries</h3>
         {latest.length === 0 ? (
           <p className="rounded-xl border p-6 text-center text-base">No entries yet.</p>
@@ -361,7 +362,7 @@ function TopPerformers({
             {latest.map((r, i) => (
               <div
                 key={`${r.loanId ?? ""}-${r.createdAt ?? ""}-${i}`}
-                className="report-recent-entry flex items-center justify-between gap-3 rounded-xl border p-3"
+                className="report-recent-entry report-v3-entry flex items-center justify-between gap-3 rounded-xl border p-3"
               >
                 <div>
                   <p
@@ -1668,10 +1669,10 @@ function ReportPage() {
   );
 
   return (
-    <main className="report-premium mx-auto w-full max-w-[1600px] px-3 pb-[calc(10rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-16 sm:pt-6 lg:px-8 lg:pb-12 lg:pt-7 xl:px-10">
+    <main className="report-premium report-v3 mx-auto w-full max-w-[1600px] px-3 pb-[calc(10rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-16 sm:pt-6 lg:px-8 lg:pb-12 lg:pt-7 xl:px-10">
       <NotificationPanel className="mb-4" />
       <PortalTimingsPanel className="mb-5" />
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="report-v3-pagehead flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#a07b0a]">
             Performance &amp; collection intelligence
@@ -1693,7 +1694,7 @@ function ReportPage() {
         </Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] lg:items-end lg:p-4">
+      <div className="report-v3-filters mt-4 grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] lg:items-end lg:p-4">
         <div className="min-w-0">
           <MonthSelect value={month} onChange={setMonth} options={months} />
         </div>
@@ -1738,7 +1739,7 @@ function ReportPage() {
       )}
 
       <Tabs defaultValue="datewise" className="mt-5 w-full min-w-0">
-        <TabsList className="report-main-tabs flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-[#e8e9eb] bg-white p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 lg:gap-1.5 lg:p-2">
+        <TabsList className="report-main-tabs report-v3-tabs flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-[#e8e9eb] bg-white p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 lg:gap-1.5 lg:p-2">
           <TabsTrigger
             value="datewise"
             className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
