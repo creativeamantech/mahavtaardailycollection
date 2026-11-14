@@ -280,11 +280,32 @@ function dailyTop(rows: Collection[]) {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
+function collectionActivityTimestamp(row: Collection): number {
+  const fallback = row.date ? `${row.date}T${row.time || "00:00:00"}` : "";
+  const timestamp = Date.parse(row.createdAt || fallback);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 function lastFive(rows: Collection[]) {
   return [...rows]
-    .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""))
-    .slice(-5)
-    .reverse();
+    .sort((a, b) => collectionActivityTimestamp(b) - collectionActivityTimestamp(a))
+    .slice(0, 5);
+}
+
+function formatPerformanceDate(value: string): string {
+  if (!value) return "Date unavailable";
+  const parsed = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(parsed);
+}
+
+function maskPerformanceLoanId(value?: string): string {
+  const loanId = String(value ?? "").trim().replace(/\\s+/g, "");
+  return loanId ? `•••• ${loanId.slice(-4)}` : "—";
 }
 
 function TopPerformers({
@@ -314,7 +335,7 @@ function TopPerformers({
               <p className="text-sm font-medium text-muted-foreground">Overall Top Performer</p>
               <p className="text-2xl font-bold">{best.executive}</p>
               <p className="mt-1 text-lg font-semibold">{formatAmount(best.total)}</p>
-              <p className="text-base text-muted-foreground">{best.count} cases</p>
+              <p className="text-base text-muted-foreground">{best.count} cases · Total collection</p>
             </div>
           </div>
         </div>
@@ -341,7 +362,7 @@ function TopPerformers({
               <tbody>
                 {daily.map((d) => (
                   <tr key={d.date} className="border-t">
-                    <td className="p-3">{d.date}</td>
+                    <td className="p-3">{formatPerformanceDate(d.date)}</td>
                     <td className="p-3">{d.executive}</td>
                     <td className="p-3 text-right font-semibold">{formatAmount(d.total)}</td>
                     <td className="p-3 text-right">{d.count}</td>
@@ -354,7 +375,7 @@ function TopPerformers({
       </div>
 
       <div className="report-recent-activity report-v3-recent">
-        <h3 className="mb-2 text-xl font-semibold">Last 5 Collection Entries</h3>
+        <h3 className="mb-2 text-xl font-semibold">Recent Collection Entries</h3>
         {latest.length === 0 ? (
           <p className="rounded-xl border p-6 text-center text-base">No entries yet.</p>
         ) : (
@@ -376,10 +397,10 @@ function TopPerformers({
                         : ""
                     }`}
                   >
-                    {r.loanId || "—"}
+                    {`Loan ID · ${maskPerformanceLoanId(r.loanId)}`}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {r.executive} · {r.date}
+                    {r.executive} · {formatPerformanceDate(r.date)} · Collection entry
                   </p>
                   {r.receiptLinks && r.receiptLinks.length > 0 ? (
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
