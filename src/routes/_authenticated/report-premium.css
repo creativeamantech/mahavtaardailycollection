@@ -474,3 +474,51 @@
   .report-v3 .report-v3-daily-table-grid tr{padding:10px;gap:6px}
 }
 @media(prefers-reduced-motion:reduce){.report-v3 *{scroll-behavior:auto!important;transition:none!important}}
+
+
+/* Prototype V3 precision pass — presentation only; no controls or behaviour added. */
+.report-v3 .report-view-datewise > div.space-y-2 > button:first-child,
+.report-v3 .report-view-overall > div.space-y-2 > button:first-child{
+  min-height:43px;
+  border:1px solid #6e287f!important;
+  border-radius:10px!important;
+  background:linear-gradient(110deg,#6e287f,#963b99)!important;
+  color:#fff!important;
+  font-size:11px!important;
+  font-weight:850!important;
+  box-shadow:0 5px 14px rgba(110,40,127,.16);
+}
+.report-v3 .report-view-datewise > div.space-y-2 > button:first-child:hover,
+.report-v3 .report-view-overall > div.space-y-2 > button:first-child:hover{
+  filter:brightness(1.06);
+  box-shadow:0 7px 17px rgba(110,40,127,.2);
+}
+.report-v3 .report-view-datewise > div.space-y-2 > button:nth-child(2),
+.report-v3 .report-view-overall > div.space-y-2 > button:nth-child(2){
+  min-height:39px;
+  border:1px solid var(--v3-line)!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  color:#625b70!important;
+  font-size:10px!important;
+  font-weight:750!important;
+}
+.report-v3 .report-view-datewise > div.space-y-2 > button:nth-child(2):hover,
+.report-v3 .report-view-overall > div.space-y-2 > button:nth-child(2):hover{
+  border-color:#d4c4dc!important;
+  background:#fbf7fc!important;
+}
+.report-v3 .report-view-datewise > div.space-y-2,
+.report-v3 .report-view-overall > div.space-y-2{
+  padding:11px;
+  border:1px solid var(--v3-line);
+  border-radius:13px;
+  background:#fff;
+  box-shadow:0 5px 16px rgba(42,31,60,.035);
+}
+@media(max-width:600px){
+  .report-v3 .report-view-datewise > div.space-y-2,
+  .report-v3 .report-view-overall > div.space-y-2{padding:10px}
+  .report-v3 .report-view-datewise > div.space-y-2 > button:first-child,
+  .report-v3 .report-view-overall > div.space-y-2 > button:first-child{min-height:43px;font-size:10px!important}
+}
