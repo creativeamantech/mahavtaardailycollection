@@ -322,13 +322,14 @@ function TopPerformers({
         <p className="rounded-xl border p-6 text-center text-base">No collections yet.</p>
       )}
 
-      <div className="report-daily-leaders">
+      <div className="report-daily-leaders report-v3-daily">
         <h3 className="mb-2 text-xl font-semibold">Daily Top Performers</h3>
+        <p className="report-v3-mobile-hint">Compact daily performance cards</p>
         {daily.length === 0 ? (
           <p className="rounded-xl border p-6 text-center text-base">No data yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-base">
+          <div className="report-v3-daily-table overflow-x-auto rounded-xl border">
+            <table className="report-v3-daily-table-grid w-full text-base">
               <thead className="bg-muted">
                 <tr>
                   <th className="p-3 text-left font-semibold">Date</th>
@@ -361,7 +362,7 @@ function TopPerformers({
             {latest.map((r, i) => (
               <div
                 key={`${r.loanId ?? ""}-${r.createdAt ?? ""}-${i}`}
-                className="report-recent-entry flex items-center justify-between gap-3 rounded-xl border p-3"
+                className="report-recent-entry report-v3-entry flex items-center justify-between gap-3 rounded-xl border p-3"
               >
                 <div>
                   <p
