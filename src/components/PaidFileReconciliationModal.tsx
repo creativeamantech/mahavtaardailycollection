@@ -191,9 +191,15 @@ export function PaidFileReconciliationWorkspace({
   const [bulkPasteText, setBulkPasteText] = useState("");
   const [bulkPasteMessage, setBulkPasteMessage] = useState("");
 
-  const zeroAmountRows = useMemo(
-    () => reconciledRows.filter((row) => row.dac === 0 && row.ecs === 0 && row.special === 0),
+  // Paid File review is limited to rows that actually exist in Master Allocation.
+  // Unmatched source-file rows are intentionally excluded from this workspace.
+  const masterMatchedRows = useMemo(
+    () => reconciledRows.filter((row) => Boolean(row.master)),
     [reconciledRows],
+  );
+  const zeroAmountRows = useMemo(
+    () => masterMatchedRows.filter((row) => row.dac === 0 && row.ecs === 0 && row.special === 0),
+    [masterMatchedRows],
   );
   const eligibleZeroRows = useMemo(
     () =>
@@ -351,7 +357,7 @@ export function PaidFileReconciliationWorkspace({
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return reconciledRows.filter((row) => {
+    return masterMatchedRows.filter((row) => {
       if (q) {
         const matchId = row.agreementId.toLowerCase().includes(q);
         const matchCust = (row.master?.customer ?? "").toLowerCase().includes(q);
@@ -360,7 +366,7 @@ export function PaidFileReconciliationWorkspace({
       }
       switch (reviewTab) {
         case "all_changes":
-          return row.action !== "unchanged" && row.action !== "unmatched";
+          return row.action !== "unchanged";
         case "clean_updates":
           return row.action === "clean_update" || row.action === "provisional_confirmed";
         case "conflicts":
@@ -371,13 +377,11 @@ export function PaidFileReconciliationWorkspace({
           return row.protectedSkip;
         case "unchanged":
           return row.action === "unchanged";
-        case "unmatched":
-          return row.action === "unmatched";
         case "zero_amount":
           return false;
       }
     });
-  }, [reconciledRows, reviewTab, search]);
+  }, [masterMatchedRows, reviewTab, search]);
 
   const filteredZeroRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -408,7 +412,6 @@ export function PaidFileReconciliationWorkspace({
     { id: "master_higher", label: "Master Higher", count: summary.masterHigherCount },
     { id: "protected", label: "Protected", count: summary.protectedSkips },
     { id: "unchanged", label: "Matched", count: summary.unchangedCount },
-    { id: "unmatched", label: "Unmatched", count: summary.unmatchedCount },
     { id: "zero_amount", label: "Zero Amount", count: zeroAmountRows.length },
   ];
 
@@ -434,7 +437,7 @@ export function PaidFileReconciliationWorkspace({
           "New Total",
           "Reason",
         ],
-        reconciledRows.map((r) => [
+        masterMatchedRows.map((r) => [
           r.agreementId,
           r.master?.customer ?? "",
           r.master?.executive ?? "",
@@ -452,38 +455,6 @@ export function PaidFileReconciliationWorkspace({
           r.newTotal ?? "",
           r.reason,
         ]),
-      ),
-    );
-  }
-
-  function exportUnmatchedCsv() {
-    downloadCsv(
-      "paid-file-unmatched.csv",
-      toCsv(
-        [
-          "Agreement ID",
-          "SFDC",
-          "Online",
-          "Paid DAC",
-          "ECS",
-          "Special",
-          "Paid Total",
-          "Payment Date",
-          "Rows",
-        ],
-        reconciledRows
-          .filter((r) => r.action === "unmatched")
-          .map((r) => [
-            r.agreementId,
-            r.sfdc,
-            r.online,
-            r.paidFileDac,
-            r.ecs,
-            r.special,
-            r.paidFileTotal,
-            r.resolvedPaymentDate,
-            r.sourceRows,
-          ]),
       ),
     );
   }
@@ -942,10 +913,9 @@ export function PaidFileReconciliationWorkspace({
                 label="No Update Needed"
                 value={(
                   summary.unchangedCount +
-                  summary.masterHigherCount +
-                  summary.unmatchedCount
+                  summary.masterHigherCount
                 ).toLocaleString("en-IN")}
-                sub={`${summary.unchangedCount} matched · ${summary.masterHigherCount} higher · ${summary.unmatchedCount} unmatched`}
+                sub={`${summary.unchangedCount} matched · ${summary.masterHigherCount} higher`}
                 tone="neutral"
               />
             </div>
@@ -988,16 +958,6 @@ export function PaidFileReconciliationWorkspace({
                 >
                   <Download className="mr-1.5 h-3.5 w-3.5" />
                   Summary CSV
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-10 flex-1 whitespace-nowrap sm:min-h-8 sm:flex-initial"
-                  disabled={summary.unmatchedCount === 0}
-                  onClick={exportUnmatchedCsv}
-                >
-                  Unmatched CSV ({summary.unmatchedCount})
                 </Button>
               </div>
             </div>
@@ -1138,15 +1098,15 @@ export function PaidFileReconciliationWorkspace({
                     </p>
                   </div>
                   <div className="rounded-lg border bg-muted/30 p-2.5">
-                    <p className="text-[11px] text-muted-foreground">Master matched</p>
+                    <p className="text-[11px] text-muted-foreground">Eligible for manual update</p>
                     <p className="mt-0.5 font-mono text-lg font-bold tabular-nums">
-                      {zeroAmountRows.filter((row) => row.master).length}
+                      {eligibleZeroRows.length}
                     </p>
                   </div>
                   <div className="rounded-lg border bg-muted/30 p-2.5">
-                    <p className="text-[11px] text-muted-foreground">Protected / unmatched</p>
+                    <p className="text-[11px] text-muted-foreground">Protected / ineligible</p>
                     <p className="mt-0.5 font-mono text-lg font-bold tabular-nums">
-                      {zeroAmountRows.length - eligibleZeroRows.length}
+                      {zeroAmountRows.filter((row) => !eligibleZeroRows.includes(row)).length}
                     </p>
                   </div>
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 dark:border-emerald-900 dark:bg-emerald-950/20">
