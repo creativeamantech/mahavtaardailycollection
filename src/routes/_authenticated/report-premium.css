@@ -341,7 +341,6 @@
 @media (min-width: 1024px) {
   .report-premium [role="tablist"] { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); }
   .report-premium [role="tab"] { padding-inline: 8px !important; }
-  .report-premium .lg\:grid-cols-\[minmax\(0\\,1\.35fr\)_minmax\(320px\,0\.9fr\)\] { gap: 16px; }
 }
 @media (max-width: 640px) {
   .report-premium::before { margin-bottom: 13px; }
