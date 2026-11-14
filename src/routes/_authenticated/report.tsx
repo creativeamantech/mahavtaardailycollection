@@ -88,7 +88,7 @@ function ExportButton({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="report-export-card">
       <Button
         variant="outline"
         className="h-12 w-full text-base font-medium"
@@ -304,7 +304,9 @@ function formatPerformanceDate(value: string): string {
 }
 
 function maskPerformanceLoanId(value?: string): string {
-  const loanId = String(value ?? "").trim().replace(/\s+/g, "");
+  const loanId = String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "");
   return loanId ? `•••• ${loanId.slice(-4)}` : "—";
 }
 
@@ -323,7 +325,13 @@ function TopPerformers({
 
   return (
     <section className="report-performance report-v3-performance mt-10">
-      <div className="report-section-heading"><div><span>LIVE REPORT DATA IN APP</span><h2>Performance Highlights</h2><p>Executive leaders and the latest collection activity</p></div></div>
+      <div className="report-section-heading">
+        <div>
+          <span>LIVE REPORT DATA IN APP</span>
+          <h2>Performance Highlights</h2>
+          <p>Executive leaders and the latest collection activity</p>
+        </div>
+      </div>
 
       {best ? (
         <div className="report-performer-hero rounded-xl border bg-muted/40 p-5">
@@ -335,7 +343,9 @@ function TopPerformers({
               <p className="text-sm font-medium text-muted-foreground">Overall Top Performer</p>
               <p className="text-2xl font-bold">{best.executive}</p>
               <p className="mt-1 text-lg font-semibold">{formatAmount(best.total)}</p>
-              <p className="text-base text-muted-foreground">{best.count} cases · Total collection</p>
+              <p className="text-base text-muted-foreground">
+                {best.count} cases · Total collection
+              </p>
             </div>
           </div>
         </div>
@@ -547,21 +557,21 @@ function HoldCasesReport({
     );
   return (
     <section className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="report-kpi-grid grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Active Hold Cases" value={String(activeRows.length)} />
         <StatCard label="Total Cities" value={String(cityGroups.length)} />
         <StatCard label="Total Executives" value={String(executiveGroups.length)} />
         <StatCard label="Principal Outstanding" value={formatAmount(totalPrincipal)} />
       </div>
       <Tabs defaultValue="executive" className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-3">
-          <TabsTrigger value="executive" className="whitespace-normal text-xs sm:text-sm">
+        <TabsList className="report-subtabs">
+          <TabsTrigger value="executive" className="whitespace-nowrap text-xs sm:text-sm">
             Executive-wise
           </TabsTrigger>
-          <TabsTrigger value="city" className="whitespace-normal text-xs sm:text-sm">
+          <TabsTrigger value="city" className="whitespace-nowrap text-xs sm:text-sm">
             City-wise
           </TabsTrigger>
-          <TabsTrigger value="overall" className="whitespace-normal text-xs sm:text-sm">
+          <TabsTrigger value="overall" className="whitespace-nowrap text-xs sm:text-sm">
             Overall
           </TabsTrigger>
         </TabsList>
@@ -1079,7 +1089,7 @@ function PaidHoldAnalysis({
           <Switch id="include-ptps" checked={includePTPs} onCheckedChange={setIncludePTPs} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="report-kpi-grid grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard label="Paid Cases" value={String(paidCount)} />
         <StatCard label="Hold Cases" value={String(holdCount)} />
         <StatCard label="PTP Cases" value={String(ptpCount)} />
@@ -1087,7 +1097,7 @@ function PaidHoldAnalysis({
         <StatCard label="Combined POS" value={formatAmount(totalPos)} />
         <StatCard label="PTP POS" value={formatAmount(ptpPos)} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="report-kpi-grid grid grid-cols-2 gap-3">
         <StatCard label="Paid POS" value={formatAmount(paidPos)} />
         <StatCard label="Hold POS" value={formatAmount(holdPos)} />
       </div>
@@ -1131,7 +1141,7 @@ function PaidHoldAnalysis({
         )}
       </div>
       <Tabs defaultValue="city" className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2">
+        <TabsList className="report-subtabs">
           <TabsTrigger value="city">City-wise</TabsTrigger>
           <TabsTrigger value="executive">Executive-wise</TabsTrigger>
         </TabsList>
@@ -1321,7 +1331,7 @@ function PTPReport({
     );
   return (
     <section className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="report-kpi-grid grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total PTPs" value={String(rows.length)} />
         <StatCard label="Pending" value={String(pending)} />
         <StatCard label="Kept" value={String(kept)} />
@@ -1331,7 +1341,7 @@ function PTPReport({
         />
       </div>
       {pie.length > 0 && (
-        <div className="h-64 rounded-xl border p-3">
+        <div className="h-64 rounded-xl border bg-white p-3">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -1343,9 +1353,18 @@ function PTPReport({
                 outerRadius={85}
                 label
               >
-                {pie.map((s) => (
-                  <Cell key={s.name} />
-                ))}
+                {pie.map((s) => {
+                  const key = s.name.toLowerCase();
+                  const fill =
+                    key === "kept"
+                      ? "#16a34a"
+                      : key === "removed"
+                        ? "#64748b"
+                        : key === "active" || key === "pending"
+                          ? "#d97706"
+                          : "#087fae";
+                  return <Cell key={s.name} fill={fill} />;
+                })}
               </Pie>
               <Tooltip />
               <Legend />
@@ -1354,7 +1373,7 @@ function PTPReport({
         </div>
       )}
       <Tabs value={view} onValueChange={setView} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-3">
+        <TabsList className="report-subtabs">
           <TabsTrigger value="overall">Overall</TabsTrigger>
           <TabsTrigger value="executive">Executive-wise</TabsTrigger>
           <TabsTrigger value="city">City-wise</TabsTrigger>
@@ -1453,9 +1472,8 @@ function FailedAttemptsReport({ rows, isLoading }: { rows: FailedAttempt[]; isLo
     return <p className="rounded-xl border p-6 text-center">Loading failed attempts…</p>;
   return (
     <section className="space-y-3">
-      <div className="rounded-xl border p-4">
-        <p className="text-sm text-muted-foreground">Unsuccessful collection save attempts</p>
-        <p className="text-2xl font-bold">{rows.length}</p>
+      <div className="report-kpi-grid grid grid-cols-1 sm:max-w-xs">
+        <StatCard label="Unsuccessful collection save attempts" value={String(rows.length)} />
       </div>
       {rows.length === 0 ? (
         <p className="rounded-xl border p-6 text-center">No failed collection attempts recorded.</p>
@@ -1506,8 +1524,8 @@ function ReportPage() {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-  const data = bundle?.collections ?? [];
-  const excludedLoanRecords = bundle?.excludedLoans ?? [];
+  const data = useMemo(() => bundle?.collections ?? [], [bundle?.collections]);
+  const excludedLoanRecords = useMemo(() => bundle?.excludedLoans ?? [], [bundle?.excludedLoans]);
   const holdCaseRows = (bundle?.holdCases ?? []) as HoldReportRow[];
   const ptpRows = (bundle?.ptps ?? []) as PTPReportRow[];
   const failedAttempts = (bundle?.failedAttempts ?? []) as FailedAttempt[];
@@ -1731,14 +1749,11 @@ function ReportPage() {
         </div>
       </div>
       {alreadyPaidCount > 0 && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">
-          <div className="flex items-center gap-2">
-            <span className="inline-block size-2.5 rounded-full bg-red-600 animate-pulse" />
-            <span>
-              <strong>{alreadyPaidCount} Already Paid cases</strong> are highlighted in RED in
-              Google Sheet & included in CSV export with "Already Paid" column.
-            </span>
-          </div>
+        <div className="report-v3-alert mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">
+          <span>
+            <strong>{alreadyPaidCount} Already Paid cases</strong> are highlighted in RED in Google
+            Sheet &amp; included in CSV export with &quot;Already Paid&quot; column.
+          </span>
           <Button
             type="button"
             size="sm"
@@ -1798,8 +1813,16 @@ function ReportPage() {
             Failed Attempts
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="failed-attempts" className="report-view report-view-failed mt-4 space-y-4">
-          <div className="flex justify-end">
+        <TabsContent
+          value="failed-attempts"
+          className="report-view report-view-failed mt-4 space-y-4"
+        >
+          <div className="report-section-heading">
+            <div>
+              <span>REPORT VIEW · 06</span>
+              <h2>Failed Collection Attempts</h2>
+              <p>Unsuccessful collection save attempts and reasons</p>
+            </div>
             <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>
               Refresh Failed Attempts
             </Button>
@@ -1807,7 +1830,13 @@ function ReportPage() {
           <FailedAttemptsReport rows={failedAttempts} isLoading={isLoading} />
         </TabsContent>
         <TabsContent value="datewise" className="report-view report-view-datewise mt-4 space-y-4">
-          <div className="report-section-heading"><div><span>REPORT VIEW / 01</span><h2>Date-wise Collection</h2><p>Payment-date performance with bucket-level filtering</p></div></div>
+          <div className="report-section-heading">
+            <div>
+              <span>REPORT VIEW · 01</span>
+              <h2>Date-wise Collection</h2>
+              <p>Payment-date performance with bucket-level filtering</p>
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 lg:p-4">
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-[#737b84]" htmlFor="from">
@@ -1850,7 +1879,13 @@ function ReportPage() {
           />
         </TabsContent>
         <TabsContent value="overall" className="report-view report-view-overall mt-4 space-y-4">
-          <div className="report-section-heading"><div><span>REPORT VIEW / 02</span><h2>Overall Collection</h2><p>Month-scoped totals across all payment dates</p></div></div>
+          <div className="report-section-heading">
+            <div>
+              <span>REPORT VIEW · 02</span>
+              <h2>Overall Collection</h2>
+              <p>Month-scoped totals across all payment dates</p>
+            </div>
+          </div>
           <div className="rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:max-w-sm lg:p-4">
             <BucketFilter value={overallBucket} onChange={setOverallBucket} />
           </div>
@@ -1869,8 +1904,12 @@ function ReportPage() {
           />
         </TabsContent>
         <TabsContent value="holdcases" className="report-view report-view-hold mt-4 space-y-4">
-          <div className="report-section-heading"><div><span>PORTFOLIO VIEW / 03</span><h2>Hold Cases</h2><p>Active hold portfolio grouped by executive and city</p></div></div>
-          <div className="flex justify-end">
+          <div className="report-section-heading">
+            <div>
+              <span>PORTFOLIO VIEW · 03</span>
+              <h2>Hold Cases</h2>
+              <p>Active hold portfolio grouped by executive and city</p>
+            </div>
             <Button variant="outline" onClick={() => refetch()} disabled={holdCasesLoading}>
               Refresh Hold Cases
             </Button>
@@ -1882,24 +1921,25 @@ function ReportPage() {
           />
         </TabsContent>
         <TabsContent value="ptps" className="report-view report-view-ptp mt-4 space-y-4">
-          <div className="report-section-heading"><div><span>FOLLOW-UP VIEW / 05</span><h2>Promise to Pay (PTP)</h2><p>Pending, kept and removed promises with portfolio POS</p></div></div>
-          
-{" "}
-          <div className="flex justify-end">
+          <div className="report-section-heading">
+            <div>
+              <span>FOLLOW-UP VIEW · 05</span>
+              <h2>Promise to Pay (PTP)</h2>
+              <p>Pending, kept and removed promises with portfolio POS</p>
+            </div>
             <Button variant="outline" onClick={() => void refetch()} disabled={ptpsLoading}>
               Refresh PTPs
             </Button>
           </div>
-          
- <PTPReport rows={ptpRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />
-          
-{" "}
+          <PTPReport rows={ptpRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />
         </TabsContent>
-        
-{" "}
         <TabsContent value="paid-hold" className="report-view report-view-paid-hold mt-4 space-y-4">
-          <div className="report-section-heading"><div><span>PORTFOLIO VIEW / 04</span><h2>Paid &amp; Hold Analysis</h2><p>Combined portfolio view across paid, active hold and optional PTP cases</p></div></div>
-          <div className="flex justify-end">
+          <div className="report-section-heading">
+            <div>
+              <span>PORTFOLIO VIEW · 04</span>
+              <h2>Paid &amp; Hold Analysis</h2>
+              <p>Combined portfolio view across paid, active hold and optional PTP cases</p>
+            </div>
             <Button
               variant="outline"
               onClick={() => {
@@ -1962,14 +2002,16 @@ function ReportBlock({
     return <p className="rounded-xl border p-6 text-center text-base">No collections found.</p>;
   }
 
+  const chartBarPalette = ["#79258c", "#087fae", "#dcae22", "#e77c21", "#c44b9a", "#1aa9c6"];
+
   return (
-    <div className="report-executive-report space-y-5 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)] lg:items-start lg:gap-4 lg:space-y-0">
-      <div className="hidden grid-cols-2 gap-3 lg:col-span-2 lg:grid">
+    <div className="report-executive-report space-y-4 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)] lg:items-start lg:gap-4 lg:space-y-0">
+      <div className="report-summary-strip grid grid-cols-2 gap-3 lg:col-span-2">
         <div className="rounded-xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">
             Total Collection
           </p>
-          <p className="mt-2 text-2xl font-extrabold tabular-nums text-[#252525]">
+          <p className="mt-1.5 text-xl font-extrabold tabular-nums text-[#242236] sm:text-2xl">
             {formatAmount(total)}
           </p>
           <p className="mt-1 text-[11px] text-[#8a9097]">For the selected report period</p>
@@ -1978,102 +2020,96 @@ function ReportBlock({
           <p className="text-[11px] font-semibold uppercase tracking-wide text-[#737b84]">
             Total Cases
           </p>
-          <p className="mt-2 text-2xl font-extrabold tabular-nums text-[#252525]">{cases}</p>
+          <p className="mt-1.5 text-xl font-extrabold tabular-nums text-[#242236] sm:text-2xl">
+            {cases}
+          </p>
           <p className="mt-1 text-[11px] text-[#8a9097]">Recorded collection entries</p>
         </div>
       </div>
-      <div className="hidden overflow-hidden rounded-xl border border-[#e8e9eb] bg-white shadow-sm sm:block lg:col-start-1 lg:row-start-2">
-        <table className="w-full text-xs sm:text-base">
-          <thead className="bg-muted">
-            <tr>
-              <th className="px-2 py-2 text-left font-semibold sm:p-3">Executive</th>
-              <th className="px-2 py-2 text-right font-semibold sm:p-3">Collection</th>
-              <th className="px-2 py-2 text-right font-semibold sm:p-3">Cases</th>
-              <th className="px-2 py-2 text-left font-semibold sm:p-3">Entry Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.executive} className="border-t">
-                <td className="px-2 py-2 sm:p-3">
-                  <div className="font-medium">{r.executive}</div>
-                  {(() => {
-                    const activity = latestActivityByExecutive.get(r.executive);
-                    if (!activity)
+
+      <div className="report-panel-card hidden sm:block lg:col-start-1 lg:row-start-2">
+        <div className="report-panel-head">
+          <div>
+            <h3>Executive-wise Collection</h3>
+            <p>Collection amount and case count</p>
+          </div>
+          <span className="report-panel-kicker">Summary</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs sm:text-sm">
+            <thead className="bg-muted">
+              <tr>
+                <th className="px-3 py-2.5 text-left font-semibold">Executive</th>
+                <th className="px-3 py-2.5 text-right font-semibold">Collection</th>
+                <th className="px-3 py-2.5 text-right font-semibold">Cases</th>
+                <th className="px-3 py-2.5 text-left font-semibold">Entry Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.executive} className="border-t">
+                  <td className="px-3 py-2.5">
+                    <div className="font-semibold text-[#242236]">{r.executive}</div>
+                    {(() => {
+                      const activity = latestActivityByExecutive.get(r.executive);
+                      if (!activity)
+                        return (
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            No recent payment activity
+                          </div>
+                        );
+                      const loanKey = String(activity.loanId ?? "")
+                        .trim()
+                        .toUpperCase();
+                      const status = activity.alreadyPaid
+                        ? { label: "ALREADY PAID", className: "text-amber-700 dark:text-amber-400" }
+                        : excludedLoanIds.has(loanKey)
+                          ? { label: "EXCLUDED", className: "text-amber-800 dark:text-amber-300" }
+                          : { label: "ADDED", className: "text-emerald-700 dark:text-emerald-400" };
                       return (
-                        <div className="mt-1 text-[10px] text-muted-foreground">
-                          No recent payment activity
+                        <div className="mt-1 space-y-0.5 text-[11px] leading-tight">
+                          <div className={`font-semibold ${status.className}`}>{status.label}</div>
+                          <div className="tabular-nums text-muted-foreground">
+                            {activity.loanId || "—"} · {formatAmount(activity.amount)}
+                          </div>
+                          {activity.createdAt ? (
+                            <div className="text-muted-foreground/80">
+                              {new Date(activity.createdAt).toLocaleString("en-IN", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </div>
+                          ) : null}
                         </div>
                       );
-                    const loanKey = String(activity.loanId ?? "")
-                      .trim()
-                      .toUpperCase();
-                    const status = activity.alreadyPaid
-                      ? { label: "ALREADY PAID", className: "text-amber-700 dark:text-amber-400" }
-                      : excludedLoanIds.has(loanKey)
-                        ? { label: "EXCLUDED", className: "text-amber-800 dark:text-amber-300" }
-                        : { label: "ADDED", className: "text-amber-800 dark:text-amber-300" };
-                    return (
-                      <div className="mt-1 space-y-0.5 text-[10px] leading-tight sm:text-xs">
-                        <div className={`font-semibold ${status.className}`}>● {status.label}</div>
-                        <div className="text-muted-foreground tabular-nums">
-                          {activity.loanId || "—"} · {formatAmount(activity.amount)}
-                        </div>
-                        {activity.createdAt ? (
-                          <div className="text-muted-foreground/80">
-                            {new Date(activity.createdAt).toLocaleString("en-IN", {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })()}
-                </td>
-                <td className="px-2 py-2 text-right font-semibold tabular-nums sm:p-3">
-                  {formatAmount(r.total)}
-                </td>
-                <td className="px-2 py-2 text-right tabular-nums sm:p-3">{r.count}</td>
-                <td className="px-2 py-2 sm:p-3">
-                  <div className="flex flex-wrap gap-1">
-                    {r.normalCount > 0 && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
-                        Normal {r.normalCount}
-                      </span>
-                    )}
-                    {r.previousCount > 0 && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
-                        Previous Paid File {r.previousCount}
-                      </span>
-                    )}
-                  </div>
-                </td>
+                    })()}
+                  </td>
+                  <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
+                    {formatAmount(r.total)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.count}</td>
+                  <td className="px-3 py-2.5 text-xs text-[#514d5e]">
+                    {[
+                      r.normalCount > 0 ? `Normal ${r.normalCount}` : null,
+                      r.previousCount > 0 ? `Previous Paid ${r.previousCount}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-t-2 bg-muted/50 font-bold">
+                <td className="px-3 py-2.5">TOTAL</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{formatAmount(total)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{cases}</td>
+                <td className="px-3 py-2.5" />
               </tr>
-            ))}
-            <tr className="border-t-2 bg-muted/50 font-bold">
-              <td className="px-2 py-2 sm:p-3">TOTAL</td>
-              <td className="px-2 py-2 text-right tabular-nums sm:p-3">{formatAmount(total)}</td>
-              <td className="px-2 py-2 text-right tabular-nums sm:p-3">{cases}</td>
-              <td className="px-2 py-2 sm:p-3" />
-            </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="space-y-3 sm:hidden">
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-            <p className="text-xs font-medium text-amber-900">Total Collection</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-amber-950">
-              {formatAmount(total)}
-            </p>
-          </div>
-          <div className="rounded-xl border bg-white p-3">
-            <p className="text-xs font-medium text-muted-foreground">Total Cases</p>
-            <p className="mt-1 text-lg font-bold tabular-nums">{cases}</p>
-          </div>
-        </div>
         {rows.map((r) => {
           const activity = latestActivityByExecutive.get(r.executive);
           const loanKey = String(activity?.loanId ?? "")
@@ -2087,31 +2123,28 @@ function ReportBlock({
                 ? "EXCLUDED"
                 : "LATEST ENTRY";
           return (
-            <article key={r.executive} className="rounded-xl border bg-white p-3 shadow-sm">
+            <article
+              key={r.executive}
+              className="rounded-xl border border-[#e8e4ed] bg-white p-3.5 shadow-sm"
+            >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{r.executive}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{r.count} cases</p>
+                  <p className="truncate text-sm font-bold text-[#242236]">{r.executive}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {r.count} cases
+                    {r.normalCount > 0 ? ` · Normal ${r.normalCount}` : ""}
+                    {r.previousCount > 0 ? ` · Prev Paid ${r.previousCount}` : ""}
+                  </p>
                 </div>
-                <p className="shrink-0 text-base font-bold tabular-nums">{formatAmount(r.total)}</p>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {r.normalCount > 0 && (
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                    Normal {r.normalCount}
-                  </span>
-                )}
-                {r.previousCount > 0 && (
-                  <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-[11px] font-semibold text-yellow-900">
-                    Previous Paid {r.previousCount}
-                  </span>
-                )}
+                <p className="shrink-0 text-base font-extrabold tabular-nums text-[#242236]">
+                  {formatAmount(r.total)}
+                </p>
               </div>
               {activity && (
-                <div className="mt-3 border-t pt-2 text-[11px] text-muted-foreground">
+                <div className="mt-2.5 border-t border-[#f0edf3] pt-2 text-[11px] text-muted-foreground">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>{status}</span>
-                    <span>
+                    <span className="font-semibold text-[#514d5e]">{status}</span>
+                    <span className="tabular-nums">
                       {activity.loanId || "—"} · {formatAmount(activity.amount)}
                     </span>
                   </div>
@@ -2130,29 +2163,44 @@ function ReportBlock({
         })}
       </div>
 
-      <div className="h-72 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:col-start-2 lg:row-start-2 lg:sticky lg:top-24">
-        {mounted ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="executive"
-                tick={{ fontSize: 12 }}
-                interval={0}
-                angle={-25}
-                dy={10}
-                height={50}
-              />
-              <YAxis tick={{ fontSize: 12 }} width={60} />
-              <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
-              <Bar dataKey="total" fill="#f2c94c" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Loading chart...
+      <div className="report-panel-card lg:col-start-2 lg:row-start-2 lg:sticky lg:top-24">
+        <div className="report-panel-head">
+          <div>
+            <h3>Collection by Executive</h3>
+            <p>Comparison chart · selected period</p>
           </div>
-        )}
+        </div>
+        <div className="h-72 p-3">
+          {mounted ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0edf3" />
+                <XAxis
+                  dataKey="executive"
+                  tick={{ fontSize: 11, fill: "#777487" }}
+                  interval={0}
+                  angle={-25}
+                  dy={10}
+                  height={50}
+                />
+                <YAxis tick={{ fontSize: 11, fill: "#777487" }} width={60} />
+                <Tooltip formatter={(v: number) => formatAmount(Number(v))} />
+                <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                  {rows.map((entry, idx) => (
+                    <Cell
+                      key={entry.executive}
+                      fill={chartBarPalette[idx % chartBarPalette.length] ?? "#79258c"}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Loading chart...
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
