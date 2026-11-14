@@ -1784,7 +1784,8 @@ function ReportPage() {
           </div>
           <FailedAttemptsReport rows={failedAttempts} isLoading={isLoading} />
         </TabsContent>
-        <TabsContent value="datewise" className="report-view report-view-datewise mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>REPORT VIEW / 01</span><h2>Date-wise Collection</h2><p>Payment-date performance with bucket-level filtering</p></div></div>
+        <TabsContent value="datewise" className="report-view report-view-datewise mt-4 space-y-4">
+          <div className="report-section-heading"><div><span>REPORT VIEW / 01</span><h2>Date-wise Collection</h2><p>Payment-date performance with bucket-level filtering</p></div></div>
           <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 lg:p-4">
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-[#737b84]" htmlFor="from">
@@ -1826,7 +1827,8 @@ function ReportPage() {
             onExportSync={syncHighlight}
           />
         </TabsContent>
-        <TabsContent value="overall" className="report-view report-view-overall mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>REPORT VIEW / 02</span><h2>Overall Collection</h2><p>Month-scoped totals across all payment dates</p></div></div>
+        <TabsContent value="overall" className="report-view report-view-overall mt-4 space-y-4">
+          <div className="report-section-heading"><div><span>REPORT VIEW / 02</span><h2>Overall Collection</h2><p>Month-scoped totals across all payment dates</p></div></div>
           <div className="rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:max-w-sm lg:p-4">
             <BucketFilter value={overallBucket} onChange={setOverallBucket} />
           </div>
@@ -1844,7 +1846,8 @@ function ReportPage() {
             onExportSync={syncHighlight}
           />
         </TabsContent>
-        <TabsContent value="holdcases" className="report-view report-view-hold mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>PORTFOLIO VIEW / 03</span><h2>Hold Cases</h2><p>Active hold portfolio grouped by executive and city</p></div></div>
+        <TabsContent value="holdcases" className="report-view report-view-hold mt-4 space-y-4">
+          <div className="report-section-heading"><div><span>PORTFOLIO VIEW / 03</span><h2>Hold Cases</h2><p>Active hold portfolio grouped by executive and city</p></div></div>
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => refetch()} disabled={holdCasesLoading}>
               Refresh Hold Cases
@@ -1856,18 +1859,24 @@ function ReportPage() {
             error={Boolean(holdCasesError)}
           />
         </TabsContent>
-        <TabsContent value="ptps" className="report-view report-view-ptp mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>FOLLOW-UP VIEW / 05</span><h2>Promise to Pay (PTP)</h2><p>Pending, kept and removed promises with portfolio POS</p></div></div>
-          \n{" "}
+        <TabsContent value="ptps" className="report-view report-view-ptp mt-4 space-y-4">
+          <div className="report-section-heading"><div><span>FOLLOW-UP VIEW / 05</span><h2>Promise to Pay (PTP)</h2><p>Pending, kept and removed promises with portfolio POS</p></div></div>
+          
+{" "}
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => void refetch()} disabled={ptpsLoading}>
               Refresh PTPs
             </Button>
           </div>
-          \n <PTPReport rows={ptpRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />
-          \n{" "}
+          
+ <PTPReport rows={ptpRows} isLoading={ptpsLoading} error={Boolean(ptpsError)} />
+          
+{" "}
         </TabsContent>
-        \n{" "}
-        <TabsContent value="paid-hold" className="report-view report-view-paid-hold mt-4 space-y-4">\n          <div className="report-section-heading"><div><span>PORTFOLIO VIEW / 04</span><h2>Paid &amp; Hold Analysis</h2><p>Combined portfolio view across paid, active hold and optional PTP cases</p></div></div>
+        
+{" "}
+        <TabsContent value="paid-hold" className="report-view report-view-paid-hold mt-4 space-y-4">
+          <div className="report-section-heading"><div><span>PORTFOLIO VIEW / 04</span><h2>Paid &amp; Hold Analysis</h2><p>Combined portfolio view across paid, active hold and optional PTP cases</p></div></div>
           <div className="flex justify-end">
             <Button
               variant="outline"
