@@ -304,7 +304,7 @@ function formatPerformanceDate(value: string): string {
 }
 
 function maskPerformanceLoanId(value?: string): string {
-  const loanId = String(value ?? "").trim().replace(/\\s+/g, "");
+  const loanId = String(value ?? "").trim().replace(/\s+/g, "");
   return loanId ? `•••• ${loanId.slice(-4)}` : "—";
 }
 
