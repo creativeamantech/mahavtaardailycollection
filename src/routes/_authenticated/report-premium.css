@@ -27,7 +27,7 @@
 .report-premium .report-main-tabs [role=tab]:nth-child(1)[data-state=active]{background:linear-gradient(115deg,#79258c,#c22691)!important}
 .report-premium .report-main-tabs [role=tab]:nth-child(2)[data-state=active]{background:linear-gradient(115deg,#087db4,#19afd0)!important}
 .report-premium .report-main-tabs [role=tab]:nth-child(3)[data-state=active]{background:linear-gradient(115deg,#e58a13,#f3bd32)!important;color:#3d2a09!important}
-.report-premium .report-main-tabs [role=tab]:nth-child(4)[data-state=active]{background:linear-gradient(115deg,#178b78,#27b7a0)!important}
+.report-premium .report-main-tabs [role=tab]:nth-child(4)[data-state=active]{background:linear-gradient(115deg,#087fae,#19afd0)!important}
 .report-premium .report-main-tabs [role=tab]:nth-child(5)[data-state=active]{background:linear-gradient(115deg,#a53a9c,#df69b4)!important}
 .report-premium .report-main-tabs [role=tab]:nth-child(6)[data-state=active]{background:linear-gradient(115deg,#c53d45,#ef7767)!important}
 .report-premium [role=tabpanel]{min-width:0}
@@ -38,7 +38,7 @@
 .report-premium .report-view-datewise .report-section-heading span{color:#8a35a1}
 .report-premium .report-view-overall .report-section-heading span{color:#087fae}
 .report-premium .report-view-hold .report-section-heading span{color:#d88915}
-.report-premium .report-view-paid-hold .report-section-heading span{color:#178b78}
+.report-premium .report-view-paid-hold .report-section-heading span{color:#087fae}
 .report-premium .report-view-ptp .report-section-heading span{color:#bd4b9d}
 .report-premium .report-view-failed .report-section-heading span{color:#c5444c}
 .report-premium .report-view-datewise > div.grid.rounded-xl.border,.report-premium .report-view-overall > div.rounded-xl.border{border-color:var(--rp-line)!important;border-radius:13px!important;background:#fff!important;box-shadow:0 7px 24px rgba(43,31,61,.045)}
