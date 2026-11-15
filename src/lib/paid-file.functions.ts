@@ -1060,7 +1060,7 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
           "?valueInputOption=RAW",
       ),
       "GOOGLE_SHEETS_API_KEY",
-      { method: "PUT", body: JSON.stringify({ values: [[auditNote("COMPLETE")]] }) },
+      { method: "PUT", body: JSON.stringify({ values: [["COMPLETE"]] }) },
     );
 
     return {
