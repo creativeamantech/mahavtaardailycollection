@@ -533,6 +533,10 @@ export const getPaidFileAuditHistory = createServerFn({ method: "GET" }).handler
         chainValid: true,
         verifiedCount: 0,
         brokenAtRow: null as number | null,
+        totalBatches: 0,
+        totalAppliedRows: 0,
+        todayAppliedRows: 0,
+        totalConflictsFlagged: 0,
       };
     }
 
@@ -605,13 +609,35 @@ export const getPaidFileAuditHistory = createServerFn({ method: "GET" }).handler
       });
     }
 
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const auditDate = (value: string) => {
+      const match = value.match(/^(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})/);
+      if (!match) return "";
+      const year = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
+      return year + "-" + String(match[2]).padStart(2, "0") + "-" + String(match[1]).padStart(2, "0");
+    };
+    const totalAppliedRows = entries.reduce((sum, entry) => sum + entry.recordsApplied, 0);
+    const todayAppliedRows = entries
+      .filter((entry) => auditDate(entry.timestamp) === today)
+      .reduce((sum, entry) => sum + entry.recordsApplied, 0);
+    const totalConflictsFlagged = entries.reduce((sum, entry) => sum + entry.conflictsFlagged, 0);
+    const totalBatches = entries.length;
     return {
       found: true as const,
       spreadsheetName: file.name,
-      entries: entries.reverse().slice(0, 25),
+      entries: entries.slice().reverse().slice(0, 25),
       chainValid,
       verifiedCount,
       brokenAtRow,
+      totalBatches,
+      totalAppliedRows,
+      todayAppliedRows,
+      totalConflictsFlagged,
     };
   } catch {
     return {
@@ -621,6 +647,10 @@ export const getPaidFileAuditHistory = createServerFn({ method: "GET" }).handler
       chainValid: true,
       verifiedCount: 0,
       brokenAtRow: null as number | null,
+      totalBatches: 0,
+      totalAppliedRows: 0,
+      todayAppliedRows: 0,
+      totalConflictsFlagged: 0,
     };
   }
 });
