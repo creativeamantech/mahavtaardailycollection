@@ -1076,7 +1076,8 @@ type DailyCollectionPlanRow = {
 };
 
 function dailyCollectionDate(value: unknown): string {
-  return parsePaidDate(value);
+  const parsed = parsePaidDate(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(parsed) ? parsed : "";
 }
 
 function dailyCollectionTime(value: unknown): string {
@@ -1137,6 +1138,7 @@ function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>
     const masterMatches = masterById.get(agreementId) ?? [];
     if (masterMatches.length === 0) reasons.push("Agreement ID not found in Master Allocation");
     if (masterMatches.length > 1) reasons.push("Agreement ID matches multiple Master rows");
+    if (masterMatches.length === 1 && masterMatches[0]!.isConflict) reasons.push("Master row has an unresolved Paid File conflict");
     return {
       row: sheetRow,
       agreementId,
@@ -1193,7 +1195,8 @@ function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>
     }
   }
 
-  const ready = [...eligibleById.entries()].map(([agreementId, item]) => ({
+  const reviewedIds = new Set(review.map((row) => row.agreementId).filter(Boolean));
+  const ready = [...eligibleById.entries()].filter(([agreementId]) => !reviewedIds.has(agreementId)).map(([agreementId, item]) => ({
     row: item.master.row,
     agreementId,
     bankDac: item.master.existingDac,
@@ -1211,6 +1214,7 @@ function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>
     ambiguousIds: new Set(
       [...masterById.entries()].filter(([, rows]) => rows.length > 1).map(([id]) => id),
     ),
+    reviewedIds,
     amountById: new Map(ready.map((row) => [row.agreementId, row.dailyCollectionDac])),
   };
 }
@@ -1319,7 +1323,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
   let clearedRows = 0;
   for (const row of master.data) {
     const agreementId = normalisePaidId(row.agreementId);
-    if (!agreementId || plan.ambiguousIds.has(agreementId)) continue;
+    if (!agreementId || plan.ambiguousIds.has(agreementId) || plan.reviewedIds.has(agreementId)) continue;
     const target = amountById.get(agreementId) ?? 0;
     const current = Number(row.dailyCollectionProvisionalDac ?? 0);
     const nextValue = target > 0 ? target : "";
@@ -1349,6 +1353,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
     }
   }
 
+  const updatedMasterRows = new Set(updates.map((update) => Number(update.range.match(/!([A-Z]+)(\\d+)$/)?.[2])).filter(Number.isFinite)).size;
   const auditAppend = await checked<{ updates?: { updatedRange?: string } }>(
     sheetsUrl(
       master.file.id,
@@ -1410,7 +1415,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
   return {
     ok: true as const,
     alreadySynced: false as const,
-    updatedRows: updates.length,
+    updatedRows: updatedMasterRows,
     readyCount: plan.ready.length,
     reviewCount: plan.review.length,
     totalDailyCollectionDac: plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
