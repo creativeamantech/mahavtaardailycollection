@@ -376,6 +376,18 @@ async function readMaster(target: Target = "monthly-master") {
     });
   }
 
+  return {
+    file,
+    cols,
+    data,
+    hasProtectionColumns:
+      cols.dacSource >= 0 ||
+      cols.isCorrected >= 0 ||
+      cols.provisionalDac >= 0 ||
+      cols.isConflict >= 0,
+  };
+}
+
 async function ensureDailyCollectionMetadataColumns(master: Awaited<ReturnType<typeof readMaster>>) {
   const headerRows = await values(master.file.id, "'" + master.file.tab + "'!A1:ZZ1");
   const headers = headerRows[0] ?? [];
@@ -396,18 +408,6 @@ async function ensureDailyCollectionMetadataColumns(master: Awaited<ReturnType<t
   await ensureHeader("Daily Collection Provisional DAC", ["Daily Collection Provisional DAC", "Daily Collection DAC"]);
   await ensureHeader("Source Type", ["Source Type", "Source_Type"]);
   return readMaster("monthly-master");
-}
-
-  return {
-    file,
-    cols,
-    data,
-    hasProtectionColumns:
-      cols.dacSource >= 0 ||
-      cols.isCorrected >= 0 ||
-      cols.provisionalDac >= 0 ||
-      cols.isConflict >= 0,
-  };
 }
 
 export const fetchMasterMatchingData = createServerFn({ method: "POST" })
