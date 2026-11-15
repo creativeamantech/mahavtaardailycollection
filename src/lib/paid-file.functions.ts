@@ -76,7 +76,7 @@ export type PaidFileAuditEntry = {
   hashVerified: boolean | null;
 };
 
-function authHeaders(key: string) {
+export function paidFileAuthHeaders(key: string) {
   const token = process.env["LOVABLE_API_KEY"],
     connection = process.env[key];
   if (!token || !connection) throw new Error("Google Drive/Sheets connector is not configured.");
@@ -87,10 +87,10 @@ function authHeaders(key: string) {
   };
 }
 
-async function checked<T>(url: string, key: string, init?: RequestInit): Promise<T> {
+export async function paidFileChecked<T>(url: string, key: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
-    headers: { ...authHeaders(key), ...(init?.headers ?? {}) },
+    headers: { ...paidFileAuthHeaders(key), ...(init?.headers ?? {}) },
   });
   if (!res.ok)
     throw new Error(
@@ -99,8 +99,12 @@ async function checked<T>(url: string, key: string, init?: RequestInit): Promise
   return res.json() as Promise<T>;
 }
 
-const sheetsUrl = (id: string, suffix = "") =>
+const authHeaders = paidFileAuthHeaders;
+const checked = paidFileChecked;
+
+export const paidFileSheetsUrl = (id: string, suffix = "") =>
   GATEWAY + "/google_sheets/v4/spreadsheets/" + encodeURIComponent(id) + suffix;
+const sheetsUrl = paidFileSheetsUrl;
 
 function monthTitle() {
   return (
@@ -187,13 +191,14 @@ async function resolveTarget(_target: Target) {
   };
 }
 
-async function values(id: string, range: string): Promise<string[][]> {
+export async function paidFileSheetValues(id: string, range: string): Promise<string[][]> {
   const result = await checked<{ values?: string[][] }>(
     sheetsUrl(id, "/values/" + encodeURIComponent(range)),
     "GOOGLE_SHEETS_API_KEY",
   );
   return result.values ?? [];
 }
+const values = paidFileSheetValues;
 
 function normHeader(value: unknown) {
   return String(value ?? "")
@@ -240,14 +245,15 @@ function parseDacSource(value: unknown): DacSource {
   return "";
 }
 
-function columnLetter(index: number) {
+export function paidFileColumnLetter(index: number) {
   let result = "";
   for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26))
     result = String.fromCharCode(65 + ((n - 1) % 26)) + result;
   return result;
 }
+const columnLetter = paidFileColumnLetter;
 
-async function readMaster(target: Target = "monthly-master") {
+export async function readMaster(target: Target = "monthly-master") {
   const file = await resolveTarget(target);
   const headerRows = await values(file.id, "'" + file.tab + "'!A1:ZZ1");
   if (!headerRows.length) throw new Error("The target sheet has no header row.");
@@ -275,6 +281,14 @@ async function readMaster(target: Target = "monthly-master") {
     city: findCol(headers, ["City"]),
     customer: findCol(headers, ["Customer", "Customer Name", "Borrower Name"]),
     executive: findCol(headers, ["Executive", "Executive Name", "Allocated To", "EX. Name"]),
+    allocationType: findCol(headers, ["Allocation Type", "Alloc Type", "Portfolio Type"]),
+    category: findCol(headers, [
+      "Allocation Category",
+      "Category",
+      "Portfolio Category",
+      "Asset Category",
+      "Product",
+    ]),
     newTotal: findCol(headers, ["New Total"]),
     remaining: findCol(headers, ["Remaining", "Remaining Amount", "Remaining Balance", "Balance"]),
     ecs: findCol(headers, ["ECS Amount", "ECS"]),
@@ -317,6 +331,8 @@ async function readMaster(target: Target = "monthly-master") {
         cols.city,
         cols.customer,
         cols.executive,
+        cols.allocationType,
+        cols.category,
         cols.ecs,
         cols.special,
         cols.paymentDate,
@@ -360,6 +376,9 @@ async function readMaster(target: Target = "monthly-master") {
       city: String(cell(cols.city) ?? ""),
       customer: cols.customer >= 0 ? String(cell(cols.customer) ?? "") : "",
       executive: cols.executive >= 0 ? String(cell(cols.executive) ?? "") : "",
+      allocationType:
+        cols.allocationType >= 0 ? String(cell(cols.allocationType) ?? "").trim() : "",
+      category: cols.category >= 0 ? String(cell(cols.category) ?? "").trim() : "",
       dacSource: cols.dacSource >= 0 ? parseDacSource(cell(cols.dacSource)) : "",
       isCorrected: cols.isCorrected >= 0 ? parseBool(cell(cols.isCorrected)) : false,
       provisionalDac: cols.provisionalDac >= 0 ? optionalNumeric(cell(cols.provisionalDac)) : null,
@@ -446,7 +465,7 @@ const CONFLICT_HEADERS = [
   "Batch Fingerprint",
 ];
 
-async function ensureAuditTab(id: string) {
+export async function ensurePaidFileAuditTab(id: string) {
   const meta = await checked<{ sheets?: { properties?: { title?: string } }[] }>(
     sheetsUrl(id, "?fields=sheets.properties"),
     "GOOGLE_SHEETS_API_KEY",
@@ -468,6 +487,7 @@ async function ensureAuditTab(id: string) {
     { method: "PUT", body: JSON.stringify({ values: [AUDIT_HEADERS] }) },
   );
 }
+const ensureAuditTab = ensurePaidFileAuditTab;
 
 async function ensureConflictsTab(id: string) {
   const meta = await checked<{ sheets?: { properties?: { title?: string } }[] }>(
@@ -492,7 +512,7 @@ async function ensureConflictsTab(id: string) {
   );
 }
 
-function computeAuditChainHash(params: {
+export function computePaidFileAuditChainHash(params: {
   previousHash: string;
   fingerprint: string;
   timestamp: string;
@@ -515,6 +535,7 @@ function computeAuditChainHash(params: {
     )
     .digest("hex");
 }
+const computeAuditChainHash = computePaidFileAuditChainHash;
 
 export const getPaidFileAuditHistory = createServerFn({ method: "GET" }).handler(async () => {
   await requireSession("Admin");
@@ -625,7 +646,7 @@ export const getPaidFileAuditHistory = createServerFn({ method: "GET" }).handler
   }
 });
 
-async function retryFetch(url: string, init: RequestInit) {
+export async function retryPaidFileFetch(url: string, init: RequestInit) {
   for (let attempt = 0; attempt < 4; attempt++) {
     let response: Response;
     try {
@@ -646,6 +667,7 @@ async function retryFetch(url: string, init: RequestInit) {
   }
   throw new Error("Google Sheets retry limit exceeded.");
 }
+const retryFetch = retryPaidFileFetch;
 
 export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => applySchema.parse(v))
@@ -702,7 +724,9 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
     if (duplicate) {
       const status = String(duplicate[8] ?? "LEGACY");
       throw new Error(
-        "This exact " + data.sourceMode + " change set already has an audit entry (status: " +
+        "This exact " +
+          data.sourceMode +
+          " change set already has an audit entry (status: " +
           status +
           "). Do not reapply it. Check the audit log before retrying.",
       );
@@ -749,7 +773,9 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
       // and may never mutate provisional state or create Paid File conflict flags.
       if (data.sourceMode === "MANUAL") {
         if (data.conflictFlags.length > 0 || data.totalSfdc !== 0 || data.totalOnline !== 0) {
-          throw new Error("Manual review mode cannot submit Paid File conflicts, SFDC, or Online totals.");
+          throw new Error(
+            "Manual review mode cannot submit Paid File conflicts, SFDC, or Online totals.",
+          );
         }
         if (
           change.dac < current.existingDac ||
@@ -759,7 +785,9 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
             current.existingDac + current.existingEcs + current.existingSpecial ||
           change.clearProvisional
         ) {
-          throw new Error("Manual review accepts positive additions only and cannot reduce or clear existing values.");
+          throw new Error(
+            "Manual review accepts positive additions only and cannot reduce or clear existing values.",
+          );
         }
       }
 

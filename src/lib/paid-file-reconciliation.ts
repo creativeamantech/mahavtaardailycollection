@@ -30,6 +30,8 @@ export type MasterRow = {
   city: string;
   customer?: string;
   executive?: string;
+  allocationType?: string;
+  category?: string;
   dacSource: DacSource;
   isCorrected: boolean;
   provisionalDac: number | null;
@@ -155,6 +157,7 @@ export function normalisePaidId(value: unknown): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
     .replace(/^['"\x60‘’]+|['"\x60‘’]+$/g, "")
     .replace(/\s+/g, "")
     .toUpperCase();
@@ -532,69 +535,8 @@ export function reconcilePaidRecord(
     };
   }
 
-
-    // Master Remaining > 0 means Master Total is already higher than Paid File Total -> skip
-    if (effectiveRemaining > EPS) {
-      return {
-        ...record,
-        paidFileDac,
-        paidFileTotal,
-        currentMasterTotal,
-        remaining: effectiveRemaining,
-        difference: effectiveDifference,
-        deltaDac: 0,
-        deltaEcs: 0,
-        deltaSpecial: 0,
-        dac: master.existingDac,
-        targetEcs: master.existingEcs,
-        targetSpecial: master.existingSpecial,
-        resolvedPaymentDate,
-        master,
-        newTotal: currentMasterTotal,
-        action: "master_higher",
-        reason: `Master Total (₹${currentMasterTotal.toLocaleString("en-IN")}) > Paid File (₹${paidFileTotal.toLocaleString("en-IN")}) · Remaining +₹${effectiveRemaining.toLocaleString("en-IN")}`,
-        hasDelta: false,
-        conflictFlag: false,
-        protectedSkip: false,
-        isEditable: true,
-      };
-    }
-
-    // Remaining === 0 -> Already reconciled, do NOT re-add
-    if (effectiveRemaining >= -EPS) {
-      return {
-        ...record,
-        paidFileDac,
-        paidFileTotal,
-        currentMasterTotal,
-        remaining: 0,
-        difference: 0,
-        deltaDac: 0,
-        deltaEcs: 0,
-        deltaSpecial: 0,
-        dac: master.existingDac,
-        targetEcs: master.existingEcs,
-        targetSpecial: master.existingSpecial,
-        resolvedPaymentDate,
-        master,
-        newTotal: currentMasterTotal,
-        action: "unchanged",
-        reason: "Remaining is ₹0 — Master Total matches Paid File Total",
-        hasDelta: false,
-        conflictFlag: false,
-        protectedSkip: false,
-        isEditable: true,
-      };
-    }
-
-    // Negative Remaining (< 0) -> Apply delta to DAC / ECS / Special + Payment Date & New Total = Paid File Total
-    const nextTotal = roundMoney(currentMasterTotal + effectiveDeltaDac + deltaEcs + deltaSpecial);
-    const parts: string[] = [];
-    if (effectiveDeltaDac > EPS) parts.push(`DAC +₹${effectiveDeltaDac.toLocaleString("en-IN")}`);
-    if (deltaEcs > EPS) parts.push(`ECS +₹${deltaEcs.toLocaleString("en-IN")}`);
-    if (deltaSpecial > EPS) parts.push(`Special +₹${deltaSpecial.toLocaleString("en-IN")}`);
-    if (resolvedPaymentDate) parts.push(`Date ${resolvedPaymentDate}`);
-
+  // Master Remaining > 0 means Master Total is already higher than Paid File Total -> skip
+  if (effectiveRemaining > EPS) {
     return {
       ...record,
       paidFileDac,
@@ -602,22 +544,82 @@ export function reconcilePaidRecord(
       currentMasterTotal,
       remaining: effectiveRemaining,
       difference: effectiveDifference,
-      deltaDac: effectiveDeltaDac,
-      deltaEcs,
-      deltaSpecial,
-      dac: effectiveDac,
-      targetEcs,
-      targetSpecial,
+      deltaDac: 0,
+      deltaEcs: 0,
+      deltaSpecial: 0,
+      dac: master.existingDac,
+      targetEcs: master.existingEcs,
+      targetSpecial: master.existingSpecial,
       resolvedPaymentDate,
       master,
-      newTotal: nextTotal,
-      action: "clean_update",
-      reason: `Remaining -₹${Math.abs(effectiveRemaining).toLocaleString("en-IN")} → Update ${parts.join(", ")}`,
-      hasDelta: true,
+      newTotal: currentMasterTotal,
+      action: "master_higher",
+      reason: `Master Total (₹${currentMasterTotal.toLocaleString("en-IN")}) > Paid File (₹${paidFileTotal.toLocaleString("en-IN")}) · Remaining +₹${effectiveRemaining.toLocaleString("en-IN")}`,
+      hasDelta: false,
       conflictFlag: false,
       protectedSkip: false,
       isEditable: true,
     };
+  }
+
+  // Remaining === 0 -> Already reconciled, do NOT re-add
+  if (effectiveRemaining >= -EPS) {
+    return {
+      ...record,
+      paidFileDac,
+      paidFileTotal,
+      currentMasterTotal,
+      remaining: 0,
+      difference: 0,
+      deltaDac: 0,
+      deltaEcs: 0,
+      deltaSpecial: 0,
+      dac: master.existingDac,
+      targetEcs: master.existingEcs,
+      targetSpecial: master.existingSpecial,
+      resolvedPaymentDate,
+      master,
+      newTotal: currentMasterTotal,
+      action: "unchanged",
+      reason: "Remaining is ₹0 — Master Total matches Paid File Total",
+      hasDelta: false,
+      conflictFlag: false,
+      protectedSkip: false,
+      isEditable: true,
+    };
+  }
+
+  // Negative Remaining (< 0) -> Apply delta to DAC / ECS / Special + Payment Date & New Total = Paid File Total
+  const nextTotal = roundMoney(currentMasterTotal + effectiveDeltaDac + deltaEcs + deltaSpecial);
+  const parts: string[] = [];
+  if (effectiveDeltaDac > EPS) parts.push(`DAC +₹${effectiveDeltaDac.toLocaleString("en-IN")}`);
+  if (deltaEcs > EPS) parts.push(`ECS +₹${deltaEcs.toLocaleString("en-IN")}`);
+  if (deltaSpecial > EPS) parts.push(`Special +₹${deltaSpecial.toLocaleString("en-IN")}`);
+  if (resolvedPaymentDate) parts.push(`Date ${resolvedPaymentDate}`);
+
+  return {
+    ...record,
+    paidFileDac,
+    paidFileTotal,
+    currentMasterTotal,
+    remaining: effectiveRemaining,
+    difference: effectiveDifference,
+    deltaDac: effectiveDeltaDac,
+    deltaEcs,
+    deltaSpecial,
+    dac: effectiveDac,
+    targetEcs,
+    targetSpecial,
+    resolvedPaymentDate,
+    master,
+    newTotal: nextTotal,
+    action: "clean_update",
+    reason: `Remaining -₹${Math.abs(effectiveRemaining).toLocaleString("en-IN")} → Update ${parts.join(", ")}`,
+    hasDelta: true,
+    conflictFlag: false,
+    protectedSkip: false,
+    isEditable: true,
+  };
 }
 
 export function reconcilePaidDataset(

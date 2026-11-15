@@ -479,6 +479,12 @@ function PaidFilePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/paid-file-dac-reconciliation"
+            className="inline-flex min-h-11 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3.5 text-xs font-semibold text-foreground whitespace-nowrap hover:bg-primary/15 sm:min-h-9 sm:flex-initial"
+          >
+            Collections-to-DAC Reconciliation →
+          </Link>
           <Button
             type="button"
             variant="outline"

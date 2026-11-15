@@ -180,6 +180,13 @@ const ADMIN_NAV = [
     key: "paidFile",
   },
   {
+    to: "/paid-file-dac-reconciliation",
+    label: "DAC Reconciliation",
+    short: "DAC Reconcile",
+    icon: "⇄",
+    key: "paidFile",
+  },
+  {
     to: "/master-performance",
     label: "IDFC Main Performance",
     short: "Performance",
