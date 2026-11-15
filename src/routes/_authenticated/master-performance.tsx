@@ -100,7 +100,7 @@ const emptyRule = (): Rule => ({
 function MasterPerformancePage() {
   const fetchReport = useServerFn(getMasterPerformanceReport);
   const saveTargets = useServerFn(saveMasterPerformanceTargets);
-  const saveDacSetting = useServerFn(saveDailyCollectionDacPerformanceSetting);\n  const saveDacSetting = useServerFn(saveDailyCollectionDacPerformanceSetting);
+  const saveDacSetting = useServerFn(saveDailyCollectionDacPerformanceSetting);
   const qc = useQueryClient();
   const { data, isLoading, isFetching, error, refetch } = useQuery<Report>({
     queryKey: ["master-performance-report"],
