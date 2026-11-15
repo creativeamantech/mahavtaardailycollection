@@ -165,13 +165,12 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(async
   if (!token) return null;
   // Re-read deployment credentials so PIN or role changes invalidate old sessions.
   const verified = verifySignedToken(token, readUsers());
-  if (
-    !verified ||
-    (await import("./session-revocations.server")).isSessionRevoked &&
-    (await (await import("./session-revocations.server")).isSessionRevoked(
-      sessionRevocationHash(verified.claims.jti),
-    ))
-  ) {
+  if (!verified) {
+    setAuthCookie("", 0);
+    return null;
+  }
+  const { isSessionRevoked } = await import("./session-revocations.server");
+  if (await isSessionRevoked(sessionRevocationHash(verified.claims.jti))) {
     setAuthCookie("", 0);
     return null;
   }
