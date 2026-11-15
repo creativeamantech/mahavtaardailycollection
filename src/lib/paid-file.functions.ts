@@ -1411,7 +1411,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
     }
   }
 
-  const updatedMasterRows = new Set(updates.map((update) => Number(update.range.match(/!([A-Z]+)(\\d+)$/)?.[2])).filter(Number.isFinite)).size;
+  const updatedMasterRows = new Set(updates.map((update) => Number(update.range.match(/!([A-Z]+)(\d+)$/)?.[2])).filter(Number.isFinite)).size;
   const auditNote = (status: string) =>
     "fingerprint=" + fingerprint +
     "; status=" + status +
@@ -1453,7 +1453,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
         "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!F" + auditRow) + "?valueInputOption=RAW",
       ),
       "GOOGLE_SHEETS_API_KEY",
-      { method: "PUT", body: JSON.stringify({ values: [["COMPLETE"]] }) },
+      { method: "PUT", body: JSON.stringify({ values: [[auditNote("COMPLETE")]] }) },
     );
   } catch (error) {
     await checked(
