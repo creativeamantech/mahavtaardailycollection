@@ -254,6 +254,9 @@ function SyncMonitorPage() {
                 <p className="mt-1 text-xs text-[#737b84]">
                   Verified / Corrected transactions are added to a separate Daily Collection Provisional DAC column. Existing Bank DAC, Total, New Total and Remaining are not overwritten.
                 </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Last sync: {comparison?.lastSync ?? "Not run"} · {comparison?.lastSyncStatus ?? "NOT RUN"} · {comparison?.lastSyncUpdatedRows ?? 0} Master rows updated · {formatAmount(comparison?.lastSyncProvisionalDac ?? 0)} provisional DAC · {comparison?.lastSyncReviewCount ?? 0} review rows
+                </p>
               </div>
               <span className="rounded-full bg-[#fff6d9] px-3 py-1 text-xs font-bold text-[#80600a]">
                 {comparison?.readyCount ?? 0} ready · {comparison?.reviewCount ?? 0} review
