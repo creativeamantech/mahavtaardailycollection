@@ -168,9 +168,9 @@ function SyncMonitorPage() {
   const reviewQueue = useMemo(() => getReviewQueue(collections), [collections]);
   const paidEntries = audit?.entries ?? [];
   const paidToday = paidEntries.filter((entry) => auditDateInIndia(entry.timestamp) === today);
-  const appliedTotal = paidEntries.reduce((sum, entry) => sum + Number(entry.recordsApplied || 0), 0);
-  const appliedToday = paidToday.reduce((sum, entry) => sum + Number(entry.recordsApplied || 0), 0);
-  const paidFileConflicts = paidEntries.reduce((sum, entry) => sum + Number(entry.conflictsFlagged || 0), 0);
+  const appliedTotal = audit?.totalAppliedRows ?? paidEntries.reduce((sum, entry) => sum + Number(entry.recordsApplied || 0), 0);
+  const appliedToday = audit?.todayAppliedRows ?? paidToday.reduce((sum, entry) => sum + Number(entry.recordsApplied || 0), 0);
+  const paidFileConflicts = audit?.totalConflictsFlagged ?? paidEntries.reduce((sum, entry) => sum + Number(entry.conflictsFlagged || 0), 0);
   const isLoading = collectionsQuery.isLoading || auditQuery.isLoading;
   const isFetching = collectionsQuery.isFetching || auditQuery.isFetching;
   const error = collectionsQuery.error || auditQuery.error;
@@ -239,7 +239,7 @@ function SyncMonitorPage() {
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${audit?.found ? "bg-[#fff6d9] text-[#80600a]" : "bg-red-50 text-red-700"}`}>{audit?.found ? "Connected" : "Unavailable"}</span>
               </div>
               <div className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Audit batches loaded</span><strong>{paidEntries.length}</strong></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Audit batches recorded</span><strong>{audit?.totalBatches ?? paidEntries.length}</strong></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Rows applied today</span><strong>{appliedToday}</strong></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Conflicts flagged (loaded history)</span><strong>{paidFileConflicts}</strong></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Hash-chain integrity</span><strong>{audit?.chainValid ? "Valid" : `Broken at row ${audit?.brokenAtRow ?? "?"}`}</strong></div>
@@ -266,7 +266,7 @@ function SyncMonitorPage() {
           </section>
 
           <section className="rounded-2xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold text-[#252525]">Recent Paid File activity</h2><p className="mt-1 text-xs text-[#737b84]">Latest reconciliation batches from the audit log</p></div><Link to="/paid-file" className="text-sm font-semibold text-amber-800 underline">Open reconciliation</Link></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold text-[#252525]">Recent Paid File activity</h2><p className="mt-1 text-xs text-[#737b84]">Latest 10 of {audit?.totalBatches ?? paidEntries.length} recorded batches</p></div><Link to="/paid-file" className="text-sm font-semibold text-amber-800 underline">Open reconciliation</Link></div>
             {paidEntries.length ? (
               <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Timestamp</th><th className="px-2 py-2">File</th><th className="px-2 py-2">Admin</th><th className="px-2 py-2">Rows applied</th><th className="px-2 py-2">DAC</th><th className="px-2 py-2">Conflicts</th><th className="px-2 py-2">Status</th></tr></thead><tbody>{paidEntries.slice(0, 10).map((entry) => <tr key={entry.row} className="border-b last:border-0"><td className="px-2 py-3 whitespace-nowrap">{entry.timestamp}</td><td className="px-2 py-3">{entry.fileName}</td><td className="px-2 py-3">{entry.adminName}</td><td className="px-2 py-3 tabular-nums">{entry.recordsApplied}</td><td className="px-2 py-3 tabular-nums">{formatAmount(entry.totalDac)}</td><td className="px-2 py-3 tabular-nums">{entry.conflictsFlagged}</td><td className="px-2 py-3"><span className={`rounded-full px-2 py-1 text-[11px] font-bold ${entry.applyStatus === "COMPLETE" ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-700"}`}>{entry.applyStatus}</span></td></tr>)}</tbody></table></div>
             ) : <p className="mt-4 text-sm text-muted-foreground">No recent Paid File activity is available.</p>}
