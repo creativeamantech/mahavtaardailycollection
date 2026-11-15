@@ -13,3 +13,4 @@
 
 - MCP server lives in src/lib/mcp/ (one read-only tool per file, protected by sign-in OAuth; only allow-listed emails can create accounts); tools reuse the existing server functions so report rules (Already Paid exclusion) stay identical.
 - All app pages live under src/routes/_authenticated and every server function uses requireSupabaseAuth; MCP tools call plain read* helpers server-side after OAuth verification.
+- Persist revoked signed-in sessions as token hashes in a server-only, RLS-protected database table so logout invalidates copied cookies across deployments.

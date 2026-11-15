@@ -18,6 +18,7 @@ import { FEATURES } from "@/lib/app-config.functions";
 import { useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { getCurrentSession, logoutCurrentSession } from "@/lib/auth.functions";
 import { LoginScreen } from "@/components/LoginScreen";
 import { DraggableMobileNavButton } from "@/components/DraggableMobileNavButton";
@@ -235,7 +236,7 @@ function AppShell() {
       await logout();
       await qc.invalidateQueries();
     } catch {
-      // The browser cookie is cleared by the server; stateless tokens expire automatically.
+      toast.error("Could not securely sign out. Please try again.");
       await qc.invalidateQueries({ queryKey: ["auth-session"] });
     }
   }

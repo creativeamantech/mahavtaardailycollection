@@ -137,6 +137,10 @@ function verifyPin(pin: string, stored: string) {
   return timingSafeEqual(actual, expected);
 }
 
+function sessionRevocationHash(jti: string) {
+  return createHash("sha256").update(jti).digest("hex");
+}
+
 export const loginWithPin = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) =>
     z
@@ -165,12 +169,29 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(async
     setAuthCookie("", 0);
     return null;
   }
+  const { isSessionRevoked } = await import("./session-revocations.server");
+  if (await isSessionRevoked(sessionRevocationHash(verified.claims.jti))) {
+    setAuthCookie("", 0);
+    return null;
+  }
   return { name: verified.user.name, role: verified.user.role };
 });
 
 export const logoutCurrentSession = createServerFn({ method: "POST" }).handler(async () => {
-  // Stateless tokens cannot be individually revoked. Logout removes this
-  // browser's HttpOnly cookie; any copied token expires within eight hours.
+  const token = cookieToken();
+  if (token) {
+    let verified: ReturnType<typeof verifySignedToken> = null;
+    try {
+      verified = verifySignedToken(token, readUsers());
+    } catch {
+      // Invalid or unavailable credentials cannot authenticate this token.
+    }
+    if (verified) {
+      const { revokeSession } = await import("./session-revocations.server");
+      // Do not report logout as successful unless the revocation is durable.
+      await revokeSession(sessionRevocationHash(verified.claims.jti), verified.claims.exp);
+    }
+  }
   setAuthCookie("", 0);
   return { ok: true as const };
 });
