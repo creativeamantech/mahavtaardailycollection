@@ -33,6 +33,8 @@ export type MasterRow = {
   dacSource: DacSource;
   isCorrected: boolean;
   provisionalDac: number | null;
+  dailyCollectionProvisionalDac?: number | null;
+  sourceType?: string;
   isConflict: boolean;
   paidConflictDac: number | null;
 };
