@@ -62,7 +62,8 @@ type Report = {
     cities: string[];
   };
   master: { name: string; url: string; modifiedTime: string | null };
-  rowCount: number;\n  includeDailyCollectionDac: boolean;
+  rowCount: number;
+  includeDailyCollectionDac: boolean;
   buckets: { bucket: string; cities: City[]; total: Metric }[];
   rules: Rule[];
   positiveNeededPos: {
