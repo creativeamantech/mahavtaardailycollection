@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -20,7 +20,8 @@ export const Route = createFileRoute("/_authenticated/sync-monitor")({
   component: SyncMonitorPage,
 });
 
-type Collection = Awaited<ReturnType<typeof getAdminCollections>>[number];
+type Collection = Awaited<ReturnType<typeof getAdminCollections>>[number] & { receiptDate?: string; receiptTime?: string };
+type ReviewItem = Collection & { reviewReason: string };
 
 function todayIndia() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -54,7 +55,7 @@ function auditDateInIndia(value: string) {
   return dateInIndia(value);
 }
 
-function getReviewQueue(rows: Collection[]) {
+function getReviewQueue(rows: Collection[]): ReviewItem[] {
   const parsed = rows.map((row) => {
     const remark = String(row.remark ?? "");
     const bbps = [...remark.matchAll(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/g)].map((m) => ({
@@ -85,22 +86,22 @@ function getReviewQueue(rows: Collection[]) {
       owners.set(key, list);
     }
   }
-  return parsed
-    .map((item) => {
-      const repeated = item.events.some((event) => {
-        const key = [
-          String(item.row.loanId ?? "").trim(),
-          Number(item.row.amount ?? 0).toFixed(2),
-          event.date,
-          event.time,
-        ].join("|");
-        return (owners.get(key)?.length ?? 0) > 1;
-      });
-      const reasons = [...item.reasons];
-      if (repeated) reasons.push("Same Loan ID, amount and transaction timestamp appears more than once");
-      return reasons.length ? { ...item.row, reviewReason: reasons.join("; ") } : null;
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null);
+  const flagged: ReviewItem[] = [];
+  for (const item of parsed) {
+    const repeated = item.events.some((event) => {
+      const key = [
+        String(item.row.loanId ?? "").trim(),
+        Number(item.row.amount ?? 0).toFixed(2),
+        event.date,
+        event.time,
+      ].join("|");
+      return (owners.get(key)?.length ?? 0) > 1;
+    });
+    const reasons = [...item.reasons];
+    if (repeated) reasons.push("Same Loan ID, amount and transaction timestamp appears more than once");
+    if (reasons.length) flagged.push({ ...item.row, reviewReason: reasons.join("; ") });
+  }
+  return flagged;
 }
 
 function MetricCard({
@@ -112,7 +113,7 @@ function MetricCard({
   label: string;
   value: string;
   detail: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <section className="rounded-2xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
