@@ -33,6 +33,7 @@ import { Route as AuthenticatedReceiptGalleryRouteImport } from './routes/_authe
 import { Route as AuthenticatedRechargeRouteImport } from './routes/_authenticated/recharge'
 import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSyncMonitorRouteImport } from './routes/_authenticated/sync-monitor'
 import { Route as ReceiptFileIdRouteImport } from './routes/receipt.$fileId'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
@@ -158,6 +159,11 @@ const AuthenticatedRechargeRoute = AuthenticatedRechargeRouteImport.update({
 const AuthenticatedReportRoute = AuthenticatedReportRouteImport.update({
   id: '/report',
   path: '/report',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSyncMonitorRoute = AuthenticatedSyncMonitorRouteImport.update({
+  id: '/sync-monitor',
+  path: '/sync-monitor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -517,6 +523,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/sync-monitor': {
+      id: '/_authenticated/sync-monitor'
+      path: '/sync-monitor'
+      fullPath: '/sync-monitor'
+      preLoaderRoute: typeof AuthenticatedSyncMonitorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -560,6 +573,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRechargeRoute: typeof AuthenticatedRechargeRoute
   AuthenticatedReportRoute: typeof AuthenticatedReportRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSyncMonitorRoute: typeof AuthenticatedSyncMonitorRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
@@ -583,6 +597,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRechargeRoute: AuthenticatedRechargeRoute,
   AuthenticatedReportRoute: AuthenticatedReportRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSyncMonitorRoute: AuthenticatedSyncMonitorRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
