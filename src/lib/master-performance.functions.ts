@@ -318,7 +318,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
   const master = await findMaster();
   await ensureTargetTab(master.id);
   const [data, targetRows, includeDailyCollectionDac] = await Promise.all([
-    sheetValues(master.id, "Data!A1:GY"),
+    sheetValues(master.id, "Data!A1:ZZ"),
     sheetValues(master.id, "'" + TARGET_TAB + "'!A1:G"),
     readIncludeDailyCollectionDac(),
   ]);
