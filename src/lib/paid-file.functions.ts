@@ -1060,7 +1060,7 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
           "?valueInputOption=RAW",
       ),
       "GOOGLE_SHEETS_API_KEY",
-      { method: "PUT", body: JSON.stringify({ values: [["COMPLETE"]] }) },
+      { method: "PUT", body: JSON.stringify({ values: [[auditNote("COMPLETE")]] }) },
     );
 
     return {
@@ -1248,40 +1248,30 @@ function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>
   };
 }
 
-const DAILY_COLLECTION_AUDIT_TAB = "Daily_Collection_Sync_Audit";
-const DAILY_COLLECTION_AUDIT_HEADERS = [
-  "Timestamp (IST)",
-  "Admin",
-  "Fingerprint",
-  "Verified Transactions",
-  "Master Rows Updated",
-  "Provisional DAC Applied (₹)",
-  "Review Rows",
-  "Cleared Provisional Rows",
-  "Status",
-];
+const DAILY_COLLECTION_AUDIT_TAB = "VerificationAudit";
+const DAILY_COLLECTION_SYNC_ACTION = "DAILY_COLLECTION_SYNC";
 
-async function ensureDailyCollectionAuditTab(id: string) {
+function dailyCollectionFingerprint(
+  master: Awaited<ReturnType<typeof readMaster>>,
+  plan: ReturnType<typeof buildDailyCollectionPlan>,
+) {
+  return createHash("sha256")
+    .update(JSON.stringify({
+      ready: plan.ready.map((row) => [row.row, row.agreementId, row.dailyCollectionDac, row.provisionalDac, row.transactionCount]),
+      review: plan.review.map((row) => [row.row, row.agreementId, row.reason]),
+      existing: master.data.map((row) => [row.row, row.dailyCollectionProvisionalDac ?? 0]),
+    }))
+    .digest("hex");
+}
+
+async function readDailyCollectionAuditRows(id: string) {
   const meta = await checked<{ sheets?: { properties?: { title?: string } }[] }>(
-    sheetsUrl(id, "?fields=sheets.properties"),
+    sheetsUrl(id, "?fields=sheets.properties.title"),
     "GOOGLE_SHEETS_API_KEY",
   );
-  if (!(meta.sheets ?? []).some((sheet) => sheet.properties?.title === DAILY_COLLECTION_AUDIT_TAB)) {
-    await checked(sheetsUrl(id, ":batchUpdate"), "GOOGLE_SHEETS_API_KEY", {
-      method: "POST",
-      body: JSON.stringify({
-        requests: [{ addSheet: { properties: { title: DAILY_COLLECTION_AUDIT_TAB } } }],
-      }),
-    });
-  }
-  await checked(
-    sheetsUrl(
-      id,
-      "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!A1:I1") + "?valueInputOption=RAW",
-    ),
-    "GOOGLE_SHEETS_API_KEY",
-    { method: "PUT", body: JSON.stringify({ values: [DAILY_COLLECTION_AUDIT_HEADERS] }) },
-  );
+  const exists = (meta.sheets ?? []).some((sheet) => sheet.properties?.title === DAILY_COLLECTION_AUDIT_TAB);
+  if (!exists) return null;
+  return values(id, "'" + DAILY_COLLECTION_AUDIT_TAB + "'!A2:G");
 }
 
 export const getDailyCollectionDacComparison = createServerFn({ method: "GET" }).handler(async () => {
@@ -1303,20 +1293,25 @@ export const getDailyCollectionDacComparison = createServerFn({ method: "GET" })
   let lastSyncUpdatedRows = 0;
   let lastSyncProvisionalDac = 0;
   let lastSyncReviewCount = 0;
+  const fingerprint = dailyCollectionFingerprint(master, plan);
   try {
-    const auditRows = await values(master.file.id, "'" + DAILY_COLLECTION_AUDIT_TAB + "'!A2:I");
-    const latest = auditRows.slice().reverse().find((row) => row.some((cell) => String(cell ?? "").trim()));
+    const auditRows = await readDailyCollectionAuditRows(master.file.id);
+    const latest = auditRows?.slice().reverse().find((row) =>
+      String(row[4] ?? "").trim().toUpperCase() === DAILY_COLLECTION_SYNC_ACTION
+    );
     if (latest) {
       lastSync = String(latest[0] ?? "");
-      lastSyncStatus = String(latest[8] ?? "UNKNOWN");
-      lastSyncUpdatedRows = numeric(latest[4]);
-      lastSyncProvisionalDac = numeric(latest[5]);
-      lastSyncReviewCount = numeric(latest[6]);
+      const note = String(latest[5] ?? "");
+      lastSyncStatus = note.match(/status=([A-Z -]+)/i)?.[1]?.trim() ?? "RECORDED";
+      lastSyncUpdatedRows = numeric(note.match(/rows=(\d+)/i)?.[1]);
+      lastSyncProvisionalDac = numeric(note.match(/provisional=([\d.]+)/i)?.[1]);
+      lastSyncReviewCount = numeric(note.match(/review=(\d+)/i)?.[1]);
     }
   } catch {
-    // The audit tab is created on the first explicit sync.
+    // Audit remains read-only if the existing tab is unavailable.
   }
   return {
+    fingerprint,
     masterName: master.file.name,
     masterUrl: master.file.url,
     readyCount: plan.ready.length,
@@ -1336,24 +1331,34 @@ export const getDailyCollectionDacComparison = createServerFn({ method: "GET" })
   };
 });
 
-export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" }).handler(async () => {
+export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
+  .inputValidator((value: unknown) => z.object({ fingerprint: z.string().regex(/^[a-f0-9]{64}$/) }).parse(value))
+  .handler(async ({ data }) => {
   const admin = await requireSession("Admin");
   let master = await readMaster("monthly-master");
-  master = await ensureDailyCollectionMetadataColumns(master);
   const { sheetsGetFresh, invalidateSheetsCache } = await import("./mahavtaar.server");
   const collectionRows = await sheetsGetFresh("Collections!A2:AA");
-  const plan = buildDailyCollectionPlan(master, collectionRows);
-  const fingerprint = createHash("sha256")
-    .update(JSON.stringify({
-      ready: plan.ready.map((row) => [row.row, row.agreementId, row.dailyCollectionDac, row.provisionalDac, row.transactionCount]),
-      review: plan.review.map((row) => [row.row, row.agreementId, row.reason]),
-      existing: master.data.map((row) => [row.row, row.dailyCollectionProvisionalDac ?? 0]),
-    }))
-    .digest("hex");
+  let plan = buildDailyCollectionPlan(master, collectionRows);
+  let fingerprint = dailyCollectionFingerprint(master, plan);
+  if (fingerprint !== data.fingerprint) {
+    throw new Error("Preview is out of date. Refresh the comparison and preview again before confirming sync.");
+  }
+  master = await ensureDailyCollectionMetadataColumns(master);
+  plan = buildDailyCollectionPlan(master, collectionRows);
+  fingerprint = dailyCollectionFingerprint(master, plan);
+  if (fingerprint !== data.fingerprint) {
+    throw new Error("Master Allocation changed while preparing sync. Refresh and preview again.");
+  }
 
-  await ensureDailyCollectionAuditTab(master.file.id);
-  const auditRows = await values(master.file.id, "'" + DAILY_COLLECTION_AUDIT_TAB + "'!A2:I");
-  const previous = auditRows.find((row) => String(row[2] ?? "") === fingerprint && String(row[8] ?? "") === "COMPLETE");
+  const auditRows = await readDailyCollectionAuditRows(master.file.id);
+  if (!auditRows) {
+    throw new Error("Existing VerificationAudit tab was not found. Sync stopped without creating a new sheet tab.");
+  }
+  const previous = auditRows.find((row) =>
+    String(row[4] ?? "").trim().toUpperCase() === DAILY_COLLECTION_SYNC_ACTION &&
+    String(row[5] ?? "").includes("fingerprint=" + fingerprint) &&
+    /status=COMPLETE/i.test(String(row[5] ?? ""))
+  );
   if (previous) {
     return {
       ok: true as const,
@@ -1407,27 +1412,24 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
   }
 
   const updatedMasterRows = new Set(updates.map((update) => Number(update.range.match(/!([A-Z]+)(\\d+)$/)?.[2])).filter(Number.isFinite)).size;
+  const auditNote = (status: string) =>
+    "fingerprint=" + fingerprint +
+    "; status=" + status +
+    "; rows=" + updatedMasterRows +
+    "; provisional=" + plan.ready.reduce((sum, row) => sum + row.provisionalDac, 0) +
+    "; review=" + plan.review.length +
+    "; transactions=" + plan.ready.reduce((sum, row) => sum + row.transactionCount, 0);
   const auditAppend = await checked<{ updates?: { updatedRange?: string } }>(
     sheetsUrl(
       master.file.id,
-      "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!A:I") +
+      "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!A:G") +
         ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
     ),
     "GOOGLE_SHEETS_API_KEY",
     {
       method: "POST",
       body: JSON.stringify({
-        values: [[
-          timestamp,
-          admin.name,
-          fingerprint,
-          plan.ready.reduce((sum, row) => sum + row.transactionCount, 0),
-          updatedMasterRows,
-          plan.ready.reduce((sum, row) => sum + row.provisionalDac, 0),
-          plan.review.length,
-          clearedRows,
-          "APPLYING",
-        ]],
+        values: [[timestamp, admin.name, "DAILY_COLLECTION_SYNC", 0, DAILY_COLLECTION_SYNC_ACTION, auditNote("APPLYING"), "Data Sync Monitor"]],
       }),
     },
   );
@@ -1448,7 +1450,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
     await checked(
       sheetsUrl(
         master.file.id,
-        "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!I" + auditRow) + "?valueInputOption=RAW",
+        "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!F" + auditRow) + "?valueInputOption=RAW",
       ),
       "GOOGLE_SHEETS_API_KEY",
       { method: "PUT", body: JSON.stringify({ values: [["COMPLETE"]] }) },
@@ -1457,10 +1459,10 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
     await checked(
       sheetsUrl(
         master.file.id,
-        "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!I" + auditRow) + "?valueInputOption=RAW",
+        "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!F" + auditRow) + "?valueInputOption=RAW",
       ),
       "GOOGLE_SHEETS_API_KEY",
-      { method: "PUT", body: JSON.stringify({ values: [["FAILED - CHECK MASTER BEFORE RETRY"]] }) },
+      { method: "PUT", body: JSON.stringify({ values: [[auditNote("FAILED - CHECK MASTER BEFORE RETRY")]] }) },
     ).catch(() => undefined);
     throw error;
   }
