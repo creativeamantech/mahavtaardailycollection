@@ -288,13 +288,39 @@ function makeMetric(
 }
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+
+const INCLUDE_DAILY_COLLECTION_DAC_KEY = "includeDailyCollectionDac";
+
+async function readIncludeDailyCollectionDac(): Promise<boolean> {
+  const { sheetsGetOptional } = await import("./mahavtaar.server");
+  const rows = await sheetsGetOptional("AppSettings!A2:B");
+  const value = rows.find((row) => String(row[0] ?? "").trim() === INCLUDE_DAILY_COLLECTION_DAC_KEY)?.[1];
+  return String(value ?? "ON").trim().toUpperCase() !== "OFF";
+}
+
+export const saveDailyCollectionDacPerformanceSetting = createServerFn({ method: "POST" })
+  .inputValidator((value: unknown) => z.object({ include: z.boolean() }).parse(value))
+  .handler(async ({ data }) => {
+    await requireSession("Admin");
+    const { sheetsGetOptional, ensureSheetStrict, sheetsUpdateStrict } = await import("./mahavtaar.server");
+    await ensureSheetStrict("AppSettings", ["Key", "Value"]);
+    const rows = await sheetsGetOptional("AppSettings!A2:B");
+    const index = rows.findIndex((row) => String(row[0] ?? "").trim() === INCLUDE_DAILY_COLLECTION_DAC_KEY);
+    const rowNumber = index >= 0 ? index + 2 : rows.length + 2;
+    await sheetsUpdateStrict("AppSettings!A" + rowNumber + ":B" + rowNumber, [
+      [INCLUDE_DAILY_COLLECTION_DAC_KEY, data.include ? "ON" : "OFF"],
+    ]);
+    return { ok: true as const, include: data.include };
+  });
+
 export const getMasterPerformanceReport = createServerFn({ method: "GET" }).handler(async () => {
   await requireSession("Admin");
   const master = await findMaster();
   await ensureTargetTab(master.id);
-  const [data, targetRows] = await Promise.all([
-    sheetValues(master.id, "Data!A1:GY"),
+  const [data, targetRows, includeDailyCollectionDac] = await Promise.all([
+    sheetValues(master.id, "Data!A1:ZZ"),
     sheetValues(master.id, "'" + TARGET_TAB + "'!A1:G"),
+    readIncludeDailyCollectionDac(),
   ]);
   if (data.length < 2) throw new Error("Master Allocation Data tab has no data rows.");
   const h = data[0]!;
@@ -306,6 +332,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     bucket: headerIndex(h, ["bucket", "Bucket"]),
     pos: headerIndex(h, ["principal_outstanding", "Principal Outstanding"]),
     dac: headerIndex(h, ["DAC"]),
+    dailyCollectionDac: headerIndex(h, ["Daily Collection Provisional DAC", "Daily Collection DAC"]),
     unpaid: headerIndex(h, ["Unpaid"]),
     paidCount: headerIndex(h, ["Main Paid Count"]),
     main: headerIndex(h, ["Main Paid POS"]),
@@ -313,7 +340,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     state: headerIndex(h, ["state", "State"]),
   };
   const missing = Object.entries(idx)
-    .filter(([, v]) => v < 0)
+    .filter(([key, value]) => value < 0 && key !== "dailyCollectionDac")
     .map(([k]) => k);
   if (missing.length)
     throw new Error("Required Master Data columns missing: " + missing.join(", "));
@@ -346,7 +373,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       city: String(row[idx.city] ?? "").trim() || "Unknown",
       bucket: String(row[idx.bucket] ?? "").trim() || "Unbucketed",
       state: String(row[idx.state] ?? "").trim() || "Unknown",
-      dac: numeric(row[idx.dac]),
+      dac: numeric(row[idx.dac]) + (includeDailyCollectionDac ? numeric(row[idx.dailyCollectionDac]) : 0),
       unpaid: numeric(row[idx.unpaid]),
       mainPaidCount: numeric(row[idx.paidCount]),
       pos: numeric(row[idx.pos]),
@@ -419,6 +446,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       })),
   );
   return {
+    includeDailyCollectionDac,
     master: {
       id: master.id,
       name: master.name,

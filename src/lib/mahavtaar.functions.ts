@@ -374,6 +374,8 @@ export async function readCollections() {
           amount: Number(String(r[2] ?? "0").replace(/[^0-9.-]/g, "")) || 0,
           date: paymentDate,
           time: normalizeSheetTime(r[4] ?? ""),
+          receiptDate: r[24] ? normalizeSheetDate(r[24]) : "",
+          receiptTime: r[25] ? normalizeSheetTime(r[25]) : "",
           createdAt: (r[5] ?? "").trim(),
           status: r[6] ?? "",
           entryDate: entryDateRaw ? normalizeSheetDate(entryDateRaw) : paymentDate,

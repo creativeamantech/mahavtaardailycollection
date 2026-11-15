@@ -15,6 +15,7 @@ import {
 import {
   getMasterPerformanceReport,
   saveMasterPerformanceTargets,
+  saveDailyCollectionDacPerformanceSetting,
 } from "@/lib/master-performance.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ type Report = {
   };
   master: { name: string; url: string; modifiedTime: string | null };
   rowCount: number;
+  includeDailyCollectionDac: boolean;
   buckets: { bucket: string; cities: City[]; total: Metric }[];
   rules: Rule[];
   positiveNeededPos: {
@@ -98,6 +100,7 @@ const emptyRule = (): Rule => ({
 function MasterPerformancePage() {
   const fetchReport = useServerFn(getMasterPerformanceReport);
   const saveTargets = useServerFn(saveMasterPerformanceTargets);
+  const saveDacSetting = useServerFn(saveDailyCollectionDacPerformanceSetting);
   const qc = useQueryClient();
   const { data, isLoading, isFetching, error, refetch } = useQuery<Report>({
     queryKey: ["master-performance-report"],
@@ -140,6 +143,21 @@ function MasterPerformancePage() {
       }
     }
   }
+  async function toggleDailyCollectionDac() {
+    if (!data) return;
+    setSaving(true);
+    try {
+      await saveDacSetting({ data: { include: !data.includeDailyCollectionDac } });
+      await qc.invalidateQueries({ queryKey: ["master-performance-report"] });
+      await refetch();
+      toast.success(!data.includeDailyCollectionDac ? "Daily Collection DAC included in Performance." : "Daily Collection DAC excluded from Performance.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update Performance setting.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function persistRules() {
     setSaving(true);
     try {
@@ -176,6 +194,9 @@ function MasterPerformancePage() {
               </a>
             </Button>
           )}
+          <Button variant="outline" onClick={() => void toggleDailyCollectionDac()} disabled={saving || !data}>
+            Daily Collection DAC: {data?.includeDailyCollectionDac ? "Included" : "Excluded"}
+          </Button>
           <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>
             <RefreshCw className={"mr-2 size-4 " + (isFetching ? "animate-spin" : "")} />
             Refresh

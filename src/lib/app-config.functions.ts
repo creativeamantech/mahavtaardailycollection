@@ -20,6 +20,7 @@ export const FEATURES = [
   { key: "receiptGallery", label: "Receipt Gallery", path: "/receipt-gallery" },
   { key: "bankPortal", label: "Bank Portal", path: "/bank-portal" },
   { key: "remarks", label: "Remarks", path: null },
+  { key: "syncMonitor", label: "Data Sync Monitor", path: "/sync-monitor" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
@@ -109,6 +110,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     let defaultCategory = "";
     let defaultAllocationType = "";
     let holdCasesLocked = false;
+    let includeDailyCollectionDac = true;
     try {
       const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
       defaultCategory =
@@ -119,6 +121,10 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
         (rows.find((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY)?.[1] ?? "")
           .trim()
           .toUpperCase() === "ON";
+      includeDailyCollectionDac =
+        (rows.find((r) => (r[0] ?? "").trim() === "includeDailyCollectionDac")?.[1] ?? "ON")
+          .trim()
+          .toUpperCase() !== "OFF";
     } catch {
       /* keep defaults */
     }
@@ -127,6 +133,7 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     values.push([DEFAULT_CATEGORY_KEY, defaultCategory]);
     values.push([DEFAULT_ALLOCATION_TYPE_KEY, defaultAllocationType]);
     values.push([HOLD_CASES_LOCK_KEY, holdCasesLocked ? "ON" : "OFF"]);
+    values.push(["includeDailyCollectionDac", includeDailyCollectionDac ? "ON" : "OFF"]);
     // Pad so removed keys never leave stale rows behind.
     while (values.length < 40) values.push(["", ""]);
     await sheetsUpdateStrict(`${SETTINGS_TAB}!A2:B41`, values);

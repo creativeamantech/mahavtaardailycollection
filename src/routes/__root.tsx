@@ -172,6 +172,13 @@ const NAV = [
 
 const ADMIN_NAV = [
   {
+    to: "/sync-monitor",
+    label: "Data Sync Monitor",
+    short: "Sync Monitor",
+    icon: "↻",
+    key: "syncMonitor",
+  },
+  {
     to: "/paid-file",
     label: "Paid File Reconciliation",
     short: "Paid File",
