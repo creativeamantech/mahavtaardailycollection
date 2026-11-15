@@ -109,7 +109,8 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     // Preserve the default-category row so flag saves never wipe it.
     let defaultCategory = "";
     let defaultAllocationType = "";
-    let holdCasesLocked = false;\n    let includeDailyCollectionDac = true;
+    let holdCasesLocked = false;
+    let includeDailyCollectionDac = true;
     try {
       const rows = await sheetsGet(`${SETTINGS_TAB}!A2:B`);
       defaultCategory =
@@ -120,6 +121,10 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
         (rows.find((r) => (r[0] ?? "").trim() === HOLD_CASES_LOCK_KEY)?.[1] ?? "")
           .trim()
           .toUpperCase() === "ON";
+      includeDailyCollectionDac =
+        (rows.find((r) => (r[0] ?? "").trim() === "includeDailyCollectionDac")?.[1] ?? "ON")
+          .trim()
+          .toUpperCase() !== "OFF";
     } catch {
       /* keep defaults */
     }
@@ -127,7 +132,8 @@ export const saveFeatureFlags = createServerFn({ method: "POST" })
     const values = entries.map(([k, v]) => [k, v ? "ON" : "OFF"]);
     values.push([DEFAULT_CATEGORY_KEY, defaultCategory]);
     values.push([DEFAULT_ALLOCATION_TYPE_KEY, defaultAllocationType]);
-    values.push([HOLD_CASES_LOCK_KEY, holdCasesLocked ? "ON" : "OFF"]);\n    values.push(["includeDailyCollectionDac", includeDailyCollectionDac ? "ON" : "OFF"]);
+    values.push([HOLD_CASES_LOCK_KEY, holdCasesLocked ? "ON" : "OFF"]);
+    values.push(["includeDailyCollectionDac", includeDailyCollectionDac ? "ON" : "OFF"]);
     // Pad so removed keys never leave stale rows behind.
     while (values.length < 40) values.push(["", ""]);
     await sheetsUpdateStrict(`${SETTINGS_TAB}!A2:B41`, values);
