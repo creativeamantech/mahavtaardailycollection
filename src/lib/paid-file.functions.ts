@@ -1210,18 +1210,32 @@ function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>
   }
 
   const reviewedIds = new Set(review.map((row) => row.agreementId).filter(Boolean));
-  const ready = [...eligibleById.entries()].filter(([agreementId]) => !reviewedIds.has(agreementId)).map(([agreementId, item]) => ({
-    row: item.master.row,
-    agreementId,
-    bankDac: item.master.existingDac,
-    dailyCollectionDac: Math.round((item.amount + Number.EPSILON) * 100) / 100,
-    difference: Math.round((item.amount - item.master.existingDac + Number.EPSILON) * 100) / 100,
-    provisionalDac: Math.max(0, Math.round((item.amount - item.master.existingDac + Number.EPSILON) * 100) / 100),
-    transactionCount: item.transactions,
-    status: "READY" as const,
-    reason: item.master.isCorrected ? "Verified / Corrected collection; bank DAC remains unchanged" : "Verified collection; bank DAC remains unchanged",
-    sourceType: "DAILY_COLLECTION",
-  }));
+  const ready = [...eligibleById.entries()]
+    .filter(([agreementId]) => !reviewedIds.has(agreementId))
+    .map(([agreementId, item]) => {
+      const dailyCollectionDac = Math.round((item.amount + Number.EPSILON) * 100) / 100;
+      const difference = Math.round((item.amount - item.master.existingDac + Number.EPSILON) * 100) / 100;
+      const provisionalDac = Math.max(0, difference);
+      const sources = new Set(
+        String(item.master.sourceType ?? "")
+          .split(/[,+|]/)
+          .map((value) => value.trim().toUpperCase())
+          .filter(Boolean),
+      );
+      if (provisionalDac > 0) sources.add("DAILY_COLLECTION");
+      return {
+        row: item.master.row,
+        agreementId,
+        bankDac: item.master.existingDac,
+        dailyCollectionDac,
+        difference,
+        provisionalDac,
+        transactionCount: item.transactions,
+        status: "READY" as const,
+        reason: item.master.isCorrected ? "Verified / Corrected collection; bank DAC remains unchanged" : "Verified collection; bank DAC remains unchanged",
+        sourceType: [...sources].join(", ") || "DAILY_COLLECTION",
+      };
+    });
 
   return {
     ready,
