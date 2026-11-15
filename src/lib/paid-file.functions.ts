@@ -874,6 +874,17 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
           range: "'" + file.tab + "'!" + colLetter(cols.dacSource) + change.row,
           values: [[data.sourceMode]],
         });
+      let remainingDailyCollectionDac = Number(current.dailyCollectionProvisionalDac ?? 0);
+      if (data.sourceMode === "PAID_FILE" && cols.dailyCollectionProvisionalDac >= 0) {
+        const previouslyCombined = current.existingDac + remainingDailyCollectionDac;
+        remainingDailyCollectionDac = Math.max(0, Math.round((previouslyCombined - change.dac + Number.EPSILON) * 100) / 100);
+        if (Math.abs(remainingDailyCollectionDac - Number(current.dailyCollectionProvisionalDac ?? 0)) > 0.009) {
+          updates.push({
+            range: "'" + file.tab + "'!" + colLetter(cols.dailyCollectionProvisionalDac) + change.row,
+            values: [[remainingDailyCollectionDac > 0 ? remainingDailyCollectionDac : ""]],
+          });
+        }
+      }
       if (cols.sourceType >= 0) {
         const sources = new Set(
           String(current.sourceType ?? "")
@@ -881,8 +892,10 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
             .map((value) => value.trim().toUpperCase())
             .filter(Boolean),
         );
-        sources.add(data.sourceMode === "MANUAL" ? "MANUAL_REVIEW" : "PAID_FILE");
-        if (Number(current.dailyCollectionProvisionalDac ?? 0) > 0) sources.add("DAILY_COLLECTION");
+        if (data.sourceMode === "MANUAL") sources.add("MANUAL_REVIEW");
+        else sources.add("PAID_FILE");
+        if (remainingDailyCollectionDac > 0) sources.add("DAILY_COLLECTION");
+        else sources.delete("DAILY_COLLECTION");
         updates.push({
           range: "'" + file.tab + "'!" + colLetter(cols.sourceType) + change.row,
           values: [[[...sources].join(", ")]],
@@ -1069,6 +1082,7 @@ type DailyCollectionPlanRow = {
   bankDac: number;
   dailyCollectionDac: number;
   difference: number;
+  provisionalDac: number;
   transactionCount: number;
   status: "READY" | "REVIEW";
   reason: string;
@@ -1175,6 +1189,7 @@ function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>
         bankDac,
         dailyCollectionDac: item.amount,
         difference: item.amount - bankDac,
+        provisionalDac: 0,
         transactionCount: 1,
         status: "REVIEW",
         reason: [...new Set(reasons)].join("; ") || "Needs Admin review",
@@ -1202,6 +1217,7 @@ function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>
     bankDac: item.master.existingDac,
     dailyCollectionDac: Math.round((item.amount + Number.EPSILON) * 100) / 100,
     difference: Math.round((item.amount - item.master.existingDac + Number.EPSILON) * 100) / 100,
+    provisionalDac: Math.max(0, Math.round((item.amount - item.master.existingDac + Number.EPSILON) * 100) / 100),
     transactionCount: item.transactions,
     status: "READY" as const,
     reason: item.master.isCorrected ? "Verified / Corrected collection; bank DAC remains unchanged" : "Verified collection; bank DAC remains unchanged",
@@ -1215,7 +1231,7 @@ function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>
       [...masterById.entries()].filter(([, rows]) => rows.length > 1).map(([id]) => id),
     ),
     reviewedIds,
-    amountById: new Map(ready.map((row) => [row.agreementId, row.dailyCollectionDac])),
+    amountById: new Map(ready.map((row) => [row.agreementId, row.provisionalDac])),
   };
 }
 
@@ -1293,7 +1309,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
   const plan = buildDailyCollectionPlan(master, collectionRows);
   const fingerprint = createHash("sha256")
     .update(JSON.stringify({
-      ready: plan.ready.map((row) => [row.row, row.agreementId, row.dailyCollectionDac, row.transactionCount]),
+      ready: plan.ready.map((row) => [row.row, row.agreementId, row.dailyCollectionDac, row.provisionalDac, row.transactionCount]),
       review: plan.review.map((row) => [row.row, row.agreementId, row.reason]),
       existing: master.data.map((row) => [row.row, row.dailyCollectionProvisionalDac ?? 0]),
     }))
@@ -1310,6 +1326,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
       readyCount: plan.ready.length,
       reviewCount: plan.review.length,
       totalDailyCollectionDac: plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
+    provisionalDacToApply: plan.ready.reduce((sum, row) => sum + row.provisionalDac, 0),
     };
   }
 
@@ -1370,7 +1387,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
           fingerprint,
           plan.ready.reduce((sum, row) => sum + row.transactionCount, 0),
           updatedMasterRows,
-          plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
+          plan.ready.reduce((sum, row) => sum + row.provisionalDac, 0),
           plan.review.length,
           clearedRows,
           "APPLYING",
@@ -1419,6 +1436,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
     readyCount: plan.ready.length,
     reviewCount: plan.review.length,
     totalDailyCollectionDac: plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
+    provisionalDacToApply: plan.ready.reduce((sum, row) => sum + row.provisionalDac, 0),
     clearedRows,
   };
 });
