@@ -8,6 +8,13 @@
       "when": 1792037482335,
       "tag": "0000_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794731728323,
+      "tag": "0001_create_session_revocations",
+      "breakpoints": true
     }
   ]
 }
