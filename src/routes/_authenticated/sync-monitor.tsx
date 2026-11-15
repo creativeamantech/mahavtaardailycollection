@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -136,6 +136,7 @@ function SyncMonitorPage() {
   const fetchPaidAudit = useServerFn(getPaidFileAuditHistory);
   const fetchDacComparison = useServerFn(getDailyCollectionDacComparison);
   const runVerifiedSync = useServerFn(syncVerifiedDailyCollectionDac);
+  const [previewFingerprint, setPreviewFingerprint] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const collectionsQuery = useQuery({
     queryKey: ["sync-monitor", "collections"],
@@ -150,8 +151,12 @@ function SyncMonitorPage() {
     refetchInterval: 60_000,
   });
   const syncMutation = useMutation({
-    mutationFn: () => runVerifiedSync(),
+    mutationFn: () => {
+      if (!previewFingerprint) throw new Error("Create a fresh preview before confirming sync.");
+      return runVerifiedSync({ data: { fingerprint: previewFingerprint } });
+    },
     onSuccess: async (result) => {
+      setPreviewFingerprint(null);
       toast.success(result.alreadySynced ? "Verified Daily Collection entries are already synced." : "Synced " + result.readyCount + " verified agreements; " + result.reviewCount + " rows remain in review.");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["sync-monitor", "daily-collection-dac"] }),
@@ -219,10 +224,20 @@ function SyncMonitorPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild><Link to="/paid-file">Open Paid File</Link></Button>
-          <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || !comparison}>
-            <RefreshCw className={syncMutation.isPending ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />
-            {syncMutation.isPending ? "Syncing verified entries…" : "Run verified sync"}
+          <Button variant="outline" onClick={() => setPreviewFingerprint(comparison?.fingerprint ?? null)} disabled={!comparison || syncMutation.isPending}>
+            Preview sync
           </Button>
+          {previewFingerprint && (
+            <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || !comparison || previewFingerprint !== comparison.fingerprint}>
+              <RefreshCw className={syncMutation.isPending ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />
+              {syncMutation.isPending ? "Applying confirmed sync…" : "Confirm & sync"}
+            </Button>
+          )}
+          {previewFingerprint && (
+            <Button variant="ghost" onClick={() => setPreviewFingerprint(null)} disabled={syncMutation.isPending}>
+              Cancel preview
+            </Button>
+          )}
           <Button variant="outline" onClick={() => void refresh()} disabled={isFetching}>
             <RefreshCw className={`mr-2 size-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
           </Button>
@@ -287,8 +302,13 @@ function SyncMonitorPage() {
               {(comparison?.rows?.length ?? 0) > 25 && <p className="mt-2 text-xs text-muted-foreground">Showing 25 of {comparison?.rows.length} comparison rows.</p>}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Run verified sync automatically includes clean, unique, confirmed transactions. Missing timestamps, duplicate transaction keys, unverified rows and unmatched IDs stay in the Admin review queue. Previous Paid File entries are not counted as Daily Collection.
+              Preview is read-only. Only the separate Confirm &amp; sync action applies clean, unique, confirmed transactions. Missing timestamps, duplicate transaction keys, unverified rows and unmatched IDs stay in the Admin review queue. Previous Paid File entries are excluded.
             </p>
+            {previewFingerprint && (
+              <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                <strong>Sync preview ready.</strong> This confirmation will update {comparison?.readyCount ?? 0} Master Allocation rows with {formatAmount(comparison?.provisionalDacToApply ?? 0)} provisional DAC. {comparison?.reviewCount ?? 0} rows remain in review. Bank DAC, Total, New Total and Remaining are not targeted by this sync.
+              </div>
+            )}
           </section>
           <section className="rounded-2xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
@@ -348,7 +368,7 @@ function SyncMonitorPage() {
 
           <section className="rounded-2xl border border-amber-200 bg-[#fffaf0] p-4">
             <div className="flex items-center gap-2 text-sm font-bold text-[#71520a]"><Clock3 className="size-4" /> Integration boundary</div>
-            <p className="mt-2 text-sm text-[#665b3c]">This monitor reads the existing Daily Collection sheet and Paid File audit log directly from the app, refreshing every 30 seconds. It does not write to Master Allocation or automatically add Daily Collection DAC to Performance yet; those write/apply controls must be implemented separately with an Admin preview and confirmation to prevent double counting.</p>
+            <p className="mt-2 text-sm text-[#665b3c]">This monitor reads the existing Collections and Paid File audit data every 30 seconds. Master Allocation changes require a fresh Admin preview and a separate confirmation. Sync audit events are recorded in the existing VerificationAudit tab; no new spreadsheet tab is created.</p>
           </section>
         </>
       )}
