@@ -6,7 +6,11 @@ import { RefreshCw, ClipboardList, FileSpreadsheet, ShieldAlert, CheckCircle2, C
 import { toast } from "sonner";
 import { getCurrentSession } from "@/lib/auth.functions";
 import { getAdminCollections } from "@/lib/mahavtaar.functions";
-import {\n  getPaidFileAuditHistory,\n  getDailyCollectionDacComparison,\n  syncVerifiedDailyCollectionDac,\n} from "@/lib/paid-file.functions";
+import {
+  getPaidFileAuditHistory,
+  getDailyCollectionDacComparison,
+  syncVerifiedDailyCollectionDac,
+} from "@/lib/paid-file.functions";
 import { formatAmount } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 
@@ -129,14 +133,35 @@ function MetricCard({
 
 function SyncMonitorPage() {
   const fetchCollections = useServerFn(getAdminCollections);
-  const fetchPaidAudit = useServerFn(getPaidFileAuditHistory);\n  const fetchDacComparison = useServerFn(getDailyCollectionDacComparison);\n  const runVerifiedSync = useServerFn(syncVerifiedDailyCollectionDac);\n  const queryClient = useQueryClient();
+  const fetchPaidAudit = useServerFn(getPaidFileAuditHistory);
+  const fetchDacComparison = useServerFn(getDailyCollectionDacComparison);
+  const runVerifiedSync = useServerFn(syncVerifiedDailyCollectionDac);
+  const queryClient = useQueryClient();
   const collectionsQuery = useQuery({
     queryKey: ["sync-monitor", "collections"],
     queryFn: () => fetchCollections(),
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
-  const comparisonQuery = useQuery({\n    queryKey: ["sync-monitor", "daily-collection-dac"],\n    queryFn: () => fetchDacComparison(),\n    staleTime: 30_000,\n    refetchInterval: 60_000,\n  });\n  const syncMutation = useMutation({\n    mutationFn: () => runVerifiedSync(),\n    onSuccess: async (result) => {\n      toast.success(result.alreadySynced ? "Verified Daily Collection entries are already synced." : "Synced " + result.readyCount + " verified agreements; " + result.reviewCount + " rows remain in review.");\n      await Promise.all([\n        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "daily-collection-dac"] }),\n        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "collections"] }),\n        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "paid-file-audit"] }),\n      ]);\n    },\n    onError: (cause) => toast.error(cause instanceof Error ? cause.message : "Daily Collection sync failed."),\n  });\n  const auditQuery = useQuery({
+  const comparisonQuery = useQuery({
+    queryKey: ["sync-monitor", "daily-collection-dac"],
+    queryFn: () => fetchDacComparison(),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const syncMutation = useMutation({
+    mutationFn: () => runVerifiedSync(),
+    onSuccess: async (result) => {
+      toast.success(result.alreadySynced ? "Verified Daily Collection entries are already synced." : "Synced " + result.readyCount + " verified agreements; " + result.reviewCount + " rows remain in review.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "daily-collection-dac"] }),
+        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "collections"] }),
+        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "paid-file-audit"] }),
+      ]);
+    },
+    onError: (cause) => toast.error(cause instanceof Error ? cause.message : "Daily Collection sync failed."),
+  });
+  const auditQuery = useQuery({
     queryKey: ["sync-monitor", "paid-file-audit"],
     queryFn: () => fetchPaidAudit(),
     staleTime: 15_000,
@@ -171,7 +196,8 @@ function SyncMonitorPage() {
   const appliedTotal = audit?.totalAppliedRows ?? paidEntries.reduce((sum, entry) => sum + Number(entry.recordsApplied || 0), 0);
   const appliedToday = audit?.todayAppliedRows ?? paidToday.reduce((sum, entry) => sum + Number(entry.recordsApplied || 0), 0);
   const paidFileConflicts = audit?.totalConflictsFlagged ?? paidEntries.reduce((sum, entry) => sum + Number(entry.conflictsFlagged || 0), 0);
-  const comparison = comparisonQuery.data;\n  const isLoading = collectionsQuery.isLoading || auditQuery.isLoading || comparisonQuery.isLoading;
+  const comparison = comparisonQuery.data;
+  const isLoading = collectionsQuery.isLoading || auditQuery.isLoading || comparisonQuery.isLoading;
   const isFetching = collectionsQuery.isFetching || auditQuery.isFetching;
   const error = collectionsQuery.error || auditQuery.error || comparisonQuery.error;
 
@@ -192,7 +218,11 @@ function SyncMonitorPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild><Link to="/paid-file">Open Paid File</Link></Button>\n          <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || !comparison}>\n            <RefreshCw className={syncMutation.isPending ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />\n            {syncMutation.isPending ? "Syncing verified entries…" : "Run verified sync"}\n          </Button>
+          <Button variant="outline" asChild><Link to="/paid-file">Open Paid File</Link></Button>
+          <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || !comparison}>
+            <RefreshCw className={syncMutation.isPending ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />
+            {syncMutation.isPending ? "Syncing verified entries…" : "Run verified sync"}
+          </Button>
           <Button variant="outline" onClick={() => void refresh()} disabled={isFetching}>
             <RefreshCw className={`mr-2 size-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
           </Button>
