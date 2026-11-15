@@ -381,8 +381,7 @@ async function ensureDailyCollectionMetadataColumns(master: Awaited<ReturnType<t
   const headers = headerRows[0] ?? [];
   const ensureHeader = async (name: string, aliases: string[]) => {
     if (findCol(headers, aliases) >= 0) return;
-    let index = headers.findIndex((value) => !String(value ?? "").trim());
-    if (index < 0) index = headers.length;
+    const index = headers.length;
     if (index >= 702) throw new Error("No free Master Allocation header column is available.");
     await checked(
       sheetsUrl(
