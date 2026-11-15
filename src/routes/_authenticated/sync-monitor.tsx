@@ -270,14 +270,14 @@ function SyncMonitorPage() {
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[780px] text-left text-sm">
-                <thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Agreement ID</th><th className="px-2 py-2">Master row</th><th className="px-2 py-2">Bank DAC</th><th className="px-2 py-2">Daily Collection DAC</th><th className="px-2 py-2">Difference</th><th className="px-2 py-2">Status / reason</th></tr></thead>
+                <thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Agreement ID</th><th className="px-2 py-2">Master row</th><th className="px-2 py-2">Bank DAC</th><th className="px-2 py-2">Daily Collection DAC</th><th className="px-2 py-2">Difference</th><th className="px-2 py-2">Source Type</th><th className="px-2 py-2">Status / reason</th></tr></thead>
                 <tbody>{(comparison?.rows ?? []).slice(0, 25).map((row) => (
                   <tr key={row.row + "-" + row.agreementId} className="border-b last:border-0">
                     <td className="px-2 py-3 font-semibold">{row.agreementId || "—"}</td>
                     <td className="px-2 py-3 tabular-nums">{row.row}</td>
                     <td className="px-2 py-3 tabular-nums">{formatAmount(row.bankDac)}</td>
                     <td className="px-2 py-3 tabular-nums">{formatAmount(row.dailyCollectionDac)}</td>
-                    <td className="px-2 py-3 tabular-nums">{formatAmount(row.difference)}</td>
+                    <td className="px-2 py-3 tabular-nums">{formatAmount(row.difference)}</td>\n                    <td className="px-2 py-3 text-xs">{row.sourceType}</td>
                     <td className="px-2 py-3 text-xs"><span className={row.status === "READY" ? "font-semibold text-amber-800" : "font-semibold text-red-700"}>{row.status}</span><span className="ml-2 text-muted-foreground">{row.reason}</span></td>
                   </tr>
                 ))}</tbody>
