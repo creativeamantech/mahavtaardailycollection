@@ -277,7 +277,8 @@ function SyncMonitorPage() {
                     <td className="px-2 py-3 tabular-nums">{row.row}</td>
                     <td className="px-2 py-3 tabular-nums">{formatAmount(row.bankDac)}</td>
                     <td className="px-2 py-3 tabular-nums">{formatAmount(row.dailyCollectionDac)}</td>
-                    <td className="px-2 py-3 tabular-nums">{formatAmount(row.difference)}</td>\n                    <td className="px-2 py-3 text-xs">{row.sourceType}</td>
+                    <td className="px-2 py-3 tabular-nums">{formatAmount(row.difference)}</td>
+                    <td className="px-2 py-3 text-xs">{row.sourceType}</td>
                     <td className="px-2 py-3 text-xs"><span className={row.status === "READY" ? "font-semibold text-amber-800" : "font-semibold text-red-700"}>{row.status}</span><span className="ml-2 text-muted-foreground">{row.reason}</span></td>
                   </tr>
                 ))}</tbody>
