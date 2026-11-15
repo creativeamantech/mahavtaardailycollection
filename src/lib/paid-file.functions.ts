@@ -5,6 +5,7 @@ import { requireSession } from "./auth.functions";
 import {
   isProtectedSource,
   normalisePaidId,
+  parsePaidDate,
   type DacSource,
   type MasterRow,
 } from "./paid-file-reconciliation";
@@ -289,6 +290,8 @@ async function readMaster(target: Target = "monthly-master") {
     dacSource: findCol(headers, ["DAC Source", "Source", "dac_source", "Payment Source"]),
     isCorrected: findCol(headers, ["Is Corrected", "Corrected", "is_corrected"]),
     provisionalDac: findCol(headers, ["Provisional DAC", "provisional_dac", "Provisional"]),
+    dailyCollectionProvisionalDac: findCol(headers, ["Daily Collection Provisional DAC", "Daily Collection DAC"]),
+    sourceType: findCol(headers, ["Source Type", "Source_Type"]),
     isConflict: findCol(headers, ["Is Conflict", "Conflict", "is_conflict"]),
     paidConflictDac: findCol(headers, ["Paid Conflict DAC", "paid_conflict_dac", "Conflict DAC"]),
     lastPaidUploadAt: findCol(headers, [
@@ -323,6 +326,8 @@ async function readMaster(target: Target = "monthly-master") {
         cols.dacSource,
         cols.isCorrected,
         cols.provisionalDac,
+        cols.dailyCollectionProvisionalDac,
+        cols.sourceType,
         cols.isConflict,
         cols.paidConflictDac,
       ].filter((i) => i >= 0),
@@ -363,11 +368,36 @@ async function readMaster(target: Target = "monthly-master") {
       dacSource: cols.dacSource >= 0 ? parseDacSource(cell(cols.dacSource)) : "",
       isCorrected: cols.isCorrected >= 0 ? parseBool(cell(cols.isCorrected)) : false,
       provisionalDac: cols.provisionalDac >= 0 ? optionalNumeric(cell(cols.provisionalDac)) : null,
+      dailyCollectionProvisionalDac: cols.dailyCollectionProvisionalDac >= 0 ? optionalNumeric(cell(cols.dailyCollectionProvisionalDac)) : null,
+      sourceType: cols.sourceType >= 0 ? String(cell(cols.sourceType) ?? "").trim() : "",
       isConflict: cols.isConflict >= 0 ? parseBool(cell(cols.isConflict)) : false,
       paidConflictDac:
         cols.paidConflictDac >= 0 ? optionalNumeric(cell(cols.paidConflictDac)) : null,
     });
   }
+
+async function ensureDailyCollectionMetadataColumns(master: Awaited<ReturnType<typeof readMaster>>) {
+  const headerRows = await values(master.file.id, "'" + master.file.tab + "'!A1:ZZ1");
+  const headers = headerRows[0] ?? [];
+  const ensureHeader = async (name: string, aliases: string[]) => {
+    if (findCol(headers, aliases) >= 0) return;
+    let index = headers.findIndex((value) => !String(value ?? "").trim());
+    if (index < 0) index = headers.length;
+    if (index >= 702) throw new Error("No free Master Allocation header column is available.");
+    await checked(
+      sheetsUrl(
+        master.file.id,
+        "/values/" + encodeURIComponent("'" + master.file.tab + "'!" + columnLetter(index) + "1") + "?valueInputOption=RAW",
+      ),
+      "GOOGLE_SHEETS_API_KEY",
+      { method: "PUT", body: JSON.stringify({ values: [[name]] }) },
+    );
+    headers[index] = name;
+  };
+  await ensureHeader("Daily Collection Provisional DAC", ["Daily Collection Provisional DAC", "Daily Collection DAC"]);
+  await ensureHeader("Source Type", ["Source Type", "Source_Type"]);
+  return readMaster("monthly-master");
+}
 
   return {
     file,
@@ -681,7 +711,8 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => applySchema.parse(v))
   .handler(async ({ data }) => {
     const admin = await requireSession("Admin");
-    const master = await readMaster(data.target);
+    let master = await readMaster(data.target);
+    master = await ensureDailyCollectionMetadataColumns(master);
     const { file, cols } = master;
 
     const calculatedDac = data.changes.reduce((sum, change) => {
@@ -843,6 +874,20 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
           range: "'" + file.tab + "'!" + colLetter(cols.dacSource) + change.row,
           values: [[data.sourceMode]],
         });
+      if (cols.sourceType >= 0) {
+        const sources = new Set(
+          String(current.sourceType ?? "")
+            .split(/[,+|]/)
+            .map((value) => value.trim().toUpperCase())
+            .filter(Boolean),
+        );
+        sources.add(data.sourceMode === "MANUAL" ? "MANUAL_REVIEW" : "PAID_FILE");
+        if (Number(current.dailyCollectionProvisionalDac ?? 0) > 0) sources.add("DAILY_COLLECTION");
+        updates.push({
+          range: "'" + file.tab + "'!" + colLetter(cols.sourceType) + change.row,
+          values: [[[...sources].join(", ")]],
+        });
+      }
       if (change.clearProvisional && cols.provisionalDac >= 0)
         updates.push({
           range: "'" + file.tab + "'!" + colLetter(cols.provisionalDac) + change.row,
