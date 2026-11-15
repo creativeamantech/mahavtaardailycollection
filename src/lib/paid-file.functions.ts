@@ -1369,7 +1369,7 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
           admin.name,
           fingerprint,
           plan.ready.reduce((sum, row) => sum + row.transactionCount, 0),
-          updates.length,
+          updatedMasterRows,
           plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
           plan.review.length,
           clearedRows,
