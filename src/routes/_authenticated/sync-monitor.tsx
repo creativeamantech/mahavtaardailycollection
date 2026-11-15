@@ -263,7 +263,7 @@ function SyncMonitorPage() {
               <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Verified agreements</p><p className="mt-1 text-xl font-bold">{comparison?.readyCount ?? "—"}</p></div>
               <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Verified transactions</p><p className="mt-1 text-xl font-bold">{comparison?.readyTransactions ?? "—"}</p></div>
               <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Daily Collection DAC</p><p className="mt-1 text-xl font-bold">{formatAmount(comparison?.readyAmount ?? 0)}</p></div>
-              <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Needs review</p><p className="mt-1 text-xl font-bold">{comparison?.reviewCount ?? "—"}</p></div>
+              <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Provisional DAC to add</p><p className="mt-1 text-xl font-bold">{formatAmount(comparison?.provisionalDacToApply ?? 0)}</p></div><div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Needs review</p><p className="mt-1 text-xl font-bold">{comparison?.reviewCount ?? "—"}</p></div>
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[780px] text-left text-sm">
