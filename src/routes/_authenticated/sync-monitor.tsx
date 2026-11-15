@@ -259,7 +259,7 @@ function SyncMonitorPage() {
                 {comparison?.readyCount ?? 0} ready · {comparison?.reviewCount ?? 0} review
               </span>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
               <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Verified agreements</p><p className="mt-1 text-xl font-bold">{comparison?.readyCount ?? "—"}</p></div>
               <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Verified transactions</p><p className="mt-1 text-xl font-bold">{comparison?.readyTransactions ?? "—"}</p></div>
               <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Daily Collection DAC</p><p className="mt-1 text-xl font-bold">{formatAmount(comparison?.readyAmount ?? 0)}</p></div>
