@@ -289,43 +289,11 @@ function makeMetric(
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 
-const PERFORMANCE_SETTINGS_TAB = "Performance Settings";
 const INCLUDE_DAILY_COLLECTION_DAC_KEY = "includeDailyCollectionDac";
 
-async function ensurePerformanceSettingsTab(id: string) {
-  const meta = await checkedJson<{ sheets?: { properties?: { title?: string } }[] }>(
-    await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "?fields=sheets.properties", {
-      headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
-    }),
-    "Master spreadsheet metadata",
-  );
-  if (!(meta.sheets ?? []).some((sheet) => sheet.properties?.title === PERFORMANCE_SETTINGS_TAB)) {
-    await checkedJson(
-      await fetch(GATEWAY + "/google_sheets/v4/spreadsheets/" + id + ":batchUpdate", {
-        method: "POST",
-        headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
-        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: PERFORMANCE_SETTINGS_TAB } } }] }),
-      }),
-      "Create Performance Settings",
-    );
-    await checkedJson(
-      await fetch(
-        GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "/values/" +
-          encodeURIComponent("'" + PERFORMANCE_SETTINGS_TAB + "'!A1:B1") + "?valueInputOption=RAW",
-        {
-          method: "PUT",
-          headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
-          body: JSON.stringify({ values: [["Key", "Value"]] }),
-        },
-      ),
-      "Initialize Performance Settings",
-    );
-  }
-}
-
-async function readIncludeDailyCollectionDac(id: string): Promise<boolean> {
-  await ensurePerformanceSettingsTab(id);
-  const rows = await sheetValues(id, "'" + PERFORMANCE_SETTINGS_TAB + "'!A2:B");
+async function readIncludeDailyCollectionDac(): Promise<boolean> {
+  const { sheetsGetOptional } = await import("./mahavtaar.server");
+  const rows = await sheetsGetOptional("AppSettings!A2:B");
   const value = rows.find((row) => String(row[0] ?? "").trim() === INCLUDE_DAILY_COLLECTION_DAC_KEY)?.[1];
   return String(value ?? "ON").trim().toUpperCase() !== "OFF";
 }
@@ -334,24 +302,14 @@ export const saveDailyCollectionDacPerformanceSetting = createServerFn({ method:
   .inputValidator((value: unknown) => z.object({ include: z.boolean() }).parse(value))
   .handler(async ({ data }) => {
     await requireSession("Admin");
-    const master = await findMaster();
-    await ensurePerformanceSettingsTab(master.id);
-    const rows = await sheetValues(master.id, "'" + PERFORMANCE_SETTINGS_TAB + "'!A2:B");
+    const { sheetsGetOptional, ensureSheetStrict, sheetsUpdateStrict } = await import("./mahavtaar.server");
+    await ensureSheetStrict("AppSettings", ["Key", "Value"]);
+    const rows = await sheetsGetOptional("AppSettings!A2:B");
     const index = rows.findIndex((row) => String(row[0] ?? "").trim() === INCLUDE_DAILY_COLLECTION_DAC_KEY);
     const rowNumber = index >= 0 ? index + 2 : rows.length + 2;
-    await checkedJson(
-      await fetch(
-        GATEWAY + "/google_sheets/v4/spreadsheets/" + master.id + "/values/" +
-          encodeURIComponent("'" + PERFORMANCE_SETTINGS_TAB + "'!A" + rowNumber + ":B" + rowNumber) +
-          "?valueInputOption=RAW",
-        {
-          method: "PUT",
-          headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
-          body: JSON.stringify({ values: [[INCLUDE_DAILY_COLLECTION_DAC_KEY, data.include ? "ON" : "OFF"]] }),
-        },
-      ),
-      "Save Daily Collection Performance setting",
-    );
+    await sheetsUpdateStrict("AppSettings!A" + rowNumber + ":B" + rowNumber, [
+      [INCLUDE_DAILY_COLLECTION_DAC_KEY, data.include ? "ON" : "OFF"],
+    ]);
     return { ok: true as const, include: data.include };
   });
 
@@ -362,7 +320,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
   const [data, targetRows, includeDailyCollectionDac] = await Promise.all([
     sheetValues(master.id, "Data!A1:GY"),
     sheetValues(master.id, "'" + TARGET_TAB + "'!A1:G"),
-    readIncludeDailyCollectionDac(master.id),
+    readIncludeDailyCollectionDac(),
   ]);
   if (data.length < 2) throw new Error("Master Allocation Data tab has no data rows.");
   const h = data[0]!;
