@@ -1061,3 +1061,359 @@ export const applyPaidFileChangeSet = createServerFn({ method: "POST" })
       spreadsheetName: file.name,
     };
   });
+
+
+type DailyCollectionPlanRow = {
+  row: number;
+  agreementId: string;
+  bankDac: number;
+  dailyCollectionDac: number;
+  difference: number;
+  transactionCount: number;
+  status: "READY" | "REVIEW";
+  reason: string;
+  sourceType: string;
+};
+
+function dailyCollectionDate(value: unknown): string {
+  return parsePaidDate(value);
+}
+
+function dailyCollectionTime(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw || /no\s*time|not\s*available/i.test(raw)) return "";
+  const match = raw.match(/(?:^|T|\s)(\d{1,2}:\d{2})(?::(\d{2}))?/);
+  if (!match) return "";
+  return match[1]!.padStart(5, "0") + ":" + (match[2] ?? "00");
+}
+
+function hasVerifiedOrCorrectedMarker(validation: unknown, remark: unknown, adminRemark: unknown) {
+  const marker = String(validation ?? "").trim().toUpperCase();
+  if (marker.startsWith("VALID")) return true;
+  const text = [remark, adminRemark].map((value) => String(value ?? "")).join(" ");
+  if (/\b(?:not\s+verified|unverified|incorrect|rejected)\b/i.test(text)) return false;
+  return /\b(?:verified|corrected)\b/i.test(text);
+}
+
+function buildDailyCollectionPlan(master: Awaited<ReturnType<typeof readMaster>>, collectionRows: string[][]) {
+  const masterById = new Map<string, MasterRow[]>();
+  for (const row of master.data) {
+    const key = normalisePaidId(row.agreementId);
+    if (!key) continue;
+    const list = masterById.get(key) ?? [];
+    list.push(row);
+    masterById.set(key, list);
+  }
+
+  const candidates = collectionRows.map((row, index) => {
+    const sheetRow = index + 2;
+    const agreementId = normalisePaidId(row[1]);
+    const amount = numeric(row[2]);
+    const status = String(row[6] ?? "").trim().toUpperCase();
+    const entryType = String(row[8] ?? "").trim().toUpperCase();
+    const remark = String(row[16] ?? "");
+    const adminRemark = String(row[18] ?? "");
+    const validation = String(row[21] ?? "");
+    const bbpsEvents = [...remark.matchAll(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/g)].map((match) => ({
+      date: match[1] ?? "",
+      time: match[2] ?? "",
+    }));
+    const date = bbpsEvents.length === 1
+      ? dailyCollectionDate(bbpsEvents[0]!.date)
+      : dailyCollectionDate(row[24] || row[3]);
+    const time = bbpsEvents.length === 1
+      ? dailyCollectionTime(bbpsEvents[0]!.time)
+      : dailyCollectionTime(row[25] || row[4]);
+    const reasons: string[] = [];
+
+    if (status !== "CONFIRMED") return null;
+    if (entryType === "PREVIOUS PAID FILE") return null;
+    if (!agreementId) reasons.push("Loan / Agreement ID missing");
+    if (!(amount > 0)) reasons.push("Amount is not a positive number");
+    if (!hasVerifiedOrCorrectedMarker(validation, remark, adminRemark))
+      reasons.push("Entry is not marked Verified / Corrected");
+    if (bbpsEvents.length > 1) reasons.push("Multiple BBPS transaction timestamps in one remark");
+    if (!date || !time) reasons.push("Transaction date or time missing");
+    const masterMatches = masterById.get(agreementId) ?? [];
+    if (masterMatches.length === 0) reasons.push("Agreement ID not found in Master Allocation");
+    if (masterMatches.length > 1) reasons.push("Agreement ID matches multiple Master rows");
+    return {
+      row: sheetRow,
+      agreementId,
+      amount,
+      date,
+      time,
+      reasons,
+      masterRow: masterMatches.length === 1 ? masterMatches[0] : undefined,
+      duplicateKey: agreementId && amount > 0 && date && time
+        ? [agreementId, amount.toFixed(2), date, time].join("|")
+        : "",
+    };
+  }).filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const duplicateOwners = new Map<string, number[]>();
+  for (const item of candidates) {
+    if (!item.duplicateKey) continue;
+    const owners = duplicateOwners.get(item.duplicateKey) ?? [];
+    owners.push(item.row);
+    duplicateOwners.set(item.duplicateKey, owners);
+  }
+
+  const eligibleById = new Map<string, { amount: number; transactions: number; master: MasterRow }>();
+  const review: DailyCollectionPlanRow[] = [];
+  for (const item of candidates) {
+    const reasons = [...item.reasons];
+    if (item.duplicateKey && (duplicateOwners.get(item.duplicateKey)?.length ?? 0) > 1)
+      reasons.push("Duplicate Loan ID + Amount + BBPS date/time");
+    if (reasons.length || !item.masterRow) {
+      const bankDac = item.masterRow?.existingDac ?? 0;
+      review.push({
+        row: item.row,
+        agreementId: item.agreementId,
+        bankDac,
+        dailyCollectionDac: item.amount,
+        difference: item.amount - bankDac,
+        transactionCount: 1,
+        status: "REVIEW",
+        reason: [...new Set(reasons)].join("; ") || "Needs Admin review",
+        sourceType: "DAILY_COLLECTION",
+      });
+      continue;
+    }
+    const existing = eligibleById.get(item.agreementId);
+    if (existing) {
+      existing.amount = Math.round((existing.amount + item.amount + Number.EPSILON) * 100) / 100;
+      existing.transactions += 1;
+    } else {
+      eligibleById.set(item.agreementId, {
+        amount: item.amount,
+        transactions: 1,
+        master: item.masterRow,
+      });
+    }
+  }
+
+  const ready = [...eligibleById.entries()].map(([agreementId, item]) => ({
+    row: item.master.row,
+    agreementId,
+    bankDac: item.master.existingDac,
+    dailyCollectionDac: Math.round((item.amount + Number.EPSILON) * 100) / 100,
+    difference: Math.round((item.amount - item.master.existingDac + Number.EPSILON) * 100) / 100,
+    transactionCount: item.transactions,
+    status: "READY" as const,
+    reason: item.master.isCorrected ? "Verified / Corrected collection; bank DAC remains unchanged" : "Verified collection; bank DAC remains unchanged",
+    sourceType: "DAILY_COLLECTION",
+  }));
+
+  return {
+    ready,
+    review,
+    ambiguousIds: new Set(
+      [...masterById.entries()].filter(([, rows]) => rows.length > 1).map(([id]) => id),
+    ),
+    amountById: new Map(ready.map((row) => [row.agreementId, row.dailyCollectionDac])),
+  };
+}
+
+const DAILY_COLLECTION_AUDIT_TAB = "Daily_Collection_Sync_Audit";
+const DAILY_COLLECTION_AUDIT_HEADERS = [
+  "Timestamp (IST)",
+  "Admin",
+  "Fingerprint",
+  "Verified Transactions",
+  "Master Rows Updated",
+  "Daily Collection DAC (₹)",
+  "Review Rows",
+  "Cleared Provisional Rows",
+  "Status",
+];
+
+async function ensureDailyCollectionAuditTab(id: string) {
+  const meta = await checked<{ sheets?: { properties?: { title?: string } }[] }>(
+    sheetsUrl(id, "?fields=sheets.properties"),
+    "GOOGLE_SHEETS_API_KEY",
+  );
+  if (!(meta.sheets ?? []).some((sheet) => sheet.properties?.title === DAILY_COLLECTION_AUDIT_TAB)) {
+    await checked(sheetsUrl(id, ":batchUpdate"), "GOOGLE_SHEETS_API_KEY", {
+      method: "POST",
+      body: JSON.stringify({
+        requests: [{ addSheet: { properties: { title: DAILY_COLLECTION_AUDIT_TAB } } }],
+      }),
+    });
+  }
+  await checked(
+    sheetsUrl(
+      id,
+      "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!A1:I1") + "?valueInputOption=RAW",
+    ),
+    "GOOGLE_SHEETS_API_KEY",
+    { method: "PUT", body: JSON.stringify({ values: [DAILY_COLLECTION_AUDIT_HEADERS] }) },
+  );
+}
+
+export const getDailyCollectionDacComparison = createServerFn({ method: "GET" }).handler(async () => {
+  await requireSession("Admin");
+  const [master, collectionRows] = await Promise.all([
+    readMaster("monthly-master"),
+    (async () => {
+      const { sheetsGetFresh } = await import("./mahavtaar.server");
+      return sheetsGetFresh("Collections!A2:AA");
+    })(),
+  ]);
+  const plan = buildDailyCollectionPlan(master, collectionRows);
+  const currentDailyTotal = master.data.reduce(
+    (sum, row) => sum + Number(row.dailyCollectionProvisionalDac ?? 0),
+    0,
+  );
+  return {
+    masterName: master.file.name,
+    masterUrl: master.file.url,
+    readyCount: plan.ready.length,
+    readyTransactions: plan.ready.reduce((sum, row) => sum + row.transactionCount, 0),
+    reviewCount: plan.review.length,
+    readyAmount: plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
+    currentDailyTotal,
+    rows: [...plan.ready, ...plan.review]
+      .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))
+      .slice(0, 200),
+    lastSync: null as string | null,
+  };
+});
+
+export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" }).handler(async () => {
+  const admin = await requireSession("Admin");
+  let master = await readMaster("monthly-master");
+  master = await ensureDailyCollectionMetadataColumns(master);
+  const { sheetsGetFresh, invalidateSheetsCache } = await import("./mahavtaar.server");
+  const collectionRows = await sheetsGetFresh("Collections!A2:AA");
+  const plan = buildDailyCollectionPlan(master, collectionRows);
+  const fingerprint = createHash("sha256")
+    .update(JSON.stringify({
+      ready: plan.ready.map((row) => [row.row, row.agreementId, row.dailyCollectionDac, row.transactionCount]),
+      review: plan.review.map((row) => [row.row, row.agreementId, row.reason]),
+      existing: master.data.map((row) => [row.row, row.dailyCollectionProvisionalDac ?? 0]),
+    }))
+    .digest("hex");
+
+  await ensureDailyCollectionAuditTab(master.file.id);
+  const auditRows = await values(master.file.id, "'" + DAILY_COLLECTION_AUDIT_TAB + "'!A2:I");
+  const previous = auditRows.find((row) => String(row[2] ?? "") === fingerprint && String(row[8] ?? "") === "COMPLETE");
+  if (previous) {
+    return {
+      ok: true as const,
+      alreadySynced: true as const,
+      updatedRows: 0,
+      readyCount: plan.ready.length,
+      reviewCount: plan.review.length,
+      totalDailyCollectionDac: plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
+    };
+  }
+
+  const timestamp = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "short",
+    timeStyle: "medium",
+  }).format(new Date());
+  const amountById = plan.amountById;
+  const updates: { range: string; values: (string | number | boolean)[][] }[] = [];
+  let clearedRows = 0;
+  for (const row of master.data) {
+    const agreementId = normalisePaidId(row.agreementId);
+    if (!agreementId || plan.ambiguousIds.has(agreementId)) continue;
+    const target = amountById.get(agreementId) ?? 0;
+    const current = Number(row.dailyCollectionProvisionalDac ?? 0);
+    const nextValue = target > 0 ? target : "";
+    if (Math.abs(current - target) > 0.009) {
+      updates.push({
+        range: "'" + master.file.tab + "'!" + columnLetter(master.cols.dailyCollectionProvisionalDac) + row.row,
+        values: [[nextValue]],
+      });
+      if (target === 0 && current > 0) clearedRows++;
+    }
+    const sources = new Set(
+      String(row.sourceType ?? "")
+        .split(/[,+|]/)
+        .map((value) => value.trim().toUpperCase())
+        .filter(Boolean),
+    );
+    sources.delete("DAILY_COLLECTION");
+    if (target > 0) sources.add("DAILY_COLLECTION");
+    if (row.dacSource === "PAID_FILE") sources.add("PAID_FILE");
+    if (row.dacSource === "MANUAL" || row.dacSource === "CORRECTED") sources.add("MANUAL_REVIEW");
+    const sourceValue = [...sources].join(", ");
+    if (master.cols.sourceType >= 0 && sourceValue !== String(row.sourceType ?? "")) {
+      updates.push({
+        range: "'" + master.file.tab + "'!" + columnLetter(master.cols.sourceType) + row.row,
+        values: [[sourceValue]],
+      });
+    }
+  }
+
+  const auditAppend = await checked<{ updates?: { updatedRange?: string } }>(
+    sheetsUrl(
+      master.file.id,
+      "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!A:I") +
+        ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
+    ),
+    "GOOGLE_SHEETS_API_KEY",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        values: [[
+          timestamp,
+          admin.name,
+          fingerprint,
+          plan.ready.reduce((sum, row) => sum + row.transactionCount, 0),
+          updates.length,
+          plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
+          plan.review.length,
+          clearedRows,
+          "APPLYING",
+        ]],
+      }),
+    },
+  );
+  const auditRow = Number(auditAppend.updates?.updatedRange?.match(/![A-Z]+(\d+):?/i)?.[1]);
+  if (!Number.isInteger(auditRow) || auditRow < 2)
+    throw new Error("Daily Collection sync audit was reserved but its row could not be confirmed.");
+
+  try {
+    const chunks: typeof updates[] = [];
+    for (let i = 0; i < updates.length; i += 300) chunks.push(updates.slice(i, i + 300));
+    for (const chunk of chunks) {
+      await retryFetch(sheetsUrl(master.file.id, "/values:batchUpdate"), {
+        method: "POST",
+        headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
+        body: JSON.stringify({ valueInputOption: "RAW", data: chunk }),
+      });
+    }
+    await checked(
+      sheetsUrl(
+        master.file.id,
+        "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!I" + auditRow) + "?valueInputOption=RAW",
+      ),
+      "GOOGLE_SHEETS_API_KEY",
+      { method: "PUT", body: JSON.stringify({ values: [["COMPLETE"]] }) },
+    );
+  } catch (error) {
+    await checked(
+      sheetsUrl(
+        master.file.id,
+        "/values/" + encodeURIComponent("'" + DAILY_COLLECTION_AUDIT_TAB + "'!I" + auditRow) + "?valueInputOption=RAW",
+      ),
+      "GOOGLE_SHEETS_API_KEY",
+      { method: "PUT", body: JSON.stringify({ values: [["FAILED - CHECK MASTER BEFORE RETRY"]] }) },
+    ).catch(() => undefined);
+    throw error;
+  }
+  invalidateSheetsCache();
+  return {
+    ok: true as const,
+    alreadySynced: false as const,
+    updatedRows: updates.length,
+    readyCount: plan.ready.length,
+    reviewCount: plan.review.length,
+    totalDailyCollectionDac: plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
+    clearedRows,
+  };
+});
