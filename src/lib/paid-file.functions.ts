@@ -1241,7 +1241,7 @@ const DAILY_COLLECTION_AUDIT_HEADERS = [
   "Fingerprint",
   "Verified Transactions",
   "Master Rows Updated",
-  "Daily Collection DAC (₹)",
+  "Provisional DAC Applied (₹)",
   "Review Rows",
   "Cleared Provisional Rows",
   "Status",
