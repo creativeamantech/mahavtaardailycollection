@@ -167,9 +167,10 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(async
   const verified = verifySignedToken(token, readUsers());
   if (
     !verified ||
-    (await import("./session-revocations.server")).isSessionRevoked(
+    (await import("./session-revocations.server")).isSessionRevoked &&
+    (await (await import("./session-revocations.server")).isSessionRevoked(
       sessionRevocationHash(verified.claims.jti),
-    )
+    ))
   ) {
     setAuthCookie("", 0);
     return null;
