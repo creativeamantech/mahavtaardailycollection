@@ -15,6 +15,7 @@ import {
 import {
   getMasterPerformanceReport,
   saveMasterPerformanceTargets,
+  saveDailyCollectionDacPerformanceSetting,
 } from "@/lib/master-performance.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,7 +98,8 @@ const emptyRule = (): Rule => ({
 
 function MasterPerformancePage() {
   const fetchReport = useServerFn(getMasterPerformanceReport);
-  const saveTargets = useServerFn(saveMasterPerformanceTargets);\n  const saveDacSetting = useServerFn(saveDailyCollectionDacPerformanceSetting);
+  const saveTargets = useServerFn(saveMasterPerformanceTargets);
+  const saveDacSetting = useServerFn(saveDailyCollectionDacPerformanceSetting);\n  const saveDacSetting = useServerFn(saveDailyCollectionDacPerformanceSetting);
   const qc = useQueryClient();
   const { data, isLoading, isFetching, error, refetch } = useQuery<Report>({
     queryKey: ["master-performance-report"],
