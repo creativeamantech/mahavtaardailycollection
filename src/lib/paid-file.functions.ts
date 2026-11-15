@@ -1447,6 +1447,10 @@ export const syncVerifiedDailyCollectionDac = createServerFn({ method: "POST" })
         body: JSON.stringify({ valueInputOption: "RAW", data: chunk }),
       });
     }
+    invalidateSheetsCache();
+    const completedMaster = await readMaster("monthly-master");
+    const completedPlan = buildDailyCollectionPlan(completedMaster, collectionRows);
+    fingerprint = dailyCollectionFingerprint(completedMaster, completedPlan);
     await checked(
       sheetsUrl(
         master.file.id,
