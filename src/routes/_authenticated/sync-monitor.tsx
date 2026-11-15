@@ -1,12 +1,12 @@
 import { useMemo, type ReactNode } from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { RefreshCw, ClipboardList, FileSpreadsheet, ShieldAlert, CheckCircle2, Clock3 } from "lucide-react";
 import { toast } from "sonner";
 import { getCurrentSession } from "@/lib/auth.functions";
 import { getAdminCollections } from "@/lib/mahavtaar.functions";
-import { getPaidFileAuditHistory } from "@/lib/paid-file.functions";
+import {\n  getPaidFileAuditHistory,\n  getDailyCollectionDacComparison,\n  syncVerifiedDailyCollectionDac,\n} from "@/lib/paid-file.functions";
 import { formatAmount } from "@/lib/executives";
 import { Button } from "@/components/ui/button";
 
@@ -129,14 +129,14 @@ function MetricCard({
 
 function SyncMonitorPage() {
   const fetchCollections = useServerFn(getAdminCollections);
-  const fetchPaidAudit = useServerFn(getPaidFileAuditHistory);
+  const fetchPaidAudit = useServerFn(getPaidFileAuditHistory);\n  const fetchDacComparison = useServerFn(getDailyCollectionDacComparison);\n  const runVerifiedSync = useServerFn(syncVerifiedDailyCollectionDac);\n  const queryClient = useQueryClient();
   const collectionsQuery = useQuery({
     queryKey: ["sync-monitor", "collections"],
     queryFn: () => fetchCollections(),
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
-  const auditQuery = useQuery({
+  const comparisonQuery = useQuery({\n    queryKey: ["sync-monitor", "daily-collection-dac"],\n    queryFn: () => fetchDacComparison(),\n    staleTime: 30_000,\n    refetchInterval: 60_000,\n  });\n  const syncMutation = useMutation({\n    mutationFn: () => runVerifiedSync(),\n    onSuccess: async (result) => {\n      toast.success(result.alreadySynced ? "Verified Daily Collection entries are already synced." : "Synced " + result.readyCount + " verified agreements; " + result.reviewCount + " rows remain in review.");\n      await Promise.all([\n        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "daily-collection-dac"] }),\n        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "collections"] }),\n        queryClient.invalidateQueries({ queryKey: ["sync-monitor", "paid-file-audit"] }),\n      ]);\n    },\n    onError: (cause) => toast.error(cause instanceof Error ? cause.message : "Daily Collection sync failed."),\n  });\n  const auditQuery = useQuery({
     queryKey: ["sync-monitor", "paid-file-audit"],
     queryFn: () => fetchPaidAudit(),
     staleTime: 15_000,
@@ -171,12 +171,12 @@ function SyncMonitorPage() {
   const appliedTotal = audit?.totalAppliedRows ?? paidEntries.reduce((sum, entry) => sum + Number(entry.recordsApplied || 0), 0);
   const appliedToday = audit?.todayAppliedRows ?? paidToday.reduce((sum, entry) => sum + Number(entry.recordsApplied || 0), 0);
   const paidFileConflicts = audit?.totalConflictsFlagged ?? paidEntries.reduce((sum, entry) => sum + Number(entry.conflictsFlagged || 0), 0);
-  const isLoading = collectionsQuery.isLoading || auditQuery.isLoading;
+  const comparison = comparisonQuery.data;\n  const isLoading = collectionsQuery.isLoading || auditQuery.isLoading || comparisonQuery.isLoading;
   const isFetching = collectionsQuery.isFetching || auditQuery.isFetching;
-  const error = collectionsQuery.error || auditQuery.error;
+  const error = collectionsQuery.error || auditQuery.error || comparisonQuery.error;
 
   async function refresh() {
-    const results = await Promise.all([collectionsQuery.refetch(), auditQuery.refetch()]);
+    const results = await Promise.all([collectionsQuery.refetch(), auditQuery.refetch(), comparisonQuery.refetch()]);
     if (results.some((result) => result.error)) toast.error("Sync Monitor refresh failed. Please retry.");
     else toast.success("Sync Monitor refreshed.");
   }
@@ -192,7 +192,7 @@ function SyncMonitorPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild><Link to="/paid-file">Open Paid File</Link></Button>
+          <Button variant="outline" asChild><Link to="/paid-file">Open Paid File</Link></Button>\n          <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || !comparison}>\n            <RefreshCw className={syncMutation.isPending ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />\n            {syncMutation.isPending ? "Syncing verified entries…" : "Run verified sync"}\n          </Button>
           <Button variant="outline" onClick={() => void refresh()} disabled={isFetching}>
             <RefreshCw className={`mr-2 size-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
           </Button>
@@ -216,7 +216,47 @@ function SyncMonitorPage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <section className="rounded-2xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
+  
+          <section className="rounded-2xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-bold text-[#252525]">Daily Collection → Master DAC comparison</h2>
+                <p className="mt-1 text-xs text-[#737b84]">
+                  Verified / Corrected transactions are added to a separate Daily Collection Provisional DAC column. Existing Bank DAC, Total, New Total and Remaining are not overwritten.
+                </p>
+              </div>
+              <span className="rounded-full bg-[#fff6d9] px-3 py-1 text-xs font-bold text-[#80600a]">
+                {comparison?.readyCount ?? 0} ready · {comparison?.reviewCount ?? 0} review
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Verified agreements</p><p className="mt-1 text-xl font-bold">{comparison?.readyCount ?? "—"}</p></div>
+              <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Verified transactions</p><p className="mt-1 text-xl font-bold">{comparison?.readyTransactions ?? "—"}</p></div>
+              <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Daily Collection DAC</p><p className="mt-1 text-xl font-bold">{formatAmount(comparison?.readyAmount ?? 0)}</p></div>
+              <div className="rounded-xl bg-[#fafafa] p-3"><p className="text-xs text-muted-foreground">Needs review</p><p className="mt-1 text-xl font-bold">{comparison?.reviewCount ?? "—"}</p></div>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[780px] text-left text-sm">
+                <thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Agreement ID</th><th className="px-2 py-2">Master row</th><th className="px-2 py-2">Bank DAC</th><th className="px-2 py-2">Daily Collection DAC</th><th className="px-2 py-2">Difference</th><th className="px-2 py-2">Status / reason</th></tr></thead>
+                <tbody>{(comparison?.rows ?? []).slice(0, 25).map((row) => (
+                  <tr key={row.row + "-" + row.agreementId} className="border-b last:border-0">
+                    <td className="px-2 py-3 font-semibold">{row.agreementId || "—"}</td>
+                    <td className="px-2 py-3 tabular-nums">{row.row}</td>
+                    <td className="px-2 py-3 tabular-nums">{formatAmount(row.bankDac)}</td>
+                    <td className="px-2 py-3 tabular-nums">{formatAmount(row.dailyCollectionDac)}</td>
+                    <td className="px-2 py-3 tabular-nums">{formatAmount(row.difference)}</td>
+                    <td className="px-2 py-3 text-xs"><span className={row.status === "READY" ? "font-semibold text-amber-800" : "font-semibold text-red-700"}>{row.status}</span><span className="ml-2 text-muted-foreground">{row.reason}</span></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              {!comparison?.rows?.length && <p className="py-4 text-sm text-muted-foreground">No verified Daily Collection rows or review exceptions found.</p>}
+              {(comparison?.rows?.length ?? 0) > 25 && <p className="mt-2 text-xs text-muted-foreground">Showing 25 of {comparison?.rows.length} comparison rows.</p>}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Run verified sync automatically includes clean, unique, confirmed transactions. Missing timestamps, duplicate transaction keys, unverified rows and unmatched IDs stay in the Admin review queue. Previous Paid File entries are not counted as Daily Collection.
+            </p>
+          </section>
+          <section className="rounded-2xl border border-[#e8e9eb] bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="font-bold text-[#252525]">Daily Collection status</h2>
