@@ -1284,6 +1284,24 @@ export const getDailyCollectionDacComparison = createServerFn({ method: "GET" })
     (sum, row) => sum + Number(row.dailyCollectionProvisionalDac ?? 0),
     0,
   );
+  let lastSync: string | null = null;
+  let lastSyncStatus = "NOT RUN";
+  let lastSyncUpdatedRows = 0;
+  let lastSyncProvisionalDac = 0;
+  let lastSyncReviewCount = 0;
+  try {
+    const auditRows = await values(master.file.id, "'" + DAILY_COLLECTION_AUDIT_TAB + "'!A2:I");
+    const latest = auditRows.slice().reverse().find((row) => row.some((cell) => String(cell ?? "").trim()));
+    if (latest) {
+      lastSync = String(latest[0] ?? "");
+      lastSyncStatus = String(latest[8] ?? "UNKNOWN");
+      lastSyncUpdatedRows = numeric(latest[4]);
+      lastSyncProvisionalDac = numeric(latest[5]);
+      lastSyncReviewCount = numeric(latest[6]);
+    }
+  } catch {
+    // The audit tab is created on the first explicit sync.
+  }
   return {
     masterName: master.file.name,
     masterUrl: master.file.url,
@@ -1291,11 +1309,16 @@ export const getDailyCollectionDacComparison = createServerFn({ method: "GET" })
     readyTransactions: plan.ready.reduce((sum, row) => sum + row.transactionCount, 0),
     reviewCount: plan.review.length,
     readyAmount: plan.ready.reduce((sum, row) => sum + row.dailyCollectionDac, 0),
+    provisionalDacToApply: plan.ready.reduce((sum, row) => sum + row.provisionalDac, 0),
     currentDailyTotal,
     rows: [...plan.ready, ...plan.review]
       .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))
       .slice(0, 200),
-    lastSync: null as string | null,
+    lastSync,
+    lastSyncStatus,
+    lastSyncUpdatedRows,
+    lastSyncProvisionalDac,
+    lastSyncReviewCount,
   };
 });
 
