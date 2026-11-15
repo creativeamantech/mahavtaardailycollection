@@ -308,19 +308,19 @@ async function ensurePerformanceSettingsTab(id: string) {
       }),
       "Create Performance Settings",
     );
+    await checkedJson(
+      await fetch(
+        GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "/values/" +
+          encodeURIComponent("'" + PERFORMANCE_SETTINGS_TAB + "'!A1:B1") + "?valueInputOption=RAW",
+        {
+          method: "PUT",
+          headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
+          body: JSON.stringify({ values: [["Key", "Value"]] }),
+        },
+      ),
+      "Initialize Performance Settings",
+    );
   }
-  await checkedJson(
-    await fetch(
-      GATEWAY + "/google_sheets/v4/spreadsheets/" + id + "/values/" +
-        encodeURIComponent("'" + PERFORMANCE_SETTINGS_TAB + "'!A1:B1") + "?valueInputOption=RAW",
-      {
-        method: "PUT",
-        headers: authHeaders("GOOGLE_SHEETS_API_KEY"),
-        body: JSON.stringify({ values: [["Key", "Value"]] }),
-      },
-    ),
-    "Initialize Performance Settings",
-  );
 }
 
 async function readIncludeDailyCollectionDac(id: string): Promise<boolean> {
@@ -382,7 +382,7 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     state: headerIndex(h, ["state", "State"]),
   };
   const missing = Object.entries(idx)
-    .filter(([, v]) => v < 0)
+    .filter(([key, value]) => value < 0 && key !== "dailyCollectionDac")
     .map(([k]) => k);
   if (missing.length)
     throw new Error("Required Master Data columns missing: " + missing.join(", "));
