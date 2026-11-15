@@ -20,6 +20,7 @@ export const FEATURES = [
   { key: "receiptGallery", label: "Receipt Gallery", path: "/receipt-gallery" },
   { key: "bankPortal", label: "Bank Portal", path: "/bank-portal" },
   { key: "remarks", label: "Remarks", path: null },
+  { key: "syncMonitor", label: "Data Sync Monitor", path: "/sync-monitor" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
