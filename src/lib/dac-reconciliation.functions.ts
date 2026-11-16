@@ -247,7 +247,7 @@ export const batchUpdateAmansRemarks = createServerFn({ method: "POST" })
 
 const commitItemSchema = z.object({
   agreementId: z.string().trim().min(1).max(100),
-  masterRow: z.number().int().min(2).max(1_000_000),
+  masterRow: z.number().int().min(2).max(1_000_000).nullable(),
   expectedExistingDac: z.number().finite(),
   targetAmount: z.number().finite().min(0),
   paymentDate: z.string().trim().max(40).optional().default(""),
@@ -256,6 +256,8 @@ const commitItemSchema = z.object({
   remarkMode: z.enum(["append", "replace"]).default("append"),
   collectionCategory: z.string().trim().max(160).optional().default(""),
   masterCategory: z.string().trim().max(160).optional().default(""),
+  customerName: z.string().trim().max(200).optional().default(""),
+  executiveName: z.string().trim().max(200).optional().default(""),
 });
 
 export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
@@ -264,6 +266,7 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
       .object({
         mode: z.enum(["PUSH_TO_DAC", "SET_PROVISIONAL"]),
         allowOverwriteProtected: z.boolean().optional().default(false),
+        createMissingMasterRows: z.boolean().optional().default(false),
         items: z.array(commitItemSchema).min(1).max(5000),
       })
       .parse(v),
@@ -309,8 +312,28 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
       }
 
       const masterByRow = new Map(master.data.map((r) => [r.row, r]));
+      const masterById = new Map(master.data.map((r) => [r.agreementId, r]));
       const seenMasterRows = new Set<number>();
+      const seenNewAgreementIds = new Set<string>();
       const seenCollectionRows = new Set<number>();
+      const colLetter = paidFileColumnLetter;
+      const tabPrefix = `'${file.tab}'!`;
+
+      const hasUnallocated = data.items.some((i) => i.masterRow === null);
+      if (hasUnallocated && !data.createMissingMasterRows) {
+        throw new Error(
+          "One or more selected loans do not exist in Master Allocation yet. Confirm adding new Master rows before committing.",
+        );
+      }
+
+      let nextInsertRow = master.data.reduce((maxRow, row) => Math.max(maxRow, row.row), 1) + 1;
+      if (hasUnallocated) {
+        const agreementCol = await paidFileSheetValues(
+          file.id,
+          `${tabPrefix}${colLetter(cols.agreement)}1:${colLetter(cols.agreement)}`,
+        );
+        nextInsertRow = Math.max(nextInsertRow, agreementCol.length + 1);
+      }
 
       const masterRanges: { range: string; values: (string | number | boolean)[][] }[] = [];
       const collectionRemarkRanges: { range: string; values: (string | number)[][] }[] = [];
@@ -325,35 +348,93 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
       let totalDacDelta = 0;
 
       for (const item of data.items) {
-        if (seenMasterRows.has(item.masterRow)) {
-          throw new Error(`Duplicate Master row in batch request: ${item.masterRow}`);
-        }
-        seenMasterRows.add(item.masterRow);
-
         const normalizedId = normalisePaidId(item.agreementId);
-        const current = masterByRow.get(item.masterRow);
-        if (!current || current.agreementId !== normalizedId) {
-          throw new Error(
-            `Master Sheet changed after preview for ${normalizedId} (row ${item.masterRow}). Refresh and verify again.`,
-          );
-        }
+        let targetRowNumber: number;
+        let existingDacValue = 0;
+        let currentDacSource = "";
+        let currentProvisionalDac: number | null = null;
+        const isCreatingNewRow = item.masterRow === null;
 
-        if (Math.abs(current.existingDac - item.expectedExistingDac) > 0.01) {
-          throw new Error(
-            `DAC changed on Master row ${item.masterRow} (${normalizedId}) from ₹${item.expectedExistingDac} to ₹${current.existingDac}. Refresh before committing.`,
-          );
-        }
+        if (isCreatingNewRow) {
+          if (seenNewAgreementIds.has(normalizedId)) {
+            throw new Error(`Duplicate unallocated Loan ID in batch: ${normalizedId}`);
+          }
+          seenNewAgreementIds.add(normalizedId);
 
-        if (
-          !data.allowOverwriteProtected &&
-          data.mode === "PUSH_TO_DAC" &&
-          (current.isCorrected ||
-            current.dacSource === "MANUAL" ||
-            current.dacSource === "CORRECTED")
-        ) {
-          throw new Error(
-            `Record ${normalizedId} (row ${item.masterRow}) is marked ${current.dacSource || "CORRECTED"}. Enable "Allow updating previously corrected Master rows" to overwrite intentionally.`,
-          );
+          if (masterById.has(normalizedId)) {
+            throw new Error(
+              `Loan ID ${normalizedId} already exists in Master Allocation (row ${masterById.get(normalizedId)?.row}). Refresh before retrying.`,
+            );
+          }
+
+          targetRowNumber = nextInsertRow++;
+          seenMasterRows.add(targetRowNumber);
+
+          // Write Loan ID and metadata to the new row; never write formula columns (Remaining / New Total)
+          masterRanges.push({
+            range: `${tabPrefix}${colLetter(cols.agreement)}${targetRowNumber}`,
+            values: [[normalizedId]],
+          });
+          if (cols.customer >= 0 && item.customerName.trim()) {
+            masterRanges.push({
+              range: `${tabPrefix}${colLetter(cols.customer)}${targetRowNumber}`,
+              values: [[item.customerName.trim()]],
+            });
+          }
+          if (cols.executive >= 0 && item.executiveName.trim()) {
+            masterRanges.push({
+              range: `${tabPrefix}${colLetter(cols.executive)}${targetRowNumber}`,
+              values: [[item.executiveName.trim()]],
+            });
+          }
+          if (cols.category >= 0 && item.collectionCategory.trim()) {
+            masterRanges.push({
+              range: `${tabPrefix}${colLetter(cols.category)}${targetRowNumber}`,
+              values: [[item.collectionCategory.trim()]],
+            });
+          }
+          if (cols.bucket >= 0 && item.collectionCategory.trim()) {
+            masterRanges.push({
+              range: `${tabPrefix}${colLetter(cols.bucket)}${targetRowNumber}`,
+              values: [[item.collectionCategory.trim()]],
+            });
+          }
+        } else {
+          const masterRowNum = item.masterRow!;
+          if (seenMasterRows.has(masterRowNum)) {
+            throw new Error(`Duplicate Master row in batch request: ${masterRowNum}`);
+          }
+          seenMasterRows.add(masterRowNum);
+
+          const current = masterByRow.get(masterRowNum);
+          if (!current || current.agreementId !== normalizedId) {
+            throw new Error(
+              `Master Sheet changed after preview for ${normalizedId} (row ${masterRowNum}). Refresh and verify again.`,
+            );
+          }
+
+          if (Math.abs(current.existingDac - item.expectedExistingDac) > 0.01) {
+            throw new Error(
+              `DAC changed on Master row ${masterRowNum} (${normalizedId}) from ₹${item.expectedExistingDac} to ₹${current.existingDac}. Refresh before committing.`,
+            );
+          }
+
+          if (
+            !data.allowOverwriteProtected &&
+            data.mode === "PUSH_TO_DAC" &&
+            (current.isCorrected ||
+              current.dacSource === "MANUAL" ||
+              current.dacSource === "CORRECTED")
+          ) {
+            throw new Error(
+              `Record ${normalizedId} (row ${masterRowNum}) is marked ${current.dacSource || "CORRECTED"}. Enable "Allow updating previously corrected Master rows" to overwrite intentionally.`,
+            );
+          }
+
+          targetRowNumber = current.row;
+          existingDacValue = current.existingDac;
+          currentDacSource = current.dacSource;
+          currentProvisionalDac = current.provisionalDac;
         }
 
         const nextRemarkText = item.amansRemark.trim();
@@ -383,44 +464,41 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
           }
         }
 
-        const colLetter = paidFileColumnLetter;
-        const tabPrefix = `'${file.tab}'!`;
-
         if (data.mode === "PUSH_TO_DAC") {
           const targetDac = roundMoney(item.targetAmount);
-          const delta = roundMoney(targetDac - current.existingDac);
+          const delta = roundMoney(targetDac - existingDacValue);
           totalDacDelta = roundMoney(totalDacDelta + delta);
 
           // Never touch formula columns such as Remaining or New Total.
           masterRanges.push({
-            range: `${tabPrefix}${colLetter(cols.dac)}${current.row}`,
+            range: `${tabPrefix}${colLetter(cols.dac)}${targetRowNumber}`,
             values: [[targetDac]],
           });
           if (cols.dacSource >= 0) {
             masterRanges.push({
-              range: `${tabPrefix}${colLetter(cols.dacSource)}${current.row}`,
+              range: `${tabPrefix}${colLetter(cols.dacSource)}${targetRowNumber}`,
               values: [["CORRECTED"]],
             });
           }
           if (cols.isCorrected >= 0) {
             masterRanges.push({
-              range: `${tabPrefix}${colLetter(cols.isCorrected)}${current.row}`,
+              range: `${tabPrefix}${colLetter(cols.isCorrected)}${targetRowNumber}`,
               values: [[true]],
             });
           }
           if (cols.paymentDate >= 0 && item.paymentDate) {
             masterRanges.push({
-              range: `${tabPrefix}${colLetter(cols.paymentDate)}${current.row}`,
+              range: `${tabPrefix}${colLetter(cols.paymentDate)}${targetRowNumber}`,
               values: [[item.paymentDate]],
             });
           }
           if (
             cols.provisionalDac >= 0 &&
-            current.provisionalDac !== null &&
-            current.provisionalDac > 0
+            currentProvisionalDac !== null &&
+            currentProvisionalDac > 0
           ) {
             masterRanges.push({
-              range: `${tabPrefix}${colLetter(cols.provisionalDac)}${current.row}`,
+              range: `${tabPrefix}${colLetter(cols.provisionalDac)}${targetRowNumber}`,
               values: [[""]],
             });
           }
@@ -428,42 +506,48 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
           auditRows.push([
             timestamp,
             normalizedId,
-            current.existingDac,
+            existingDacValue,
             targetDac,
             "",
-            "PUSH_TO_DAC (CORRECTED)",
+            isCreatingNewRow ? "ADD_TO_MASTER_AND_PUSH_DAC" : "PUSH_TO_DAC (CORRECTED)",
             item.collectionCategory,
-            item.masterCategory,
+            isCreatingNewRow ? "Added New Row" : item.masterCategory,
             nextRemarkText,
             admin.name,
             item.collectionRows.join(", "),
-            current.row,
+            targetRowNumber,
           ]);
         } else {
           const provisionalAmount = roundMoney(item.targetAmount);
+          if (isCreatingNewRow) {
+            masterRanges.push({
+              range: `${tabPrefix}${colLetter(cols.dac)}${targetRowNumber}`,
+              values: [[0]],
+            });
+          }
           masterRanges.push({
-            range: `${tabPrefix}${colLetter(cols.provisionalDac)}${current.row}`,
+            range: `${tabPrefix}${colLetter(cols.provisionalDac)}${targetRowNumber}`,
             values: [[provisionalAmount]],
           });
-          if (cols.dacSource >= 0 && (!current.dacSource || current.dacSource === "PROVISIONAL")) {
+          if (cols.dacSource >= 0 && (!currentDacSource || currentDacSource === "PROVISIONAL")) {
             masterRanges.push({
-              range: `${tabPrefix}${colLetter(cols.dacSource)}${current.row}`,
+              range: `${tabPrefix}${colLetter(cols.dacSource)}${targetRowNumber}`,
               values: [["PROVISIONAL"]],
             });
           }
           auditRows.push([
             timestamp,
             normalizedId,
-            current.existingDac,
-            current.existingDac,
+            existingDacValue,
+            existingDacValue,
             provisionalAmount,
-            "SET_PROVISIONAL",
+            isCreatingNewRow ? "ADD_TO_MASTER_PROVISIONAL" : "SET_PROVISIONAL",
             item.collectionCategory,
-            item.masterCategory,
+            isCreatingNewRow ? "Added New Row" : item.masterCategory,
             nextRemarkText,
             admin.name,
             item.collectionRows.join(", "),
-            current.row,
+            targetRowNumber,
           ]);
         }
       }
@@ -523,7 +607,7 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
                   id: normalisePaidId(i.agreementId),
                   dac: i.targetAmount,
                 }))
-                .sort((a, b) => a.row - b.row),
+                .sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || a.id.localeCompare(b.id)),
             }),
           )
           .digest("hex");
@@ -579,6 +663,159 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
         batches: masterChunks.length + collectionChunks.length,
         auditCount: auditRows.length,
         totalDacDelta,
+      };
+    });
+  });
+
+const cleanupItemSchema = z.object({
+  loanId: z.string().trim().min(1).max(100),
+  rows: z.array(z.number().int().min(2).max(1_000_000)).min(1).max(200),
+});
+
+export const cleanupUnallocatedCollectionBatch = createServerFn({ method: "POST" })
+  .inputValidator((v: unknown) =>
+    z
+      .object({
+        mode: z.enum(["DELETE_COLLECTION", "IGNORE_LOAN"]),
+        reason: z.string().trim().max(300).optional().default(""),
+        items: z.array(cleanupItemSchema).min(1).max(5000),
+      })
+      .parse(v),
+  )
+  .handler(async ({ data }) => {
+    const admin = await requireSession("Admin");
+    const {
+      ensureSheet,
+      ensureSheetStrict,
+      invalidateSheetsCache,
+      requireGoogleSheetsWriteAccess,
+      sheetsAppendStrict,
+      sheetsBatchUpdateValuesStrict,
+      sheetsGet,
+      sheetsGetFresh,
+      withSheetMutex,
+    } = await import("./mahavtaar.server");
+
+    requireGoogleSheetsWriteAccess();
+
+    return withSheetMutex("collections-unallocated-cleanup", async () => {
+      const sheetRows = await sheetsGetFresh("Collections!B2:S");
+      const todayIst = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      const cleanReason = data.reason.trim() || "Loan ID not present in active Master Allocation";
+
+      const seenRows = new Set<number>();
+      const seenLoanIds = new Set<string>();
+      const collectionUpdates: { range: string; values: (string | number)[][] }[] = [];
+      const verificationAuditRows: (string | number)[][] = [];
+      const timestampIso = new Date().toISOString();
+
+      for (const item of data.items) {
+        const normalizedId = normalisePaidId(item.loanId);
+        if (!normalizedId) continue;
+        seenLoanIds.add(normalizedId);
+
+        for (const rowNumber of item.rows) {
+          if (seenRows.has(rowNumber)) continue;
+          seenRows.add(rowNumber);
+
+          const rawRow = sheetRows[rowNumber - 2];
+          if (!rawRow) {
+            throw new Error(`Collections row ${rowNumber} not found.`);
+          }
+          const actualLoan = normalisePaidId(rawRow[0]);
+          if (actualLoan && actualLoan !== normalizedId) {
+            throw new Error(
+              `Collections row ${rowNumber} changed (${actualLoan} vs ${normalizedId}). Refresh and retry.`,
+            );
+          }
+
+          const existingRemark = String(rawRow[17] ?? "");
+          if (data.mode === "DELETE_COLLECTION") {
+            const deleteNote = `Deleted by ${admin.name}: ${cleanReason} (${todayIst})`;
+            collectionUpdates.push({
+              range: `Collections!G${rowNumber}`,
+              values: [["Deleted"]],
+            });
+            collectionUpdates.push({
+              range: `Collections!S${rowNumber}`,
+              values: [[mergeAmansRemark(existingRemark, deleteNote)]],
+            });
+            verificationAuditRows.push([
+              timestampIso,
+              admin.name,
+              normalizedId,
+              rowNumber,
+              "ENTRY_DELETED",
+              cleanReason,
+              "DAC Reconciliation (Unallocated Cleanup)",
+            ]);
+          } else {
+            const ignoreNote = `[Ignored - Not in Master]${data.reason.trim() ? ` ${data.reason.trim()}` : ""}`;
+            collectionUpdates.push({
+              range: `Collections!S${rowNumber}`,
+              values: [[mergeAmansRemark(existingRemark, ignoreNote)]],
+            });
+          }
+        }
+      }
+
+      let excludedAddedCount = 0;
+      if (data.mode === "IGNORE_LOAN" && seenLoanIds.size > 0) {
+        const EXCLUDED_TAB = "Excluded Loan Numbers";
+        await ensureSheet(EXCLUDED_TAB, ["Loan Number", "Date Added", "Reason", "Status"]);
+        const existingExcluded = await sheetsGet(`${EXCLUDED_TAB}!A2:D`);
+        const activeSet = new Set(
+          existingExcluded
+            .filter((r) => ((r[3] ?? "Active").trim() || "Active").toLowerCase() === "active")
+            .map((r) => normalisePaidId(r[0] ?? ""))
+            .filter(Boolean),
+        );
+        const toAppend = [...seenLoanIds]
+          .filter((id) => !activeSet.has(id))
+          .map((id) => [id, todayIst, cleanReason, "Active"]);
+        if (toAppend.length > 0) {
+          await sheetsAppendStrict(`${EXCLUDED_TAB}!A:D`, toAppend);
+          excludedAddedCount = toAppend.length;
+        }
+      }
+
+      const chunks = chunkRanges(collectionUpdates, 450);
+      for (const chunk of chunks) {
+        await sheetsBatchUpdateValuesStrict(chunk);
+      }
+      if (chunks.length > 0 || excludedAddedCount > 0) {
+        invalidateSheetsCache();
+      }
+
+      if (verificationAuditRows.length > 0) {
+        try {
+          await ensureSheetStrict("Verification_Audit", [
+            "Timestamp",
+            "Admin",
+            "Loan ID",
+            "Sheet Row",
+            "Action",
+            "Reason",
+            "Source",
+          ]);
+          await sheetsAppendStrict("Verification_Audit!A:G", verificationAuditRows);
+        } catch (error) {
+          console.warn("Collections rows soft-deleted, but audit append failed:", error);
+        }
+      }
+
+      return {
+        ok: true as const,
+        mode: data.mode,
+        affectedLoanCount: seenLoanIds.size,
+        updatedRowCount: seenRows.size,
+        excludedAddedCount,
+        batches: chunks.length,
       };
     });
   });

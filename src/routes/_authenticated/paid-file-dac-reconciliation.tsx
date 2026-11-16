@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowUpRight,
+  Ban,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -22,6 +23,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Tag,
+  Trash2,
   X,
 } from "lucide-react";
 import { getCurrentSession } from "@/lib/auth.functions";
@@ -41,6 +43,7 @@ import {
 } from "@/lib/dac-reconciliation";
 import {
   batchUpdateAmansRemarks,
+  cleanupUnallocatedCollectionBatch,
   commitDacReconciliationBatch,
   getDacReconciliationData,
 } from "@/lib/dac-reconciliation.functions";
@@ -152,13 +155,20 @@ type CommitDialogState = {
   items: DacReconciliationItem[];
 } | null;
 
+type CleanupDialogState = {
+  mode: "DELETE_COLLECTION" | "IGNORE_LOAN";
+  items: DacReconciliationItem[];
+} | null;
+
 function PaidFileDacReconciliationPage() {
   const qc = useQueryClient();
   const fetchReconciliationData = useServerFn(getDacReconciliationData);
   const runBatchRemarks = useServerFn(batchUpdateAmansRemarks);
   const runCommitBatch = useServerFn(commitDacReconciliationBatch);
+  const runCleanupBatch = useServerFn(cleanupUnallocatedCollectionBatch);
 
   const [includeAlreadyPaid, setIncludeAlreadyPaid] = useState(false);
+  const [includeIgnored, setIncludeIgnored] = useState(false);
   const [categoryMismatchOnly, setCategoryMismatchOnly] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedColCats, setSelectedColCats] = useState<string[]>([]);
@@ -175,7 +185,12 @@ function PaidFileDacReconciliationPage() {
   const [batchBusy, setBatchBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [commitDialog, setCommitDialog] = useState<CommitDialogState>(null);
+  const [cleanupDialog, setCleanupDialog] = useState<CleanupDialogState>(null);
+  const [cleanupReason, setCleanupReason] = useState(
+    "Loan ID not present in active Master Allocation",
+  );
   const [allowOverwriteProtected, setAllowOverwriteProtected] = useState(false);
+  const [confirmCreateMissing, setConfirmCreateMissing] = useState(true);
   const [targetAmountOverrides, setTargetAmountOverrides] = useState<Record<string, string>>({});
 
   const dataQuery = useQuery({
@@ -204,9 +219,10 @@ function PaidFileDacReconciliationPage() {
       collections,
       masterRows,
       includeAlreadyPaid,
+      includeIgnored,
       excludedLoanIds,
     });
-  }, [dataQuery.data, includeAlreadyPaid, excludedLoanIds]);
+  }, [dataQuery.data, includeAlreadyPaid, includeIgnored, excludedLoanIds]);
 
   const filteredItems = useMemo(() => {
     const colCatSet = new Set(selectedColCats.map((c) => c.toLowerCase()));
@@ -310,12 +326,36 @@ function PaidFileDacReconciliationPage() {
     () =>
       selectedItems.filter(
         (item) =>
-          item.masterRow !== null &&
           !item.hasDuplicateMaster &&
           item.varianceStatus !== "ALREADY_PAID_EXCLUDED" &&
           item.collectionAmount > 0,
       ),
     [selectedItems],
+  );
+
+  const filteredActionableItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (item) =>
+          !item.hasDuplicateMaster &&
+          item.varianceStatus !== "ALREADY_PAID_EXCLUDED" &&
+          item.collectionAmount > 0 &&
+          (item.varianceStatus === "MISSING_IN_DAC" ||
+            item.varianceStatus === "DAC_SHORTFALL" ||
+            item.varianceStatus === "UNALLOCATED_COLLECTION"),
+      ),
+    [filteredItems],
+  );
+
+  const filteredUnallocatedItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (item) =>
+          item.masterRow === null &&
+          item.varianceStatus === "UNALLOCATED_COLLECTION" &&
+          item.collectionAmount > 0,
+      ),
+    [filteredItems],
   );
 
   const allFilteredSelected =
@@ -330,7 +370,8 @@ function PaidFileDacReconciliationPage() {
     Boolean(toDate) ||
     Boolean(search.trim()) ||
     categoryMismatchOnly ||
-    includeAlreadyPaid;
+    includeAlreadyPaid ||
+    includeIgnored;
 
   function toggleSelectAll(checked: boolean) {
     setSelectedIds((prev) => {
@@ -383,6 +424,7 @@ function PaidFileDacReconciliationPage() {
     setSearch("");
     setCategoryMismatchOnly(false);
     setIncludeAlreadyPaid(false);
+    setIncludeIgnored(false);
   }
 
   async function handleCopyLoanId(loanId: string) {
@@ -472,14 +514,13 @@ function PaidFileDacReconciliationPage() {
   ) {
     const eligible = items.filter(
       (item) =>
-        item.masterRow !== null &&
         !item.hasDuplicateMaster &&
         item.varianceStatus !== "ALREADY_PAID_EXCLUDED" &&
         item.collectionAmount > 0,
     );
     if (eligible.length === 0) {
       toast.error(
-        "None of the selected rows match a unique Master Allocation account with an active collection.",
+        "None of the selected rows have an eligible active collection without Master duplicate conflict.",
       );
       return;
     }
@@ -493,6 +534,7 @@ function PaidFileDacReconciliationPage() {
     }
     setTargetAmountOverrides(overrides);
     setAllowOverwriteProtected(eligible.some((i) => i.isMasterProtected));
+    setConfirmCreateMissing(true);
     setCommitDialog({ mode, items: eligible });
   }
 
@@ -500,6 +542,7 @@ function PaidFileDacReconciliationPage() {
     if (!commitDialog || batchBusy) return;
     const today = todayISO();
     const { mode, items } = commitDialog;
+    const hasNewMasterRows = items.some((item) => item.masterRow === null);
     setBatchBusy(true);
 
     try {
@@ -523,7 +566,7 @@ function PaidFileDacReconciliationPage() {
 
         return {
           agreementId: item.agreementId,
-          masterRow: item.masterRow!,
+          masterRow: item.masterRow,
           expectedExistingDac: item.masterDac,
           targetAmount,
           paymentDate: item.latestPaymentDate || today,
@@ -532,6 +575,8 @@ function PaidFileDacReconciliationPage() {
           remarkMode: draft !== undefined ? ("replace" as const) : ("append" as const),
           collectionCategory: item.collectionCategory,
           masterCategory: item.masterCategory,
+          customerName: item.customerName === "—" ? "" : item.customerName,
+          executiveName: item.executives.join(", "),
         };
       });
 
@@ -539,6 +584,7 @@ function PaidFileDacReconciliationPage() {
         data: {
           mode,
           allowOverwriteProtected,
+          createMissingMasterRows: hasNewMasterRows && confirmCreateMissing,
           items: payloadItems,
         },
       });
@@ -564,6 +610,54 @@ function PaidFileDacReconciliationPage() {
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not commit batch to Master Sheet.",
+      );
+    } finally {
+      setBatchBusy(false);
+    }
+  }
+
+  function openCleanupDialog(
+    mode: "DELETE_COLLECTION" | "IGNORE_LOAN",
+    items: DacReconciliationItem[],
+  ) {
+    const eligible = items.filter((item) => item.allRows.length > 0);
+    if (eligible.length === 0) {
+      toast.info("No collection entries available for cleanup.");
+      return;
+    }
+    setCleanupReason("Loan ID not present in active Master Allocation");
+    setCleanupDialog({ mode, items: eligible });
+  }
+
+  async function handleConfirmCleanup() {
+    if (!cleanupDialog || batchBusy) return;
+    const { mode, items } = cleanupDialog;
+    setBatchBusy(true);
+    try {
+      const res = await runCleanupBatch({
+        data: {
+          mode,
+          reason: cleanupReason,
+          items: items.map((item) => ({
+            loanId: item.agreementId,
+            rows: item.allRows.map((r) => r.row),
+          })),
+        },
+      });
+      toast.success(
+        mode === "DELETE_COLLECTION"
+          ? `Deleted ${res.updatedRowCount} Collection row(s) across ${res.affectedLoanCount} Loan ID(s).`
+          : `Ignored ${res.affectedLoanCount} Loan ID(s) (${res.excludedAddedCount} added to Excluded Loans) and updated ${res.updatedRowCount} remark(s).`,
+      );
+      setCleanupDialog(null);
+      setSelectedIds(new Set());
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["dac-reconciliation-data"] }),
+        qc.invalidateQueries({ queryKey: ["collections"] }),
+      ]);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not delete or ignore selected entries.",
       );
     } finally {
       setBatchBusy(false);
@@ -1001,6 +1095,12 @@ function PaidFileDacReconciliationPage() {
               <Switch checked={categoryMismatchOnly} onCheckedChange={setCategoryMismatchOnly} />
               <span>Compare mismatched categories only</span>
             </label>
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-foreground">
+              <Switch checked={includeIgnored} onCheckedChange={setIncludeIgnored} />
+              <span>
+                Show Ignored / Excluded Loans ({reconciliation.summary.ignoredAccountCount})
+              </span>
+            </label>
           </div>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -1024,71 +1124,151 @@ function PaidFileDacReconciliationPage() {
         </div>
       </section>
 
-      {/* 3. Batch Action Bar */}
-      {selectedItems.length > 0 && (
-        <section
-          aria-label="Batch actions"
-          className="sticky top-[68px] z-20 flex flex-col gap-3 rounded-xl border border-primary/40 bg-card/95 p-3.5 shadow-md backdrop-blur sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-            <span className="font-bold text-foreground tabular-nums">
-              {selectedItems.length} account(s) selected
-            </span>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono tabular-nums text-foreground">
-              Collection{" "}
-              {money(selectedItems.reduce((sum, item) => sum + item.collectionAmount, 0))}
-            </span>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono font-semibold tabular-nums text-red-700 dark:text-red-400">
-              Gap {money(selectedItems.reduce((sum, item) => sum + item.gapAmount, 0))}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={batchBusy}
-              onClick={() => void handleBatchVerifyRemarks()}
-              className="min-h-9 whitespace-nowrap text-xs"
-            >
-              {batchBusy ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="mr-1.5 h-3.5 w-3.5" />
+      {/* 3. Persistent Quick Action & Batch Push Bar */}
+      <section
+        aria-label="Quick selection and batch push"
+        className="sticky top-[68px] z-20 flex flex-col gap-3 rounded-xl border border-primary/30 bg-card/95 p-3.5 shadow-sm backdrop-blur lg:flex-row lg:items-center lg:justify-between"
+      >
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {selectedItems.length > 0 ? (
+            <>
+              <span className="font-bold text-foreground tabular-nums">
+                {selectedItems.length} selected
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono tabular-nums text-foreground">
+                Col {money(selectedItems.reduce((sum, item) => sum + item.collectionAmount, 0))}
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono font-semibold tabular-nums text-red-700 dark:text-red-400">
+                Gap {money(selectedItems.reduce((sum, item) => sum + item.gapAmount, 0))}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="ml-1 font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Clear
+              </button>
+            </>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-foreground">Quick Select:</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={filteredActionableItems.length === 0}
+                onClick={() =>
+                  setSelectedIds(new Set(filteredActionableItems.map((i) => i.agreementId)))
+                }
+                className="h-8 text-xs"
+              >
+                Missing + Shortfall + Unallocated ({filteredActionableItems.length})
+              </Button>
+              {filteredUnallocatedItems.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setSelectedIds(new Set(filteredUnallocatedItems.map((i) => i.agreementId)))
+                  }
+                  className="h-8 text-xs"
+                >
+                  Unallocated Only ({filteredUnallocatedItems.length})
+                </Button>
               )}
-              Verify Selected &amp; Update Aman&apos;s Remarks
-            </Button>
+            </div>
+          )}
+        </div>
 
-            <Button
-              type="button"
-              size="sm"
-              disabled={batchBusy || selectedPushEligible.length === 0 || !masterFound}
-              onClick={() => openCommitDialog("PUSH_TO_DAC", selectedPushEligible)}
-              className="min-h-9 whitespace-nowrap text-xs"
-            >
-              <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-              Batch Push Verified Amounts to Master DAC ({selectedPushEligible.length})
-            </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={batchBusy || selectedItems.length === 0}
+            onClick={() => void handleBatchVerifyRemarks()}
+            className="min-h-9 whitespace-nowrap text-xs"
+          >
+            {batchBusy ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Verify Remarks ({selectedItems.length})
+          </Button>
 
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                batchBusy ||
-                selectedPushEligible.length === 0 ||
-                !master?.columnSupport.provisionalDac
-              }
-              onClick={() => openCommitDialog("SET_PROVISIONAL", selectedPushEligible)}
-              className="min-h-9 whitespace-nowrap text-xs"
-            >
-              <Clock className="mr-1.5 h-3.5 w-3.5" />
-              Set Provisional ({selectedPushEligible.length})
-            </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={batchBusy || selectedPushEligible.length === 0 || !masterFound}
+            onClick={() => openCommitDialog("PUSH_TO_DAC", selectedPushEligible)}
+            className="min-h-9 whitespace-nowrap text-xs"
+          >
+            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+            Push to Master DAC ({selectedPushEligible.length})
+          </Button>
 
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={
+              batchBusy ||
+              selectedPushEligible.length === 0 ||
+              !master?.columnSupport.provisionalDac
+            }
+            onClick={() => openCommitDialog("SET_PROVISIONAL", selectedPushEligible)}
+            className="min-h-9 whitespace-nowrap text-xs"
+          >
+            <Clock className="mr-1.5 h-3.5 w-3.5" />
+            Set Provisional ({selectedPushEligible.length})
+          </Button>
+
+          {(selectedItems.length > 0 || filteredUnallocatedItems.length > 0) && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={batchBusy}
+                onClick={() =>
+                  openCleanupDialog(
+                    "IGNORE_LOAN",
+                    selectedItems.length > 0 ? selectedItems : filteredUnallocatedItems,
+                  )
+                }
+                className="min-h-9 whitespace-nowrap text-xs"
+              >
+                <Ban className="mr-1.5 h-3.5 w-3.5" />
+                {selectedItems.length > 0
+                  ? `Ignore Selected (${selectedItems.length})`
+                  : `Ignore Unallocated (${filteredUnallocatedItems.length})`}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={batchBusy}
+                onClick={() =>
+                  openCleanupDialog(
+                    "DELETE_COLLECTION",
+                    selectedItems.length > 0 ? selectedItems : filteredUnallocatedItems,
+                  )
+                }
+                className="min-h-9 whitespace-nowrap border-red-300 text-xs text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {selectedItems.length > 0
+                  ? `Delete Selected (${selectedItems.length})`
+                  : `Delete Unallocated (${filteredUnallocatedItems.length})`}
+              </Button>
+            </>
+          )}
+
+          {selectedItems.length > 0 && (
             <Button
               type="button"
               size="sm"
@@ -1097,11 +1277,11 @@ function PaidFileDacReconciliationPage() {
               className="min-h-9 whitespace-nowrap text-xs"
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
-              Export Selected CSV
+              Export Selected
             </Button>
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+      </section>
 
       {/* 4. Reconciliation Data Table */}
       <section className="overflow-hidden rounded-xl border bg-card">
@@ -1131,10 +1311,10 @@ function PaidFileDacReconciliationPage() {
                 const isSelected = selectedIds.has(item.agreementId);
                 const canPushMaster =
                   masterFound &&
-                  item.masterRow !== null &&
                   !item.hasDuplicateMaster &&
                   item.varianceStatus !== "ALREADY_PAID_EXCLUDED" &&
                   item.collectionAmount > 0;
+                const isUnallocated = item.masterRow === null;
 
                 return (
                   <article key={item.agreementId} className="space-y-3 p-3.5">
@@ -1269,26 +1449,74 @@ function PaidFileDacReconciliationPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        {canPushMaster && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => openCommitDialog("PUSH_TO_DAC", [item])}
-                            className="min-h-10 flex-1 text-xs"
-                          >
-                            Verify &amp; Push to DAC
-                          </Button>
-                        )}
-                        {canPushMaster && master?.columnSupport.provisionalDac && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openCommitDialog("SET_PROVISIONAL", [item])}
-                            className="min-h-10 text-xs"
-                          >
-                            Set Provisional
-                          </Button>
+                        {isUnallocated ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openCleanupDialog("DELETE_COLLECTION", [item])}
+                              className="min-h-10 flex-1 border-red-300 text-xs text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900 dark:text-red-400"
+                            >
+                              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                              Delete Entry
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openCleanupDialog("IGNORE_LOAN", [item])}
+                              className="min-h-10 text-xs"
+                            >
+                              <Ban className="mr-1.5 h-3.5 w-3.5" />
+                              Ignore
+                            </Button>
+                            {canPushMaster && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => openCommitDialog("PUSH_TO_DAC", [item])}
+                                className="min-h-10 text-xs"
+                              >
+                                Add to Master
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {canPushMaster ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => openCommitDialog("PUSH_TO_DAC", [item])}
+                                className="min-h-10 flex-1 text-xs"
+                              >
+                                Verify &amp; Push to DAC
+                              </Button>
+                            ) : (
+                              <span className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md border bg-muted/50 px-2.5 text-[11px] font-medium text-muted-foreground">
+                                {!masterFound
+                                  ? "Master Sheet Not Found"
+                                  : item.hasDuplicateMaster
+                                    ? "Duplicate in Master"
+                                    : item.varianceStatus === "ALREADY_PAID_EXCLUDED"
+                                      ? "Already Paid (Excluded)"
+                                      : "Cannot Push"}
+                              </span>
+                            )}
+                            {canPushMaster && master?.columnSupport.provisionalDac && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openCommitDialog("SET_PROVISIONAL", [item])}
+                                className="min-h-10 text-xs"
+                              >
+                                Set Provisional
+                              </Button>
+                            )}
+                          </>
                         )}
                         <Button
                           type="button"
@@ -1314,7 +1542,7 @@ function PaidFileDacReconciliationPage() {
 
             {/* Desktop High-Density Reconciliation Ledger */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1220px] border-collapse text-left text-xs">
+              <table className="w-full min-w-[1120px] border-collapse text-left text-xs">
                 <thead className="border-b bg-muted/45 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="w-10 px-3 py-3">
@@ -1331,8 +1559,10 @@ function PaidFileDacReconciliationPage() {
                     <th className="px-3 py-3 text-right">Collection ₹</th>
                     <th className="px-3 py-3 text-right">Master DAC ₹</th>
                     <th className="px-3 py-3 text-right">Difference / Gap</th>
-                    <th className="min-w-[260px] px-3 py-3">Aman&apos;s Remarks (Col S)</th>
-                    <th className="px-3 py-3 text-right">Action</th>
+                    <th className="min-w-[230px] px-3 py-3">Aman&apos;s Remarks (Col S)</th>
+                    <th className="sticky right-0 z-10 border-l bg-muted/95 px-3 py-3 text-right backdrop-blur">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -1346,10 +1576,10 @@ function PaidFileDacReconciliationPage() {
                     const isExpanded = expandedIds.has(item.agreementId);
                     const canPushMaster =
                       masterFound &&
-                      item.masterRow !== null &&
                       !item.hasDuplicateMaster &&
                       item.varianceStatus !== "ALREADY_PAID_EXCLUDED" &&
                       item.collectionAmount > 0;
+                    const isUnallocated = item.masterRow === null;
 
                     return (
                       <Fragment key={item.agreementId}>
@@ -1575,42 +1805,108 @@ function PaidFileDacReconciliationPage() {
                             </div>
                           </td>
 
-                          {/* 10. Action */}
-                          <td className="px-3 py-3 text-right">
+                          {/* 10. Action (Sticky on desktop so Push / Delete / Ignore is always visible) */}
+                          <td className="sticky right-0 z-10 border-l bg-card px-3 py-3 text-right shadow-[-6px_0_12px_-6px_rgba(0,0,0,0.08)]">
                             <div className="flex flex-col items-end gap-1.5">
-                              {canPushMaster && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={() => openCommitDialog("PUSH_TO_DAC", [item])}
-                                  className="h-8 whitespace-nowrap px-2.5 text-[11px]"
-                                >
-                                  Verify &amp; Push to DAC
-                                </Button>
+                              {isUnallocated ? (
+                                <>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openCleanupDialog("DELETE_COLLECTION", [item])}
+                                      className="h-8 whitespace-nowrap border-red-300 px-2.5 text-[11px] text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900 dark:text-red-400"
+                                    >
+                                      <Trash2 className="mr-1 h-3 w-3" />
+                                      Delete Entry
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openCleanupDialog("IGNORE_LOAN", [item])}
+                                      className="h-8 whitespace-nowrap px-2.5 text-[11px]"
+                                    >
+                                      <Ban className="mr-1 h-3 w-3" />
+                                      Ignore
+                                    </Button>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {canPushMaster && (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => openCommitDialog("PUSH_TO_DAC", [item])}
+                                        className="h-7 whitespace-nowrap px-2 text-[11px]"
+                                      >
+                                        Add to Master
+                                      </Button>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant={remarkDirty ? "secondary" : "ghost"}
+                                      disabled={savingRowId === item.agreementId}
+                                      onClick={() => void saveSingleRemark(item)}
+                                      className="h-7 whitespace-nowrap px-2 text-[11px]"
+                                    >
+                                      {savingRowId === item.agreementId
+                                        ? "Saving…"
+                                        : "Update Remarks"}
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  {canPushMaster ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => openCommitDialog("PUSH_TO_DAC", [item])}
+                                      className="h-8 whitespace-nowrap px-2.5 text-[11px]"
+                                    >
+                                      Verify &amp; Push to DAC
+                                    </Button>
+                                  ) : (
+                                    <span className="inline-flex h-8 items-center rounded border bg-muted/50 px-2 text-[10px] font-medium whitespace-nowrap text-muted-foreground">
+                                      {!masterFound
+                                        ? "Master Not Loaded"
+                                        : item.hasDuplicateMaster
+                                          ? "Duplicate in Master"
+                                          : item.varianceStatus === "ALREADY_PAID_EXCLUDED"
+                                            ? "Already Paid (Excl.)"
+                                            : "Cannot Push"}
+                                    </span>
+                                  )}
+                                  <div className="flex items-center gap-1">
+                                    {canPushMaster && master?.columnSupport.provisionalDac && (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openCommitDialog("SET_PROVISIONAL", [item])}
+                                        className="h-7 whitespace-nowrap px-2 text-[11px]"
+                                      >
+                                        Set Provisional
+                                      </Button>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant={remarkDirty ? "secondary" : "ghost"}
+                                      disabled={savingRowId === item.agreementId}
+                                      onClick={() => void saveSingleRemark(item)}
+                                      className="h-7 whitespace-nowrap px-2 text-[11px]"
+                                    >
+                                      {savingRowId === item.agreementId
+                                        ? "Saving…"
+                                        : "Update Remarks"}
+                                    </Button>
+                                  </div>
+                                </>
                               )}
-                              <div className="flex items-center gap-1">
-                                {canPushMaster && master?.columnSupport.provisionalDac && (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => openCommitDialog("SET_PROVISIONAL", [item])}
-                                    className="h-7 whitespace-nowrap px-2 text-[11px]"
-                                  >
-                                    Set Provisional
-                                  </Button>
-                                )}
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant={remarkDirty ? "secondary" : "ghost"}
-                                  disabled={savingRowId === item.agreementId}
-                                  onClick={() => void saveSingleRemark(item)}
-                                  className="h-7 whitespace-nowrap px-2 text-[11px]"
-                                >
-                                  {savingRowId === item.agreementId ? "Saving…" : "Update Remarks"}
-                                </Button>
-                              </div>
                             </div>
                           </td>
                         </tr>
@@ -1744,6 +2040,30 @@ function PaidFileDacReconciliationPage() {
 
           {commitDialog && (
             <div className="space-y-3">
+              {commitDialog.items.some((item) => item.masterRow === null) && (
+                <label className="flex items-start gap-2.5 rounded-lg border border-violet-300 bg-violet-50 p-3 text-xs text-violet-950 dark:border-violet-800 dark:bg-violet-950/35 dark:text-violet-100">
+                  <Checkbox
+                    checked={confirmCreateMissing}
+                    onCheckedChange={(checked) => setConfirmCreateMissing(Boolean(checked))}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <strong>
+                      {commitDialog.items.filter((i) => i.masterRow === null).length} Unallocated
+                      loan(s) not in Master Sheet:
+                    </strong>{" "}
+                    Confirm appending these Loan IDs as new rows in{" "}
+                    <span className="font-mono">{master?.tab ?? "Master Data"}</span> with DAC
+                    amount, Executive, Customer, Category, and{" "}
+                    <span className="font-mono">
+                      DAC Source ={" "}
+                      {commitDialog.mode === "PUSH_TO_DAC" ? "CORRECTED" : "PROVISIONAL"}
+                    </span>
+                    . Formula columns are untouched.
+                  </span>
+                </label>
+              )}
+
               {commitDialog.items.some((item) => item.isMasterProtected) &&
                 commitDialog.mode === "PUSH_TO_DAC" && (
                   <label className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/35 dark:text-amber-100">
@@ -1778,8 +2098,18 @@ function PaidFileDacReconciliationPage() {
                         <td className="px-3 py-2">
                           <div className="font-mono font-bold">{item.agreementId}</div>
                           <div className="text-[10px] text-muted-foreground">
-                            Master row {item.masterRow}
-                            {item.isMasterProtected ? ` · ${item.dacSource || "CORRECTED"}` : ""}
+                            {item.masterRow !== null ? (
+                              <>
+                                Master row {item.masterRow}
+                                {item.isMasterProtected
+                                  ? ` · ${item.dacSource || "CORRECTED"}`
+                                  : ""}
+                              </>
+                            ) : (
+                              <span className="font-semibold text-violet-700 dark:text-violet-400">
+                                New Master Row (Not in Master yet)
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono tabular-nums">
@@ -1835,6 +2165,8 @@ function PaidFileDacReconciliationPage() {
               disabled={
                 batchBusy ||
                 !commitDialog ||
+                (commitDialog.items.some((item) => item.masterRow === null) &&
+                  !confirmCreateMissing) ||
                 (commitDialog.mode === "PUSH_TO_DAC" &&
                   commitDialog.items.some((item) => item.isMasterProtected) &&
                   !allowOverwriteProtected)
@@ -1850,6 +2182,101 @@ function PaidFileDacReconciliationPage() {
                 `Commit ${commitDialog.items.length} Record(s) to Master DAC`
               ) : (
                 `Stage ${commitDialog?.items.length ?? 0} Provisional DAC`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete / Ignore Unallocated Collections Confirmation Dialog */}
+      <Dialog
+        open={cleanupDialog !== null}
+        onOpenChange={(open) => !open && setCleanupDialog(null)}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {cleanupDialog?.mode === "DELETE_COLLECTION"
+                ? "Delete Unallocated Entries from Collections Sheet"
+                : "Ignore Loan Numbers (Exclude from Reconciliation)"}
+            </DialogTitle>
+            <DialogDescription>
+              {cleanupDialog?.mode === "DELETE_COLLECTION"
+                ? "Marks matching Collections rows as Status = Deleted (Col G) and writes an audit note to Aman's Remarks (Col S). Deleted entries are immediately removed from Collections, Reports, and DAC Reconciliation."
+                : "Adds these Loan IDs to the Excluded Loan Numbers sheet (Active) and tags Aman's Remarks (Col S) so they are ignored in DAC Reconciliation without deleting the raw row."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {cleanupDialog && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="cleanup-reason" className="text-xs font-semibold">
+                  Audit Reason (written to Aman&apos;s Remarks / Audit Log)
+                </Label>
+                <Input
+                  id="cleanup-reason"
+                  value={cleanupReason}
+                  onChange={(e) => setCleanupReason(e.target.value)}
+                  placeholder="Loan ID not present in active Master Allocation"
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="max-h-64 overflow-y-auto rounded-lg border">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b bg-muted/50 text-[11px] uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">Loan ID</th>
+                      <th className="px-3 py-2">Executive</th>
+                      <th className="px-3 py-2 text-right">Amount (₹)</th>
+                      <th className="px-3 py-2">Collections Rows</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {cleanupDialog.items.map((item) => (
+                      <tr key={item.agreementId}>
+                        <td className="px-3 py-2 font-mono font-bold">{item.agreementId}</td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {item.executives.join(", ") || "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">
+                          {money(item.collectionAmount)}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
+                          Rows {item.allRows.map((r) => r.row).join(", ")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={batchBusy}
+              onClick={() => setCleanupDialog(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant={cleanupDialog?.mode === "DELETE_COLLECTION" ? "destructive" : "default"}
+              disabled={batchBusy || !cleanupDialog}
+              onClick={() => void handleConfirmCleanup()}
+            >
+              {batchBusy ? (
+                <>
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  Applying…
+                </>
+              ) : cleanupDialog?.mode === "DELETE_COLLECTION" ? (
+                `Delete ${cleanupDialog.items.reduce((s, i) => s + i.allRows.length, 0)} Row(s) from Collections`
+              ) : (
+                `Ignore ${cleanupDialog?.items.length ?? 0} Loan ID(s)`
               )}
             </Button>
           </DialogFooter>

@@ -97,6 +97,9 @@ export type DacReconciliationSummary = {
   alreadyPaidRowCount: number;
   alreadyPaidAccountCount: number;
   alreadyPaidAmount: number;
+  ignoredAccountCount: number;
+  ignoredRowCount: number;
+  ignoredAmount: number;
 };
 
 export const FAST_REMARK_TAGS = [
@@ -181,6 +184,7 @@ export function buildDacReconciliation(params: {
   collections: CollectionReconciliationEntry[];
   masterRows: MasterRow[];
   includeAlreadyPaid?: boolean;
+  includeIgnored?: boolean;
   excludedLoanIds?: Set<string>;
 }): {
   items: DacReconciliationItem[];
@@ -190,7 +194,12 @@ export function buildDacReconciliation(params: {
   executiveOptions: string[];
 } {
   const includeAlreadyPaid = params.includeAlreadyPaid ?? false;
-  const excludedSet = params.excludedLoanIds ?? new Set<string>();
+  const includeIgnored = params.includeIgnored ?? false;
+  const excludedSet = new Set(
+    [...(params.excludedLoanIds ?? new Set<string>())]
+      .map((id) => normalisePaidId(id))
+      .filter(Boolean),
+  );
 
   const masterById = new Map<string, MasterRow[]>();
   for (const row of params.masterRows) {
@@ -229,20 +238,17 @@ export function buildDacReconciliation(params: {
 
   const items: DacReconciliationItem[] = [];
   let alreadyPaidAccountCount = 0;
+  let ignoredAccountCount = 0;
+  let ignoredRowCount = 0;
+  let ignoredAmount = 0;
 
   for (const [agreementId, entries] of grouped.entries()) {
+    const isExcludedLoan = excludedSet.has(agreementId);
     const sortedRows = [...entries].sort(
       (a, b) => (a.date || "").localeCompare(b.date || "") || a.row - b.row,
     );
     const alreadyPaidRows = sortedRows.filter((e) => e.alreadyPaid);
     const nonAlreadyPaidRows = sortedRows.filter((e) => !e.alreadyPaid);
-
-    const rowAlreadyPaidAmount = roundMoney(
-      alreadyPaidRows.reduce((sum, e) => sum + Number(e.amount || 0), 0),
-    );
-    if (alreadyPaidRows.length > 0) {
-      alreadyPaidAccountCount += 1;
-    }
 
     const activeRows = includeAlreadyPaid ? sortedRows : nonAlreadyPaidRows;
     const allExcludedAsAlreadyPaid = nonAlreadyPaidRows.length === 0 && alreadyPaidRows.length > 0;
@@ -251,6 +257,24 @@ export function buildDacReconciliation(params: {
     const collectionAmount = roundMoney(
       activeRows.reduce((sum, e) => sum + Number(e.amount || 0), 0),
     );
+
+    if (isExcludedLoan) {
+      ignoredAccountCount += 1;
+      ignoredRowCount += sortedRows.length;
+      ignoredAmount = roundMoney(
+        ignoredAmount + sortedRows.reduce((sum, e) => sum + Number(e.amount || 0), 0),
+      );
+      if (!includeIgnored) {
+        continue;
+      }
+    }
+
+    const rowAlreadyPaidAmount = roundMoney(
+      alreadyPaidRows.reduce((sum, e) => sum + Number(e.amount || 0), 0),
+    );
+    if (alreadyPaidRows.length > 0) {
+      alreadyPaidAccountCount += 1;
+    }
 
     const masterMatches = masterById.get(agreementId) ?? [];
     const hasDuplicateMaster = masterMatches.length > 1;
@@ -456,6 +480,9 @@ export function buildDacReconciliation(params: {
       alreadyPaidRowCount,
       alreadyPaidAccountCount,
       alreadyPaidAmount,
+      ignoredAccountCount,
+      ignoredRowCount,
+      ignoredAmount,
     },
     collectionCategoryOptions,
     masterCategoryOptions,

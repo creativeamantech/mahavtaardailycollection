@@ -174,4 +174,32 @@ describe("Collections vs Master DAC reconciliation engine", () => {
     expect(csv.includes("Master Category")).toBe(true);
     expect(csv.includes("Verified by Aman: Added ₹5,000 to DAC on 2026-11-15")).toBe(true);
   });
+
+  test("hides ignored/excluded loans unless includeIgnored is true", () => {
+    const collections = [
+      makeCollection({ row: 2, loanId: "LN-IGN", amount: 2500 }),
+      makeCollection({ row: 3, loanId: "LN-KEEP", amount: 3000 }),
+    ];
+    const excludedLoanIds = new Set([" 'ln-ign "]);
+
+    const hidden = buildDacReconciliation({
+      collections,
+      masterRows: [],
+      excludedLoanIds,
+    });
+    expect(hidden.items.length).toBe(1);
+    expect(hidden.items[0]?.agreementId).toBe("LN-KEEP");
+    expect(hidden.summary.ignoredAccountCount).toBe(1);
+    expect(hidden.summary.ignoredAmount).toBe(2500);
+    expect(hidden.summary.totalCollectionsAmount).toBe(3000);
+
+    const shown = buildDacReconciliation({
+      collections,
+      masterRows: [],
+      excludedLoanIds,
+      includeIgnored: true,
+    });
+    expect(shown.items.length).toBe(2);
+    expect(shown.items.find((i) => i.agreementId === "LN-IGN")?.isExcludedLoan).toBe(true);
+  });
 });
