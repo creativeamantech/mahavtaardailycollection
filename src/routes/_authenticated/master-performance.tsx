@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -7,6 +7,8 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  Maximize2,
+  Minimize2,
   Plus,
   RefreshCw,
   Share2,
@@ -95,6 +97,8 @@ type Report = PerformanceSlice & {
   rules: Rule[];
 };
 
+const ALL_CITIES = "__all_cities__";
+
 const money = (n: number) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const pct = (n: number) => Number(n || 0).toFixed(2) + "%";
@@ -120,9 +124,20 @@ function MasterPerformancePage() {
   });
   const [bucket, setBucket] = useState("Bucket 1");
   const [allocationType, setAllocationType] = useState<string>(ALL_ALLOCATION_TYPES);
+  const [cityFilter, setCityFilter] = useState<string>(ALL_CITIES);
+  const [isFullWidth, setIsFullWidth] = useState(false);
   const [rules, setRules] = useState<Rule[] | null>(null);
   const [saving, setSaving] = useState(false);
   const activeRules = rules ?? data?.rules ?? [];
+
+  useEffect(() => {
+    if (!isFullWidth) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsFullWidth(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isFullWidth]);
 
   const resolvedAllocationType = useMemo(() => {
     if (
@@ -141,6 +156,32 @@ function MasterPerformancePage() {
   }, [data, resolvedAllocationType]);
 
   const selected = activeSlice?.buckets.find((b) => b.bucket === bucket) ?? activeSlice?.buckets[0];
+
+  const cityOptions = useMemo(
+    () =>
+      [...(selected?.cities.map((c) => c.city) ?? [])].sort((a, b) =>
+        a.localeCompare(b, "en-IN", { sensitivity: "base" }),
+      ),
+    [selected],
+  );
+
+  const resolvedCityFilter = useMemo(() => {
+    if (cityFilter === ALL_CITIES || !cityOptions.includes(cityFilter)) return ALL_CITIES;
+    return cityFilter;
+  }, [cityFilter, cityOptions]);
+
+  const displayedCities = useMemo(() => {
+    if (!selected) return [];
+    if (resolvedCityFilter === ALL_CITIES) return selected.cities;
+    return selected.cities.filter((c) => c.city === resolvedCityFilter);
+  }, [selected, resolvedCityFilter]);
+
+  const displayedTotal = useMemo(() => {
+    if (!selected) return undefined;
+    if (resolvedCityFilter === ALL_CITIES) return selected.total;
+    return displayedCities[0] ?? selected.total;
+  }, [selected, resolvedCityFilter, displayedCities]);
+
   const mainShareRows = useMemo(
     () => (activeSlice?.positiveNeededPos ?? []).filter((r) => r.bucket === bucket),
     [activeSlice, bucket],
@@ -247,61 +288,134 @@ function MasterPerformancePage() {
             <Summary label="Total Collection" value={money(activeSlice.totals.collection)} />
             <Summary label="Overall Main Paid %" value={pct(activeSlice.totals.mainPercent)} />
           </div>
-          <div className="rounded-xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-4">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="font-display font-bold text-[#28145e]">Bucket performance</h2>
-                <p className="text-xs text-muted-foreground">
-                  City totals expand into executive-level rows. Filter by Allocation Type and
-                  bucket.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-end gap-2">
-                <div className="w-52 space-y-1">
-                  <Label
-                    htmlFor="idfc-allocation-type-filter"
-                    className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-                  >
-                    Allocation Type
-                  </Label>
-                  <Select value={resolvedAllocationType} onValueChange={setAllocationType}>
-                    <SelectTrigger
-                      id="idfc-allocation-type-filter"
-                      className="h-9 bg-background text-sm font-medium"
+          <div
+            className={
+              isFullWidth
+                ? "fixed inset-0 z-40 flex flex-col bg-[#242236]/40 p-2 backdrop-blur-[2px] sm:p-4"
+                : ""
+            }
+          >
+            <section
+              className={
+                isFullWidth
+                  ? "flex h-full min-h-0 w-full flex-col rounded-2xl border border-border bg-card p-3 shadow-2xl sm:p-5"
+                  : "rounded-2xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-5"
+              }
+            >
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-lg font-bold text-[#28145e]">
+                    Bucket performance
+                  </h2>
+                  <p className="text-xs text-muted-foreground sm:text-sm">
+                    All cities start expanded with executive rows visible. Freeze-scroll left column
+                    and header across all metrics.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-2.5">
+                  <div className="w-48 space-y-1">
+                    <Label
+                      htmlFor="idfc-allocation-type-filter"
+                      className="text-xs font-semibold text-[#28145e]"
                     >
-                      <SelectValue placeholder="All Allocation Types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ALL_ALLOCATION_TYPES}>All Allocation Types</SelectItem>
-                      {data.dimensionOptions.allocationTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
+                      Allocation Type
+                    </Label>
+                    <Select value={resolvedAllocationType} onValueChange={setAllocationType}>
+                      <SelectTrigger
+                        id="idfc-allocation-type-filter"
+                        className="h-9 bg-background text-sm font-medium"
+                      >
+                        <SelectValue placeholder="All Allocation Types" />
+                      </SelectTrigger>
+                      <SelectContent className="z-50">
+                        <SelectItem value={ALL_ALLOCATION_TYPES}>All Allocation Types</SelectItem>
+                        {data.dimensionOptions.allocationTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="w-48 space-y-1">
+                    <Label
+                      htmlFor="idfc-city-filter"
+                      className="text-xs font-semibold text-[#28145e]"
+                    >
+                      City Filter
+                    </Label>
+                    <Select value={resolvedCityFilter} onValueChange={setCityFilter}>
+                      <SelectTrigger
+                        id="idfc-city-filter"
+                        className="h-9 bg-background text-sm font-medium"
+                      >
+                        <SelectValue placeholder="All Cities" />
+                      </SelectTrigger>
+                      <SelectContent className="z-50">
+                        <SelectItem value={ALL_CITIES}>
+                          All Cities ({selected?.cities.length ?? 0})
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {activeSlice.buckets.map((b) => (
-                    <Button
-                      key={b.bucket}
-                      size="sm"
-                      variant={bucket === b.bucket ? "default" : "outline"}
-                      onClick={() => setBucket(b.bucket)}
-                    >
-                      {b.bucket}
-                    </Button>
-                  ))}
+                        {cityOptions.map((cityName) => (
+                          <SelectItem key={cityName} value={cityName}>
+                            {cityName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {activeSlice.buckets.map((b) => (
+                      <Button
+                        key={b.bucket}
+                        size="sm"
+                        variant={bucket === b.bucket ? "default" : "outline"}
+                        onClick={() => setBucket(b.bucket)}
+                      >
+                        {b.bucket}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={isFullWidth ? "default" : "outline"}
+                    onClick={() => setIsFullWidth((v) => !v)}
+                    className="gap-1.5"
+                    title={isFullWidth ? "Exit full-width view (Esc)" : "Expand table full width"}
+                  >
+                    {isFullWidth ? (
+                      <>
+                        <Minimize2 className="size-4" />
+                        Exit Full Width
+                      </>
+                    ) : (
+                      <>
+                        <Maximize2 className="size-4" />
+                        Full Width
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
-            </div>
-            {selected && (
-              <PerformanceTable
-                cities={selected.cities}
-                total={selected.total}
-                showTargets={activeRules.length > 0}
-              />
-            )}
+              {selected && displayedTotal && (
+                <PerformanceTable
+                  cities={displayedCities}
+                  total={displayedTotal}
+                  totalLabel={
+                    resolvedCityFilter === ALL_CITIES
+                      ? "GRAND TOTAL"
+                      : `CITY TOTAL · ${resolvedCityFilter}`
+                  }
+                  isCityFiltered={resolvedCityFilter !== ALL_CITIES}
+                  onClearCityFilter={() => setCityFilter(ALL_CITIES)}
+                  showTargets={activeRules.length > 0}
+                  isFullWidth={isFullWidth}
+                />
+              )}
+            </section>
           </div>
 
           {activeRules.length > 0 && (
@@ -617,153 +731,396 @@ function ShareTable({
     </section>
   );
 }
+type PerformanceColumn = {
+  key: string;
+  label: string;
+  minWidthClass: string;
+  group: "hierarchy" | "core" | "main" | "rollback";
+  groupDividerLeft?: boolean;
+};
+
+const CORE_COLUMNS: PerformanceColumn[] = [
+  {
+    key: "hierarchy",
+    label: "City / Executive",
+    minWidthClass: "min-w-[240px]",
+    group: "hierarchy",
+  },
+  {
+    key: "collection",
+    label: "Collection",
+    minWidthClass: "min-w-[140px]",
+    group: "core",
+  },
+  {
+    key: "mainPercent",
+    label: "Total %",
+    minWidthClass: "min-w-[105px]",
+    group: "core",
+  },
+  {
+    key: "rollbackPercent",
+    label: "Sum of RB %",
+    minWidthClass: "min-w-[120px]",
+    group: "core",
+  },
+  {
+    key: "totalCount",
+    label: "Total Count",
+    minWidthClass: "min-w-[115px]",
+    group: "core",
+  },
+  {
+    key: "paidCount",
+    label: "Paid Count",
+    minWidthClass: "min-w-[110px]",
+    group: "core",
+  },
+  {
+    key: "unpaidCount",
+    label: "Unpaid Count",
+    minWidthClass: "min-w-[122px]",
+    group: "core",
+  },
+  {
+    key: "totalPos",
+    label: "Total POS",
+    minWidthClass: "min-w-[145px]",
+    group: "core",
+  },
+  {
+    key: "mainPaidPos",
+    label: "Total Paid POS",
+    minWidthClass: "min-w-[145px]",
+    group: "core",
+  },
+];
+
+const TARGET_COLUMNS: PerformanceColumn[] = [
+  {
+    key: "mainTarget",
+    label: "Main Target %",
+    minWidthClass: "min-w-[130px]",
+    group: "main",
+    groupDividerLeft: true,
+  },
+  {
+    key: "targetPos",
+    label: "Target POS",
+    minWidthClass: "min-w-[145px]",
+    group: "main",
+  },
+  {
+    key: "neededPos",
+    label: "Needed POS",
+    minWidthClass: "min-w-[145px]",
+    group: "main",
+  },
+  {
+    key: "rollbackTarget",
+    label: "Rollback Target %",
+    minWidthClass: "min-w-[155px]",
+    group: "rollback",
+    groupDividerLeft: true,
+  },
+  {
+    key: "targetRollbackPos",
+    label: "Target Rollback POS",
+    minWidthClass: "min-w-[165px]",
+    group: "rollback",
+  },
+  {
+    key: "neededRollbackPos",
+    label: "Needed Rollback POS",
+    minWidthClass: "min-w-[170px]",
+    group: "rollback",
+  },
+];
+
 function PerformanceTable({
   cities,
   total,
+  totalLabel,
+  isCityFiltered,
+  onClearCityFilter,
   showTargets,
+  isFullWidth,
 }: {
   cities: City[];
   total: Metric;
+  totalLabel: string;
+  isCityFiltered: boolean;
+  onClearCityFilter: () => void;
   showTargets: boolean;
+  isFullWidth: boolean;
 }) {
-  const [expandedCities, setExpandedCities] = useState<Set<string>>(() => new Set());
-  const allExpanded = cities.length > 0 && cities.every((city) => expandedCities.has(city.city));
+  // Expand all cities by default; track only cities the user explicitly collapses.
+  const [collapsedCities, setCollapsedCities] = useState<Set<string>>(() => new Set());
+  const isCityExpanded = (cityName: string) => !collapsedCities.has(cityName);
+  const allExpanded = cities.length > 0 && cities.every((city) => isCityExpanded(city.city));
+  const allCollapsed = cities.length > 0 && cities.every((city) => !isCityExpanded(city.city));
+  const totalExecutivesCount = useMemo(
+    () => cities.reduce((sum, city) => sum + city.executives.length, 0),
+    [cities],
+  );
+
   const toggleCity = (cityName: string) =>
-    setExpandedCities((current) => {
+    setCollapsedCities((current) => {
       const next = new Set(current);
       if (next.has(cityName)) next.delete(cityName);
       else next.add(cityName);
       return next;
     });
-  const headers = [
-    "City / Executive",
-    "Collection",
-    "Total %",
-    "Sum of RB %",
-    "Total Count",
-    "Paid Count",
-    "Unpaid Count",
-    "Total POS",
-    "Total Paid POS",
+
+  const columns = useMemo(
+    () => (showTargets ? [...CORE_COLUMNS, ...TARGET_COLUMNS] : CORE_COLUMNS),
+    [showTargets],
+  );
+
+  type MetricCell = {
+    text: string;
+    toneClass?: string;
+    groupDividerLeft?: boolean;
+  };
+
+  const metricCells = (m: Metric): MetricCell[] => [
+    { text: money(m.collection) },
+    { text: pct(m.mainPercent) },
+    { text: pct(m.rollbackPercent) },
+    { text: m.totalCount.toLocaleString("en-IN") },
+    { text: m.paidCount.toLocaleString("en-IN") },
+    { text: m.unpaidCount.toLocaleString("en-IN") },
+    { text: money(m.totalPos) },
+    { text: money(m.mainPaidPos) },
     ...(showTargets
       ? [
-          "Main Target %",
-          "Target POS",
-          "Needed POS",
-          "Rollback Target %",
-          "Target Rollback POS",
-          "Needed Rollback POS",
+          {
+            text: m.mainTarget === null ? "—" : pct(m.mainTarget),
+            groupDividerLeft: true,
+          },
+          { text: m.targetPos === null ? "—" : money(m.targetPos) },
+          {
+            text: m.neededPos === null ? "—" : money(m.neededPos),
+            toneClass:
+              m.neededPos === null ? "" : m.neededPos > 0 ? "text-[#b42318]" : "text-[#157f3d]",
+          },
+          {
+            text: m.rollbackTarget === null ? "—" : pct(m.rollbackTarget),
+            groupDividerLeft: true,
+          },
+          { text: m.targetRollbackPos === null ? "—" : money(m.targetRollbackPos) },
+          {
+            text: m.neededRollbackPos === null ? "—" : money(m.neededRollbackPos),
+            toneClass:
+              m.neededRollbackPos === null
+                ? ""
+                : m.neededRollbackPos > 0
+                  ? "text-[#b42318]"
+                  : "text-[#157f3d]",
+          },
         ]
       : []),
   ];
-  const metricCells = (m: Metric) => [
-    money(m.collection),
-    pct(m.mainPercent),
-    pct(m.rollbackPercent),
-    m.totalCount.toLocaleString("en-IN"),
-    m.paidCount.toLocaleString("en-IN"),
-    m.unpaidCount.toLocaleString("en-IN"),
-    money(m.totalPos),
-    money(m.mainPaidPos),
-    ...(showTargets
-      ? [
-          m.mainTarget === null ? "—" : pct(m.mainTarget),
-          m.targetPos === null ? "—" : money(m.targetPos),
-          m.neededPos === null ? "—" : money(m.neededPos),
-          m.rollbackTarget === null ? "—" : pct(m.rollbackTarget),
-          m.targetRollbackPos === null ? "—" : money(m.targetRollbackPos),
-          m.neededRollbackPos === null ? "—" : money(m.neededRollbackPos),
-        ]
-      : []),
-  ];
+
   return (
-    <div className="overflow-x-auto">
-      <div className="mb-2 flex justify-end gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setExpandedCities(new Set(cities.map((city) => city.city)))}
-        >
-          Expand all
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => setExpandedCities(new Set())}>
-          Collapse all
-        </Button>
+    <div className={isFullWidth ? "flex min-h-0 flex-1 flex-col" : ""}>
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground sm:text-sm">
+        <p>
+          Showing <strong className="text-[#28145e]">{cities.length}</strong>{" "}
+          {cities.length === 1 ? "city" : "cities"} ·{" "}
+          <strong className="text-[#28145e]">{totalExecutivesCount}</strong> executives ·{" "}
+          <span>Scroll sideways for all {columns.length} columns</span>
+        </p>
+        <div className="flex items-center gap-1.5">
+          {isCityFiltered && (
+            <Button size="sm" variant="outline" onClick={onClearCityFilter}>
+              Show All Cities
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={allExpanded}
+            onClick={() => setCollapsedCities(new Set())}
+          >
+            Expand all
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={allCollapsed}
+            onClick={() => setCollapsedCities(new Set(cities.map((city) => city.city)))}
+          >
+            Collapse all
+          </Button>
+        </div>
       </div>
-      <table className={"w-full text-xs " + (showTargets ? "min-w-[1500px]" : "min-w-[900px]")}>
-        <thead className="bg-muted/70">
-          <tr>
-            {headers.map((h, i) => (
-              <th
-                key={h}
-                className={
-                  "px-2 py-3 text-right font-semibold " +
-                  (i === 0 ? "sticky left-0 z-10 bg-muted/70 text-left" : "")
-                }
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {cities.map((city) => (
-            <Fragment key={city.city}>
-              <tr className="border-t bg-[#fef8e2]/75 font-bold text-[#28145e]">
-                <td className="sticky left-0 bg-[#fef8e2] px-2 py-2">
-                  <button
-                    type="button"
-                    className="flex min-h-8 w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-expanded={expandedCities.has(city.city)}
-                    aria-label={
-                      (expandedCities.has(city.city) ? "Collapse " : "Expand ") +
-                      city.city +
-                      " executives"
-                    }
-                    onClick={() => toggleCity(city.city)}
+
+      {cities.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-8 text-center">
+          <p className="text-sm font-medium text-foreground">
+            No performance records match the current filter.
+          </p>
+          {isCityFiltered && (
+            <Button size="sm" variant="outline" className="mt-3" onClick={onClearCityFilter}>
+              Show All Cities
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div
+          className={
+            "overflow-auto rounded-xl border border-border bg-card " +
+            (isFullWidth ? "min-h-0 flex-1" : "max-h-[72vh]")
+          }
+        >
+          <table
+            className={
+              "w-full border-separate border-spacing-0 text-sm " +
+              (showTargets ? "min-w-[2080px]" : "min-w-[1220px]")
+            }
+          >
+            <thead className="sticky top-0 z-20">
+              {showTargets && (
+                <tr>
+                  <th
+                    scope="col"
+                    className="sticky left-0 z-30 border-b border-r border-border bg-[#efeaf7] px-3.5 py-2 text-left text-[11px] font-bold tracking-wider text-[#28145e] uppercase shadow-[2px_0_8px_-2px_rgba(40,20,94,0.08)]"
                   >
-                    {expandedCities.has(city.city) ? (
-                      <ChevronDown className="size-4 shrink-0" />
-                    ) : (
-                      <ChevronRight className="size-4 shrink-0" />
-                    )}
-                    <span>{city.city}</span>
-                    <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                      ({city.executives.length})
-                    </span>
-                  </button>
+                    Location &amp; Team
+                  </th>
+                  <th
+                    scope="colgroup"
+                    colSpan={8}
+                    className="border-b border-border bg-[#f4f1fa] px-3.5 py-2 text-center text-[11px] font-bold tracking-wider text-[#28145e] uppercase"
+                  >
+                    Core Portfolio Metrics
+                  </th>
+                  <th
+                    scope="colgroup"
+                    colSpan={3}
+                    className="border-b border-l border-border bg-[#fef8e2] px-3.5 py-2 text-center text-[11px] font-bold tracking-wider text-[#5d2172] uppercase"
+                  >
+                    Main Target
+                  </th>
+                  <th
+                    scope="colgroup"
+                    colSpan={3}
+                    className="border-b border-l border-border bg-[#eef6fb] px-3.5 py-2 text-center text-[11px] font-bold tracking-wider text-[#15698f] uppercase"
+                  >
+                    Rollback Target
+                  </th>
+                </tr>
+              )}
+              <tr>
+                {columns.map((col, idx) => (
+                  <th
+                    key={col.key}
+                    scope="col"
+                    className={
+                      "border-b border-border px-3.5 py-3 text-[13px] font-bold whitespace-nowrap " +
+                      col.minWidthClass +
+                      " " +
+                      (idx === 0
+                        ? "sticky left-0 z-30 border-r bg-[#f7f6fa] text-left text-[#28145e] shadow-[2px_0_8px_-2px_rgba(40,20,94,0.08)]"
+                        : "bg-[#f7f6fa] text-right text-[#28145e] " +
+                          (col.groupDividerLeft ? "border-l border-border" : ""))
+                    }
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {cities.map((city) => {
+                const expanded = isCityExpanded(city.city);
+                return (
+                  <Fragment key={city.city}>
+                    <tr className="bg-[#fef8e2] font-bold text-[#28145e]">
+                      <td className="sticky left-0 z-10 border-b border-r border-border bg-[#fef8e2] px-3.5 py-2.5 text-left whitespace-nowrap shadow-[2px_0_8px_-2px_rgba(40,20,94,0.08)]">
+                        <button
+                          type="button"
+                          className="flex min-h-[34px] w-full items-center gap-2 text-left text-sm font-bold text-[#28145e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          aria-expanded={expanded}
+                          aria-label={
+                            (expanded ? "Collapse " : "Expand ") + city.city + " executives"
+                          }
+                          onClick={() => toggleCity(city.city)}
+                        >
+                          {expanded ? (
+                            <ChevronDown className="size-4 shrink-0 text-[#5d2172]" />
+                          ) : (
+                            <ChevronRight className="size-4 shrink-0 text-[#5d2172]" />
+                          )}
+                          <span>{city.city}</span>
+                          <span className="ml-1 text-xs font-medium text-[#6e287f]">
+                            ({city.executives.length})
+                          </span>
+                        </button>
+                      </td>
+                      {metricCells(city).map((cell, i) => (
+                        <td
+                          key={i}
+                          className={
+                            "border-b border-border px-3.5 py-2.5 text-right font-mono text-[13.5px] font-bold whitespace-nowrap tabular-nums " +
+                            (cell.groupDividerLeft ? "border-l border-border " : "") +
+                            (cell.toneClass ?? "")
+                          }
+                        >
+                          {cell.text}
+                        </td>
+                      ))}
+                    </tr>
+                    {expanded &&
+                      city.executives.map((ex) => (
+                        <tr
+                          key={city.city + "-" + ex.executive}
+                          className="group bg-card transition-colors hover:bg-[#f7f6fa]"
+                        >
+                          <td className="sticky left-0 z-10 border-b border-r border-border bg-card px-3.5 py-2.5 pl-9 text-left text-[13.5px] font-medium text-foreground whitespace-nowrap shadow-[2px_0_8px_-2px_rgba(40,20,94,0.06)] transition-colors group-hover:bg-[#f7f6fa]">
+                            {ex.executive}
+                          </td>
+                          {metricCells(ex).map((cell, i) => (
+                            <td
+                              key={i}
+                              className={
+                                "border-b border-border px-3.5 py-2.5 text-right font-mono text-[13.5px] text-foreground whitespace-nowrap tabular-nums " +
+                                (cell.groupDividerLeft ? "border-l border-border " : "") +
+                                (cell.toneClass ?? "")
+                              }
+                            >
+                              {cell.text}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+            <tfoot className="sticky bottom-0 z-20">
+              <tr className="bg-[#efeaf7] font-extrabold text-[#28145e]">
+                <td className="sticky left-0 z-30 border-t-2 border-r border-[#d8cfe8] bg-[#efeaf7] px-3.5 py-3 text-left text-sm whitespace-nowrap shadow-[2px_0_8px_-2px_rgba(40,20,94,0.1)]">
+                  {totalLabel}
                 </td>
-                {metricCells(city).map((v, i) => (
-                  <td key={i} className="px-2 py-2 text-right tabular-nums">
-                    {v}
+                {metricCells(total).map((cell, i) => (
+                  <td
+                    key={i}
+                    className={
+                      "border-t-2 border-[#d8cfe8] bg-[#efeaf7] px-3.5 py-3 text-right font-mono text-sm font-extrabold whitespace-nowrap tabular-nums " +
+                      (cell.groupDividerLeft ? "border-l border-border " : "") +
+                      (cell.toneClass ?? "")
+                    }
+                  >
+                    {cell.text}
                   </td>
                 ))}
               </tr>
-              {expandedCities.has(city.city) &&
-                city.executives.map((ex) => (
-                  <tr key={city.city + "-" + ex.executive} className="border-t">
-                    <td className="sticky left-0 bg-white px-2 py-2 pl-8 text-left">
-                      {ex.executive}
-                    </td>
-                    {metricCells(ex).map((v, i) => (
-                      <td key={i} className="px-2 py-2 text-right tabular-nums">
-                        {v}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-            </Fragment>
-          ))}
-          <tr className="border-t-2 bg-muted/70 font-extrabold">
-            <td className="sticky left-0 bg-muted px-2 py-3">GRAND TOTAL</td>
-            {metricCells(total).map((v, i) => (
-              <td key={i} className="px-2 py-3 text-right tabular-nums">
-                {v}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
+            </tfoot>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
