@@ -7,7 +7,6 @@ const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 const TZ = "Asia/Kolkata";
 const TARGET_TAB = "Performance Targets";
 
-
 type DriveFile = {
   id: string;
   name: string;
@@ -203,7 +202,7 @@ function targetFor(
   bucket: string,
   state: string,
   city: string,
- ) {
+) {
   const dimensions = [allocationType, bucket, state, city];
   const matches = rules.filter((rule) => {
     const values = [rule.allocationType, rule.bucket, rule.state, rule.city];
@@ -265,7 +264,10 @@ function makeMetric(
   const targetedMainPaidPos = targetedRows.reduce((sum, row) => sum + row.main, 0);
   const targetedRollbackPaidPos = targetedRows.reduce((sum, row) => sum + row.rollback, 0);
   const targetPos = targetedRows.reduce((sum, row) => sum + (row.pos * row.mainTarget!) / 100, 0);
-  const targetRollbackPos = targetedRows.reduce((sum, row) => sum + (row.pos * row.rollbackTarget!) / 100, 0);
+  const targetRollbackPos = targetedRows.reduce(
+    (sum, row) => sum + (row.pos * row.rollbackTarget!) / 100,
+    0,
+  );
   const mainTarget = targetedPos ? (targetPos / targetedPos) * 100 : null;
   const rollbackTarget = targetedPos ? (targetRollbackPos / targetedPos) * 100 : null;
   return {
@@ -287,6 +289,110 @@ function makeMetric(
   };
 }
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+type ParsedPerformanceRow = {
+  agreement: string;
+  allocation: string;
+  executive: string;
+  city: string;
+  bucket: string;
+  state: string;
+  dac: number;
+  unpaid: number;
+  mainPaidCount: number;
+  pos: number;
+  main: number;
+  rollback: number;
+  mainTarget: number | null;
+  rollbackTarget: number | null;
+};
+
+type PerformanceSlice = {
+  rowCount: number;
+  buckets: BucketReport[];
+  totals: Metric;
+  positiveNeededPos: {
+    bucket: string;
+    city: string;
+    totalCount: number;
+    neededPos: number;
+    mainPaidPos: number;
+    targetPos: number;
+  }[];
+  positiveNeededRollback: {
+    bucket: string;
+    city: string;
+    totalCount: number;
+    neededRollbackPos: number;
+    rollbackPos: number;
+    targetRollbackPos: number;
+  }[];
+};
+
+const BUCKET_NAMES = ["Bucket 1", "Bucket 2", "Bucket 3", "Bucket 4", "Bucket 5"];
+
+function buildPerformanceSlice(sourceRows: ParsedPerformanceRow[]): PerformanceSlice {
+  const buckets: BucketReport[] = BUCKET_NAMES.map((bucket) => {
+    const rows = sourceRows.filter((r) => bucketKey(r.bucket) === bucketKey(bucket));
+    const cityMap = new Map<string, ParsedPerformanceRow[]>();
+    for (const r of rows) {
+      const list = cityMap.get(r.city) ?? [];
+      list.push(r);
+      cityMap.set(r.city, list);
+    }
+    const cities: CityRow[] = [...cityMap.entries()]
+      .map(([city, cityRows]) => {
+        const executiveMap = new Map<string, ParsedPerformanceRow[]>();
+        cityRows.forEach((r) => {
+          const list = executiveMap.get(r.executive) ?? [];
+          list.push(r);
+          executiveMap.set(r.executive, list);
+        });
+        const executives: ExecutiveRow[] = [...executiveMap.entries()]
+          .map(([executive, exRows]) => {
+            return { executive, ...makeMetric(exRows) };
+          })
+          .sort((a, b) => b.totalCount - a.totalCount || a.executive.localeCompare(b.executive));
+        return { city, executives, ...makeMetric(cityRows) };
+      })
+      .sort((a, b) => b.totalCount - a.totalCount || a.city.localeCompare(b.city));
+    return { bucket, cities, total: makeMetric(rows) };
+  });
+
+  const totals = makeMetric(sourceRows);
+  const positiveNeededPos = buckets.flatMap((b) =>
+    b.cities
+      .filter((c) => c.neededPos !== null && c.neededPos > 0)
+      .map((c) => ({
+        bucket: b.bucket,
+        city: c.city,
+        totalCount: c.totalCount,
+        neededPos: round(c.neededPos!),
+        mainPaidPos: round(c.mainPaidPos),
+        targetPos: round(c.targetPos!),
+      })),
+  );
+  const positiveNeededRollback = buckets.flatMap((b) =>
+    b.cities
+      .filter((c) => c.neededRollbackPos !== null && c.neededRollbackPos > 0)
+      .map((c) => ({
+        bucket: b.bucket,
+        city: c.city,
+        totalCount: c.totalCount,
+        neededRollbackPos: round(c.neededRollbackPos!),
+        rollbackPos: round(c.rollbackPos),
+        targetRollbackPos: round(c.targetRollbackPos!),
+      })),
+  );
+
+  return {
+    rowCount: sourceRows.length,
+    buckets,
+    totals,
+    positiveNeededPos,
+    positiveNeededRollback,
+  };
+}
 
 export const getMasterPerformanceReport = createServerFn({ method: "GET" }).handler(async () => {
   await requireSession("Admin");
@@ -318,23 +424,9 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
   if (missing.length)
     throw new Error("Required Master Data columns missing: " + missing.join(", "));
   const rules = readTargets(targetRows);
-  const grouped = new Map<string, Map<string, Map<string, (typeof parsed)[number]>>>();
-  const parsed: {
-    agreement: string;
-    allocation: string;
-    executive: string;
-    city: string;
-    bucket: string;
-    state: string;
-    dac: number;
-    unpaid: number;
-    mainPaidCount: number;
-    pos: number;
-    main: number;
-    rollback: number;
-    mainTarget: number | null;
-    rollbackTarget: number | null;
-  }[] = [];
+  const parsed: ParsedPerformanceRow[] = [];
+  const rowsByAllocationType = new Map<string, ParsedPerformanceRow[]>();
+
   for (let i = 1; i < data.length; i++) {
     const row = data[i] ?? [];
     const agreement = String(row[idx.agreement] ?? "").trim();
@@ -354,35 +446,18 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       rollback: numeric(row[idx.rollback]),
     };
     const target = targetFor(rules, item.allocation, item.bucket, item.state, item.city);
-    parsed.push({ ...item, mainTarget: target?.mainTarget ?? null, rollbackTarget: target?.rollbackTarget ?? null });
+    const enriched: ParsedPerformanceRow = {
+      ...item,
+      mainTarget: target?.mainTarget ?? null,
+      rollbackTarget: target?.rollbackTarget ?? null,
+    };
+    parsed.push(enriched);
+
+    const group = rowsByAllocationType.get(item.allocation) ?? [];
+    group.push(enriched);
+    rowsByAllocationType.set(item.allocation, group);
   }
-  const bucketNames = ["Bucket 1", "Bucket 2", "Bucket 3", "Bucket 4", "Bucket 5"];
-  const buckets: BucketReport[] = bucketNames.map((bucket) => {
-    const rows = parsed.filter((r) => bucketKey(r.bucket) === bucketKey(bucket));
-    const cityMap = new Map<string, typeof parsed>();
-    for (const r of rows) {
-      const list = cityMap.get(r.city) ?? [];
-      list.push(r);
-      cityMap.set(r.city, list);
-    }
-    const cities: CityRow[] = [...cityMap.entries()]
-      .map(([city, cityRows]) => {
-        const executiveMap = new Map<string, typeof parsed>();
-        cityRows.forEach((r) => {
-          const list = executiveMap.get(r.executive) ?? [];
-          list.push(r);
-          executiveMap.set(r.executive, list);
-        });
-        const executives: ExecutiveRow[] = [...executiveMap.entries()]
-          .map(([executive, exRows]) => {
-            return { executive, ...makeMetric(exRows) };
-          })
-          .sort((a, b) => b.totalCount - a.totalCount || a.executive.localeCompare(b.executive));
-        return { city, executives, ...makeMetric(cityRows) };
-      })
-      .sort((a, b) => b.totalCount - a.totalCount || a.city.localeCompare(b.city));
-    return { bucket, cities, total: makeMetric(rows) };
-  });
+
   const uniqueValues = (values: string[]) =>
     [...new Set(values.map((v) => v.trim()).filter(Boolean))].sort((a, b) =>
       a.localeCompare(b, "en-IN", { sensitivity: "base" }),
@@ -393,31 +468,15 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
     states: uniqueValues(parsed.map((r) => r.state)),
     cities: uniqueValues(parsed.map((r) => r.city)),
   };
-  const totals = makeMetric(parsed);
-  const positiveNeededPos = buckets.flatMap((b) =>
-    b.cities
-      .filter((c) => c.neededPos !== null && c.neededPos > 0)
-      .map((c) => ({
-        bucket: b.bucket,
-        city: c.city,
-        totalCount: c.totalCount,
-        neededPos: round(c.neededPos!),
-        mainPaidPos: round(c.mainPaidPos),
-        targetPos: round(c.targetPos!),
-      })),
-  );
-  const positiveNeededRollback = buckets.flatMap((b) =>
-    b.cities
-      .filter((c) => c.neededRollbackPos !== null && c.neededRollbackPos > 0)
-      .map((c) => ({
-        bucket: b.bucket,
-        city: c.city,
-        totalCount: c.totalCount,
-        neededRollbackPos: round(c.neededRollbackPos!),
-        rollbackPos: round(c.rollbackPos),
-        targetRollbackPos: round(c.targetRollbackPos!),
-      })),
-  );
+
+  const allSlice = buildPerformanceSlice(parsed);
+  const byAllocationType: Record<string, PerformanceSlice> = {};
+  for (const allocationType of dimensionOptions.allocationTypes) {
+    byAllocationType[allocationType] = buildPerformanceSlice(
+      rowsByAllocationType.get(allocationType) ?? [],
+    );
+  }
+
   return {
     master: {
       id: master.id,
@@ -425,13 +484,10 @@ export const getMasterPerformanceReport = createServerFn({ method: "GET" }).hand
       url: master.webViewLink ?? "https://docs.google.com/spreadsheets/d/" + master.id + "/edit",
       modifiedTime: master.modifiedTime ?? null,
     },
-    rowCount: parsed.length,
-    buckets,
-    totals,
+    ...allSlice,
+    byAllocationType,
     rules,
     dimensionOptions,
-    positiveNeededPos,
-    positiveNeededRollback,
   };
 });
 

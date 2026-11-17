@@ -16,9 +16,17 @@ import {
   getMasterPerformanceReport,
   saveMasterPerformanceTargets,
 } from "@/lib/master-performance.functions";
+import { ALL_ALLOCATION_TYPES } from "@/components/AllocationFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/master-performance")({
   head: () => ({ meta: [{ title: "IDFC Main Performance — Mahavtaar Daily Collection" }] }),
@@ -53,17 +61,10 @@ type Metric = {
 };
 type Executive = Metric & { executive: string };
 type City = Metric & { city: string; executives: Executive[] };
-type Report = {
-  dimensionOptions: {
-    allocationTypes: string[];
-    buckets: string[];
-    states: string[];
-    cities: string[];
-  };
-  master: { name: string; url: string; modifiedTime: string | null };
+type PerformanceSlice = {
   rowCount: number;
   buckets: { bucket: string; cities: City[]; total: Metric }[];
-  rules: Rule[];
+  totals: Metric;
   positiveNeededPos: {
     bucket: string;
     city: string;
@@ -80,6 +81,18 @@ type Report = {
     rollbackPos: number;
     targetRollbackPos: number;
   }[];
+};
+
+type Report = PerformanceSlice & {
+  dimensionOptions: {
+    allocationTypes: string[];
+    buckets: string[];
+    states: string[];
+    cities: string[];
+  };
+  master: { name: string; url: string; modifiedTime: string | null };
+  byAllocationType?: Record<string, PerformanceSlice>;
+  rules: Rule[];
 };
 
 const money = (n: number) =>
@@ -106,21 +119,41 @@ function MasterPerformancePage() {
     refetchOnWindowFocus: false,
   });
   const [bucket, setBucket] = useState("Bucket 1");
+  const [allocationType, setAllocationType] = useState<string>(ALL_ALLOCATION_TYPES);
   const [rules, setRules] = useState<Rule[] | null>(null);
   const [saving, setSaving] = useState(false);
   const activeRules = rules ?? data?.rules ?? [];
-  const selected = data?.buckets.find((b) => b.bucket === bucket) ?? data?.buckets[0];
+
+  const resolvedAllocationType = useMemo(() => {
+    if (
+      allocationType === ALL_ALLOCATION_TYPES ||
+      !data?.dimensionOptions.allocationTypes.includes(allocationType)
+    ) {
+      return ALL_ALLOCATION_TYPES;
+    }
+    return allocationType;
+  }, [allocationType, data]);
+
+  const activeSlice: PerformanceSlice | undefined = useMemo(() => {
+    if (!data) return undefined;
+    if (resolvedAllocationType === ALL_ALLOCATION_TYPES) return data;
+    return data.byAllocationType?.[resolvedAllocationType] ?? data;
+  }, [data, resolvedAllocationType]);
+
+  const selected = activeSlice?.buckets.find((b) => b.bucket === bucket) ?? activeSlice?.buckets[0];
   const mainShareRows = useMemo(
-    () => (data?.positiveNeededPos ?? []).filter((r) => r.bucket === bucket),
-    [data, bucket],
+    () => (activeSlice?.positiveNeededPos ?? []).filter((r) => r.bucket === bucket),
+    [activeSlice, bucket],
   );
   const rollbackShareRows = useMemo(
     () =>
-      (data?.positiveNeededRollback ?? []).filter(
+      (activeSlice?.positiveNeededRollback ?? []).filter(
         (r) => r.bucket === bucket && r.neededRollbackPos > 0,
       ),
-    [data, bucket],
+    [activeSlice, bucket],
   );
+  const allocationSuffix =
+    resolvedAllocationType !== ALL_ALLOCATION_TYPES ? ` (${resolvedAllocationType})` : "";
 
   async function share(title: string, lines: string[]) {
     const text = [title, ...lines].join("\n");
@@ -158,10 +191,10 @@ function MasterPerformancePage() {
     <main className="mx-auto w-full max-w-[1800px] space-y-5 px-3 pb-20 pt-5 sm:px-5 lg:px-8">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#6e287f]">
             Admin · Master Allocation
           </p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
+          <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-[#28145e] sm:text-3xl">
             IDFC Main Performance
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -191,84 +224,133 @@ function MasterPerformancePage() {
           {error instanceof Error ? error.message : "Could not load Master Allocation report."}
         </p>
       )}
-      {data && (
+      {data && activeSlice && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Summary label="Allocated cases" value={data.rowCount.toLocaleString("en-IN")} />
-            <Summary label="Buckets" value="5" />
-          </div>
-          <div className="rounded-xl border bg-white p-3">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="font-bold">Bucket performance</h2>
-                <p className="text-xs text-muted-foreground">
-                  City totals expand into executive-level rows.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {data.buckets.map((b) => (
-                  <Button
-                    key={b.bucket}
-                    size="sm"
-                    variant={bucket === b.bucket ? "default" : "outline"}
-                    onClick={() => setBucket(b.bucket)}
-                  >
-                    {b.bucket}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            {selected && <PerformanceTable cities={selected.cities} total={selected.total} showTargets={activeRules.length > 0} />}
-          </div>
-
-          {activeRules.length > 0 && <div className="grid gap-4 xl:grid-cols-2">
-            <ShareTable
-              title="City-wise Needed POS"
-              rows={mainShareRows.map((r) => ({
-                city: r.city,
-                cases: r.totalCount,
-                need: r.neededPos,
-                paid: r.mainPaidPos,
-                target: r.targetPos,
-              }))}
-              onShare={() =>
-                void share(
-                  "City-wise Needed POS — " + bucket,
-                  mainShareRows.map((r) =>
-                    [
-                      r.city,
-                      "Cases " + r.totalCount,
-                      "Needed POS " + money(r.neededPos),
-                      "Main Paid POS " + money(r.mainPaidPos),
-                      "Target POS " + money(r.targetPos),
-                    ].join(" | "),
-                  ),
-                )
+            <Summary
+              label="Allocated cases"
+              value={activeSlice.rowCount.toLocaleString("en-IN")}
+              sub={
+                resolvedAllocationType !== ALL_ALLOCATION_TYPES
+                  ? `of ${data.rowCount.toLocaleString("en-IN")} total`
+                  : undefined
               }
             />
-            <ShareTable
-              title="City-wise Needed Rollback POS"
-              rows={rollbackShareRows.map((r) => ({
-                city: r.city,
-                cases: r.totalCount,
-                need: r.neededRollbackPos,
-                paid: r.rollbackPos,
-                target: r.targetRollbackPos,
-              }))}
-              compact
-              onShare={() =>
-                void share(
-                  "City-wise Needed Rollback POS — " + bucket,
-                  [
+            <Summary
+              label="Allocation Type"
+              value={
+                resolvedAllocationType === ALL_ALLOCATION_TYPES
+                  ? "All Types"
+                  : resolvedAllocationType
+              }
+            />
+            <Summary label="Total Collection" value={money(activeSlice.totals.collection)} />
+            <Summary label="Overall Main Paid %" value={pct(activeSlice.totals.mainPercent)} />
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-4">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="font-display font-bold text-[#28145e]">Bucket performance</h2>
+                <p className="text-xs text-muted-foreground">
+                  City totals expand into executive-level rows. Filter by Allocation Type and
+                  bucket.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="w-52 space-y-1">
+                  <Label
+                    htmlFor="idfc-allocation-type-filter"
+                    className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Allocation Type
+                  </Label>
+                  <Select value={resolvedAllocationType} onValueChange={setAllocationType}>
+                    <SelectTrigger
+                      id="idfc-allocation-type-filter"
+                      className="h-9 bg-background text-sm font-medium"
+                    >
+                      <SelectValue placeholder="All Allocation Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_ALLOCATION_TYPES}>All Allocation Types</SelectItem>
+                      {data.dimensionOptions.allocationTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {activeSlice.buckets.map((b) => (
+                    <Button
+                      key={b.bucket}
+                      size="sm"
+                      variant={bucket === b.bucket ? "default" : "outline"}
+                      onClick={() => setBucket(b.bucket)}
+                    >
+                      {b.bucket}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {selected && (
+              <PerformanceTable
+                cities={selected.cities}
+                total={selected.total}
+                showTargets={activeRules.length > 0}
+              />
+            )}
+          </div>
+
+          {activeRules.length > 0 && (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <ShareTable
+                title="City-wise Needed POS"
+                rows={mainShareRows.map((r) => ({
+                  city: r.city,
+                  cases: r.totalCount,
+                  need: r.neededPos,
+                  paid: r.mainPaidPos,
+                  target: r.targetPos,
+                }))}
+                onShare={() =>
+                  void share(
+                    "City-wise Needed POS — " + bucket + allocationSuffix,
+                    mainShareRows.map((r) =>
+                      [
+                        r.city,
+                        "Cases " + r.totalCount,
+                        "Needed POS " + money(r.neededPos),
+                        "Main Paid POS " + money(r.mainPaidPos),
+                        "Target POS " + money(r.targetPos),
+                      ].join(" | "),
+                    ),
+                  )
+                }
+              />
+              <ShareTable
+                title="City-wise Needed Rollback POS"
+                rows={rollbackShareRows.map((r) => ({
+                  city: r.city,
+                  cases: r.totalCount,
+                  need: r.neededRollbackPos,
+                  paid: r.rollbackPos,
+                  target: r.targetRollbackPos,
+                }))}
+                compact
+                onShare={() =>
+                  void share("City-wise Needed Rollback POS — " + bucket + allocationSuffix, [
                     "City | Needed Rollback POS",
                     ...rollbackShareRows.map((r) =>
                       [r.city, money(r.neededRollbackPos)].join(" | "),
                     ),
-                  ],
-                )
-              }
-            />
-          </div>}
+                  ])
+                }
+              />
+            </div>
+          )}
 
           <section className="space-y-3 rounded-xl border bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -321,8 +403,12 @@ function MasterPerformancePage() {
                           <td className="px-2 py-2">{rule.bucket || "All"}</td>
                           <td className="px-2 py-2">{rule.state || "All"}</td>
                           <td className="px-2 py-2">{rule.city || "All"}</td>
-                          <td className="px-2 py-2 text-right font-semibold tabular-nums">{pct(rule.mainTarget)}</td>
-                          <td className="px-2 py-2 text-right font-semibold tabular-nums">{pct(rule.rollbackTarget)}</td>
+                          <td className="px-2 py-2 text-right font-semibold tabular-nums">
+                            {pct(rule.mainTarget)}
+                          </td>
+                          <td className="px-2 py-2 text-right font-semibold tabular-nums">
+                            {pct(rule.rollbackTarget)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -428,8 +514,8 @@ function MasterPerformancePage() {
             </div>
           </section>
           <p className="text-xs text-muted-foreground">
-            Source: {data.master.name} · {data.rowCount.toLocaleString("en-IN")} allocated loan rows
-            · Target rules stored in the “Performance Targets” tab.
+            Source: {data.master.name} · {activeSlice.rowCount.toLocaleString("en-IN")} allocated
+            loan rows{allocationSuffix} · Target rules stored in the “Performance Targets” tab.
           </p>
         </>
       )}
@@ -451,11 +537,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string | undefined;
+}) {
   return (
-    <div className="rounded-xl border bg-white p-3">
+    <div className="rounded-xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)]">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-extrabold tabular-nums">{value}</p>
+      <p className="mt-1 truncate text-xl font-extrabold text-[#28145e] tabular-nums">{value}</p>
+      {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -483,7 +578,10 @@ function ShareTable({
         <table className={"w-full text-sm " + (compact ? "min-w-[280px]" : "min-w-[520px]")}>
           <thead className="bg-muted/60">
             <tr>
-              {(compact ? ["City", "Needed Rollback POS"] : ["City", "Cases", "Target POS", "Achieved POS", "Needed POS"]).map((v) => (
+              {(compact
+                ? ["City", "Needed Rollback POS"]
+                : ["City", "Cases", "Target POS", "Achieved POS", "Needed POS"]
+              ).map((v) => (
                 <th key={v} className="px-3 py-2 text-right first:text-left">
                   {v}
                 </th>
@@ -519,7 +617,15 @@ function ShareTable({
     </section>
   );
 }
-function PerformanceTable({ cities, total, showTargets }: { cities: City[]; total: Metric; showTargets: boolean }) {
+function PerformanceTable({
+  cities,
+  total,
+  showTargets,
+}: {
+  cities: City[];
+  total: Metric;
+  showTargets: boolean;
+}) {
   const [expandedCities, setExpandedCities] = useState<Set<string>>(() => new Set());
   const allExpanded = cities.length > 0 && cities.every((city) => expandedCities.has(city.city));
   const toggleCity = (cityName: string) =>
@@ -539,7 +645,16 @@ function PerformanceTable({ cities, total, showTargets }: { cities: City[]; tota
     "Unpaid Count",
     "Total POS",
     "Total Paid POS",
-    ...(showTargets ? ["Main Target %", "Target POS", "Needed POS", "Rollback Target %", "Target Rollback POS", "Needed Rollback POS"] : []),
+    ...(showTargets
+      ? [
+          "Main Target %",
+          "Target POS",
+          "Needed POS",
+          "Rollback Target %",
+          "Target Rollback POS",
+          "Needed Rollback POS",
+        ]
+      : []),
   ];
   const metricCells = (m: Metric) => [
     money(m.collection),
@@ -550,14 +665,16 @@ function PerformanceTable({ cities, total, showTargets }: { cities: City[]; tota
     m.unpaidCount.toLocaleString("en-IN"),
     money(m.totalPos),
     money(m.mainPaidPos),
-    ...(showTargets ? [
-      m.mainTarget === null ? "—" : pct(m.mainTarget),
-      m.targetPos === null ? "—" : money(m.targetPos),
-      m.neededPos === null ? "—" : money(m.neededPos),
-      m.rollbackTarget === null ? "—" : pct(m.rollbackTarget),
-      m.targetRollbackPos === null ? "—" : money(m.targetRollbackPos),
-      m.neededRollbackPos === null ? "—" : money(m.neededRollbackPos),
-    ] : []),
+    ...(showTargets
+      ? [
+          m.mainTarget === null ? "—" : pct(m.mainTarget),
+          m.targetPos === null ? "—" : money(m.targetPos),
+          m.neededPos === null ? "—" : money(m.neededPos),
+          m.rollbackTarget === null ? "—" : pct(m.rollbackTarget),
+          m.targetRollbackPos === null ? "—" : money(m.targetRollbackPos),
+          m.neededRollbackPos === null ? "—" : money(m.neededRollbackPos),
+        ]
+      : []),
   ];
   return (
     <div className="overflow-x-auto">
@@ -592,8 +709,8 @@ function PerformanceTable({ cities, total, showTargets }: { cities: City[]; tota
         <tbody>
           {cities.map((city) => (
             <Fragment key={city.city}>
-              <tr className="border-t bg-amber-50/70 font-bold">
-                <td className="sticky left-0 bg-amber-50 px-2 py-2">
+              <tr className="border-t bg-[#fef8e2]/75 font-bold text-[#28145e]">
+                <td className="sticky left-0 bg-[#fef8e2] px-2 py-2">
                   <button
                     type="button"
                     className="flex min-h-8 w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
