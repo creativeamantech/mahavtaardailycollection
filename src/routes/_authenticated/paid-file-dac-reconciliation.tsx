@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Ban,
+  Calendar,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -192,6 +193,8 @@ function PaidFileDacReconciliationPage() {
   const [allowOverwriteProtected, setAllowOverwriteProtected] = useState(false);
   const [confirmCreateMissing, setConfirmCreateMissing] = useState(true);
   const [targetAmountOverrides, setTargetAmountOverrides] = useState<Record<string, string>>({});
+  const [paymentDateOverrides, setPaymentDateOverrides] = useState<Record<string, string>>({});
+  const [batchPaymentDate, setBatchPaymentDate] = useState("");
 
   const dataQuery = useQuery({
     queryKey: ["dac-reconciliation-data"],
@@ -526,13 +529,19 @@ function PaidFileDacReconciliationPage() {
     }
 
     const overrides: Record<string, string> = {};
+    const dateOverrides: Record<string, string> = {};
+    const fallbackDate = todayISO();
     for (const item of eligible) {
       overrides[item.agreementId] =
         mode === "PUSH_TO_DAC"
           ? String(item.targetPushDac)
           : String(item.gapAmount > 0 ? item.gapAmount : item.collectionAmount);
+      dateOverrides[item.agreementId] =
+        item.latestPaymentDate || item.masterPaymentDate || fallbackDate;
     }
     setTargetAmountOverrides(overrides);
+    setPaymentDateOverrides(dateOverrides);
+    setBatchPaymentDate("");
     setAllowOverwriteProtected(eligible.some((i) => i.isMasterProtected));
     setConfirmCreateMissing(true);
     setCommitDialog({ mode, items: eligible });
@@ -555,10 +564,14 @@ function PaidFileDacReconciliationPage() {
               ? item.targetPushDac
               : item.collectionAmount;
 
+        const resolvedPaymentDate =
+          (paymentDateOverrides[item.agreementId] ?? item.latestPaymentDate ?? today).trim() ||
+          today;
+
         const autoNote =
           mode === "PUSH_TO_DAC"
             ? composeVerifyAddToDacRemark(targetAmount, today)
-            : composeProvisionalDacRemark(targetAmount, item.latestPaymentDate || today);
+            : composeProvisionalDacRemark(targetAmount, resolvedPaymentDate);
 
         const draft = remarkDrafts[item.agreementId];
         const amansRemark =
@@ -569,7 +582,7 @@ function PaidFileDacReconciliationPage() {
           masterRow: item.masterRow,
           expectedExistingDac: item.masterDac,
           targetAmount,
-          paymentDate: item.latestPaymentDate || today,
+          paymentDate: resolvedPaymentDate,
           collectionRows: item.allRows.map((r) => r.row),
           amansRemark,
           remarkMode: draft !== undefined ? ("replace" as const) : ("append" as const),
@@ -791,6 +804,18 @@ function PaidFileDacReconciliationPage() {
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
             <span>Write guard: Remaining &amp; New Total formulas preserved</span>
+            <span>·</span>
+            <span
+              className={
+                master?.columnSupport.paymentDate
+                  ? "font-medium text-emerald-700 dark:text-emerald-400"
+                  : "font-medium text-sky-700 dark:text-sky-400"
+              }
+            >
+              {master?.columnSupport.paymentDate
+                ? "Payment Date col active"
+                : "Payment Date col auto-created on push"}
+            </span>
             {!master?.columnSupport.provisionalDac && (
               <span className="font-medium text-amber-700 dark:text-amber-400">
                 · Add &quot;Provisional DAC&quot; column in Master to stage provisional credits
@@ -1396,8 +1421,26 @@ function PaidFileDacReconciliationPage() {
                         )}
                       </div>
                       <div>
-                        <span className="font-semibold text-foreground">Dates:</span> Pay{" "}
-                        {item.latestPaymentDate || "—"} · Alloc {item.allocationDate || "—"}
+                        <span className="font-semibold text-foreground">Dates:</span> Col Pay{" "}
+                        <span className="font-mono text-foreground">
+                          {item.latestPaymentDate || "—"}
+                        </span>{" "}
+                        · Master Pay{" "}
+                        <span
+                          className={`font-mono ${
+                            item.paymentDateMismatch
+                              ? "font-semibold text-amber-700 dark:text-amber-400"
+                              : "text-foreground"
+                          }`}
+                        >
+                          {item.masterPaymentDate || "Unset"}
+                        </span>{" "}
+                        · Alloc <span className="font-mono">{item.allocationDate || "—"}</span>
+                        {item.paymentDateMismatch && (
+                          <span className="ml-1.5 font-semibold text-amber-700 dark:text-amber-400">
+                            · Date Differs
+                          </span>
+                        )}
                         {item.hasAlreadyPaid && (
                           <span className="ml-1.5 font-semibold text-red-700 dark:text-red-400">
                             · Already Paid ({item.alreadyPaidCount})
@@ -1692,10 +1735,20 @@ function PaidFileDacReconciliationPage() {
                           {/* 5. Payment & Alloc Date */}
                           <td className="px-3 py-3 font-mono text-[11px] tabular-nums">
                             <div className="text-foreground">
-                              Pay:{" "}
+                              Col Pay:{" "}
                               {item.earliestPaymentDate === item.latestPaymentDate
                                 ? item.latestPaymentDate || "—"
                                 : `${item.earliestPaymentDate} .. ${item.latestPaymentDate}`}
+                            </div>
+                            <div
+                              className={`mt-0.5 ${
+                                item.paymentDateMismatch
+                                  ? "font-semibold text-amber-700 dark:text-amber-400"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              Master Pay: {item.masterPaymentDate || "Unset"}
+                              {item.paymentDateMismatch ? " · Differs" : ""}
                             </div>
                             <div className="mt-0.5 text-muted-foreground">
                               Alloc: {item.allocationDate || "—"}
@@ -1983,6 +2036,7 @@ function PaidFileDacReconciliationPage() {
                 <tr>
                   <th className="px-4 py-2.5">Timestamp (IST)</th>
                   <th className="px-4 py-2.5">Loan ID</th>
+                  <th className="px-4 py-2.5">Payment Date</th>
                   <th className="px-4 py-2.5 text-right">Old DAC</th>
                   <th className="px-4 py-2.5 text-right">New DAC / Prov</th>
                   <th className="px-4 py-2.5">Categories (Col / Master)</th>
@@ -1998,6 +2052,9 @@ function PaidFileDacReconciliationPage() {
                     </td>
                     <td className="px-4 py-2 font-mono font-semibold text-foreground">
                       {entry.loanId}
+                    </td>
+                    <td className="px-4 py-2 font-mono tabular-nums text-foreground">
+                      {entry.paymentDate || "—"}
                     </td>
                     <td className="px-4 py-2 text-right font-mono tabular-nums">
                       {money(entry.oldDac)}
@@ -2024,7 +2081,7 @@ function PaidFileDacReconciliationPage() {
 
       {/* Batch / Single Master DAC Commit Confirmation Dialog */}
       <Dialog open={commitDialog !== null} onOpenChange={(open) => !open && setCommitDialog(null)}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {commitDialog?.mode === "PUSH_TO_DAC"
@@ -2033,8 +2090,8 @@ function PaidFileDacReconciliationPage() {
             </DialogTitle>
             <DialogDescription>
               {commitDialog?.mode === "PUSH_TO_DAC"
-                ? `Updates DAC, sets DAC Source = "CORRECTED" and Is Corrected = TRUE in ${master?.spreadsheetName ?? "Master"}, and writes audit remarks to Collections Column S. Formula columns (Remaining / New Total) are never modified.`
-                : `Writes staged amounts to Master Provisional DAC and logs verification notes to Collections Column S without altering confirmed DAC or formulas.`}
+                ? `Updates DAC, Payment Date, sets DAC Source = "CORRECTED" and Is Corrected = TRUE in ${master?.spreadsheetName ?? "Master"}, and writes audit remarks to Collections Column S. Formula columns (Remaining / New Total) are never modified.`
+                : `Writes staged amounts and Payment Date to Master Provisional DAC and logs verification notes to Collections Column S without altering confirmed DAC or formulas.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -2054,7 +2111,7 @@ function PaidFileDacReconciliationPage() {
                     </strong>{" "}
                     Confirm appending these Loan IDs as new rows in{" "}
                     <span className="font-mono">{master?.tab ?? "Master Data"}</span> with DAC
-                    amount, Executive, Customer, Category, and{" "}
+                    amount, Payment Date, Executive, Customer, Category, and{" "}
                     <span className="font-mono">
                       DAC Source ={" "}
                       {commitDialog.mode === "PUSH_TO_DAC" ? "CORRECTED" : "PROVISIONAL"}
@@ -2080,6 +2137,51 @@ function PaidFileDacReconciliationPage() {
                   </label>
                 )}
 
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/35 px-3 py-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label htmlFor="batch-payment-date" className="text-xs font-semibold">
+                    Batch Payment Date
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground">
+                    {master?.columnSupport.paymentDate
+                      ? "(Updates Master Payment Date col)"
+                      : "(Auto-adds Payment Date col to Master)"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    id="batch-payment-date"
+                    type="date"
+                    value={batchPaymentDate}
+                    onChange={(e) => setBatchPaymentDate(e.target.value)}
+                    className="h-8 w-36 font-mono text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!batchPaymentDate}
+                    onClick={() => {
+                      if (!batchPaymentDate) return;
+                      setPaymentDateOverrides((prev) => {
+                        const next = { ...prev };
+                        for (const row of commitDialog.items) {
+                          next[row.agreementId] = batchPaymentDate;
+                        }
+                        return next;
+                      });
+                      toast.info(
+                        `Applied payment date ${batchPaymentDate} to ${commitDialog.items.length} row(s).`,
+                      );
+                    }}
+                    className="h-8 text-[11px]"
+                  >
+                    Apply to All
+                  </Button>
+                </div>
+              </div>
+
               <div className="max-h-72 overflow-y-auto rounded-lg border">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b bg-muted/50 text-[11px] uppercase text-muted-foreground">
@@ -2089,6 +2191,7 @@ function PaidFileDacReconciliationPage() {
                       <th className="px-3 py-2 text-right">
                         {commitDialog.mode === "PUSH_TO_DAC" ? "Target DAC (₹)" : "Provisional (₹)"}
                       </th>
+                      <th className="px-3 py-2">Payment Date</th>
                       <th className="px-3 py-2">Collections Rows</th>
                     </tr>
                   </thead>
@@ -2129,6 +2232,25 @@ function PaidFileDacReconciliationPage() {
                             }
                             className="ml-auto h-8 w-28 text-right font-mono text-xs tabular-nums"
                           />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            type="date"
+                            value={paymentDateOverrides[item.agreementId] ?? ""}
+                            onChange={(e) =>
+                              setPaymentDateOverrides((prev) => ({
+                                ...prev,
+                                [item.agreementId]: e.target.value,
+                              }))
+                            }
+                            aria-label={`Payment Date for ${item.agreementId}`}
+                            className="h-8 w-36 font-mono text-xs tabular-nums"
+                          />
+                          {item.masterPaymentDate && (
+                            <div className="mt-0.5 text-[10px] text-muted-foreground">
+                              Master: {item.masterPaymentDate}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
                           S{item.allRows.map((r) => r.row).join(", S")}

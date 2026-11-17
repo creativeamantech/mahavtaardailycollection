@@ -31,10 +31,12 @@ export function MasterAllocationInitializer() {
   }
 
   return (
-    <section className="rounded-2xl border border-[#f0df9e] bg-white p-4 shadow-sm sm:p-5">
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-base font-bold text-[#292510]">Master Allocation Initialization</h2>
+          <h2 className="font-display text-base font-bold text-[#28145e]">
+            Master Allocation Initialization
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Create or open this month’s Mahavtaar Master Allocation spreadsheet. No data is uploaded
             or modified.
@@ -43,14 +45,14 @@ export function MasterAllocationInitializer() {
         <Button
           onClick={handleInitialize}
           disabled={busy}
-          className="h-11 shrink-0 bg-[#f7c928] font-bold text-[#302600] hover:bg-[#e9bb17]"
+          className="h-11 shrink-0 bg-primary font-semibold text-primary-foreground hover:bg-[#5d2172]"
         >
           {busy ? "Initializing…" : "Initialize"}
         </Button>
       </div>
       {result && (
-        <div className="mt-4 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3">
-          <p className="text-sm font-semibold text-[#51451e]">{result.title}</p>
+        <div className="mt-4 rounded-xl border border-[#edd068] bg-[#fef8e2]/65 p-3">
+          <p className="text-sm font-semibold text-[#28145e]">{result.title}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {result.created
               ? "New spreadsheet created."
@@ -60,7 +62,7 @@ export function MasterAllocationInitializer() {
             href={result.url}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 inline-block text-sm font-semibold text-[#8a6b00] underline"
+            className="mt-2 inline-block text-sm font-semibold text-[#5d2172] underline hover:text-[#28145e]"
           >
             Open Google Spreadsheet ↗
           </a>

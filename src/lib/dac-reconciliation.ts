@@ -64,6 +64,8 @@ export type DacReconciliationItem = {
   existingNewTotal: number;
   existingRemaining: number | null;
   existingPaymentDate: string;
+  masterPaymentDate: string;
+  paymentDateMismatch: boolean;
   dacSource: DacSource;
   isCorrected: boolean;
   isMasterProtected: boolean;
@@ -178,6 +180,24 @@ function resolveMasterCategory(master: MasterRow | undefined): {
   const categories = uniqueNonEmpty([cat, allocType, bucket]);
   const primary = cat || allocType || bucket || "Uncategorized";
   return { primary, categories, allocationType: allocType, bucket };
+}
+
+export function normalizeReconciliationDate(raw?: string | null): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const isoPrefix = s.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
+  if (isoPrefix?.[1]) return isoPrefix[1];
+  const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]);
+    const year = Number(dmy[3]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+  return s;
 }
 
 export function buildDacReconciliation(params: {
@@ -314,6 +334,14 @@ export function buildDacReconciliation(params: {
     const masterDac = master ? roundMoney(master.existingDac) : 0;
     const difference = roundMoney(collectionAmount - masterDac);
     const gapAmount = roundMoney(Math.max(0, difference));
+    const earliestPaymentDate = normalizeReconciliationDate(dates[0] ?? "");
+    const latestPaymentDate = normalizeReconciliationDate(dates[dates.length - 1] ?? "");
+    const masterPaymentDate = normalizeReconciliationDate(master?.existingPaymentDate ?? "");
+    const paymentDateMismatch =
+      Boolean(master) &&
+      latestPaymentDate !== "" &&
+      masterPaymentDate !== "" &&
+      latestPaymentDate !== masterPaymentDate;
 
     let varianceStatus: VarianceStatus;
     if (!includeAlreadyPaid && allExcludedAsAlreadyPaid) {
@@ -352,8 +380,8 @@ export function buildDacReconciliation(params: {
       masterAllocationType: masterCatInfo.allocationType,
       masterBucket: masterCatInfo.bucket,
       categoryMismatch,
-      earliestPaymentDate: dates[0] ?? "",
-      latestPaymentDate: dates[dates.length - 1] ?? "",
+      earliestPaymentDate,
+      latestPaymentDate,
       allocationDate: allocDates[allocDates.length - 1] ?? "",
       collectionAmount,
       masterRow: master?.row ?? null,
@@ -363,6 +391,8 @@ export function buildDacReconciliation(params: {
       existingNewTotal: master?.existingNewTotal ?? 0,
       existingRemaining: master?.existingRemaining ?? null,
       existingPaymentDate: master?.existingPaymentDate ?? "",
+      masterPaymentDate,
+      paymentDateMismatch,
       dacSource: master?.dacSource ?? "",
       isCorrected: master?.isCorrected ?? false,
       isMasterProtected,
@@ -502,7 +532,8 @@ export function dacReconciliationCsv(items: DacReconciliationItem[]): string {
       "Master Allocation Type",
       "Master Bucket",
       "Category Match",
-      "Payment Date(s)",
+      "Payment Date(s) (Collections)",
+      "Master Payment Date",
       "Allocation Date",
       "Already Paid Status",
       "Collection Amount",
@@ -529,6 +560,7 @@ export function dacReconciliationCsv(items: DacReconciliationItem[]): string {
       item.earliestPaymentDate === item.latestPaymentDate
         ? item.latestPaymentDate
         : `${item.earliestPaymentDate} to ${item.latestPaymentDate}`,
+      item.masterPaymentDate,
       item.allocationDate,
       item.hasAlreadyPaid
         ? item.varianceStatus === "ALREADY_PAID_EXCLUDED"

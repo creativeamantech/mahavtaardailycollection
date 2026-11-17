@@ -6,23 +6,26 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useRouterState,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { FEATURES } from "@/lib/app-config.functions";
-import { useRouterState } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
 import { getCurrentSession, logoutCurrentSession } from "@/lib/auth.functions";
 import { LoginScreen } from "@/components/LoginScreen";
 import { DraggableMobileNavButton } from "@/components/DraggableMobileNavButton";
 import { MahavtaarLogoMark } from "@/components/MahavtaarLogo3D";
+import { ADMIN_NAV_ITEMS, WORKSPACE_NAV_ITEMS } from "@/components/navRegistry";
+import { QuickCommandSearch, QuickSearchTriggerButton } from "@/components/QuickCommandSearch";
 
 function NotFoundComponent() {
   return (
@@ -122,6 +125,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
     links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=JetBrains+Mono:wght@400..700&family=Plus+Jakarta+Sans:wght@500..800&display=swap",
+      },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/Favicon.ico", type: "image/x-icon" },
     ],
@@ -146,60 +155,7 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-const NAV = [
-  { to: "/", label: "Collection Entry", short: "Entry", icon: "＋", key: "entry" },
-  { to: "/collection-sheet", label: "Collection Sheet", short: "Sheet", icon: "▤", key: "report" },
-  { to: "/report", label: "Reports", short: "Reports", icon: "▥", key: "report" },
-  { to: "/loans", label: "Loan Details", short: "Loans", icon: "▣", key: "loans" },
-  {
-    to: "/executive-cities",
-    label: "Executive Cities",
-    short: "Cities",
-    icon: "⌖",
-    key: "execCities",
-  },
-  { to: "/pending", label: "Pending", short: "Pending", icon: "◷", key: "pending" },
-  { to: "/ecs", label: "ECS / Special", short: "ECS", icon: "₹", key: "ecs" },
-  {
-    to: "/notifications",
-    label: "Notifications",
-    short: "Alerts",
-    icon: "♧",
-    key: "notifications",
-  },
-  { to: "/bank-portal", label: "Bank Portal", short: "Bank Portal", icon: "▣", key: "bankPortal" },
-  { to: "/recharge", label: "Recharge", short: "Recharge", icon: "₹", key: "recharge" },
-] as const;
-
-const ADMIN_NAV = [
-  {
-    to: "/paid-file",
-    label: "Paid File Reconciliation",
-    short: "Paid File",
-    icon: "₹",
-    key: "paidFile",
-  },
-  {
-    to: "/paid-file-dac-reconciliation",
-    label: "DAC Reconciliation",
-    short: "DAC Reconcile",
-    icon: "⇄",
-    key: "paidFile",
-  },
-  {
-    to: "/master-performance",
-    label: "IDFC Main Performance",
-    short: "Performance",
-    icon: "▥",
-    key: "report",
-  },
-  { to: "/settings", label: "Settings", key: "settings" },
-  { to: "/admin-loan-audit", label: "Productivity Desk", key: "adminLoanAudit" },
-  { to: "/conflicts", label: "Conflicts", key: "conflicts" },
-  { to: "/already-paid", label: "Already Paid", key: "alreadyPaid" },
-  { to: "/excluded-loans", label: "Excluded Loans", key: "report" },
-  { to: "/receipt-gallery", label: "Receipt Gallery", key: "receiptGallery" },
-] as const;
+const SIDEBAR_STORAGE_KEY = "mahavtaar-sidebar-collapsed";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -226,12 +182,37 @@ function AppShell() {
   const current = FEATURES.find((f) => f.path === pathname);
   const disabled = current ? flags[current.key] === false : false;
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const visibleNav = NAV.filter((n) => flags[n.key] !== false);
-  const visibleAdminNav = ADMIN_NAV.filter((n) => flags[n.key] !== false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      if (saved === "1") setSidebarCollapsed(true);
+    } catch {
+      // Ignore storage access restrictions.
+    }
+  }, []);
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        // Ignore storage write restrictions.
+      }
+      return next;
+    });
+  }
+
+  const visibleNav = WORKSPACE_NAV_ITEMS.filter((n) => flags[n.key] !== false);
+  const visibleAdminNav =
+    session?.role === "Admin" ? ADMIN_NAV_ITEMS.filter((n) => flags[n.key] !== false) : [];
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+      <main className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
         Verifying authentication...
       </main>
     );
@@ -248,121 +229,201 @@ function AppShell() {
     }
   }
 
-  const linkClass = (active: boolean) =>
-    active
-      ? "flex min-h-11 items-center gap-3 rounded-xl border border-[#f0c44e] bg-[#fff6d9] px-3 py-2.5 text-sm font-bold text-[#292820] shadow-sm"
-      : "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#535b64] transition hover:bg-[#fffaf0] hover:text-[#292820]";
+  const activeRouteLabel =
+    [...WORKSPACE_NAV_ITEMS, ...ADMIN_NAV_ITEMS].find((n) => n.to === pathname)?.label ??
+    "Collection workspace";
+
+  const linkClass = (active: boolean, collapsed = false) =>
+    `group flex min-h-10 items-center rounded-xl text-[13px] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2"
+    } ${
+      active
+        ? "border border-[#edd068] bg-[#fef8e2] font-bold text-[#28145e] shadow-[0_2px_8px_rgba(93,33,114,0.06)]"
+        : "border border-transparent font-medium text-[#5a556a] hover:bg-[#f4f0f9] hover:text-[#242236]"
+    }`;
 
   return (
     <div
       data-app-shell
-      className="min-h-screen min-h-[100dvh] w-full min-w-0 max-w-full overflow-x-clip bg-[#f7f7f5] text-[#252525]"
+      className="min-h-screen min-h-[100dvh] w-full min-w-0 max-w-full overflow-x-clip bg-background text-foreground"
     >
-      {/* Desktop navigation follows the approved prototype: a readable fixed-width sidebar. */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[252px] flex-col gap-7 overflow-y-auto border-r border-[#e8e9eb] bg-white px-4 py-6 text-[#252525] shadow-[1px_0_8px_rgba(0,0,0,0.025)] md:flex print:hidden">
-        <Link to="/" className="flex items-center gap-3 px-2">
-          <MahavtaarLogoMark
-            alt="Mahavtaar Enterprises"
-            className="size-10 shrink-0 object-contain"
-          />
-          <span className="min-w-0">
-            <span className="block text-sm font-extrabold tracking-tight">Mahavtaar</span>
-            <span className="mt-0.5 block text-[11px] text-[#737b84]">Daily Collection</span>
-          </span>
-        </Link>
-        <div>
-          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.17em] text-[#969ba1]">
-            Workspace
-          </p>
-          <nav aria-label="Main navigation" className="grid gap-1">
-            {visibleNav.map((n) => (
-              <Link
-                key={n.to}
-                to={n.to as never}
-                preload="intent"
-                activeOptions={{ exact: n.to === "/" }}
-                className={linkClass(pathname === n.to)}
-              >
-                <span className="grid w-5 shrink-0 place-items-center text-base" aria-hidden="true">
-                  {n.icon}
+      {/* Desktop Collapsible CRM Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-card text-foreground shadow-[1px_0_14px_rgba(40,20,94,0.03)] transition-[width] duration-200 ease-out md:flex print:hidden ${
+          sidebarCollapsed ? "w-[76px]" : "w-[256px]"
+        }`}
+      >
+        <div className="mahavtaar-spectrum-bar h-[3px] w-full shrink-0" aria-hidden="true" />
+        <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-5">
+          <Link
+            to="/"
+            title="Mahavtaar Daily Collection"
+            className={`flex items-center ${sidebarCollapsed ? "justify-center px-0" : "gap-3 px-2"}`}
+          >
+            <MahavtaarLogoMark
+              alt="Mahavtaar Enterprises"
+              className="size-10 shrink-0 object-contain"
+            />
+            {!sidebarCollapsed && (
+              <span className="min-w-0">
+                <span className="font-display block truncate text-sm font-extrabold tracking-tight text-[#28145e]">
+                  Mahavtaar
                 </span>
-                <span>{n.label}</span>
-              </Link>
-            ))}
-          </nav>
-        </div>
-        {session.role === "Admin" && visibleAdminNav.length > 0 && (
+                <span className="mt-0.5 block truncate text-[11px] font-medium text-muted-foreground">
+                  Daily Collection CRM
+                </span>
+              </span>
+            )}
+          </Link>
+
           <div>
-            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.17em] text-[#969ba1]">
-              Administration
-            </p>
-            <nav aria-label="Administration navigation" className="grid gap-1">
-              {visibleAdminNav.map((n) => (
-                <Link
-                  key={n.to}
-                  to={n.to as never}
-                  preload="intent"
-                  className={linkClass(pathname === n.to)}
-                >
-                  <span
-                    className="grid w-5 shrink-0 place-items-center text-base"
-                    aria-hidden="true"
+            {!sidebarCollapsed && (
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                Workspace
+              </p>
+            )}
+            <nav aria-label="Main navigation" className="grid gap-1">
+              {visibleNav.map((n) => {
+                const Icon = n.icon;
+                const active = pathname === n.to;
+                return (
+                  <Link
+                    key={n.to}
+                    to={n.to as never}
+                    preload="intent"
+                    activeOptions={{ exact: n.to === "/" }}
+                    title={sidebarCollapsed ? n.label : undefined}
+                    aria-label={sidebarCollapsed ? n.label : undefined}
+                    className={linkClass(active, sidebarCollapsed)}
                   >
-                    ⚙
-                  </span>
-                  <span>{n.label}</span>
-                </Link>
-              ))}
+                    <Icon
+                      className={`h-4 w-4 shrink-0 ${
+                        active ? "text-[#5d2172]" : "text-[#746e87] group-hover:text-[#28145e]"
+                      }`}
+                      aria-hidden="true"
+                    />
+                    {!sidebarCollapsed && <span className="truncate">{n.label}</span>}
+                  </Link>
+                );
+              })}
             </nav>
           </div>
-        )}
-        <div className="mt-auto border-t border-[#e8e9eb] px-2 pt-4">
-          <p className="truncate text-xs font-semibold text-[#292d32]">{session.name}</p>
-          <p className="mt-1 text-[11px] text-[#737b84]">
-            <span className="mr-1.5 inline-block size-1.5 rounded-full bg-[#f2c94c]" />
-            {session.role} · Online
-          </p>
-          <button
-            type="button"
-            onClick={signOut}
-            className="mt-4 min-h-10 w-full rounded-lg border border-[#e8e9eb] px-3 text-left text-xs font-semibold text-[#535b64] transition hover:border-[#f0d36d] hover:bg-[#fffaf0]"
-          >
-            ↪ Log out
-          </button>
+
+          {visibleAdminNav.length > 0 && (
+            <div>
+              {!sidebarCollapsed && (
+                <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                  Administration
+                </p>
+              )}
+              <nav aria-label="Administration navigation" className="grid gap-1">
+                {visibleAdminNav.map((n) => {
+                  const Icon = n.icon;
+                  const active = pathname === n.to;
+                  return (
+                    <Link
+                      key={n.to}
+                      to={n.to as never}
+                      preload="intent"
+                      title={sidebarCollapsed ? n.label : undefined}
+                      aria-label={sidebarCollapsed ? n.label : undefined}
+                      className={linkClass(active, sidebarCollapsed)}
+                    >
+                      <Icon
+                        className={`h-4 w-4 shrink-0 ${
+                          active ? "text-[#5d2172]" : "text-[#746e87] group-hover:text-[#28145e]"
+                        }`}
+                        aria-hidden="true"
+                      />
+                      {!sidebarCollapsed && <span className="truncate">{n.label}</span>}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
+
+          <div className="mt-auto border-t border-border px-1.5 pt-4">
+            {!sidebarCollapsed && (
+              <div className="mb-3 px-1.5">
+                <p className="truncate text-xs font-bold text-foreground">{session.name}</p>
+                <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+                  {session.role}
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={signOut}
+              title={sidebarCollapsed ? "Log out" : undefined}
+              aria-label="Log out"
+              className={`flex min-h-10 w-full items-center rounded-lg border border-border text-xs font-semibold text-[#5a556a] transition-colors hover:border-[#edd068] hover:bg-[#fef8e2] hover:text-[#28145e] ${
+                sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-3"
+              }`}
+            >
+              <LogOut className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              {!sidebarCollapsed && <span>Log out</span>}
+            </button>
+          </div>
         </div>
       </aside>
 
-      <div className="min-w-0 md:pl-[252px]">
-        {/* Mobile header is intentionally limited to brand and identity. */}
-        <header className="sticky top-0 z-30 border-b border-[#e4eae5] bg-white/95 shadow-sm backdrop-blur print:hidden">
-          <div className="flex min-h-[62px] items-center justify-between gap-3 px-4 sm:px-6 md:min-h-[68px] md:px-8">
-            <div className="flex min-w-0 items-center gap-3 md:hidden">
-              <MahavtaarLogoMark
-                alt="Mahavtaar Enterprises"
-                className="size-9 shrink-0 object-contain"
-              />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-extrabold text-[#17211d]">
-                  Mahavtaar Daily Collection
+      <div
+        className={`min-w-0 transition-[padding-left] duration-200 ease-out ${
+          sidebarCollapsed ? "md:pl-[76px]" : "md:pl-[256px]"
+        }`}
+      >
+        {/* Clean 3-Zone Sticky CRM Top Bar */}
+        <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur print:hidden">
+          <div className="flex min-h-[58px] items-center justify-between gap-4 px-4 sm:px-6 md:min-h-[64px] md:px-8">
+            {/* Zone 1: Collapse Toggle + Context Breadcrumb (Desktop) / Compact Brand (Mobile) */}
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleSidebarCollapsed}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:border-[#c9b3dc] hover:bg-card hover:text-[#28145e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:inline-flex"
+              >
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+
+              <div className="flex min-w-0 items-center gap-2.5 md:hidden">
+                <MahavtaarLogoMark
+                  alt="Mahavtaar Enterprises"
+                  className="size-8 shrink-0 object-contain"
+                />
+                <span className="font-display truncate text-sm font-extrabold tracking-tight text-[#28145e]">
+                  Mahavtaar CRM
                 </span>
-                <span className="block text-[10px] text-[#718078]">Collection workspace</span>
-              </span>
+              </div>
+
+              <div className="hidden min-w-0 items-center gap-2 text-xs text-muted-foreground md:flex">
+                <span className="whitespace-nowrap">Workspace</span>
+                <span aria-hidden="true">/</span>
+                <span className="font-display truncate font-bold text-[#28145e]">
+                  {activeRouteLabel}
+                </span>
+              </div>
             </div>
-            <div className="hidden min-w-0 items-center gap-2 text-xs text-[#718078] md:flex">
-              <span>Workspace</span>
-              <span aria-hidden="true">/</span>
-              <span className="truncate font-bold text-[#17211d]">
-                {[...NAV, ...ADMIN_NAV].find((n) => n.to === pathname)?.label ??
-                  "Collection workspace"}
-              </span>
+
+            {/* Zone 2: Quick Command Search (Cmd+K) */}
+            <div className="flex items-center justify-center">
+              <QuickSearchTriggerButton onClick={() => setCommandOpen(true)} />
             </div>
-            <div className="ml-auto flex shrink-0 items-center gap-3">
+
+            {/* Zone 3: Account Identity & Mobile Sign Out */}
+            <div className="flex shrink-0 items-center gap-2.5">
               <div className="hidden text-right sm:block">
-                <p className="text-xs font-bold text-[#17211d]">{session.name}</p>
-                <p className="text-[10px] text-[#718078]">{session.role}</p>
+                <p className="text-xs font-bold text-foreground">{session.name}</p>
+                <p className="text-[10px] font-medium text-muted-foreground">{session.role}</p>
               </div>
               <span
-                className="grid size-9 place-items-center rounded-full bg-[#fff6d9] text-xs font-extrabold text-[#292820]"
+                className="grid size-9 place-items-center rounded-full border border-[#edd068] bg-[#fef8e2] font-display text-xs font-extrabold text-[#5d2172]"
                 aria-hidden="true"
               >
                 {session.name.slice(0, 1).toUpperCase()}
@@ -370,7 +431,7 @@ function AppShell() {
               <button
                 type="button"
                 onClick={signOut}
-                className="rounded-lg border border-[#e4eae5] px-3 py-2 text-xs font-semibold text-[#45564b] hover:bg-[#fff8e8] md:hidden"
+                className="inline-flex h-9 items-center rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-[#5a556a] transition-colors hover:border-[#edd068] hover:bg-[#fef8e2] hover:text-[#28145e] whitespace-nowrap shrink-0 md:hidden"
               >
                 Logout
               </button>
@@ -392,7 +453,17 @@ function AppShell() {
         )}
       </div>
 
-      {/* One global mobile navigation drawer is shared by every authenticated route. */}
+      {/* Global Quick Command Search Modal */}
+      <QuickCommandSearch
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        workspaceItems={visibleNav}
+        adminItems={visibleAdminNav}
+        currentPathname={pathname}
+        onSignOut={() => void signOut()}
+      />
+
+      {/* Global Mobile Navigation Trigger & Drawer */}
       <DraggableMobileNavButton
         open={mobileNavOpen}
         onToggle={() => setMobileNavOpen((open) => !open)}
@@ -403,99 +474,117 @@ function AppShell() {
           <button
             type="button"
             aria-label="Close navigation menu"
-            className="absolute inset-0 bg-[#101722]/45"
+            className="absolute inset-0 bg-[#1a1033]/45 backdrop-blur-[1px]"
             onClick={() => setMobileNavOpen(false)}
           />
           <aside
             id="global-mobile-navigation"
             aria-label="Mobile navigation"
-            className="absolute inset-y-0 left-0 flex w-[min(84vw,320px)] flex-col gap-5 overflow-y-auto border-r border-[#e8e9eb] bg-white px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] text-[#252525] shadow-2xl"
+            className="absolute inset-y-0 left-0 flex w-[min(84vw,320px)] flex-col overflow-hidden border-r border-border bg-card text-foreground shadow-2xl"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-[#e8e9eb] pb-4">
-              <Link
-                to="/"
-                onClick={() => setMobileNavOpen(false)}
-                className="flex min-w-0 items-center gap-3"
-              >
-                <MahavtaarLogoMark
-                  alt="Mahavtaar Enterprises"
-                  className="size-10 shrink-0 object-contain"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-extrabold tracking-tight">Mahavtaar</span>
-                  <span className="mt-0.5 block text-[11px] text-[#737b84]">Daily Collection</span>
-                </span>
-              </Link>
-              <button
-                type="button"
-                onClick={() => setMobileNavOpen(false)}
-                aria-label="Close navigation"
-                className="grid size-9 shrink-0 place-items-center rounded-lg text-xl text-[#737b84] hover:bg-[#f3f4f2]"
-              >
-                ×
-              </button>
-            </div>
-            <div>
-              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.17em] text-[#969ba1]">
-                Workspace
-              </p>
-              <nav aria-label="Workspace navigation" className="grid gap-1">
-                {visibleNav.map((n) => (
-                  <Link
-                    key={n.to}
-                    to={n.to as never}
-                    preload="intent"
-                    activeOptions={{ exact: n.to === "/" }}
-                    onClick={() => setMobileNavOpen(false)}
-                    className={linkClass(pathname === n.to)}
-                  >
-                    <span
-                      className="grid w-5 shrink-0 place-items-center text-base"
-                      aria-hidden="true"
-                    >
-                      {n.icon}
+            <div className="mahavtaar-spectrum-bar h-[3px] w-full shrink-0" aria-hidden="true" />
+            <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))]">
+              <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+                <Link
+                  to="/"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="flex min-w-0 items-center gap-3"
+                >
+                  <MahavtaarLogoMark
+                    alt="Mahavtaar Enterprises"
+                    className="size-10 shrink-0 object-contain"
+                  />
+                  <span className="min-w-0">
+                    <span className="font-display block text-sm font-extrabold tracking-tight text-[#28145e]">
+                      Mahavtaar
                     </span>
-                    <span>{n.label}</span>
-                  </Link>
-                ))}
-              </nav>
-            </div>
-            {session.role === "Admin" && visibleAdminNav.length > 0 && (
+                    <span className="mt-0.5 block text-[11px] font-medium text-muted-foreground">
+                      Daily Collection CRM
+                    </span>
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen(false)}
+                  aria-label="Close navigation"
+                  className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
               <div>
-                <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.17em] text-[#969ba1]">
-                  Administration
+                <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                  Workspace
                 </p>
-                <nav aria-label="Administration navigation" className="grid gap-1">
-                  {visibleAdminNav.map((n) => (
-                    <Link
-                      key={n.to}
-                      to={n.to as never}
-                      preload="intent"
-                      onClick={() => setMobileNavOpen(false)}
-                      className={linkClass(pathname === n.to)}
-                    >
-                      <span
-                        className="grid w-5 shrink-0 place-items-center text-base"
-                        aria-hidden="true"
+                <nav aria-label="Workspace navigation" className="grid gap-1">
+                  {visibleNav.map((n) => {
+                    const Icon = n.icon;
+                    const active = pathname === n.to;
+                    return (
+                      <Link
+                        key={n.to}
+                        to={n.to as never}
+                        preload="intent"
+                        activeOptions={{ exact: n.to === "/" }}
+                        onClick={() => setMobileNavOpen(false)}
+                        className={linkClass(active)}
                       >
-                        ⚙
-                      </span>
-                      <span>{n.label}</span>
-                    </Link>
-                  ))}
+                        <Icon
+                          className={`h-4 w-4 shrink-0 ${
+                            active ? "text-[#5d2172]" : "text-[#746e87]"
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span className="truncate">{n.label}</span>
+                      </Link>
+                    );
+                  })}
                 </nav>
               </div>
-            )}
-            <div className="mt-auto border-t border-[#e8e9eb] px-2 pt-4">
-              <p className="truncate text-xs font-semibold text-[#292d32]">{session.name}</p>
-              <p className="mt-1 text-[11px] text-[#737b84]">{session.role}</p>
-              <button
-                type="button"
-                onClick={signOut}
-                className="mt-4 min-h-10 w-full rounded-lg border border-[#e8e9eb] px-3 text-left text-xs font-semibold text-[#535b64] transition hover:border-[#f0d36d] hover:bg-[#fffaf0]"
-              >
-                ↪ Log out
-              </button>
+              {visibleAdminNav.length > 0 && (
+                <div>
+                  <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                    Administration
+                  </p>
+                  <nav aria-label="Administration navigation" className="grid gap-1">
+                    {visibleAdminNav.map((n) => {
+                      const Icon = n.icon;
+                      const active = pathname === n.to;
+                      return (
+                        <Link
+                          key={n.to}
+                          to={n.to as never}
+                          preload="intent"
+                          onClick={() => setMobileNavOpen(false)}
+                          className={linkClass(active)}
+                        >
+                          <Icon
+                            className={`h-4 w-4 shrink-0 ${
+                              active ? "text-[#5d2172]" : "text-[#746e87]"
+                            }`}
+                            aria-hidden="true"
+                          />
+                          <span className="truncate">{n.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
+              )}
+              <div className="mt-auto border-t border-border px-2 pt-4">
+                <p className="truncate text-xs font-bold text-foreground">{session.name}</p>
+                <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+                  {session.role}
+                </p>
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="mt-4 flex min-h-10 w-full items-center gap-2.5 rounded-lg border border-border px-3 text-left text-xs font-semibold text-[#5a556a] transition hover:border-[#edd068] hover:bg-[#fef8e2] hover:text-[#28145e]"
+                >
+                  <LogOut className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>Log out</span>
+                </button>
+              </div>
             </div>
           </aside>
         </div>

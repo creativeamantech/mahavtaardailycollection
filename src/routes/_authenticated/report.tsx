@@ -1725,7 +1725,7 @@ function ReportPage() {
         </div>
         <Button
           variant="outline"
-          className="h-10 border-[#e5e5e5] bg-white text-sm hover:border-[#e6c34c] hover:bg-[#fffaf0] lg:px-4"
+          className="h-10 border-border bg-card text-sm hover:border-[#c9b3dc] hover:bg-secondary/60 lg:px-4"
           onClick={() => refetch()}
           disabled={isFetching}
         >
@@ -1733,7 +1733,7 @@ function ReportPage() {
         </Button>
       </div>
 
-      <div className="report-v3-filters mt-4 grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] lg:items-end lg:p-4">
+      <div className="report-v3-filters mt-4 grid grid-cols-1 gap-3 rounded-xl border border-border bg-card p-3 shadow-sm lg:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] lg:items-end lg:p-4">
         <div className="min-w-0">
           <MonthSelect value={month} onChange={setMonth} options={months} />
         </div>
@@ -1775,40 +1775,40 @@ function ReportPage() {
       )}
 
       <Tabs defaultValue="datewise" className="mt-5 w-full min-w-0">
-        <TabsList className="report-main-tabs report-v3-tabs flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-[#e8e9eb] bg-white p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 lg:gap-1.5 lg:p-2">
+        <TabsList className="report-main-tabs report-v3-tabs flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 lg:gap-1.5 lg:p-2">
           <TabsTrigger
             value="datewise"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold sm:px-2 sm:text-sm lg:py-2.5"
           >
             Date-wise
           </TabsTrigger>
           <TabsTrigger
             value="overall"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold sm:px-2 sm:text-sm lg:py-2.5"
           >
             Overall
           </TabsTrigger>
           <TabsTrigger
             value="holdcases"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold sm:px-2 sm:text-sm lg:py-2.5"
           >
             Hold Cases
           </TabsTrigger>
           <TabsTrigger
             value="paid-hold"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold sm:px-2 sm:text-sm lg:py-2.5"
           >
             Paid &amp; Hold
           </TabsTrigger>
           <TabsTrigger
             value="ptps"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold sm:px-2 sm:text-sm lg:py-2.5"
           >
             PTPs
           </TabsTrigger>
           <TabsTrigger
             value="failed-attempts"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold data-[state=active]:bg-[#f2c94c] data-[state=active]:text-[#292820] sm:px-2 sm:text-sm lg:py-2.5"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold sm:px-2 sm:text-sm lg:py-2.5"
           >
             Failed Attempts
           </TabsTrigger>
@@ -1837,27 +1837,27 @@ function ReportPage() {
               <p>Payment-date performance with bucket-level filtering</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 lg:p-4">
+          <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-card p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 lg:p-4">
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-[#737b84]" htmlFor="from">
+              <Label className="text-sm font-semibold text-muted-foreground" htmlFor="from">
                 From date
               </Label>
               <Input
                 id="from"
                 type="date"
-                className="h-10 border-[#e3e5e7] text-sm focus-visible:ring-[#f2c94c]"
+                className="h-10 border-input text-sm"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-[#737b84]" htmlFor="to">
+              <Label className="text-sm font-semibold text-muted-foreground" htmlFor="to">
                 To date
               </Label>
               <Input
                 id="to"
                 type="date"
-                className="h-10 border-[#e3e5e7] text-sm focus-visible:ring-[#f2c94c]"
+                className="h-10 border-input text-sm"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
               />
@@ -1886,7 +1886,7 @@ function ReportPage() {
               <p>Month-scoped totals across all payment dates</p>
             </div>
           </div>
-          <div className="rounded-xl border border-[#e8e9eb] bg-white p-3 shadow-sm lg:max-w-sm lg:p-4">
+          <div className="rounded-xl border border-border bg-card p-3 shadow-sm lg:max-w-sm lg:p-4">
             <BucketFilter value={overallBucket} onChange={setOverallBucket} />
           </div>
           <LoanStatsCards rows={overallRows} />

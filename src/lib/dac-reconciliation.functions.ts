@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSession } from "./auth.functions";
-import { mergeAmansRemark } from "./dac-reconciliation";
+import { mergeAmansRemark, normalizeReconciliationDate } from "./dac-reconciliation";
 import { normalisePaidId, roundMoney, type MasterRow } from "./paid-file-reconciliation";
 
 export type DacReconciliationAuditEntry = {
@@ -18,6 +18,7 @@ export type DacReconciliationAuditEntry = {
   adminName: string;
   collectionRows: string;
   masterRow: number;
+  paymentDate: string;
 };
 
 const DAC_AUDIT_TAB = "DAC_Reconciliation_Audit";
@@ -34,6 +35,7 @@ const DAC_AUDIT_HEADERS = [
   "Admin Name",
   "Collection Rows",
   "Master Row",
+  "Payment Date",
 ];
 
 function chunkRanges<T>(items: T[], maxItems = 450): T[][] {
@@ -65,11 +67,71 @@ async function ensureDacAuditTab(spreadsheetId: string) {
   await paidFileChecked(
     paidFileSheetsUrl(
       spreadsheetId,
-      "/values/" + encodeURIComponent("'" + DAC_AUDIT_TAB + "'!A1:L1") + "?valueInputOption=RAW",
+      "/values/" + encodeURIComponent("'" + DAC_AUDIT_TAB + "'!A1:M1") + "?valueInputOption=RAW",
     ),
     "GOOGLE_SHEETS_API_KEY",
     { method: "PUT", body: JSON.stringify({ values: [DAC_AUDIT_HEADERS] }) },
   );
+}
+
+async function ensureMasterPaymentDateColumn(
+  spreadsheetId: string,
+  tabName: string,
+  currentColIndex: number,
+  headerCount: number,
+): Promise<number> {
+  if (currentColIndex >= 0) return currentColIndex;
+  const { paidFileChecked, paidFileColumnLetter, paidFileSheetsUrl } =
+    await import("./paid-file.functions");
+
+  const nextColIndex = Math.max(0, headerCount);
+  const meta = await paidFileChecked<{
+    sheets?: {
+      properties?: { sheetId?: number; title?: string; gridProperties?: { columnCount?: number } };
+    }[];
+  }>(
+    paidFileSheetsUrl(
+      spreadsheetId,
+      "?fields=sheets.properties(sheetId,title,gridProperties.columnCount)",
+    ),
+    "GOOGLE_SHEETS_API_KEY",
+  );
+  const targetSheet = (meta.sheets ?? []).find((s) => s.properties?.title === tabName);
+  const sheetId = targetSheet?.properties?.sheetId;
+  const currentColumnCount = targetSheet?.properties?.gridProperties?.columnCount ?? 26;
+
+  if (sheetId !== undefined && nextColIndex >= currentColumnCount) {
+    await paidFileChecked(
+      paidFileSheetsUrl(spreadsheetId, ":batchUpdate"),
+      "GOOGLE_SHEETS_API_KEY",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          requests: [
+            {
+              appendDimension: {
+                sheetId,
+                dimension: "COLUMNS",
+                length: nextColIndex - currentColumnCount + 2,
+              },
+            },
+          ],
+        }),
+      },
+    );
+  }
+
+  const colRange = `'${tabName}'!${paidFileColumnLetter(nextColIndex)}1`;
+  await paidFileChecked(
+    paidFileSheetsUrl(
+      spreadsheetId,
+      "/values/" + encodeURIComponent(colRange) + "?valueInputOption=RAW",
+    ),
+    "GOOGLE_SHEETS_API_KEY",
+    { method: "PUT", body: JSON.stringify({ values: [["Payment Date"]] }) },
+  );
+
+  return nextColIndex;
 }
 
 export const getDacReconciliationData = createServerFn({ method: "GET" }).handler(async () => {
@@ -101,7 +163,7 @@ export const getDacReconciliationData = createServerFn({ method: "GET" }).handle
       if ((meta.sheets ?? []).some((s) => s.properties?.title === DAC_AUDIT_TAB)) {
         const rows = await paidFileSheetValues(
           masterResult.master.file.id,
-          `'${DAC_AUDIT_TAB}'!A2:L`,
+          `'${DAC_AUDIT_TAB}'!A2:M`,
         );
         auditEntries = rows
           .map((r, i) => ({
@@ -118,6 +180,7 @@ export const getDacReconciliationData = createServerFn({ method: "GET" }).handle
             adminName: String(r[9] ?? ""),
             collectionRows: String(r[10] ?? ""),
             masterRow: Number(r[11] ?? 0) || 0,
+            paymentDate: String(r[12] ?? ""),
           }))
           .filter((entry) => entry.loanId || entry.timestamp)
           .reverse()
@@ -300,7 +363,7 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
         readMaster("monthly-master"),
         sheetsGetFresh("Collections!B2:S"),
       ]);
-      const { file, cols } = master;
+      const { file, cols, headerCount } = master;
 
       if (data.mode === "SET_PROVISIONAL" && cols.provisionalDac < 0) {
         throw new Error(
@@ -310,6 +373,11 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
       if (data.mode === "PUSH_TO_DAC" && cols.dac < 0) {
         throw new Error(`Master tab "${file.tab}" is missing the DAC column.`);
       }
+
+      const hasAnyPaymentDate = data.items.some((item) => item.paymentDate.trim() !== "");
+      const paymentDateColIndex = hasAnyPaymentDate
+        ? await ensureMasterPaymentDateColumn(file.id, file.tab, cols.paymentDate, headerCount)
+        : cols.paymentDate;
 
       const masterByRow = new Map(master.data.map((r) => [r.row, r]));
       const masterById = new Map(master.data.map((r) => [r.agreementId, r]));
@@ -464,6 +532,8 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
           }
         }
 
+        const itemPaymentDate = normalizeReconciliationDate(item.paymentDate);
+
         if (data.mode === "PUSH_TO_DAC") {
           const targetDac = roundMoney(item.targetAmount);
           const delta = roundMoney(targetDac - existingDacValue);
@@ -486,10 +556,10 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
               values: [[true]],
             });
           }
-          if (cols.paymentDate >= 0 && item.paymentDate) {
+          if (paymentDateColIndex >= 0 && itemPaymentDate) {
             masterRanges.push({
-              range: `${tabPrefix}${colLetter(cols.paymentDate)}${targetRowNumber}`,
-              values: [[item.paymentDate]],
+              range: `${tabPrefix}${colLetter(paymentDateColIndex)}${targetRowNumber}`,
+              values: [[itemPaymentDate]],
             });
           }
           if (
@@ -516,6 +586,7 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
             admin.name,
             item.collectionRows.join(", "),
             targetRowNumber,
+            itemPaymentDate,
           ]);
         } else {
           const provisionalAmount = roundMoney(item.targetAmount);
@@ -535,6 +606,12 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
               values: [["PROVISIONAL"]],
             });
           }
+          if (paymentDateColIndex >= 0 && itemPaymentDate) {
+            masterRanges.push({
+              range: `${tabPrefix}${colLetter(paymentDateColIndex)}${targetRowNumber}`,
+              values: [[itemPaymentDate]],
+            });
+          }
           auditRows.push([
             timestamp,
             normalizedId,
@@ -548,6 +625,7 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
             admin.name,
             item.collectionRows.join(", "),
             targetRowNumber,
+            itemPaymentDate,
           ]);
         }
       }
@@ -577,7 +655,7 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
         paidFileSheetsUrl(
           file.id,
           "/values/" +
-            encodeURIComponent(`'${DAC_AUDIT_TAB}'!A:L`) +
+            encodeURIComponent(`'${DAC_AUDIT_TAB}'!A:M`) +
             ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
         ),
         "GOOGLE_SHEETS_API_KEY",
@@ -606,6 +684,7 @@ export const commitDacReconciliationBatch = createServerFn({ method: "POST" })
                   row: i.masterRow,
                   id: normalisePaidId(i.agreementId),
                   dac: i.targetAmount,
+                  paymentDate: normalizeReconciliationDate(i.paymentDate),
                 }))
                 .sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || a.id.localeCompare(b.id)),
             }),

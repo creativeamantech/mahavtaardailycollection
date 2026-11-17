@@ -433,50 +433,52 @@ function EntryPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1440px] min-w-0 px-3 pb-20 pt-4 text-[#20242b] sm:px-5 sm:pt-6 lg:px-8 lg:pb-16">
+    <main className="mx-auto w-full max-w-[1440px] min-w-0 px-3 pb-20 pt-4 text-foreground sm:px-5 sm:pt-6 lg:px-8 lg:pb-16">
       <NotificationPanel className="mb-4" />
       <PortalTimingsPanel className="mb-5" />
-      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#eadb9d] bg-white p-5 text-[#29271f] shadow-sm sm:mb-6 sm:rounded-xl sm:p-6 lg:p-7">
+      <div className="relative mb-5 overflow-hidden rounded-2xl border border-border bg-card p-5 text-foreground shadow-[0_6px_22px_rgba(40,20,94,0.045)] sm:mb-6 sm:rounded-xl sm:p-6 lg:p-7">
         <div
           aria-hidden="true"
-          className="absolute -right-10 -top-20 size-64 rounded-full border-[34px] border-[#f2c400]/20"
+          className="mahavtaar-spectrum-bar absolute inset-x-0 top-0 h-[3px]"
         />
         <div className="relative">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#967300]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#6e287f]">
             Mahavtaar Enterprises · Daily Operations
           </p>
-          <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Collection Entry</h1>
-          <p className="mt-1 text-sm leading-6 text-[#737b86] sm:text-base">
+          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[#28145e] sm:text-3xl">
+            Collection Entry
+          </h1>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground sm:text-base">
             Record and verify a payment collected by an executive.
           </p>
         </div>
       </div>
 
       <Tabs defaultValue="collection" className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-2xl border border-[#e1e5eb] bg-white p-1.5 shadow-sm sm:grid-cols-3 sm:gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-[0_4px_16px_rgba(40,20,94,0.038)] sm:grid-cols-3 sm:gap-2">
           <TabsTrigger
             value="collection"
-            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:bg-[#f2c400] data-[state=active]:text-[#29271f] data-[state=active]:shadow-sm"
+            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:border data-[state=active]:border-[#edd068] data-[state=active]:bg-[#fef8e2] data-[state=active]:text-[#28145e] data-[state=active]:shadow-xs"
           >
             Collection Entry
           </TabsTrigger>
           <TabsTrigger
             value="hold"
-            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5"
+            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:border data-[state=active]:border-[#edd068] data-[state=active]:bg-[#fef8e2] data-[state=active]:text-[#28145e] data-[state=active]:shadow-xs"
           >
             Hold Cases
           </TabsTrigger>
           <TabsTrigger
             value="ptps"
-            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5"
+            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:border data-[state=active]:border-[#edd068] data-[state=active]:bg-[#fef8e2] data-[state=active]:text-[#28145e] data-[state=active]:shadow-xs"
           >
             PTPs
           </TabsTrigger>
         </TabsList>
         <TabsContent value="collection">
-          <div className="mt-4 grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_292px] lg:items-start">
+          <div className="mt-4 grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
             <div
-              className={`grid min-w-0 grid-cols-1 gap-5 rounded-xl border border-[#e1e5eb] bg-white p-4 shadow-[0_2px_10px_rgba(32,36,43,0.045)] sm:gap-6 sm:p-6 lg:grid-cols-2 lg:gap-x-7 lg:gap-y-6 lg:p-7 ${
+              className={`grid min-w-0 grid-cols-1 gap-5 rounded-xl border border-border bg-card p-4 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:gap-6 sm:p-6 lg:grid-cols-2 lg:gap-x-7 lg:gap-y-6 lg:p-7 ${
                 conflicts.length > 0
                   ? "border-red-500 bg-red-50"
                   : duplicates.length > 0
@@ -485,7 +487,7 @@ function EntryPage() {
               }`}
             >
               <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[#343a43] sm:text-base">
+                <Label className="text-sm font-semibold text-foreground sm:text-base">
                   Executive Name
                 </Label>
                 <Select
@@ -493,7 +495,7 @@ function EntryPage() {
                   onValueChange={setExecutive}
                   disabled={session?.role !== "Admin"}
                 >
-                  <SelectTrigger className="h-12 w-full rounded-xl border-[#d9dee6] bg-white px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-[#e8b82e]/50">
+                  <SelectTrigger className="h-12 w-full rounded-xl border-input bg-card px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-ring/30">
                     <SelectValue placeholder="Select executive" />
                   </SelectTrigger>
                   <SelectContent>
@@ -824,11 +826,11 @@ function EntryPage() {
               )}
 
               <Button
-                className="h-14 w-full rounded-xl bg-[#f2c400] text-base font-bold text-[#29271f] shadow-sm transition hover:bg-[#e3b800] focus-visible:ring-2 focus-visible:ring-[#e8b82e] focus-visible:ring-offset-2 sm:text-lg lg:col-span-2"
+                className="h-14 w-full rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-[0_6px_18px_rgba(93,33,114,0.22)] transition hover:bg-[#49195b] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:text-lg lg:col-span-2"
                 disabled={!valid}
                 onClick={startSubmitFlow}
               >
-                Submit
+                Submit Collection Entry
               </Button>
               {!proofValid && (
                 <p className="text-center text-sm leading-6 text-muted-foreground lg:col-span-2">
@@ -842,61 +844,63 @@ function EntryPage() {
               )}
             </div>
             <aside className="hidden min-w-0 space-y-4 lg:block">
-              <section className="rounded-xl border border-[#e1e5eb] bg-white p-5 shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
+              <section className="rounded-xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(40,20,94,0.038)]">
                 <div className="mb-4 flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-bold text-[#303640]">Entry at a glance</h2>
-                  <span className="rounded-md bg-[#fff8dc] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#806500]">
-                    Live form
+                  <h2 className="text-sm font-bold text-[#28145e]">Entry at a glance</h2>
+                  <span className="text-[11px] font-bold tracking-wide text-[#6e287f]">
+                    Live summary
                   </span>
                 </div>
                 <dl className="space-y-3 text-xs">
-                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2">
-                    <dt className="text-[#7d8590]">Executive</dt>
-                    <dd className="max-w-[150px] text-right font-semibold text-[#343a43]">
+                  <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
+                    <dt className="text-muted-foreground">Executive</dt>
+                    <dd className="max-w-[150px] text-right font-semibold text-foreground">
                       {executive || "Not selected"}
                     </dd>
                   </div>
-                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2">
-                    <dt className="text-[#7d8590]">Loan number</dt>
-                    <dd className="max-w-[150px] break-all text-right font-semibold text-[#343a43]">
+                  <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
+                    <dt className="text-muted-foreground">Loan number</dt>
+                    <dd className="max-w-[150px] break-all text-right font-mono font-semibold text-foreground">
                       {loanId.trim() || "Not entered"}
                     </dd>
                   </div>
-                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2">
-                    <dt className="text-[#7d8590]">Amount</dt>
-                    <dd className="text-right font-semibold text-[#343a43]">
+                  <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
+                    <dt className="text-muted-foreground">Amount</dt>
+                    <dd className="text-right font-mono font-semibold tabular-nums text-foreground">
                       {amountNum > 0 ? formatAmount(amountNum) : "—"}
                     </dd>
                   </div>
-                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f2] pb-2">
-                    <dt className="text-[#7d8590]">Payment date</dt>
-                    <dd className="text-right font-semibold text-[#343a43]">{paymentDate}</dd>
+                  <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
+                    <dt className="text-muted-foreground">Payment date</dt>
+                    <dd className="text-right font-mono font-semibold tabular-nums text-foreground">
+                      {paymentDate}
+                    </dd>
                   </div>
                   <div className="flex items-start justify-between gap-3">
-                    <dt className="text-[#7d8590]">Entry type</dt>
-                    <dd className="text-right font-semibold text-[#343a43]">
+                    <dt className="text-muted-foreground">Entry type</dt>
+                    <dd className="text-right font-semibold text-foreground">
                       {isPrevious ? "Previous Paid File" : "Normal"}
                     </dd>
                   </div>
                 </dl>
               </section>
-              <section className="rounded-xl border border-[#e1e5eb] bg-white p-5 shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
-                <h2 className="mb-4 text-sm font-bold text-[#303640]">Submission checklist</h2>
+              <section className="rounded-xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(40,20,94,0.038)]">
+                <h2 className="mb-4 text-sm font-bold text-[#28145e]">Submission checklist</h2>
                 <ul className="space-y-3 text-xs">
                   <li className="flex items-center justify-between gap-2">
-                    <span className="text-[#626b76]">Executive selected</span>
+                    <span className="text-muted-foreground">Executive selected</span>
                     <span
                       className={
                         executive
                           ? "font-semibold text-emerald-700"
-                          : "font-semibold text-[#9a7b19]"
+                          : "font-semibold text-amber-700"
                       }
                     >
                       {executive ? "Ready" : "Pending"}
                     </span>
                   </li>
                   <li className="flex items-center justify-between gap-2">
-                    <span className="text-[#626b76]">Loan number entered</span>
+                    <span className="text-muted-foreground">Loan number entered</span>
                     <span
                       className={
                         loanId.trim()
@@ -945,42 +949,46 @@ function EntryPage() {
                   </li>
                 </ul>
               </section>
-              <div className="rounded-xl border border-[#f0e3ad] bg-[#fffbeb] p-4 text-xs leading-5 text-[#746222]">
-                <p className="mb-1 font-bold text-[#594900]">Before you submit</p>
+              <div className="rounded-xl border border-[#edd068] bg-[#fef9e7] p-4 text-xs leading-5 text-[#4a3908]">
+                <p className="mb-1 font-bold text-[#28145e]">Before you submit</p>
                 Verify the loan number, amount and receipt proof. The final confirmation and
                 existing duplicate checks remain part of the normal save process.
               </div>
             </aside>
           </div>
-          <section className="mt-6 overflow-hidden rounded-xl border border-[#e1e5eb] bg-white shadow-[0_2px_10px_rgba(32,36,43,0.045)]">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#edf0f2] px-4 py-4 sm:px-5">
+          <section className="mt-6 overflow-hidden rounded-xl border border-border bg-card shadow-[0_4px_18px_rgba(40,20,94,0.038)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-4 sm:px-5">
               <div>
-                <h2 className="text-base font-extrabold text-[#303640]">Recent Entries</h2>
-                <p className="mt-0.5 text-xs text-[#7d8590]">Latest 8 saved collection payments</p>
+                <h2 className="text-base font-extrabold text-[#28145e]">Recent Entries</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Latest 8 saved collection payments
+                </p>
               </div>
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 border-[#e1e5eb] text-xs"
+                className="h-9 text-xs"
                 onClick={() => refetchCollections()}
               >
                 Refresh
               </Button>
             </div>
             {recentEntries.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-[#7d8590]">
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No collection entries found yet.
               </p>
             ) : (
-              <div className="divide-y divide-[#edf0f2]">
+              <div className="divide-y divide-border">
                 {recentEntries.map((entry) => (
                   <div
                     key={entry.row}
                     className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-[#303640]">{entry.loanId}</p>
-                      <p className="mt-0.5 truncate text-xs text-[#7d8590]">
+                      <p className="truncate font-mono text-sm font-bold text-foreground">
+                        {entry.loanId}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {entry.executive} · {entry.date} {entry.time}
                       </p>
                       {entry.receiptLinks?.length ? (
@@ -1000,12 +1008,12 @@ function EntryPage() {
                                 alt={`Receipt ${index + 1} for loan ${entry.loanId}`}
                                 loading="lazy"
                                 decoding="async"
-                                className="max-h-48 w-full max-w-xs rounded-lg border border-[#e8d98f] bg-white object-contain shadow-sm transition group-hover:shadow-md"
+                                className="max-h-48 w-full max-w-xs rounded-lg border border-border bg-white object-contain shadow-sm transition group-hover:shadow-md"
                                 onError={(event) => {
                                   event.currentTarget.style.display = "none";
                                 }}
                               />
-                              <span className="truncate text-center text-[10px] font-semibold text-[#176044]">
+                              <span className="truncate text-center text-[10px] font-semibold text-primary">
                                 Receipt
                                 {(entry.receiptLinks?.length ?? 0) > 1 ? ` ${index + 1}` : ""}
                               </span>
@@ -1013,13 +1021,13 @@ function EntryPage() {
                           ))}
                         </div>
                       ) : (
-                        <p className="mt-2 text-[11px] text-[#9a6b25]">No receipt attached</p>
+                        <p className="mt-2 text-[11px] text-amber-700">No receipt attached</p>
                       )}
                     </div>
-                    <p className="text-right text-sm font-extrabold tabular-nums text-[#174d3b]">
+                    <p className="text-right font-mono text-sm font-extrabold tabular-nums text-[#28145e]">
                       {formatAmount(Number(entry.amount) || 0)}
                     </p>
-                    <span className="col-span-2 justify-self-start rounded-md bg-[#fff8dc] px-2 py-1 text-[10px] font-semibold text-[#806500] sm:col-span-1 sm:justify-self-end">
+                    <span className="col-span-2 justify-self-start text-[11px] font-semibold text-muted-foreground sm:col-span-1 sm:justify-self-end">
                       {entry.entryType || "Normal"}
                     </span>
                   </div>
@@ -1030,7 +1038,7 @@ function EntryPage() {
           <div className="mt-4 text-center">
             <Link
               to="/report"
-              className="text-sm font-semibold text-[#8a6a00] underline underline-offset-4"
+              className="text-sm font-semibold text-primary underline underline-offset-4 hover:text-[#49195b]"
             >
               View reports
             </Link>

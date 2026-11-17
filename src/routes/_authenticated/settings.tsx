@@ -22,6 +22,7 @@ import {
   uniqueAllocationTypes,
   ALL_ALLOCATION_TYPES,
 } from "@/components/AllocationFilters";
+import { Bell, LayoutGrid, Lock, Settings, SlidersHorizontal } from "lucide-react";
 import { getCollections } from "@/lib/mahavtaar.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,22 +58,23 @@ export const Route = createFileRoute("/_authenticated/settings")({
 function SettingsPage() {
   return (
     <main className="mx-auto w-full max-w-7xl space-y-5 px-3 py-4 sm:space-y-6 sm:px-4 sm:py-6">
-      <div className="rounded-2xl border border-[#f0df9e] bg-gradient-to-r from-[#fff8df] via-white to-white p-4 shadow-sm sm:p-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f7c928] text-xl font-black text-[#493900] shadow-sm">
-            ⚙
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-5">
+        <div className="mahavtaar-spectrum-bar absolute inset-x-0 top-0 h-[3px]" />
+        <div className="flex items-center gap-3 pt-1">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#edd068] bg-[#fef8e2] text-[#28145e]">
+            <Settings className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-extrabold tracking-tight text-[#292510] sm:text-2xl">
+            <p className="text-[11px] font-semibold tracking-wider text-[#6e287f] uppercase">
+              System Preferences
+            </p>
+            <h1 className="font-display text-xl font-bold tracking-tight text-[#28145e] sm:text-2xl">
               Settings
             </h1>
-            <p className="mt-0.5 text-xs text-[#776a43] sm:text-sm">
-              Manage access, features and notifications
+            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+              Manage access, features, default filters, and team notifications
             </p>
           </div>
-          <span className="ml-auto shrink-0 rounded-full border border-[#efd77d] bg-[#fff4c4] px-2.5 py-1 text-[10px] font-bold tracking-wide text-[#806300]">
-            ADMIN
-          </span>
         </div>
       </div>
       <MasterAllocationInitializer />
@@ -90,26 +92,31 @@ function SectionHeading({
   description?: string;
   eyebrow: string;
 }) {
+  const Icon =
+    eyebrow === "ACCESS CONTROL"
+      ? Lock
+      : eyebrow === "APP ACCESS"
+        ? LayoutGrid
+        : eyebrow === "DEFAULT"
+          ? SlidersHorizontal
+          : Bell;
+
   return (
     <div className="mb-3 flex items-start gap-3">
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#f2e2a8] bg-[#fff8df] text-base text-[#8a6b00]">
-        {eyebrow === "ACCESS CONTROL"
-          ? "🔒"
-          : eyebrow === "APP ACCESS"
-            ? "▦"
-            : eyebrow === "DEFAULT"
-              ? "▤"
-              : "🔔"}
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#edd068] bg-[#fef8e2] text-[#28145e]">
+        <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1">
-        <h2 className="text-base font-bold tracking-tight text-[#292510] sm:text-lg">{title}</h2>
+        <h2 className="font-display text-base font-bold tracking-tight text-[#28145e] sm:text-lg">
+          {title}
+        </h2>
         {description && (
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
             {description}
           </p>
         )}
       </div>
-      <span className="hidden shrink-0 pt-1 text-[9px] font-bold tracking-wider text-[#9a8541] sm:block">
+      <span className="hidden shrink-0 pt-1 text-[10px] font-semibold tracking-wider text-[#6e287f] sm:block">
         {eyebrow}
       </span>
     </div>
@@ -286,18 +293,18 @@ function SettingsContent() {
   return (
     <div className="grid grid-cols-1 items-start gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:gap-6">
       <div className="lg:col-span-2">
-        <NotificationPanel className="rounded-2xl border-[#efd77d] bg-[#fff9e5] p-4" />
+        <NotificationPanel className="rounded-2xl border-[#edd068] bg-[#fef8e2]/60 p-4" />
       </div>
 
-      <section className="order-2 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-2 lg:col-start-2">
+      <section className="order-2 rounded-2xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-4 lg:order-2 lg:col-start-2">
         <SectionHeading
           title="Hold Cases Access Lock"
           eyebrow="ACCESS CONTROL"
           description="When enabled, all executives are blocked from adding or manually removing Hold Cases. This setting applies globally to everyone."
         />
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-3 sm:p-4">
           <div className="min-w-0">
-            <p className="text-sm font-bold text-[#292510]">
+            <p className="text-sm font-bold text-[#28145e]">
               {holdCasesLocked ? "Hold Cases Locked" : "Hold Cases Unlocked"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -311,25 +318,25 @@ function SettingsContent() {
             disabled={isLoading || savingHoldLock}
             onCheckedChange={(value) => void handleToggleHoldLock(value)}
             aria-label="Lock Hold Cases for everyone"
-            className="shrink-0 data-[state=checked]:bg-[#e5b500]"
+            className="shrink-0 data-[state=checked]:bg-primary"
           />
         </div>
       </section>
 
-      <section className="order-1 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-1 lg:col-start-1 lg:row-span-3">
+      <section className="order-1 rounded-2xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-4 lg:order-1 lg:col-start-1 lg:row-span-4">
         <SectionHeading
           title="Page & Feature Visibility"
           eyebrow="APP ACCESS"
           description="Choose which app pages and features are available to the team."
         />
-        <div className="divide-y divide-[#f2ead3] overflow-hidden rounded-xl border border-[#f2e6bd]">
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
           {FEATURES.map((f) => (
             <div
               key={f.key}
-              className="flex min-h-[64px] items-center justify-between gap-3 bg-white px-3 py-3 transition-colors hover:bg-[#fffdf6] sm:px-4"
+              className="flex min-h-[64px] items-center justify-between gap-3 bg-card px-3 py-3 transition-colors hover:bg-muted/35 sm:px-4"
             >
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#292510]">{f.label}</p>
+                <p className="text-sm font-semibold text-foreground">{f.label}</p>
                 <p className="mt-0.5 break-words text-[11px] text-muted-foreground sm:text-xs">
                   {f.path ? f.path : "Shown inside Payment Entry"}
                 </p>
@@ -339,23 +346,23 @@ function SettingsContent() {
                 disabled={isLoading || savingKey === f.key}
                 onCheckedChange={(v) => toggle(f.key, v)}
                 aria-label={`Toggle ${f.label}`}
-                className="shrink-0 data-[state=checked]:bg-[#e5b500]"
+                className="shrink-0 data-[state=checked]:bg-primary"
               />
             </div>
           ))}
         </div>
       </section>
 
-      <section className="order-3 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-3 lg:col-start-2">
+      <section className="order-3 rounded-2xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-4 lg:order-3 lg:col-start-2">
         <SectionHeading
           title="Default Allocation Category"
           eyebrow="DEFAULT"
           description="Sets the starting category filter for Report, Loan Details, and Already Paid. Users can still change the filter on any screen during their session."
         />
-        <div className="space-y-3 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3 sm:p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-3 sm:p-4">
           <div className="space-y-2">
             <Label
-              className="text-sm font-semibold text-[#51451e]"
+              className="text-sm font-semibold text-foreground"
               htmlFor="default-allocation-category"
             >
               Select Starting Category
@@ -367,7 +374,7 @@ function SettingsContent() {
             >
               <SelectTrigger
                 id="default-allocation-category"
-                className="h-12 rounded-xl border-[#e9dba9] bg-white text-base focus:ring-[#e5b500]"
+                className="h-12 rounded-xl border-border bg-card text-base focus:ring-ring"
               >
                 <SelectValue placeholder="Choose default category" />
               </SelectTrigger>
@@ -388,14 +395,14 @@ function SettingsContent() {
           </div>
 
           {isCustomCategory && (
-            <div className="space-y-2 rounded-xl border border-dashed border-[#e4cf83] bg-white p-3">
+            <div className="space-y-2 rounded-xl border border-dashed border-[#edd068] bg-card p-3">
               <Label className="text-sm font-medium" htmlFor="custom-category-name">
                 Enter Custom Category Name
               </Label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   id="custom-category-name"
-                  className="h-12 min-w-0 rounded-xl border-[#e9dba9] bg-[#fffdf7] text-base"
+                  className="h-12 min-w-0 rounded-xl border-border bg-card text-base"
                   placeholder="e.g. Retail, SME, Corporate"
                   value={customCategoryInput}
                   onChange={(e) => setCustomCategoryInput(e.target.value)}
@@ -404,7 +411,7 @@ function SettingsContent() {
                 />
                 <div className="flex gap-2">
                   <Button
-                    className="h-12 flex-1 bg-[#f7c928] px-5 text-base font-bold text-[#302600] hover:bg-[#e9bb17] sm:flex-none"
+                    className="h-12 flex-1 bg-primary px-5 text-base font-semibold text-primary-foreground hover:bg-[#5d2172] sm:flex-none"
                     disabled={savingCategory || customCategoryInput.trim() === ""}
                     onClick={() => void handleSaveCategory(customCategoryInput.trim())}
                   >
@@ -412,7 +419,7 @@ function SettingsContent() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-12 flex-1 rounded-xl border-[#e9dba9] text-base sm:flex-none"
+                    className="h-12 flex-1 rounded-xl border-border text-base sm:flex-none"
                     disabled={savingCategory}
                     onClick={() => {
                       setIsCustomCategory(false);
@@ -426,78 +433,78 @@ function SettingsContent() {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f1e8cf] pt-3 text-xs text-muted-foreground sm:text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground sm:text-sm">
             <span>
               Active Default:{" "}
-              <strong className="text-[#51451e]">
+              <strong className="text-[#28145e]">
                 {defaultCategory ? defaultCategory : "All Categories"}
               </strong>
             </span>
-            {savingCategory && <span className="font-medium text-[#947000]">Saving changes…</span>}
+            {savingCategory && <span className="font-medium text-[#6e287f]">Saving changes…</span>}
           </div>
         </div>
       </section>
 
-      <section className="order-4 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-4 lg:col-start-2">
-        <section className="order-4 rounded-2xl border border-[#f0df9e] bg-white p-3 shadow-sm sm:p-4 lg:order-4 lg:col-start-2">
-          <SectionHeading
-            title="Default Allocation Type"
-            eyebrow="DEFAULT"
-            description="Sets the starting Allocation Type filter for reports and loan views. Options are read directly from the existing Collection Sheet."
-          />
-          <div className="space-y-3 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3 sm:p-4">
-            <div className="space-y-2">
-              <Label
-                className="text-sm font-semibold text-[#51451e]"
-                htmlFor="default-allocation-type"
+      <section className="order-4 rounded-2xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-4 lg:order-4 lg:col-start-2">
+        <SectionHeading
+          title="Default Allocation Type"
+          eyebrow="DEFAULT"
+          description="Sets the starting Allocation Type filter for reports and loan views. Options are read directly from the existing Collection Sheet."
+        />
+        <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-3 sm:p-4">
+          <div className="space-y-2">
+            <Label
+              className="text-sm font-semibold text-foreground"
+              htmlFor="default-allocation-type"
+            >
+              Select Starting Allocation Type
+            </Label>
+            <Select
+              value={defaultAllocationType || ALL_ALLOCATION_TYPES}
+              onValueChange={(value) => void handleSaveAllocationType(value)}
+              disabled={isLoading || savingAllocationType}
+            >
+              <SelectTrigger
+                id="default-allocation-type"
+                className="h-12 rounded-xl border-border bg-card text-base focus:ring-ring"
               >
-                Select Starting Allocation Type
-              </Label>
-              <Select
-                value={defaultAllocationType || ALL_ALLOCATION_TYPES}
-                onValueChange={(value) => void handleSaveAllocationType(value)}
-                disabled={isLoading || savingAllocationType}
-              >
-                <SelectTrigger
-                  id="default-allocation-type"
-                  className="h-12 rounded-xl border-[#e9dba9] bg-white text-base focus:ring-[#e5b500]"
-                >
-                  <SelectValue placeholder="Choose default allocation type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_ALLOCATION_TYPES} className="text-base">
-                    All Allocation Types
+                <SelectValue placeholder="Choose default allocation type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_ALLOCATION_TYPES} className="text-base">
+                  All Allocation Types
+                </SelectItem>
+                {allocationTypeOptions.map((value) => (
+                  <SelectItem key={value} value={value} className="text-base">
+                    {value}
                   </SelectItem>
-                  {allocationTypeOptions.map((value) => (
-                    <SelectItem key={value} value={value} className="text-base">
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f1e8cf] pt-3 text-xs text-muted-foreground sm:text-sm">
-              <span>
-                Active Default:{" "}
-                <strong className="text-[#51451e]">
-                  {defaultAllocationType || "All Allocation Types"}
-                </strong>
-              </span>
-              {savingAllocationType && (
-                <span className="font-medium text-[#947000]">Saving changes…</span>
-              )}
-            </div>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </section>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground sm:text-sm">
+            <span>
+              Active Default:{" "}
+              <strong className="text-[#28145e]">
+                {defaultAllocationType || "All Allocation Types"}
+              </strong>
+            </span>
+            {savingAllocationType && (
+              <span className="font-medium text-[#6e287f]">Saving changes…</span>
+            )}
+          </div>
+        </div>
+      </section>
 
+      <section className="order-5 rounded-2xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)] sm:p-4 lg:order-5 lg:col-start-2">
         <SectionHeading
           title="Notification Management"
           eyebrow="ANNOUNCEMENTS"
           description="Publish an announcement for the team and manage currently active notifications."
         />
-        <div className="space-y-3 rounded-xl border border-[#f2e6bd] bg-[#fffdf5] p-3 sm:p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-3 sm:p-4">
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-[#51451e]" htmlFor="notif-text">
+            <Label className="text-sm font-semibold text-foreground" htmlFor="notif-text">
               Notification text
             </Label>
             <Textarea
@@ -506,25 +513,25 @@ function SettingsContent() {
               maxLength={500}
               onChange={(e) => setText(e.target.value)}
               placeholder="Message to show across the app"
-              className="min-h-24 rounded-xl border-[#e9dba9] bg-white text-base focus-visible:ring-[#e5b500]"
+              className="min-h-24 rounded-xl border-border bg-card text-base focus-visible:ring-ring"
             />
             <p className="text-right text-[10px] text-muted-foreground">{text.length}/500</p>
           </div>
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-[#51451e]" htmlFor="notif-image">
+            <Label className="text-sm font-semibold text-foreground" htmlFor="notif-image">
               Image (optional)
             </Label>
             <Input
               id="notif-image"
               type="file"
               accept="image/*"
-              className="h-12 rounded-xl border-[#e9dba9] bg-white text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#fff2bf] file:px-3 file:py-1 file:text-xs file:font-semibold file:text-[#715600]"
+              className="h-12 rounded-xl border-border bg-card text-sm file:mr-3 file:rounded-lg file:border file:border-[#edd068] file:bg-[#fef8e2] file:px-3 file:py-1 file:text-xs file:font-semibold file:text-[#28145e]"
               onChange={(e) => void pickImage(e.target.files?.[0] ?? null)}
             />
-            {image && <p className="text-xs text-[#806300]">Selected: {image.name}</p>}
+            {image && <p className="text-xs text-[#6e287f]">Selected: {image.name}</p>}
           </div>
           <Button
-            className="h-12 w-full rounded-xl bg-[#f7c928] text-base font-bold text-[#302600] shadow-sm hover:bg-[#e9bb17]"
+            className="h-12 w-full rounded-xl bg-primary text-base font-semibold text-primary-foreground shadow-sm hover:bg-[#5d2172]"
             disabled={saving || text.trim() === ""}
             onClick={async () => {
               setSaving(true);
@@ -551,23 +558,23 @@ function SettingsContent() {
 
         <div className="mt-3 space-y-2">
           {activeNotifications.length === 0 && (
-            <p className="rounded-xl border border-dashed border-[#e9dba9] bg-[#fffdf7] p-4 text-center text-sm text-muted-foreground">
+            <p className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
               No active notifications.
             </p>
           )}
           {[...activeNotifications].reverse().map((n) => (
             <div
               key={n.id}
-              className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e4bd] bg-white p-3"
+              className="flex items-start justify-between gap-3 rounded-xl border border-border bg-card p-3"
             >
               <div className="min-w-0">
-                <p className="break-words text-sm font-medium text-[#292510]">{n.text}</p>
+                <p className="break-words text-sm font-medium text-foreground">{n.text}</p>
                 {n.imageUrl !== "" && (
                   <a
                     href={n.imageUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 inline-block text-xs font-medium text-[#8a6b00] underline"
+                    className="mt-1 inline-block text-xs font-medium text-[#5d2172] underline hover:text-[#28145e]"
                   >
                     View image
                   </a>
@@ -575,7 +582,7 @@ function SettingsContent() {
               </div>
               <Button
                 variant="outline"
-                className="h-9 shrink-0 rounded-lg border-[#efc6bd] px-3 text-xs text-[#a44335] hover:bg-[#fff3f0]"
+                className="h-9 shrink-0 rounded-lg border-destructive/30 px-3 text-xs text-destructive hover:bg-destructive/10"
                 onClick={async () => {
                   try {
                     await removeNotif({ data: { id: n.id } });

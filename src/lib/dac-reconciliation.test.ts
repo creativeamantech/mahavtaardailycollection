@@ -5,6 +5,7 @@ import {
   composeVerifyAddToDacRemark,
   dacReconciliationCsv,
   mergeAmansRemark,
+  normalizeReconciliationDate,
   type CollectionReconciliationEntry,
 } from "./dac-reconciliation";
 import type { MasterRow } from "./paid-file-reconciliation";
@@ -166,13 +167,43 @@ describe("Collections vs Master DAC reconciliation engine", () => {
 
     const res = buildDacReconciliation({
       collections: [makeCollection({ amansRemarks: merged })],
-      masterRows: [makeMaster()],
+      masterRows: [makeMaster({ existingPaymentDate: "2026-11-10" })],
     });
     expect(res.summary.verifiedAccountsCount).toBe(1);
     const csv = dacReconciliationCsv(res.items);
     expect(csv.includes("Collection Category")).toBe(true);
     expect(csv.includes("Master Category")).toBe(true);
+    expect(csv.includes("Master Payment Date")).toBe(true);
     expect(csv.includes("Verified by Aman: Added ₹5,000 to DAC on 2026-11-15")).toBe(true);
+  });
+
+  test("normalizes payment dates and detects Collection vs Master payment date mismatch", () => {
+    expect(normalizeReconciliationDate("10/11/2026")).toBe("2026-11-10");
+    expect(normalizeReconciliationDate("10-11-2026")).toBe("2026-11-10");
+    expect(normalizeReconciliationDate("2026-11-10T14:30:00Z")).toBe("2026-11-10");
+
+    const collections = [
+      makeCollection({ row: 2, loanId: "LN-SAME", date: "2026-11-10", amount: 2000 }),
+      makeCollection({ row: 3, loanId: "LN-DIFF", date: "2026-11-12", amount: 2500 }),
+      makeCollection({ row: 4, loanId: "LN-UNSET", date: "2026-11-13", amount: 1500 }),
+    ];
+    const masterRows = [
+      makeMaster({ row: 10, agreementId: "LN-SAME", existingPaymentDate: "10/11/2026" }),
+      makeMaster({ row: 11, agreementId: "LN-DIFF", existingPaymentDate: "2026-11-09" }),
+      makeMaster({ row: 12, agreementId: "LN-UNSET", existingPaymentDate: "" }),
+    ];
+
+    const res = buildDacReconciliation({ collections, masterRows });
+    const byId = new Map(res.items.map((i) => [i.agreementId, i]));
+
+    expect(byId.get("LN-SAME")?.masterPaymentDate).toBe("2026-11-10");
+    expect(byId.get("LN-SAME")?.paymentDateMismatch).toBe(false);
+
+    expect(byId.get("LN-DIFF")?.masterPaymentDate).toBe("2026-11-09");
+    expect(byId.get("LN-DIFF")?.paymentDateMismatch).toBe(true);
+
+    expect(byId.get("LN-UNSET")?.masterPaymentDate).toBe("");
+    expect(byId.get("LN-UNSET")?.paymentDateMismatch).toBe(false);
   });
 
   test("hides ignored/excluded loans unless includeIgnored is true", () => {

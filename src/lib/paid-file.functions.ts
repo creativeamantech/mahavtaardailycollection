@@ -299,6 +299,9 @@ export async function readMaster(target: Target = "monthly-master") {
       "Pay Date",
       "Collection Date",
       "Last Payment Date",
+      "DAC Date",
+      "Paid On",
+      "Payment_Date",
     ]),
     dacSource: findCol(headers, ["DAC Source", "Source", "dac_source", "Payment Source"]),
     isCorrected: findCol(headers, ["Is Corrected", "Corrected", "is_corrected"]),
@@ -391,6 +394,7 @@ export async function readMaster(target: Target = "monthly-master") {
   return {
     file,
     cols,
+    headerCount: headers.length,
     data,
     hasProtectionColumns:
       cols.dacSource >= 0 ||

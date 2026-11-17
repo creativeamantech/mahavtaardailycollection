@@ -20,18 +20,18 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
 
   return (
     <div
-      className={`rounded-xl border border-[#ead17a] bg-[#fff9e5] p-3 text-[#292820] shadow-sm print:hidden ${className}`}
+      className={`rounded-xl border border-[#edd068] bg-[#fef9e7] p-3.5 text-foreground shadow-xs print:hidden ${className}`}
     >
       <div className="flex items-center gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6b00]">Notification</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-[#5d2172]">Notification</p>
         {isPriority && (
-          <span className="rounded-md bg-red-100 px-2 py-1 text-[10px] font-extrabold tracking-wide text-red-800">
+          <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-extrabold tracking-wide text-red-800">
             YOUR PRIORITY
           </span>
         )}
       </div>
       {activeNotification.text !== "" && (
-        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-snug">
+        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-snug text-foreground">
           {activeNotification.text}
         </p>
       )}
@@ -40,14 +40,14 @@ export function NotificationPanel({ className = "" }: { className?: string }) {
           href={toDriveViewUrl(activeNotification.imageUrl)}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-block max-w-full text-sm font-semibold text-[#765b00] underline"
+          className="mt-2 inline-block max-w-full text-sm font-semibold text-primary underline"
         >
           <img
             src={toDirectDriveUrl(activeNotification.imageUrl)}
             alt="Notification attachment"
             loading="lazy"
             decoding="async"
-            className="max-h-48 w-full max-w-xs rounded-lg border border-[#e8d98f] bg-white object-contain"
+            className="max-h-48 w-full max-w-xs rounded-lg border border-border bg-white object-contain"
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}

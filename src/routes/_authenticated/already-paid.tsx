@@ -166,13 +166,10 @@ function AlreadyPaidContent() {
 
       {all.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 p-3 text-sm text-red-900">
-          <div className="flex items-center gap-2">
-            <span className="inline-block size-2.5 rounded-full bg-red-600 animate-pulse" />
-            <span>
-              <strong>{all.length} Already Paid cases</strong> are highlighted in RED in Google
-              Sheet & exported with "Already Paid" column.
-            </span>
-          </div>
+          <span>
+            <strong>{all.length} Already Paid cases</strong> are highlighted in RED in Google Sheet
+            &amp; exported with &quot;Already Paid&quot; column.
+          </span>
           <Button
             type="button"
             size="sm"

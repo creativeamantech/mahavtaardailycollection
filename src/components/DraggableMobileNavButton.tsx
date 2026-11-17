@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 type SavedPosition = { x: number; y: number; hidden: "left" | "right" | null };
@@ -171,11 +172,17 @@ export function DraggableMobileNavButton({
       onPointerCancel={handlePointerUp}
       onClick={handleClick}
       style={positionStyle}
-      className={`fixed z-[10000] grid size-12 touch-none select-none place-items-center rounded-xl border border-[#26313d] bg-[#101722] text-2xl text-white shadow-lg transition-[background-color,transform] hover:bg-[#202b39] active:scale-95 md:hidden print:hidden ${position?.hidden ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
+      className={`fixed z-[10000] grid size-12 touch-none select-none place-items-center rounded-xl border border-[#f3c52e]/50 bg-[#28145e] text-white shadow-[0_10px_24px_rgba(40,20,94,0.28)] transition-[background-color,transform] hover:bg-[#5d2172] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f3c52e] active:scale-95 md:hidden print:hidden ${position?.hidden ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
     >
-      <span aria-hidden="true">
-        {position?.hidden === "left" ? "›" : position?.hidden === "right" ? "‹" : open ? "×" : "☰"}
-      </span>
+      {position?.hidden === "left" ? (
+        <ChevronRight className="h-5 w-5" aria-hidden="true" />
+      ) : position?.hidden === "right" ? (
+        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+      ) : open ? (
+        <X className="h-5 w-5" aria-hidden="true" />
+      ) : (
+        <Menu className="h-5 w-5" aria-hidden="true" />
+      )}
     </button>
   );
 }
