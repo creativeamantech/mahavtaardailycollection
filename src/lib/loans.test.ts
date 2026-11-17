@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { summariseLoans, type CollectionRow } from "./loans";
+import { summariseLoans, summarizeCollectionSheetPos, type CollectionRow } from "./loans";
 
 function loan(amount: number, overrides: Partial<CollectionRow> = {}) {
   return {
@@ -60,5 +60,93 @@ describe("loan EMI calculation rules", () => {
     const [summary] = summariseLoans([loan(4500, { settlement: true })]);
     expect(summary?.status).toBe("Settlement Paid");
     expect(summary?.mainPaid).toBe(true);
+  });
+});
+
+describe("summarizeCollectionSheetPos", () => {
+  test("deduplicates repeated payments for the same loan ID without double-counting POS", () => {
+    const summary = summarizeCollectionSheetPos([
+      loan(600, {
+        loanId: "'ln-101",
+        executive: "Aarti",
+        bucket: "Bucket 1",
+        pos: 12000,
+        emiAmount: 1000,
+      }),
+      loan(400, {
+        loanId: "LN-101",
+        executive: "Aarti",
+        bucket: "Bucket 1",
+        pos: 12000,
+        emiAmount: 1000,
+      }),
+      loan(300, {
+        loanId: "LN-102",
+        executive: "Bharti",
+        bucket: "Bucket 2",
+        pos: 8000,
+        emiAmount: 1000,
+      }),
+      loan(2000, {
+        loanId: "LN-103",
+        executive: "Aarti",
+        bucket: "Bucket 1",
+        pos: 5000,
+        emiAmount: 3000,
+        settlement: true,
+      }),
+    ]);
+
+    expect(summary.mainPaidCount).toBe(2);
+    expect(summary.mainPaidPosCleared).toBe(17000);
+    expect(summary.totalFilteredPos).toBe(25000);
+    expect(summary.pendingPosAmount).toBe(8000);
+    expect(summary.clearedPercent).toBe(68);
+    expect(summary.byBucket).toEqual([
+      {
+        key: "Bucket 1",
+        label: "Bucket 1",
+        loanCount: 2,
+        clearedPos: 17000,
+        collection: 3000,
+      },
+    ]);
+    expect(summary.byExecutive).toEqual([
+      {
+        key: "Aarti",
+        label: "Aarti",
+        loanCount: 2,
+        clearedPos: 17000,
+        collection: 3000,
+      },
+    ]);
+  });
+
+  test("tracks full POS coverage without Main Paid and missing POS cleared accounts cleanly", () => {
+    const summary = summarizeCollectionSheetPos([
+      loan(1500, {
+        loanId: "LN-201",
+        executive: "Pooja",
+        bucket: "Bucket 1",
+        pos: 1200,
+        emiAmount: 2000,
+      }),
+      loan(1000, {
+        loanId: "LN-202",
+        executive: "Pooja",
+        bucket: "Bucket 2",
+        pos: null,
+        emiAmount: 1000,
+        settlement: true,
+      }),
+    ]);
+
+    expect(summary.mainPaidCount).toBe(1);
+    expect(summary.mainPaidPosCleared).toBe(0);
+    expect(summary.missingPosClearedCount).toBe(1);
+    expect(summary.posPaidNotMainCount).toBe(1);
+    expect(summary.posPaidNotMainAmount).toBe(1200);
+    expect(summary.anyPosClearedCount).toBe(2);
+    expect(summary.anyPosClearedAmount).toBe(1200);
   });
 });

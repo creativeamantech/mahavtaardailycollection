@@ -475,3 +475,155 @@ export function executiveCitySections(
 
   return result;
 }
+
+export type CollectionSheetPosBreakdownItem = {
+  key: string;
+  label: string;
+  loanCount: number;
+  clearedPos: number;
+  collection: number;
+};
+
+export type CollectionSheetPosSummary = {
+  loans: LoanSummary[];
+  loanById: Map<string, LoanSummary>;
+  clearedLoans: LoanSummary[];
+  fullPosOnlyLoans: LoanSummary[];
+  pendingLoans: LoanSummary[];
+  mainPaidCount: number;
+  mainPaidPosCleared: number;
+  fullPosPaidCount: number;
+  fullPosPaidAmount: number;
+  posPaidNotMainCount: number;
+  posPaidNotMainAmount: number;
+  anyPosClearedCount: number;
+  anyPosClearedAmount: number;
+  totalFilteredPos: number;
+  pendingPosAmount: number;
+  clearedPercent: number;
+  missingPosClearedCount: number;
+  byBucket: CollectionSheetPosBreakdownItem[];
+  byExecutive: CollectionSheetPosBreakdownItem[];
+};
+
+/**
+ * Computes deduplicated Principal Outstanding (POS) clearance metrics for a
+ * pre-excluded set of Collection Sheet rows (Already Paid, Small Cases, and
+ * unvalidated Conflicts must be filtered out before calling this helper).
+ */
+export function summarizeCollectionSheetPos(rows: CollectionRow[]): CollectionSheetPosSummary {
+  const loans = summariseLoans(rows);
+  const loanById = new Map<string, LoanSummary>();
+  const clearedLoans: LoanSummary[] = [];
+  const fullPosOnlyLoans: LoanSummary[] = [];
+  const pendingLoans: LoanSummary[] = [];
+
+  let mainPaidPosCleared = 0;
+  let fullPosPaidCount = 0;
+  let fullPosPaidAmount = 0;
+  let posPaidNotMainAmount = 0;
+  let anyPosClearedCount = 0;
+  let anyPosClearedAmount = 0;
+  let totalFilteredPos = 0;
+  let pendingPosAmount = 0;
+  let missingPosClearedCount = 0;
+
+  const bucketMap = new Map<string, CollectionSheetPosBreakdownItem>();
+  const executiveMap = new Map<string, CollectionSheetPosBreakdownItem>();
+
+  for (const loan of loans) {
+    loanById.set(loan.loanId, loan);
+    const posValue = loan.pos !== null && loan.pos > 0 ? loan.pos : 0;
+    totalFilteredPos += posValue;
+
+    if (loan.posPaid) {
+      fullPosPaidCount += 1;
+      fullPosPaidAmount += posValue;
+    }
+
+    if (loan.mainPaid || loan.posPaid) {
+      anyPosClearedCount += 1;
+      anyPosClearedAmount += posValue;
+    }
+
+    if (loan.mainPaid) {
+      clearedLoans.push(loan);
+      mainPaidPosCleared += posValue;
+      if (posValue === 0) missingPosClearedCount += 1;
+
+      const bucketLabel = loan.bucket.trim() || "Unbucketed";
+      const bItem = bucketMap.get(bucketLabel) ?? {
+        key: bucketLabel,
+        label: bucketLabel,
+        loanCount: 0,
+        clearedPos: 0,
+        collection: 0,
+      };
+      bItem.loanCount += 1;
+      bItem.clearedPos += posValue;
+      bItem.collection += loan.totalPaid;
+      bucketMap.set(bucketLabel, bItem);
+
+      const execLabel = loan.executive.trim() || "Unassigned";
+      const eItem = executiveMap.get(execLabel) ?? {
+        key: execLabel,
+        label: execLabel,
+        loanCount: 0,
+        clearedPos: 0,
+        collection: 0,
+      };
+      eItem.loanCount += 1;
+      eItem.clearedPos += posValue;
+      eItem.collection += loan.totalPaid;
+      executiveMap.set(execLabel, eItem);
+    } else if (loan.posPaid) {
+      fullPosOnlyLoans.push(loan);
+      posPaidNotMainAmount += posValue;
+    } else {
+      pendingLoans.push(loan);
+      pendingPosAmount += posValue;
+    }
+  }
+
+  clearedLoans.sort(
+    (a, b) =>
+      (b.pos ?? 0) - (a.pos ?? 0) || b.totalPaid - a.totalPaid || a.loanId.localeCompare(b.loanId),
+  );
+  fullPosOnlyLoans.sort(
+    (a, b) =>
+      (b.pos ?? 0) - (a.pos ?? 0) || b.totalPaid - a.totalPaid || a.loanId.localeCompare(b.loanId),
+  );
+  pendingLoans.sort(
+    (a, b) =>
+      (b.pos ?? 0) - (a.pos ?? 0) || b.totalPaid - a.totalPaid || a.loanId.localeCompare(b.loanId),
+  );
+
+  const byBucket = [...bucketMap.values()].sort((a, b) =>
+    a.label.localeCompare(b.label, "en-IN", { numeric: true }),
+  );
+  const byExecutive = [...executiveMap.values()].sort(
+    (a, b) => b.clearedPos - a.clearedPos || a.label.localeCompare(b.label, "en-IN"),
+  );
+
+  return {
+    loans,
+    loanById,
+    clearedLoans,
+    fullPosOnlyLoans,
+    pendingLoans,
+    mainPaidCount: clearedLoans.length,
+    mainPaidPosCleared,
+    fullPosPaidCount,
+    fullPosPaidAmount,
+    posPaidNotMainCount: fullPosOnlyLoans.length,
+    posPaidNotMainAmount,
+    anyPosClearedCount,
+    anyPosClearedAmount,
+    totalFilteredPos,
+    pendingPosAmount,
+    clearedPercent: totalFilteredPos > 0 ? (mainPaidPosCleared / totalFilteredPos) * 100 : 0,
+    missingPosClearedCount,
+    byBucket,
+    byExecutive,
+  };
+}
