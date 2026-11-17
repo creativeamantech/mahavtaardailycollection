@@ -27,6 +27,7 @@ import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedMasterPerformanceRouteImport } from './routes/_authenticated/master-performance'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedPaidFileRouteImport } from './routes/_authenticated/paid-file'
+import { Route as AuthenticatedPaidFileDacReconciliationRouteImport } from './routes/_authenticated/paid-file-dac-reconciliation'
 import { Route as AuthenticatedPaidFilesZeroAmountReviewRouteImport } from './routes/_authenticated/paid-files-zero-amount-review'
 import { Route as AuthenticatedPendingRouteImport } from './routes/_authenticated/pending'
 import { Route as AuthenticatedReceiptGalleryRouteImport } from './routes/_authenticated/receipt-gallery'
@@ -133,6 +134,12 @@ const AuthenticatedPaidFileRoute = AuthenticatedPaidFileRouteImport.update({
   path: '/paid-file',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPaidFileDacReconciliationRoute =
+  AuthenticatedPaidFileDacReconciliationRouteImport.update({
+    id: '/paid-file-dac-reconciliation',
+    path: '/paid-file-dac-reconciliation',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPaidFilesZeroAmountReviewRoute =
   AuthenticatedPaidFilesZeroAmountReviewRouteImport.update({
     id: '/paid-files-zero-amount-review',
@@ -194,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/paid-file': typeof AuthenticatedPaidFileRoute
+  '/paid-file-dac-reconciliation': typeof AuthenticatedPaidFileDacReconciliationRoute
   '/paid-files-zero-amount-review': typeof AuthenticatedPaidFilesZeroAmountReviewRoute
   '/pending': typeof AuthenticatedPendingRoute
   '/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
@@ -220,6 +228,7 @@ export interface FileRoutesByTo {
   '/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/paid-file': typeof AuthenticatedPaidFileRoute
+  '/paid-file-dac-reconciliation': typeof AuthenticatedPaidFileDacReconciliationRoute
   '/paid-files-zero-amount-review': typeof AuthenticatedPaidFilesZeroAmountReviewRoute
   '/pending': typeof AuthenticatedPendingRoute
   '/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
@@ -249,6 +258,7 @@ export interface FileRoutesById {
   '/_authenticated/master-performance': typeof AuthenticatedMasterPerformanceRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/paid-file': typeof AuthenticatedPaidFileRoute
+  '/_authenticated/paid-file-dac-reconciliation': typeof AuthenticatedPaidFileDacReconciliationRoute
   '/_authenticated/paid-files-zero-amount-review': typeof AuthenticatedPaidFilesZeroAmountReviewRoute
   '/_authenticated/pending': typeof AuthenticatedPendingRoute
   '/_authenticated/receipt-gallery': typeof AuthenticatedReceiptGalleryRoute
@@ -279,6 +289,7 @@ export interface FileRouteTypes {
     | '/master-performance'
     | '/notifications'
     | '/paid-file'
+    | '/paid-file-dac-reconciliation'
     | '/paid-files-zero-amount-review'
     | '/pending'
     | '/receipt-gallery'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/master-performance'
     | '/notifications'
     | '/paid-file'
+    | '/paid-file-dac-reconciliation'
     | '/paid-files-zero-amount-review'
     | '/pending'
     | '/receipt-gallery'
@@ -333,6 +345,7 @@ export interface FileRouteTypes {
     | '/_authenticated/master-performance'
     | '/_authenticated/notifications'
     | '/_authenticated/paid-file'
+    | '/_authenticated/paid-file-dac-reconciliation'
     | '/_authenticated/paid-files-zero-amount-review'
     | '/_authenticated/pending'
     | '/_authenticated/receipt-gallery'
@@ -482,6 +495,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPaidFileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/paid-file-dac-reconciliation': {
+      id: '/_authenticated/paid-file-dac-reconciliation'
+      path: '/paid-file-dac-reconciliation'
+      fullPath: '/paid-file-dac-reconciliation'
+      preLoaderRoute: typeof AuthenticatedPaidFileDacReconciliationRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/paid-files-zero-amount-review': {
       id: '/_authenticated/paid-files-zero-amount-review'
       path: '/paid-files-zero-amount-review'
@@ -554,6 +574,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMasterPerformanceRoute: typeof AuthenticatedMasterPerformanceRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPaidFileRoute: typeof AuthenticatedPaidFileRoute
+  AuthenticatedPaidFileDacReconciliationRoute: typeof AuthenticatedPaidFileDacReconciliationRoute
   AuthenticatedPaidFilesZeroAmountReviewRoute: typeof AuthenticatedPaidFilesZeroAmountReviewRoute
   AuthenticatedPendingRoute: typeof AuthenticatedPendingRoute
   AuthenticatedReceiptGalleryRoute: typeof AuthenticatedReceiptGalleryRoute
@@ -576,6 +597,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMasterPerformanceRoute: AuthenticatedMasterPerformanceRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPaidFileRoute: AuthenticatedPaidFileRoute,
+  AuthenticatedPaidFileDacReconciliationRoute:
+    AuthenticatedPaidFileDacReconciliationRoute,
   AuthenticatedPaidFilesZeroAmountReviewRoute:
     AuthenticatedPaidFilesZeroAmountReviewRoute,
   AuthenticatedPendingRoute: AuthenticatedPendingRoute,
