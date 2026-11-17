@@ -168,7 +168,7 @@ export function QuickSearchTriggerButton({ onClick }: { onClick: () => void }) {
       <span className="flex items-center gap-2 truncate whitespace-nowrap">
         <Search className="h-3.5 w-3.5 shrink-0 text-[#6e287f]" />
         <span className="hidden sm:inline">Search CRM pages…</span>
-        <span className="sm:hidden">Search</span>
+        <span className="hidden min-[410px]:inline sm:hidden">Search</span>
       </span>
       <kbd className="hidden rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground group-hover:text-foreground md:inline-block">
         ⌘K

@@ -704,9 +704,11 @@ function Summary({
   sub?: string | undefined;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)]">
+    <div className="min-w-0 rounded-xl border border-border bg-card p-3 shadow-[0_4px_18px_rgba(40,20,94,0.038)]">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-xl font-extrabold text-[#28145e] tabular-nums">{value}</p>
+      <p className="mt-1 break-words text-[15px] leading-snug font-extrabold text-[#28145e] tabular-nums sm:text-xl">
+        {value}
+      </p>
       {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   );
@@ -927,10 +929,10 @@ function MetricGrid({ m, showTargets }: { m: Metric; showTargets: boolean }) {
     <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
       {items.map((item) => (
         <div key={item.label} className="min-w-0">
-          <p className="truncate text-[11px] text-muted-foreground">{item.label}</p>
+          <p className="text-[11px] leading-tight text-muted-foreground">{item.label}</p>
           <p
             className={
-              "truncate font-mono text-xs font-bold tabular-nums sm:text-sm " +
+              "break-words font-mono text-xs leading-snug font-bold tabular-nums sm:text-sm " +
               (item.toneClass || "text-foreground")
             }
           >
@@ -1224,7 +1226,7 @@ function PerformanceTable({
                           ) : (
                             <ChevronRight className="size-4 shrink-0 text-[#5d2172]" />
                           )}
-                          <span className="truncate">{city.city}</span>
+                          <span>{city.city}</span>
                           <span className="shrink-0 text-xs font-medium text-[#6e287f]">
                             ({city.executives.length})
                           </span>

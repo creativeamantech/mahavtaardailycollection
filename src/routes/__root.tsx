@@ -375,9 +375,9 @@ function AppShell() {
       >
         {/* Clean 3-Zone Sticky CRM Top Bar */}
         <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur print:hidden">
-          <div className="flex min-h-[58px] items-center justify-between gap-4 px-4 sm:px-6 md:min-h-[64px] md:px-8">
+          <div className="flex min-h-[58px] items-center justify-between gap-2 px-3 sm:gap-4 sm:px-6 md:min-h-[64px] md:px-8">
             {/* Zone 1: Collapse Toggle + Context Breadcrumb (Desktop) / Compact Brand (Mobile) */}
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={toggleSidebarCollapsed}
@@ -392,13 +392,13 @@ function AppShell() {
                 )}
               </button>
 
-              <div className="flex min-w-0 items-center gap-2.5 md:hidden">
+              <div className="flex shrink-0 items-center gap-2 md:hidden">
                 <MahavtaarLogoMark
                   alt="Mahavtaar Enterprises"
                   className="size-8 shrink-0 object-contain"
                 />
-                <span className="font-display truncate text-sm font-extrabold tracking-tight text-[#28145e]">
-                  Mahavtaar CRM
+                <span className="font-display whitespace-nowrap text-sm font-extrabold tracking-tight text-[#28145e]">
+                  Mahavtaar
                 </span>
               </div>
 
@@ -417,13 +417,13 @@ function AppShell() {
             </div>
 
             {/* Zone 3: Account Identity & Mobile Sign Out */}
-            <div className="flex shrink-0 items-center gap-2.5">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
               <div className="hidden text-right sm:block">
                 <p className="text-xs font-bold text-foreground">{session.name}</p>
                 <p className="text-[10px] font-medium text-muted-foreground">{session.role}</p>
               </div>
               <span
-                className="grid size-9 place-items-center rounded-full border border-[#edd068] bg-[#fef8e2] font-display text-xs font-extrabold text-[#5d2172]"
+                className="grid size-8 place-items-center rounded-full border border-[#edd068] bg-[#fef8e2] font-display text-xs font-extrabold text-[#5d2172] sm:size-9"
                 aria-hidden="true"
               >
                 {session.name.slice(0, 1).toUpperCase()}
@@ -431,7 +431,7 @@ function AppShell() {
               <button
                 type="button"
                 onClick={signOut}
-                className="inline-flex h-9 items-center rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-[#5a556a] transition-colors hover:border-[#edd068] hover:bg-[#fef8e2] hover:text-[#28145e] whitespace-nowrap shrink-0 md:hidden"
+                className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-2 text-xs font-semibold text-[#5a556a] transition-colors hover:border-[#edd068] hover:bg-[#fef8e2] hover:text-[#28145e] whitespace-nowrap shrink-0 sm:h-9 sm:px-2.5 md:hidden"
               >
                 Logout
               </button>
