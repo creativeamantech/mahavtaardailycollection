@@ -13,7 +13,7 @@
     "check:server-auth": "node scripts/check-server-auth.mjs"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^7.0.6",
     "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@lovable.dev/mcp-js": "^3.4.0",
     "@radix-ui/react-accordion": "^1.2.12",
