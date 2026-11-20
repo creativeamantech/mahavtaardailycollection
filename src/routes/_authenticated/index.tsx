@@ -7,6 +7,7 @@ import {
 import { PortalTimingsPanel } from "@/components/PortalTimingsPanel";
 import { HoldCasesPanel } from "@/components/HoldCasesPanel";
 import { PTPsPanel } from "@/components/PTPsPanel";
+import { SensitiveCasesPanel } from "@/components/SensitiveCasesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -455,7 +456,7 @@ function EntryPage() {
       </div>
 
       <Tabs defaultValue="collection" className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-[0_4px_16px_rgba(40,20,94,0.038)] sm:grid-cols-3 sm:gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-[0_4px_16px_rgba(40,20,94,0.038)] sm:grid-cols-4 sm:gap-2">
           <TabsTrigger
             value="collection"
             className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:border data-[state=active]:border-[#edd068] data-[state=active]:bg-[#fef8e2] data-[state=active]:text-[#28145e] data-[state=active]:shadow-xs"
@@ -473,6 +474,12 @@ function EntryPage() {
             className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:border data-[state=active]:border-[#edd068] data-[state=active]:bg-[#fef8e2] data-[state=active]:text-[#28145e] data-[state=active]:shadow-xs"
           >
             PTPs
+          </TabsTrigger>
+          <TabsTrigger
+            value="sensitive"
+            className="min-h-11 w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold leading-5 data-[state=active]:border data-[state=active]:border-[#edd068] data-[state=active]:bg-[#fef8e2] data-[state=active]:text-[#28145e] data-[state=active]:shadow-xs"
+          >
+            Sensitive Cases
           </TabsTrigger>
         </TabsList>
         <TabsContent value="collection">
@@ -1049,6 +1056,9 @@ function EntryPage() {
         </TabsContent>
         <TabsContent value="ptps">
           <PTPsPanel />
+        </TabsContent>
+        <TabsContent value="sensitive">
+          <SensitiveCasesPanel />
         </TabsContent>
       </Tabs>
 
